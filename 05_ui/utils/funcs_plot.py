@@ -2050,13 +2050,40 @@ def Superplot_seaborn(
         for i, row in condition_stats.iterrows():
             x_center = i   # x coordinate
             if show_mean:
-                sns.lineplot(x=[x_center - mean_span, x_center + mean_span], y=[row['mean'], row['mean']], color='black', linestyle='-', linewidth=line_width, label='Mean' if i == 0 else "", zorder=4)
+                sns.lineplot(
+                    x=[x_center - mean_span, x_center + mean_span], 
+                    y=[row['mean'], row['mean']], 
+                    color='black', 
+                    linestyle='-', 
+                    linewidth=line_width, 
+                    label='Mean' if i == 0 else "", 
+                    zorder=4
+                    )
             
             if show_median:
-                sns.lineplot(x=[x_center - median_span, x_center + median_span], y=[row['median'], row['median']], color='black', linestyle='--', linewidth=line_width, label='Median' if i == 0 else "", zorder=4)
+                sns.lineplot(
+                    x=[x_center - median_span, x_center + median_span], 
+                    y=[row['median'], row['median']], 
+                    color='black', 
+                    linestyle='--', 
+                    linewidth=line_width, 
+                    label='Median' if i == 0 else "", 
+                    zorder=4
+                    )
             
             if show_error_bars:
-                plt.errorbar(x_center, row['mean'], yerr=row['std'], fmt='None', color='black', alpha=errorbar_alpha, linewidth=errorbar_lw, capsize=errorbar_capsize, zorder=5, label='Mean ± SD' if i == 0 else "")
+                plt.errorbar(
+                    x=x_center, 
+                    y=row['mean'], 
+                    yerr=row['std'], 
+                    fmt='None',
+                    color='black', 
+                    alpha=errorbar_alpha, 
+                    linewidth=errorbar_lw, 
+                    capsize=errorbar_capsize, 
+                    zorder=5, 
+                    label='Mean ± SD' if i == 0 else ""
+                    )
             
         
         # ---------------------------------------- P-tests ------------------------------------------------------------

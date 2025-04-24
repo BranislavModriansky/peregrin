@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-import utils.funcs_data as du
+import utils.data_calcs as dc
 import utils.funcs_plot as pu
 import utils.select_markers as select_markers
 import utils.select_modes as select_mode
@@ -263,7 +263,7 @@ with ui.nav_panel("Input"):
             all_data_dflt = []
             for dflt_file_count, file_dflt in enumerate(inpt_file_list_dflt, start=1):  # Enumerate and cycle through the files
                 df_dflt = pd.read_csv(file_dflt['datapath'])                            # Load each CSV file into a DataFrame
-                buttered_dflt = du.butter(df_dflt)                                      # Butter the DataFrame
+                buttered_dflt = dc.butter(df_dflt)                                      # Butter the DataFrame
                                                   
                 label_dflt = input.label1()                                             # Assigning the condition label to a 'CONDITION' column
                 if not label_dflt or label_dflt is None:                                # If no label is provided, assign a default - numeric - one
@@ -292,7 +292,7 @@ with ui.nav_panel("Input"):
             else:
                 for additnl_file_count, file_addtnl in enumerate(inpt_file_list_addtnl, start=1):   # Enumerate and cycle through additional input files
                     df_addtnl = pd.read_csv(file_addtnl["datapath"])                  
-                    buttered_addtnl = du.butter(df_addtnl)
+                    buttered_addtnl = dc.butter(df_addtnl)
 
                     label_addtnl = input[f"label{i}"]()                                 # Assigning the condition label to a 'CONDITION' column
                     if not label_addtnl or label_addtnl is None:                        # If no label is provided, assign a default - numeric - one
@@ -410,14 +410,7 @@ with ui.nav_panel("Data frames"):
         
         buttered = raw_Buttered_df.get()
 
-        distances_for_each_cell_per_frame_df = du.calculate_traveled_distances_for_each_cell_per_frame(buttered)        # Call the function to calculate distances for each cell per frame and create the Spot_statistics .csv file
-        distances_for_each_cell_per_frame_df = du.calculate_track_length_net_distances_and_confinement_ratios_per_each_cell_per_frame(distances_for_each_cell_per_frame_df)
-        direction_for_each_cell_per_frame_df = du.calculate_direction_of_travel_for_each_cell_per_frame(buttered)       # Call the function to calculate direction_for_each_cell_per_frame_df
-
-        Spot_stats_dfs = [buttered, distances_for_each_cell_per_frame_df, direction_for_each_cell_per_frame_df]
-        Spot_stats = du.merge_dfs(Spot_stats_dfs, on=['CONDITION', 'REPLICATE', 'TRACK_ID', 'POSITION_T']) # Merge the dataframes
-
-        return Spot_stats
+        return dc.Spots(buttered)
 
 
     @reactive.effect
@@ -450,18 +443,7 @@ with ui.nav_panel("Data frames"):
         if Spot_stats.empty:
             return pd.DataFrame()
 
-        tracks_lengths_and_net_distances_df = du.calculate_track_lengths_and_net_distances(Spot_stats) # Calling function to calculate the total distance traveled for each cell from the distances_for_each_cell_per_frame_df
-        confinement_ratios_df = du.calculate_confinement_ratio_for_each_cell(tracks_lengths_and_net_distances_df) # Call the function to calculate confinement ratios from the Track_statistics1_df and write it into the Track_statistics1_df
-        track_directions_df = du.calculate_absolute_directions_per_cell(Spot_stats) # Call the function to calculate directions_per_cell_df
-        frames_per_track = du.calculate_number_of_frames_per_cell(Spot_stats)
-        speeds_per_cell = du.calculate_speed(Spot_stats, ['REPLICATE', 'TRACK_ID'])
-
-        Track_stats_dfs = [tracks_lengths_and_net_distances_df, confinement_ratios_df, track_directions_df, frames_per_track, speeds_per_cell]
-        Track_stats = du.merge_dfs(Track_stats_dfs, on=['CONDITION', 'REPLICATE', 'TRACK_ID'])
-
-        Track_stats = Track_stats.sort_values(by=['CONDITION', 'REPLICATE', 'TRACK_ID'])
-
-        return Track_stats
+        return dc.Tracks(Spot_stats)
     
 
     @reactive.effect
@@ -488,19 +470,7 @@ with ui.nav_panel("Data frames"):
         if Spot_stats.empty:
             return pd.DataFrame()
         
-        distances_per_frame_df = du.calculate_distances_per_frame(Spot_stats) # Call the function to calculate distances_per_frame_df
-        absolute_directions_per_frame_df = du.calculate_absolute_directions_per_frame(Spot_stats) # Call the function to calculate directions_per_frame_df
-        speeds_per_frame = du.calculate_speed(Spot_stats, ['REPLICATE', 'POSITION_T']) # Call the function to calculate speeds_per_frame
-        mean_n_median_track_length_net_destance_confinement_ratios_per_frame = du.calculate_mean_median_std_cr_nd_tl_per_frame(Spot_stats)
-
-        Time_stats_dfs = [mean_n_median_track_length_net_destance_confinement_ratios_per_frame, distances_per_frame_df, absolute_directions_per_frame_df, speeds_per_frame]
-
-        Time_stats = du.merge_dfs(Time_stats_dfs, on=['CONDITION', 'REPLICATE', 'POSITION_T'])
-        # Frame_stats = Frame_stats.merge(Spot_stats['POSITION_T'].drop_duplicates(), on='POSITION_T')
-
-        Time_stats = Time_stats.sort_values(by=['CONDITION', 'REPLICATE', 'POSITION_T'])
-
-        return Time_stats
+        return dc.Time(Spot_stats)
     
 
     @reactive.effect
@@ -611,7 +581,7 @@ def _update_slider_values(metric, filter, dfA, dfB, slider_values):
                 if dfA.empty:
                     slider_values.set([0, 100])
                 else:
-                    values = du.values_for_a_metric(dfA, metric)
+                    values = dc.values_for_a_metric(dfA, metric)
                     slider_values.set(values)
             elif filter == "percentile":
                 slider_values.set([0, 100])
@@ -623,7 +593,7 @@ def _update_slider_values(metric, filter, dfA, dfB, slider_values):
                 if dfB.empty:
                     slider_values.set([0, 100])
                 else:
-                    values = du.values_for_a_metric(dfB, metric)
+                    values = dc.values_for_a_metric(dfB, metric)
                     slider_values.set(values)
             elif filter == "percentile":
                 slider_values.set([0, 100])
@@ -682,14 +652,14 @@ def _data_thresholding_numbers(df):
 def _thresholded_data(filter_type, metric, slider_range, dfA, dfB):
     if filter_type == "percentile":
         if metric in Track_metrics.get():
-            return du.percentile_thresholding(dfA, metric, slider_range)
+            return dc.percentile_thresholding(dfA, metric, slider_range)
         elif metric in Spot_metrics.get():
-            return du.percentile_thresholding(dfB, metric, slider_range)
+            return dc.percentile_thresholding(dfB, metric, slider_range)
     elif filter_type == "literal":
         if metric in Track_metrics.get():
-            return du.literal_thresholding(dfA, metric, slider_range)
+            return dc.literal_thresholding(dfA, metric, slider_range)
         elif metric in Spot_metrics.get():
-            return du.literal_thresholding(dfB, metric, slider_range)
+            return dc.literal_thresholding(dfB, metric, slider_range)
         
 
 def _set_thresholded_data(dfA, dfB, df0A, df0B):
@@ -700,10 +670,10 @@ def _set_thresholded_data(dfA, dfB, df0A, df0B):
 def _update_thresholded_data(metric, dfA, dfB, df0A, df0B, thresholded_df):
     if metric in Track_metrics.get():
         dfA.set(thresholded_df)
-        dfB.set(du.dataframe_filter(df0B.get(), dfA.get()))
+        dfB.set(dc.dataframe_filter(df0B.get(), dfA.get()))
     elif metric in Spot_metrics.get():
         dfB.set(thresholded_df)
-        dfA.set(du.dataframe_filter(df0A.get(), dfB.get()))
+        dfA.set(dc.dataframe_filter(df0A.get(), dfB.get()))
 
 
 
@@ -1354,7 +1324,7 @@ with ui.nav_panel("Visualisation"):
 
                 @reactive.effect
                 def select_cond():
-                    dictionary = du.get_cond_repl(Track_stats_df.get())	
+                    dictionary = dc.get_cond_repl(Track_stats_df.get())	
 
                     # Can use [] to remove all choices
                     if Track_stats_df.get().empty:
@@ -1370,7 +1340,7 @@ with ui.nav_panel("Visualisation"):
                 @reactive.effect
                 def select_repl():
                     condition = input.condition()
-                    dictionary = du.get_cond_repl(Track_stats_df.get())
+                    dictionary = dc.get_cond_repl(Track_stats_df.get())
 
                     if Track_stats_df.get().empty:
                         replicates = []
@@ -1468,6 +1438,7 @@ with ui.nav_panel("Visualisation"):
 
 
                 
+
         # ==========================================================================================================================================================================================================================================================================
         # --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         # Time series panel
@@ -1481,6 +1452,25 @@ with ui.nav_panel("Visualisation"):
                     #### **Time series with a polynomial fit**
                     *made with*  `altair`
                     <hr style="height: 4px; background-color: black; border: none" />
+                    """
+                    )
+                
+                ui.input_radio_buttons(  
+                    "central_tendency",  
+                    "Measure of central tendency:",  
+                    ["mean", "median"],  
+                    )  
+                
+                ui.input_radio_buttons(
+                    "y_axis",
+                    "Y axis:",
+                    ["absolute", "relative"],
+                    selected="absolute"
+                    )
+                
+                ui.markdown(
+                    """
+                    <hr style="border: none; border-top: 1px dotted" />
                     """
                     )
 
@@ -1794,7 +1784,7 @@ with ui.nav_panel("Visualisation"):
 
                 @reactive.effect
                 def select_cond():
-                    dictionary = du.get_cond_repl(Time_stats_df.get())	
+                    dictionary = dc.get_cond_repl(Time_stats_df.get())	
 
                     # Can use [] to remove all choices
                     if Time_stats_df.get().empty:
@@ -1810,7 +1800,7 @@ with ui.nav_panel("Visualisation"):
                 @reactive.effect
                 def select_repl():
                     condition = input.ts_condition()
-                    dictionary = du.get_cond_repl(Time_stats_df.get())
+                    dictionary = dc.get_cond_repl(Time_stats_df.get())
 
                     if Time_stats_df.get().empty:
                         replicates = []
@@ -2574,9 +2564,11 @@ with ui.nav_panel('Task list'):
         """
         # **Task list**
 
+        
 
         **Time series plots** - make the graphs more modifyeble
 
+        
         *Scatter with fitted line chart*
         Add a possibility to:
         - [ ] plot the median value per frame
@@ -2592,6 +2584,15 @@ with ui.nav_panel('Task list'):
 
         <hr style="border: none; border-top: 1px dotted; margin: 0" />
 
+        
+        **Superplots**
+
+        - [ ] Add a superviolin plot  
+        - [ ] Make the interactive stripplot have a data density related distribution      
+
+        <hr style="border: none; border-top: 1px dotted; margin: 0" /> 
+
+        
         **Sections with graph settings**
 
         - [ ] Annotate and label the setting sections properly
@@ -2599,12 +2600,16 @@ with ui.nav_panel('Task list'):
 
         <hr style="border: none; border-top: 1px dotted; margin: 0" />
 
+        
+
         **Data calcs speed efficiency**
 
         - [ ] Optimize the speed and efficiency of the data calculations
 
         <hr style="border: none; border-top: 1px dotted; margin: 0" />
 
+        
+        
         **Functionality**
 
         - [ ] Add a debounce to the add input field
