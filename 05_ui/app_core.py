@@ -66,47 +66,103 @@ app_ui = ui.page_sidebar(
                 # ui.input_action_button("reset", "Reset", class_="btn-danger"),
                 # ui.input_action_button("input_help", "Show help"),
                 ui.output_ui("initialize_loader1"),
-                ui.markdown("""___"""),
-                # File inputs
-                ui.row(
-                    ui.column(4, ui.div(
+                ui.markdown(" <br> "),
+
+                ui.layout_sidebar(
+                    ui.sidebar(
+                        ui.div(
+                            ui.markdown(
+                                """ 
+                                <br>
+                                <h4><b>
+                                    Label settings:  
+                                </h4></b> 
+                                """
+                            ),
+                            style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"
+                        ),
+                        ui.div(
+                            ui.tags.style(Format.Link1),
+                            ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
+                            ui.input_switch("auto_label", "Auto-label", False),
+                            ui.panel_conditional(
+                                "input.auto_label == false", # "input.auto_label == false && input.run > 0",
+                                ui.input_switch("write_replicate_labels", "Write replicate labels", False),
+                            ),
+                            ui.panel_conditional(
+                                "input.auto_label == false && input.write_replicate_labels == true",
+                                ui.output_ui("replicate_labels_inputs")
+                            ),
+                            # ui.panel_conditional(
+                            #     "input.run > 0",
+                            #     ui.input_switch("set_replicate_colors", "Set replicate colors", False),
+                            # ),
+                            ui.input_switch("set_replicate_colors", "Set replicate colors", False),
+                            ui.panel_conditional(
+                                "input.set_replicate_colors == true", # "input.set_replicate_colors == true && input.run > 0",
+                                # ui.markdown(f"<h5>Replicates:</h5>"),
+                                ui.output_ui("replicate_colors_inputs"),
+                            ),
+                        ),
+                        ui.input_task_button("write_values_replicates", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"),
+                        
+                        bg="#f8f8f8",
+                        # open="closed",
+                    ), 
+                    # File inputs
+                    ui.div(
                         {"id": "input_file_container_1"},
-                        ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
-                        ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
+                        ui.row(
+                            ui.column(3, 
+                                ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
+                                ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
+                            )
+                        ),
                         ui.markdown(""" <hr style="border: none; border-top: 1px dotted" /> """),
-                    ))
+                    ), border=True, border_color="whitesmoke", bg="#fefefe",
                 ),
-                # Assigning selected columns - draggable window
+
+                ui.tags.style(Format.AccordionDraggable),
                 ui.panel_absolute(
                     ui.card(
-                        ui.markdown("<h5>Select columns:</h5>"),
-                        ui.input_selectize("select_id", "Track identifier:", ["e.g. TRACK_ID"]),
-                        ui.input_selectize("select_time", "Time point:", ["e.g. POSITION_T"]),
-                        ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
-                        ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
-                        ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"),
-                        class_="bg-light border-tertiary rounded",
+                        ui.accordion(
+                            ui.accordion_panel(
+                                "Select columns",
+                                ui.input_selectize("select_id", "Track identifier:", ["e.g. TRACK_ID"]),
+                                ui.input_selectize("select_time", "Time point:", ["e.g. POSITION_T"]),
+                                ui.input_selectize(id="select_time_unit", label=None, choices=["seconds", "minutes", "hours", "days", "weeks"], selected="seconds"),
+                                ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
+                                ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
+                                ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"),
+                            ), open=False, class_="custom-accordion"
+                        ), 
+                        # class_="bg-light border-tertiary rounded",
                     ),
-                    width="350px", right="500px", top="220px", draggable=True,
+                    width="350px", right="450px", top="130px", draggable=True,
                     class_="elevated-panel", style_="z-index: 1000;",
                 ),
             ),
         ),
 
-        # ========== PROCESSED DATA DISPLAY ==========
+
+        # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
+
         ui.nav_panel(
             "Data Tables",
 
             # Input for already processed data
-            ui.markdown(
-                """ 
-                <p style='line-height:0.1;'> <br> </p>
-                <h4 style="margin:0;"> Got previously processed data? </h4> 
-                <i> Drop in <b>Spot Stats CSV</b> file here: </i>
-                """
-            ),
-            ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False),
-            ui.output_ui("initialize_loader2"),
+            ui.row(ui.column(6, 
+                ui.markdown(
+                    """ 
+                    <p style='line-height:0.1;'> <br> </p>
+                    <h4 style='margin: 0.5;'> Got previously processed data? </h4> 
+                    <p style='color: dimgrey;'><i> Drop in <b>Spot Stats CSV</b> file here: </i></p>
+                    """
+                ),
+                ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False),
+                
+                offset=1
+            )),
             ui.markdown(""" ___ """),
 
             # Data frames display
@@ -127,19 +183,32 @@ app_ui = ui.page_sidebar(
                     ui.download_button("download_frame_stats", "Download CSV"),
                 ),
             ),
+            ui.output_ui("initialize_loader2"),
         ),
+        
 
-        # ========== DATA GATING ==========
+        # _ _ _ _ DATA GATING _ _ _ _
+
         ui.nav_panel(
             "Gating",
-            ui.markdown(
-                """ 
-                2D Data filtering?
-                """
-            )
+            ui.layout_sidebar(
+                ui.sidebar(
+                    "Gating_sidebar", 
+                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
+                    bg="#f8f8f8",
+                ), 
+                ui.markdown(
+                    """ 
+                    Gates here
+                    """
+                )
+            ),
+            
         ),
 
-        # ========== VISUALIZATION PANEL ==========
+
+        # _ _ _ _ VISUALIZATION PANEL _ _ _ _
+
         ui.nav_panel(
             "Visualisation",
 
@@ -519,6 +588,16 @@ app_ui = ui.page_sidebar(
                                 ui.input_checkbox(id="sp_grid", label="Show grid", value=False),
                                 ui.input_checkbox(id="sp_spine", label="Open axes top/right", value=True),
                                 # TODO: ui.input_checkbox(id="sp_flip", label="Flip axes", value=False),
+                                ui.row(
+                                    ui.column(
+                                        6,
+                                        ui.input_numeric(id="sp_fig_width", label="Fig width:", value=15, min=1, step=0.5)
+                                    ),
+                                    ui.column(
+                                        6,
+                                        ui.input_numeric(id="sp_fig_height", label="Fig height:", value=9, min=1, step=0.5)
+                                    ),
+                                ),
                             ),
 
                             ui.accordion_panel(
@@ -664,15 +743,25 @@ app_ui = ui.page_sidebar(
                         ui.input_task_button(id="sp_generate", label="Generate", class_="btn-secondary", width="100%"),
                     ),
                     ui.markdown(""" <br> """),
-                    ui.output_plot(id="swarmplot"),
+                    # ui.output_ui("sp_plot_card"),
+                    ui.card(
+                        ui.div(
+                            # Make the *plot image* larger than the panel so scrolling kicks in
+                            # ui.output_plot("bigplot", width="1400px", height="1000px"),
+                            ui.output_plot(id="swarmplot", fill=False),
+                            style="height: 300px; overflow:auto;",
+                            # class_="scroll-panel",
+                        ),
+                        full_screen=False,
+                    ),
                     ui.markdown(""" <br> """),
                     ui.download_button(id="download_swarmplot_svg", label="Download SVG", width="100%"),
                 ),
                 widths = (2, 10)
             ),
         ),
-        ui.nav_spacer(),
-        ui.nav_control(ui.input_dark_mode(mode="light")),
+        # ui.nav_spacer(),
+        # ui.nav_control(ui.input_dark_mode(mode="light")),
         title="Peregrin"
     ),
 )
@@ -819,6 +908,43 @@ def server(input: Inputs, output: Outputs, session: Session):
     # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
+    # _ _ _ _ LABEL SETTINGS SIDEBAR _ _ _ _
+
+    @reactive.Effect
+    @reactive.event(input.explain_auto_label)
+    def _():
+        ui.modal_show(
+            ui.modal(
+                ui.markdown(
+                    """
+                    Switching on <b>Auto-label</b> will automatically derive the <code>Condition</code> and <code>Replicate</code> labels from the <b>text segments</b> between <b>#</b> symbols in the filenames of your uploaded files and assign them, respectively. <br><br>
+                    """ 
+                ),
+                ui.markdown(
+                    """ 
+                    <span style='font-size: 18px;'>Desired filename format: <i>...#Condition#Replicate#...</i></span> <br>
+                    """
+                ),
+                ui.output_data_frame("FilenameFormatExampleTable"),
+                ui.markdown(
+                    """ <br><br>
+                    <span style='color: dimgrey;'><i>If you want to use this feature, make sure it is enabled before running the analysis.</i></span> <br>
+                    """
+                ),
+            title="What's Auto-label?",
+            easy_close=True,
+            footer=None,
+            # background_color="#2b2b2b"
+            )
+        )
+
+    @output()
+    @render.data_frame
+    def FilenameFormatExampleTable():
+        return Format.FilenameFormatExample
+
+    # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
 
     # _ _ _ _ ALREADY PROCESSED DATA INPUT _ _ _ _
 
@@ -876,13 +1002,18 @@ def server(input: Inputs, output: Outputs, session: Session):
         all_data = []
 
         for idx in range(1, INPUTS.get()+1):
+
             files = input[f"input_file{idx}"]()
-            label = input[f"condition_label{idx}"]()
+
+            if input.auto_label():
+                cond_label = files[0].get("name").split("#")[1] if len(files[0].get("name").split("#")) >= 2 else None #TODO: display an error if the file label is incorrect
+            else:
+                cond_label = input[f"condition_label{idx}"]()
 
             if not files:
                 continue
 
-            for rep_idx, fileinfo in enumerate(files, start=1):
+            for file_idx, fileinfo in enumerate(files, start=1):
                 try:
                     df = DataLoader.GetDataFrame(fileinfo["datapath"])
                     extracted = DataLoader.Extract(
@@ -898,8 +1029,8 @@ def server(input: Inputs, output: Outputs, session: Session):
                     continue
 
                 # Assign condition label and replicate number
-                extracted["Condition"] = label if label else str(idx)
-                extracted["Replicate"] = rep_idx
+                extracted["Condition"] = cond_label if cond_label else str(idx)
+                extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else file_idx
 
                 all_data.append(extracted)
 
@@ -937,6 +1068,129 @@ def server(input: Inputs, output: Outputs, session: Session):
         
     # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
+
+    # _ _ _ _ WRITE REPLICATE LABELS _ _ _ _
+
+    @output(id="replicate_labels_inputs")
+    @render.ui
+    def replicate_labels_inputs():
+        if UNFILTERED_SPOTSTATS.get().empty:
+            return
+        
+        if input.auto_label():
+            return
+        
+        if input.write_replicate_labels() == False:
+            return
+
+        replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+        inputs = []
+        for idx, rep in enumerate(replicates):
+            inputs.append(
+                ui.input_text(
+                    id=f"F{idx}",
+                    label=None,
+                    placeholder=f"Replicate {rep}"
+                )
+            )
+        return ui.div(*inputs)
+    
+
+    # _ _ _ _ SET REPLICATE COLORS _ _ _ _
+
+    @output(id="replicate_colors_inputs")
+    @render.ui
+    def replicate_colors_inputs():
+
+        if UNFILTERED_SPOTSTATS.get().empty:
+            return
+
+        # Use the switch you defined in the UI
+        if not input.set_replicate_colors():
+            return
+
+        replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+        items = []
+        for idx, rep in enumerate(replicates):
+
+            try:
+                value = UNFILTERED_SPOTSTATS.get().loc[UNFILTERED_SPOTSTATS.get()["Replicate"] == rep, "Replicate Color"].iloc[0]
+            except:
+                value = "#59a9d7"
+
+            cid = f"color_replicate{idx}"
+            items.append(
+                ui.div(
+                    ui.tags.label(f"{rep}", **{"for": cid}),
+                    ui.tags.input(
+                        type="color",
+                        id=cid,
+                        value=value,
+                        style="width:100%; height:2.2rem; padding:0; border:none;"
+                    ),
+                    ui.tags.script(
+                        f"""
+                        (function(){{
+                        const el = document.getElementById('{cid}');
+                        function send() {{
+                            Shiny.setInputValue('{cid}', el.value, {{priority:'event'}});
+                        }}
+                        el.addEventListener('input', send);
+                        // push initial so input.{cid}() is defined immediately
+                        send();
+                        }})();
+                        """
+                    ),
+                    style="margin-bottom: 0.5rem;"
+                )
+            )
+        return ui.div(*items)
+    
+
+    # _ _ _ _ UPDATE VALUES FOR REPLICATES _ _ _ _
+
+    @reactive.Effect
+    @reactive.event(input.write_values_replicates)
+    def update_replicate_values():
+        if UNFILTERED_SPOTSTATS.get().empty:
+            return
+
+        df_spots = UNFILTERED_SPOTSTATS.get().copy()
+        df_tracks = UNFILTERED_TRACKSTATS.get().copy()
+
+        # If colors are off, drop the column only if it exists (don’t bail out)
+        if not input.set_replicate_colors():
+            for df in (df_spots, df_tracks):
+                if "Replicate Color" in df.columns:
+                    df.drop(columns=["Replicate Color"], inplace=True)
+
+        replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+
+        # Return if not all of the replicate labels are in the same data type:
+        if len(set(type(rep) for rep in replicates)) > 1:
+            return
+
+        for idx, rep in enumerate(replicates):
+            # READ THE CORRECT INPUT ID (use F{idx} if that’s what you render)
+            raw = input[f"F{idx}"]()  # or input[f"replicate_label{idx}"]() if you rename the UI ids
+            new_label = (raw.strip() if isinstance(raw, str) and raw.strip() and not input.auto_label() else str(rep))
+
+            # Rename
+            if new_label != str(rep):
+                df_spots.loc[df_spots["Replicate"] == rep, "Replicate"] = new_label
+                df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate"] = new_label
+
+            # Color
+            if input.set_replicate_colors():
+                color = input[f"color_replicate{idx}"]()
+                if color:
+                    df_spots.loc[df_spots["Replicate"] == new_label, "Replicate Color"] = color
+                    df_tracks.loc[df_tracks["Replicate"] == new_label, "Replicate Color"] = color
+
+        # Write back
+        SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(Calc.Frames(df_spots))
+        UNFILTERED_SPOTSTATS.set(df_spots); UNFILTERED_TRACKSTATS.set(df_tracks); UNFILTERED_FRAMESTATS.set(Calc.Frames(df_spots))
+        THRESHOLDS.set({1: {"spots": df_spots, "tracks": df_tracks}})
 
 
 
@@ -2143,7 +2397,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
 
 
-    # _ _ _ _ - - Swarmplot _ _ _ _ - -    
+    # _ _ _ _ - - Swarmplot _ _ _ _ 
 
     @ui.bind_task_button(button_id="sp_generate")
     @reactive.extended_task
@@ -2194,6 +2448,8 @@ def server(input: Inputs, output: Outputs, session: Session):
         show_legend,
         show_grid,
         open_spine,
+        plot_width,
+        plot_height
     ):
         # run sync plotting off the event loop
         def build():
@@ -2252,6 +2508,8 @@ def server(input: Inputs, output: Outputs, session: Session):
                     show_legend=show_legend,
                     show_grid=show_grid,
                     open_spine=open_spine,
+                    plot_width=plot_width,
+                    plot_height=plot_height,
                 )
 
         # Either form is fine; pick one:
@@ -2316,7 +2574,10 @@ def server(input: Inputs, output: Outputs, session: Session):
             p_test=False,
             show_legend=input.sp_show_legend(),
             show_grid=input.sp_grid(),
-            open_spine=input.sp_spine()
+            open_spine=input.sp_spine(),
+            
+            plot_width=input.sp_fig_width(),
+            plot_height=input.sp_fig_height(),
         )
 
     # @output(id="swarmplot")
@@ -2382,7 +2643,10 @@ def server(input: Inputs, output: Outputs, session: Session):
             p_test=False,
             show_legend=input.sp_show_legend(),
             show_grid=input.sp_grid(),
-            open_spine=input.sp_spine()
+            open_spine=input.sp_spine(),
+            
+            plot_width=input.sp_fig_width(),
+            plot_height=input.sp_fig_height(),
         )
         if fig is not None:
             with io.BytesIO() as buffer:
@@ -2407,7 +2671,12 @@ app = App(app_ui, server)
 
 # TODO - Keep the Track UID column in the dataframes when downloaded
 
-# TODO - Track visualization plot with a slider
+# TODO - Track visualization plot with a slider;
+#      - metrics for lut scaling would include SPOTSTATS metrics:
+#      - e.g. speed: track point = n;   assigned distance value = 15 (colors for each distance value assigned based on the min. max. value for the current dataset)
+#                    track point = n+1; assigned distance value = 20
+#                    the line between n and n+1 would be coloured inn a gradient from the color at distance value 15 to the color at the distance value 20
+
 
 # TODO - define pre-sets for plot settings, so that the user can try out different looks easily
 # TODO - Add a button to reset all thresholding settings to default
@@ -2425,3 +2694,8 @@ app = App(app_ui, server)
 # TODO - Option to download a simple legend showing how much data was filtered out and how so
 # TODO - input_selectize("Plot:"... with options "Polar/Normalized" or "Cartesian/Raw"
 # TODO - Differentiate between frame(s) annotations and time annotations
+
+# TODO - Potentially add a nav tab for interacting with the data and set the formatting to be right and ready for processing
+
+# TODO - VERY IMPORTANT
+#      - Must have an option to download the whole app settings together with the data 

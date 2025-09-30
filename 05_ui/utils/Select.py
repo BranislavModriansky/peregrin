@@ -65,8 +65,11 @@ class Metrics:
         "Speed median",
         "Speed max",
         "Speed min",
+        "Speed std",
         "Direction mean (deg)",
         "Direction mean (rad)",
+        "Direction std (deg)",
+        "Direction std (rad)",
     ]
     
 

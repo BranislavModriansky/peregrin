@@ -914,8 +914,8 @@ class Plot:
             show_grid: bool = False,
             open_spine: bool = True,
 
-            # plot_width: int = 15,
-            # plot_height: int = 9,
+            plot_width: int = 15,
+            plot_height: int = 9,
         ):
 
 
@@ -1018,7 +1018,7 @@ class Plot:
 
 
 
-            plt.figure()
+            plt.figure(figsize=(plot_width, plot_height))
 
             if df.empty:
                 return plt.gcf()
