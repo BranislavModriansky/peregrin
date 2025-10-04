@@ -51,7 +51,7 @@ class Metrics:
 
     LookFor = {
         "select_id": ["track id", "track identifier", "track"],
-        "select_time": ["position t", "t position", "time", "time position", "frame", "t"],
+        "select_t": ["position t", "t position", "time", "time position", "frame", "t"],
         "select_x": ["position x", "x position", "x coordinate", "coordinate x", "x",],
         "select_y": ["position y", "y position", "y coordinate", "coordinate y", "y"],
     }
@@ -71,6 +71,13 @@ class Metrics:
         "Direction std (deg)",
         "Direction std (rad)",
     ]
+
+    TimeUnits = {
+        "seconds": "s",
+        "minutes": "min",
+        "hours": "h",
+        "days": "d",
+    }
     
 
     class Thresholding:

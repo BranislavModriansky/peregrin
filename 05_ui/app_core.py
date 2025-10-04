@@ -1,6 +1,7 @@
 from shiny import App, Inputs, Outputs, Session, render, reactive, req, ui
 from shiny.types import FileInfo
 from shinywidgets import render_plotly, render_altair, output_widget, render_widget
+import shiny_sortable as sortable
 
 from utils.Select import Metrics, Styles, Markers, Modes
 from utils.Function import DataLoader, Process, Calc, Threshold, Plot
@@ -31,6 +32,15 @@ warnings.filterwarnings(
     message=r".*panel_well\(\) is deprecated\. Use shiny\.ui\.card\(\) instead\.",
     category=ShinyDeprecationWarning,
 )
+
+@sortable.make(updatable=True)  # lets you programmatically reset later if you want
+def ladder(inputID: str, items: list[str]):
+    # data-id carries the *string* value you want back on the server
+    lis = [
+        ui.tags.li(label, **{"data-id": label}, class_="p-2 mb-2 border rounded")
+        for label in items
+    ]
+    return ui.tags.ul(*lis, id=inputID)
 
 
 
@@ -86,38 +96,40 @@ app_ui = ui.page_sidebar(
                             ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                             ui.input_switch("auto_label", "Auto-label", False),
                             ui.panel_conditional(
-                                "input.auto_label == false", # "input.auto_label == false && input.run > 0",
+                                "input.run > 0",
                                 ui.input_switch("write_replicate_labels", "Write replicate labels", False),
                             ),
                             ui.panel_conditional(
-                                "input.auto_label == false && input.write_replicate_labels == true",
+                                "input.write_replicate_labels == true",
                                 ui.output_ui("replicate_labels_inputs")
                             ),
-                            # ui.panel_conditional(
-                            #     "input.run > 0",
-                            #     ui.input_switch("set_replicate_colors", "Set replicate colors", False),
-                            # ),
-                            ui.input_switch("set_replicate_colors", "Set replicate colors", False),
                             ui.panel_conditional(
-                                "input.set_replicate_colors == true", # "input.set_replicate_colors == true && input.run > 0",
-                                # ui.markdown(f"<h5>Replicates:</h5>"),
+                                "input.run > 0",
+                                ui.input_switch("write_replicate_colors", "Set replicate colors", False),
+                            ),
+                            ui.panel_conditional(
+                                "input.write_replicate_colors == true && input.run > 0",
                                 ui.output_ui("replicate_colors_inputs"),
                             ),
+                            ui.panel_conditional(
+                                "input.run > 0",
+                                ui.input_switch("set_condition_order", "Set condition order", False),
+                            ),
+                            ui.panel_conditional(
+                                "input.set_condition_order == true",
+                                ui.tags.style(Format.Ladder),
+                                ui.output_ui("condition_order_ladder")
+                            ),
                         ),
-                        ui.input_task_button("write_values_replicates", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"),
+                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"),
                         
                         bg="#f8f8f8",
-                        # open="closed",
                     ), 
                     # File inputs
                     ui.div(
                         {"id": "input_file_container_1"},
-                        ui.row(
-                            ui.column(3, 
-                                ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
-                                ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
-                            )
-                        ),
+                        ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
+                        ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
                         ui.markdown(""" <hr style="border: none; border-top: 1px dotted" /> """),
                     ), border=True, border_color="whitesmoke", bg="#fefefe",
                 ),
@@ -129,8 +141,14 @@ app_ui = ui.page_sidebar(
                             ui.accordion_panel(
                                 "Select columns",
                                 ui.input_selectize("select_id", "Track identifier:", ["e.g. TRACK_ID"]),
-                                ui.input_selectize("select_time", "Time point:", ["e.g. POSITION_T"]),
-                                ui.input_selectize(id="select_time_unit", label=None, choices=["seconds", "minutes", "hours", "days", "weeks"], selected="seconds"),
+                                ui.input_selectize("select_t", "Time point:", ["e.g. POSITION_T"]),
+                                ui.row(
+                                    ui.column(6,
+                                        ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.TimeUnits.keys()), selected="seconds"),
+                                        style_="margin-bottom: 5px;",
+                                    ),
+                                ),
+                                # ui.input_selectize(id="select_t_unit", label=None, choices=["seconds", "minutes", "hours", "days", "weeks"], selected="seconds"),
                                 ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
                                 ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
                                 ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"),
@@ -156,7 +174,7 @@ app_ui = ui.page_sidebar(
                     """ 
                     <p style='line-height:0.1;'> <br> </p>
                     <h4 style='margin: 0.5;'> Got previously processed data? </h4> 
-                    <p style='color: dimgrey;'><i> Drop in <b>Spot Stats CSV</b> file here: </i></p>
+                    <p style='color: #0171b7;'><i> Drop in <b>Spot Stats CSV</b> file here: </i></p>
                     """
                 ),
                 ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False),
@@ -164,23 +182,27 @@ app_ui = ui.page_sidebar(
                 offset=1
             )),
             ui.markdown(""" ___ """),
+            # "#0171b7"
 
             # Data frames display
             ui.layout_columns(
-                ui.card( # Spot stats
-                    ui.card_header("Spot stats"),
+                ui.card(
+                    ui.card_header("Spot stats", class_="bg-blue"),
                     ui.output_data_frame("render_spot_stats"),
                     ui.download_button("download_spot_stats", "Download CSV"),
+                    full_screen=True, 
                 ),
-                ui.card( # Track stats
-                    ui.card_header("Track stats"),
+                ui.card(
+                    ui.card_header("Track stats", class_="bg-light"),
                     ui.output_data_frame("render_track_stats"),
                     ui.download_button("download_track_stats", "Download CSV"),
+                    full_screen=True, 
                 ),
-                ui.card( # Time stats
-                    ui.card_header("Time stats"),
+                ui.card(
+                    ui.card_header("Frame stats", class_="bg-light"),
                     ui.output_data_frame("render_frame_stats"),
                     ui.download_button("download_frame_stats", "Download CSV"),
+                    full_screen=True, 
                 ),
             ),
             ui.output_ui("initialize_loader2"),
@@ -885,7 +907,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     @reactive.Effect
     def column_selection():
         ui.update_selectize(id="select_id", choices=["e.g. TRACK ID"])
-        ui.update_selectize(id="select_time", choices=["e.g. POSITION T"])
+        ui.update_selectize(id="select_t", choices=["e.g. POSITION T"])
         ui.update_selectize(id="select_x", choices=["e.g. POSITION X"])
         ui.update_selectize(id="select_y", choices=["e.g. POSITION Y"])
 
@@ -946,6 +968,160 @@ def server(input: Inputs, output: Outputs, session: Session):
     # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
+    # _ _ _ _ CONDITION LABELS ORDER LADDER _ _ _ _
+
+    @output(id="condition_order_ladder")
+    @render.ui
+    def condition_order_ladder():
+        if TRACKSTATS.get() is not None:
+            req(not TRACKSTATS.get().empty)
+
+            items = TRACKSTATS.get()['Condition'].unique().tolist()
+
+            if isinstance(items, list) and len(items) > 1:
+                return ladder("order", items)
+            elif isinstance(items, list) and len(items) == 1:
+                return ui.markdown("*Only one condition present.*")
+            else:
+                return
+
+    # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+
+
+    # _ _ _ _ WRITE DATA VALUES _ _ _ _
+
+    @reactive.Effect
+    @reactive.event(input.write_values)
+    def _write_values():
+
+        df_unfiltered_spots = UNFILTERED_SPOTSTATS.get().copy()
+        df_unfiltered_tracks = UNFILTERED_TRACKSTATS.get().copy()
+        df_unfiltered_frames = UNFILTERED_FRAMESTATS.get().copy()
+        df_spots = SPOTSTATS.get().copy()
+        df_tracks = TRACKSTATS.get().copy()
+        df_frames = FRAMESTATS.get().copy()
+        req(df is not None and not df.empty for df in [df_unfiltered_spots, df_unfiltered_tracks, df_unfiltered_frames, df_spots, df_tracks, df_frames])
+        
+
+        # REPLICATE LABELS AND COLORS
+        @reactive.Effect
+        def _replicate_values():
+            req("Replicate" in df_tracks.columns)
+            replicates = sorted(df_tracks["Replicate"].unique())
+            if len(set(type(rep) for rep in replicates)) > 1:
+                return
+
+            @reactive.Effect
+            def _replicate_labels():
+                with reactive.isolate():
+                    if input.write_replicate_labels() == False:
+                        return
+
+                    for idx, rep in enumerate(replicates):
+                        
+                        label = input[f"replicate_label{idx}"]() if isinstance(input[f"replicate_label{idx}"](), str) and input[f"replicate_label{idx}"]() != "" else rep
+                        if label != str(rep):
+
+                            df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate"] = label
+                            df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate"] = label
+                            df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate"] = label
+                            df_spots.loc[df_spots["Replicate"] == rep, "Replicate"] = label
+                            df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate"] = label
+                            df_frames.loc[df_frames["Replicate"] == rep, "Replicate"] = label
+
+                    UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); UNFILTERED_FRAMESTATS.set(df_unfiltered_frames);
+                    SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(df_frames)
+
+
+            @reactive.Effect
+            def _replicate_colors():
+                with reactive.isolate():
+                    print("Writing replicate colors...")
+                    print(input.write_replicate_colors())
+
+                    if input.write_replicate_colors():
+
+                        for idx, rep in enumerate(replicates):
+                            print(input[f"replicate_color{idx}"]())
+                            color = input[f"replicate_color{idx}"]()
+                            if color:
+                                df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate Color"] = color
+                                df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate Color"] = color
+                                df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate Color"] = color
+                                df_spots.loc[df_spots["Replicate"] == rep, "Replicate Color"] = color
+                                df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate Color"] = color
+                                df_frames.loc[df_frames["Replicate"] == rep, "Replicate Color"] = color
+
+                    elif not input.write_replicate_colors():
+                        print("Removing replicate colors...")
+                        if 'Replicate Color' in df_unfiltered_spots.columns:
+                            df_unfiltered_spots.drop(columns=['Replicate Color'], inplace=True)
+                        if 'Replicate Color' in df_unfiltered_tracks.columns:
+                            df_unfiltered_tracks.drop(columns=['Replicate Color'], inplace=True)
+                        if 'Replicate Color' in df_unfiltered_frames.columns:
+                            df_unfiltered_frames.drop(columns=['Replicate Color'], inplace=True)
+                        if 'Replicate Color' in df_spots.columns:
+                            df_spots.drop(columns=['Replicate Color'], inplace=True)
+                        if 'Replicate Color' in df_tracks.columns:
+                            df_tracks.drop(columns=['Replicate Color'], inplace=True)
+                        if 'Replicate Color' in df_frames.columns:
+                            df_frames.drop(columns=['Replicate Color'], inplace=True)
+
+                    UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(df_frames)
+
+
+
+        # CONDITION ORDER
+        @reactive.Effect
+        def _condition_values():
+            req("Condition" in df_tracks.columns)
+
+            with reactive.isolate():
+                if not input.set_condition_order():
+                    return
+                
+                req(input.order() is not None and not len(input.order()) < 2)
+                order = list(input.order())
+
+                df_unfiltered_spots.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_unfiltered_tracks.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_unfiltered_frames.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_spots.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_tracks.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_frames.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+
+                UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(df_frames)
+
+    # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+
+    # _ _ _ _ ALREADY PROCESSED DATA INPUT _ _ _ _
+
+    @reactive.Effect
+    @reactive.event(input.already_processed_input)
+    def load_processed_data():
+        fileinfo = input.already_processed_input()
+        try:
+            df = DataLoader.GetDataFrame(fileinfo[0]["datapath"])
+
+            UNFILTERED_SPOTSTATS.set(df)
+            UNFILTERED_TRACKSTATS.set(Calc.Tracks(df))
+            UNFILTERED_FRAMESTATS.set(Calc.Frames(df))
+            SPOTSTATS.set(df)
+            TRACKSTATS.set(Calc.Tracks(df))
+            FRAMESTATS.set(Calc.Frames(df))
+
+            THRESHOLDS.set({1: {"spots": UNFILTERED_SPOTSTATS.get(), "tracks": UNFILTERED_TRACKSTATS.get()}})
+
+            ui.update_action_button(id="append_threshold", disabled=False)
+
+        except:
+            pass
+
+    
     # _ _ _ _ ALREADY PROCESSED DATA INPUT _ _ _ _
 
     @reactive.Effect
@@ -1011,31 +1187,31 @@ def server(input: Inputs, output: Outputs, session: Session):
                 cond_label = input[f"condition_label{idx}"]()
 
             if not files:
-                continue
+                break
 
             for file_idx, fileinfo in enumerate(files, start=1):
                 try:
                     df = DataLoader.GetDataFrame(fileinfo["datapath"])
+                    print(df.head())
                     extracted = DataLoader.Extract(
                         df,
                         id_col=input.select_id(),
-                        t_col=input.select_time(),
+                        t_col=input.select_t(),
                         x_col=input.select_x(),
                         y_col=input.select_y(),
                         mirror_y=True,
                     )
-                except Exception as e:
-                    # Optionally log the error
-                    continue
+                except: continue
 
-                # Assign condition label and replicate number
                 extracted["Condition"] = cond_label if cond_label else str(idx)
-                extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else file_idx
+                extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
 
                 all_data.append(extracted)
-
+                
         if all_data:
-            RAWDATA.set(pd.concat(all_data, axis=0))
+            all_data = pd.concat(all_data, axis=0)
+            all_data["Time unit"] = Metrics.TimeUnits.get(input.select_t_unit())
+            RAWDATA.set(all_data)
             UNFILTERED_SPOTSTATS.set(Calc.Spots(RAWDATA.get()))
             UNFILTERED_TRACKSTATS.set(Calc.Tracks(RAWDATA.get()))
             UNFILTERED_FRAMESTATS.set(Calc.Frames(RAWDATA.get()))
@@ -1069,128 +1245,76 @@ def server(input: Inputs, output: Outputs, session: Session):
     # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
-    # _ _ _ _ WRITE REPLICATE LABELS _ _ _ _
-
-    @output(id="replicate_labels_inputs")
-    @render.ui
-    def replicate_labels_inputs():
-        if UNFILTERED_SPOTSTATS.get().empty:
-            return
-        
-        if input.auto_label():
-            return
-        
-        if input.write_replicate_labels() == False:
-            return
-
-        replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
-        inputs = []
-        for idx, rep in enumerate(replicates):
-            inputs.append(
-                ui.input_text(
-                    id=f"F{idx}",
-                    label=None,
-                    placeholder=f"Replicate {rep}"
-                )
-            )
-        return ui.div(*inputs)
-    
-
-    # _ _ _ _ SET REPLICATE COLORS _ _ _ _
-
-    @output(id="replicate_colors_inputs")
-    @render.ui
-    def replicate_colors_inputs():
-
-        if UNFILTERED_SPOTSTATS.get().empty:
-            return
-
-        # Use the switch you defined in the UI
-        if not input.set_replicate_colors():
-            return
-
-        replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
-        items = []
-        for idx, rep in enumerate(replicates):
-
-            try:
-                value = UNFILTERED_SPOTSTATS.get().loc[UNFILTERED_SPOTSTATS.get()["Replicate"] == rep, "Replicate Color"].iloc[0]
-            except:
-                value = "#59a9d7"
-
-            cid = f"color_replicate{idx}"
-            items.append(
-                ui.div(
-                    ui.tags.label(f"{rep}", **{"for": cid}),
-                    ui.tags.input(
-                        type="color",
-                        id=cid,
-                        value=value,
-                        style="width:100%; height:2.2rem; padding:0; border:none;"
-                    ),
-                    ui.tags.script(
-                        f"""
-                        (function(){{
-                        const el = document.getElementById('{cid}');
-                        function send() {{
-                            Shiny.setInputValue('{cid}', el.value, {{priority:'event'}});
-                        }}
-                        el.addEventListener('input', send);
-                        // push initial so input.{cid}() is defined immediately
-                        send();
-                        }})();
-                        """
-                    ),
-                    style="margin-bottom: 0.5rem;"
-                )
-            )
-        return ui.div(*items)
-    
-
-    # _ _ _ _ UPDATE VALUES FOR REPLICATES _ _ _ _
-
     @reactive.Effect
-    @reactive.event(input.write_values_replicates)
-    def update_replicate_values():
-        if UNFILTERED_SPOTSTATS.get().empty:
-            return
+    def _():
 
-        df_spots = UNFILTERED_SPOTSTATS.get().copy()
-        df_tracks = UNFILTERED_TRACKSTATS.get().copy()
+        # _ _ _ _ WRITE REPLICATE LABELS _ _ _ _
 
-        # If colors are off, drop the column only if it exists (don’t bail out)
-        if not input.set_replicate_colors():
-            for df in (df_spots, df_tracks):
-                if "Replicate Color" in df.columns:
-                    df.drop(columns=["Replicate Color"], inplace=True)
+        @output(id="replicate_labels_inputs")
+        @render.ui
+        def replicate_labels_inputs():
+            req(not UNFILTERED_SPOTSTATS.get().empty)
+            
+            replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+            inputs = []
+            for idx, rep in enumerate(replicates):
+                inputs.append(
+                    ui.input_text(
+                        id=f"replicate_label{idx}",
+                        label=None,
+                        placeholder=f"Replicate {rep}"
+                    )
+                )
+            return ui.div(*inputs)
+    
 
-        replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+        # _ _ _ _ SET REPLICATE COLORS _ _ _ _
 
-        # Return if not all of the replicate labels are in the same data type:
-        if len(set(type(rep) for rep in replicates)) > 1:
-            return
+        @output(id="replicate_colors_inputs")
+        @render.ui
+        def replicate_colors_inputs():
 
-        for idx, rep in enumerate(replicates):
-            # READ THE CORRECT INPUT ID (use F{idx} if that’s what you render)
-            raw = input[f"F{idx}"]()  # or input[f"replicate_label{idx}"]() if you rename the UI ids
-            new_label = (raw.strip() if isinstance(raw, str) and raw.strip() and not input.auto_label() else str(rep))
+            req(not UNFILTERED_SPOTSTATS.get().empty)
 
-            # Rename
-            if new_label != str(rep):
-                df_spots.loc[df_spots["Replicate"] == rep, "Replicate"] = new_label
-                df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate"] = new_label
+            if 'Replicate Color' not in UNFILTERED_SPOTSTATS.get().columns:
+                UNFILTERED_SPOTSTATS.get()['Replicate Color'] = "#59a9d7"  # default color
 
-            # Color
-            if input.set_replicate_colors():
-                color = input[f"color_replicate{idx}"]()
-                if color:
-                    df_spots.loc[df_spots["Replicate"] == new_label, "Replicate Color"] = color
-                    df_tracks.loc[df_tracks["Replicate"] == new_label, "Replicate Color"] = color
+            replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+            items = []
+            for idx, rep in enumerate(replicates):
 
-        # Write back
-        SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(Calc.Frames(df_spots))
-        UNFILTERED_SPOTSTATS.set(df_spots); UNFILTERED_TRACKSTATS.set(df_tracks); UNFILTERED_FRAMESTATS.set(Calc.Frames(df_spots))
-        THRESHOLDS.set({1: {"spots": df_spots, "tracks": df_tracks}})
+                try:
+                    value = UNFILTERED_SPOTSTATS.get().loc[UNFILTERED_SPOTSTATS.get()["Replicate"] == rep, "Replicate Color"].iloc[0]
+                except:
+                    value = "#59a9d7"
+
+                cid = f"replicate_color{idx}"
+                items.append(
+                    ui.div(
+                        ui.tags.label(f"{rep}", **{"for": cid}),
+                        ui.tags.input(
+                            type="color",
+                            id=cid,
+                            value=value,
+                            style="width:100%; height:2.2rem; padding:0; border:none;"
+                        ),
+                        ui.tags.script(
+                            f"""
+                            (function(){{
+                            const el = document.getElementById('{cid}');
+                            function send() {{
+                                Shiny.setInputValue('{cid}', el.value, {{priority:'event'}});
+                            }}
+                            el.addEventListener('input', send);
+                            // push initial so input.{cid}() is defined immediately
+                            send();
+                            }})();
+                            """
+                        ),
+                        style="margin-bottom: 0.5rem;"
+                    )
+                )
+            return ui.div(*items)
 
 
 
@@ -1525,7 +1649,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 reference = 0.0
             ref, _ = _compute_reference_and_span(working_df, reference, reference_value)
 
-            print(f"Reference value: {ref}, Floor: {ref + _floor}, Roof: {ref + _roof}, -Floor: {ref - _floor}, -Roof: {ref - _roof}")
+            # print(f"Reference value: {ref}, Floor: {ref + _floor}, Roof: {ref + _roof}, -Floor: {ref - _floor}, -Roof: {ref - _roof}")
 
             return working_df[
                 (working_df >= (ref + _floor)) 
@@ -1821,6 +1945,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
     def sync_threshold_values(id):
 
+        @Debounce(2)
         @reactive.Effect
         @reactive.event(
             input[f"floor_threshold_value_{id}"],
@@ -1840,17 +1965,18 @@ def server(input: Inputs, output: Outputs, session: Session):
                 except Exception:
                     return
 
-            # Validate + normalize
-            if not isinstance(cur_floor, (int, float)) or not isinstance(cur_ceil, (int, float)):
-                return
-            if cur_floor > cur_ceil:
-                cur_floor, cur_ceil = cur_ceil, cur_floor
+                # Validate + normalize
+                if not isinstance(cur_floor, (int, float)) or not isinstance(cur_ceil, (int, float)):
+                    return
+                if cur_floor > cur_ceil:
+                    cur_floor, cur_ceil = cur_ceil, cur_floor
 
-            # Only push if changed
-            existing = slider_vals if (isinstance(slider_vals, (tuple, list)) and len(slider_vals) == 2) else (None, None)
-            if cur_floor != existing[0] or cur_ceil != existing[1]:
-                ui.update_slider(f"threshold_slider_{id}", value=(cur_floor, cur_ceil))
+                # Only push if changed
+                existing = slider_vals if (isinstance(slider_vals, (tuple, list)) and len(slider_vals) == 2) else (None, None)
+                if cur_floor != existing[0] or cur_ceil != existing[1]:
+                    ui.update_slider(f"threshold_slider_{id}", value=(cur_floor, cur_ceil))
 
+        @Debounce(2)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def sync_with_threshold_slider():
@@ -1867,18 +1993,18 @@ def server(input: Inputs, output: Outputs, session: Session):
                 except Exception:
                     slider_vals = (None, None)
 
-            # Validate + normalize
-            if not isinstance(slider_vals[0], (int, float)) or not isinstance(slider_vals[1], (int, float)):
-                return
-            if slider_vals[0] > slider_vals[1]:
-                slider_vals = (slider_vals[1], slider_vals[0])
+                # Validate + normalize
+                if not isinstance(slider_vals[0], (int, float)) or not isinstance(slider_vals[1], (int, float)):
+                    return
+                if slider_vals[0] > slider_vals[1]:
+                    slider_vals = (slider_vals[1], slider_vals[0])
 
 
-            # Only push if changed
-            existing = (cur_floor, cur_ceil) if (isinstance(cur_floor, (int, float)) and isinstance(cur_ceil, (int, float))) else (None, None)
-            if slider_vals != existing:
-                ui.update_numeric(f"floor_threshold_value_{id}", value=float(slider_vals[0]))
-                ui.update_numeric(f"ceil_threshold_value_{id}", value=float(slider_vals[1]))
+                # Only push if changed
+                existing = (cur_floor, cur_ceil) if (isinstance(cur_floor, (int, float)) and isinstance(cur_ceil, (int, float))) else (None, None)
+                if slider_vals != existing:
+                    ui.update_numeric(f"floor_threshold_value_{id}", value=float(slider_vals[0]))
+                    ui.update_numeric(f"ceil_threshold_value_{id}", value=float(slider_vals[1]))
 
     @reactive.Effect
     def sync_thresholds():
@@ -1894,7 +2020,6 @@ def server(input: Inputs, output: Outputs, session: Session):
         @reactive.event(input[f"threshold_slider_{id}"])
         def pass_thresholded_data():
             thresholds = THRESHOLDS.get()
-            print(f"uhh {id}")
 
             data = thresholds.get(id)
             req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
@@ -1915,7 +2040,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             tracks_output = track_data.loc[filter.index.intersection(track_data.index)]
 
             # print(f"Spots after thresholding: {len(spots_output)}")
-            print(f"Tracks after thresholding: {len(tracks_output)}")
+            # print(f"Tracks after thresholding: {len(tracks_output)}")
 
             thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
             THRESHOLDS.set(thresholds)
@@ -2513,8 +2638,8 @@ def server(input: Inputs, output: Outputs, session: Session):
                 )
 
         # Either form is fine; pick one:
-        # return await asyncio.get_running_loop().run_in_executor(None, build)
-        return await asyncio.to_thread(build)
+        return await asyncio.get_running_loop().run_in_executor(None, build)
+        # return await asyncio.to_thread(build)
     
 
     @reactive.effect
@@ -2699,3 +2824,5 @@ app = App(app_ui, server)
 
 # TODO - VERY IMPORTANT
 #      - Must have an option to download the whole app settings together with the data 
+
+# TODO - add ui where the user can define the order of the conditions

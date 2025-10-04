@@ -26,7 +26,7 @@ import plotly.graph_objects as go
 def _pick_encoding(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15")):
     for enc in encodings:
         try:
-            return pd.read_csv(path, encoding=enc, low_memory=False if enc != "utf-8" else True)
+            return pd.read_csv(path, encoding=enc, low_memory=False)
         except UnicodeDecodeError:
             continue
 
@@ -251,7 +251,7 @@ class Calc:
 
         # ---- Add unique per-track index (1-based) ----
         df['Track UID'] = grp.ngroup()
-        df.set_index(['Track UID'], drop=True, append=False, inplace=True, verify_integrity=False)
+        df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
         # Distance between current and next position
         df['Distance'] = np.sqrt(
@@ -1216,7 +1216,7 @@ class Plot:
                     sns.lineplot(
                         x=x_val-0.5,
                         y=[condition_stats['median'].iloc[i]],
-                        color='none', 
+                        color='white', 
                         linewidth=0,
                         label="", 
                         zorder=0

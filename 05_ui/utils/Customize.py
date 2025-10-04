@@ -74,3 +74,18 @@ class Format:
         "Condition": ["CellType3", "49;10.7728", "ArkadyI.S_hotel"],
         "Replicate": ["Treatment7", "20;5.2821", "Bern.Rieux"]
     })
+
+    Ladder = """
+      #order {
+        list-style-type: none;
+        padding-left: 0;
+        margin-left: 0;
+      }
+      #order li { 
+        cursor: grab; 
+        background: white; 
+      }
+      #order li:active { 
+        cursor: grabbing; 
+      }
+    """
