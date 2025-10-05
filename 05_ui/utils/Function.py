@@ -1,26 +1,46 @@
-import warnings
 import numpy as np
 import pandas as pd
 from math import floor, ceil
 import os.path as op
-from typing import List, Any, Callable, Literal, Optional, Union
+from typing import List, Any
 from pandas.api.types import is_object_dtype
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from matplotlib.colors import Normalize
-from matplotlib.patches import FancyArrowPatch
 import matplotlib.lines as mlines
-from scipy.stats import gaussian_kde
-from scipy.signal import savgol_filter
-from scipy.stats import mannwhitneyu
-from peregrin.scripts import PlotParams
 import seaborn as sns
-from itertools import combinations
-import altair as alt
-import plotly.graph_objects as go
+from itertools import chain
+from matplotlib.collections import LineCollection
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
+def _get_cmap(c_mode):
+    """
+    Get a colormap according to the selected color mode.
 
+    """
+
+    if c_mode == 'greyscale LUT':
+        return plt.cm.gist_yarg
+    elif c_mode == 'jet LUT':
+        return plt.cm.jet
+    elif c_mode == 'brg LUT':
+        return plt.cm.brg
+    elif c_mode == 'hot LUT':
+        return plt.cm.hot
+    elif c_mode == 'gnuplot LUT':
+        return plt.cm.gnuplot
+    elif c_mode == 'viridis LUT':
+        return plt.cm.viridis
+    elif c_mode == 'rainbow LUT':
+        return plt.cm.rainbow
+    elif c_mode == 'turbo LUT':
+        return plt.cm.turbo
+    elif c_mode == 'nipy-spectral LUT':
+        return plt.cm.nipy_spectral
+    elif c_mode == 'gist-ncar LUT':
+        return plt.cm.gist_ncar
+    else:
+        return None
 
 
 def _pick_encoding(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15")):
@@ -43,6 +63,50 @@ def _has_strings(s: pd.Series) -> bool:
     # Fallback for object-dtype (mixed types): minimal Python loop over NumPy array
     arr = s.to_numpy(dtype=object, copy=False)
     return any(isinstance(v, (str, np.str_)) for v in arr)
+
+def _build_replicate_palette(df, palette_fallback):
+    reps = df['Replicate'].unique().tolist()
+    mp = {}
+    if 'Replicate color' in df.columns:
+        mp = (df[['Replicate', 'Replicate color']]
+                .dropna()
+                .drop_duplicates('Replicate')
+        )
+        mp = mp.set_index('Replicate')['Replicate color'].to_dict()
+
+    missing = [r for r in reps if r not in mp]
+    if missing:
+        cyc = sns.color_palette(palette_fallback, n_colors=len(missing))
+        mp.update({r: cyc[i] for i, r in enumerate(missing)})
+
+    print(f"Replicate colors: {mp}")
+
+    return mp
+
+def SetUnits(t: str) -> dict:
+    return {
+        "Track length": "(µm)",
+        "Track displacement": "(µm)",
+        "Confinement ratio": "",
+        "Track points": "",
+        "Speed mean": f"(µm·{t}⁻¹)",
+        "Speed median": f"(µm·{t}⁻¹)",
+        "Speed max": f"(µm·{t}⁻¹)",
+        "Speed min": f"(µm·{t}⁻¹)",
+        "Speed std": f"(µm·{t}⁻¹)",
+        "Direction mean (deg)": "",
+        "Direction mean (rad)": "",
+        "Direction std (deg)": "",
+        "Direction std (rad)": "",
+    }
+
+
+def _rand_hex_colors(n, rng):
+    return [mcolors.to_hex(rng.random(3)) for _ in range(n)]
+
+def _rand_hex_greys(n, rng):
+    greys = rng.random(n)
+    return [mcolors.to_hex((float(g), float(g), float(g))) for g in greys]
 
 
 
@@ -279,6 +343,8 @@ class Calc:
         # Avoid division by zero by replacing zeros with NaN, then fill
         df['Cumulative confinement ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(0)
 
+        df['Frame'] = grp['Time point'].rank(method='dense').astype(int)
+
         return df
 
 
@@ -301,7 +367,7 @@ class Calc:
                 'Track length','Track displacement','Confinement ratio',
                 'Speed min','Speed max','Speed mean','Speed std','Speed median',
                 'Direction mean (rad)','Direction std (rad)','Direction median (rad)',
-                'Direction mean (deg)','Direction std (deg)','Direction median (deg)'
+                'Direction mean (deg)','Direction std (deg)','Direction median (deg)',
             ]
             return pd.DataFrame(columns=cols)
 
@@ -322,6 +388,10 @@ class Calc:
                 'end_y':       ('Y coordinate', 'last')
             }
         )
+
+        if 'Replicate color' in df.columns:
+            colors = grp['Replicate color'].first()
+            agg = agg.merge(colors, left_index=True, right_index=True)
 
         # Compute net displacement and confinement ratio
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
@@ -779,34 +849,7 @@ class Plot:
 
         return colors
 
-    def _get_cmap(c_mode):
-        """
-        Get a colormap according to the selected color mode.
-
-        """
-
-        if c_mode == 'greyscale LUT':
-            return plt.cm.gist_yarg
-        elif c_mode == 'jet LUT':
-            return plt.cm.jet
-        elif c_mode == 'brg LUT':
-            return plt.cm.brg
-        elif c_mode == 'hot LUT':
-            return plt.cm.hot
-        elif c_mode == 'gnuplot LUT':
-            return plt.cm.gnuplot
-        elif c_mode == 'viridis LUT':
-            return plt.cm.viridis
-        elif c_mode == 'rainbow LUT':
-            return plt.cm.rainbow
-        elif c_mode == 'turbo LUT':
-            return plt.cm.turbo
-        elif c_mode == 'nipy_spectral LUT':
-            return plt.cm.nipy_spectral
-        elif c_mode == 'gist_ncar LUT':
-            return plt.cm.gist_ncar
-        else:
-            return None
+    
 
     def _assign_marker(value, markers):
         """
@@ -858,45 +901,46 @@ class Plot:
 
         @staticmethod
         def SwarmPlot(
-            df: pd.DataFrame,                                     
+            df: pd.DataFrame,
             metric: str,
             *args,
             title: str = '',
             palette: str = 'tab10',
 
             show_swarm: bool = True,
-            swarm_size: int = 1,
+            swarm_size: int = 2,
             swarm_outline_color: str = 'black',
-            swarm_alpha: float = 0.5,
+            swarm_alpha: float = 0.75,
 
-            show_violin: bool = True, 
-            violin_fill_color: str = 'whitesmoke', 
-            violin_edge_color: str = 'lightgrey', 
+            show_violin: bool = True,
+            violin_fill_color: str = 'whitesmoke',
+            violin_edge_color: str = 'lightgrey',
             violin_alpha: float = 0.5,
             violin_outline_width: float = 1,
 
             show_mean: bool = True,
-            mean_span: float = 0.12,
+            mean_span: float = 0.16,
             mean_color: str = 'black',
+            mean_ls: str = '-',
             show_median: bool = True,
-            median_span: float = 0.08,
+            median_span: float = 0.12,
             median_color: str = 'black',
-            line_width: float = 1,
-            set_main_line: str = 'mean',
+            median_ls: str = '--',
+            line_width: float = 2,
 
             show_error_bars: bool = True,
             errorbar_capsize: int = 4,
             errorbar_color: str = 'black',
-            errorbar_lw: int = 1,
-            errorbar_alpha: float = 0.5,
+            errorbar_lw: int = 2,
+            errorbar_alpha: float = 0.8,
 
             show_mean_balls: bool = True,
-            mean_ball_size: int = 5,
+            mean_ball_size: int = 90,
             mean_ball_outline_color: str = 'black',
             mean_ball_outline_width: float = 0.75,
             mean_ball_alpha: int = 1,
             show_median_balls: bool = False,
-            median_ball_size: int = 5,
+            median_ball_size: int = 70,
             median_ball_outline_color: str = 'black',
             median_ball_outline_width: float = 0.75,
             median_ball_alpha: int = 1,
@@ -905,10 +949,7 @@ class Plot:
             kde_inset_width: float = 0.5,
             kde_outline: float = 1,
             kde_alpha: float = 0.5,
-            kde_legend: bool = False,
             kde_fill: bool = False,
-
-            p_test: bool = False,
 
             show_legend: bool = True,
             show_grid: bool = False,
@@ -917,8 +958,6 @@ class Plot:
             plot_width: int = 15,
             plot_height: int = 9,
         ):
-
-
             """
             **Swarmplot plotting function.**
 
@@ -953,12 +992,16 @@ class Plot:
                 Span length of the mean line (default: 0.12);
                 **mean_color**:
                 (default: 'black');
+                **mean_ls**:
+                Condition mean line style (default: '-');
                 **show_median**:
                 Show condition median as a line (default: True);
                 **median_span**:
                 Span length of the median line (default: 0.08);
                 **median_color**:
                 (default: 'black');
+                **median_ls**:
+                Condition median line style (default: '--');
                 **line_width**:
                 Line width of mean and median lines (default: 1);
                 **set_main_line**:
@@ -1001,12 +1044,8 @@ class Plot:
                 Line width of the KDE outline (default: 1);
                 **kde_alpha**:
                 Transparency of the KDE (default: 0.5);
-                **kde_legend**:
-                Show legend for the KDE plots (default: False);
                 **kde_fill**:
                 Fill the KDE plots (default: False);
-                **p_test**:
-                Perform Mann-Whitney U test between all conditions and annotate the plot with the p-values (default: False);
                 **show_legend**:
                 Show legend (default: True);
                 **show_grid**:
@@ -1015,459 +1054,623 @@ class Plot:
                 Don't show the top and right axes spines (default: True);
             """
 
-
-
-
             plt.figure(figsize=(plot_width, plot_height))
+            ax = plt.gca()
 
-            if df.empty:
-                return plt.gcf()
+            if df is None or df.empty:
+                return
 
-            
+            _df = df.copy()
 
-            df['Condition'] = df['Condition'].astype(str)
-            conditions = df['Condition'].unique()
+            # === condition order & optional spacers (for KDE layout) ===
+            conditions = _df['Condition'].unique().tolist()
 
-
-            if df['Replicate'].nunique() == 1:
-                hue = 'Condition'
+            if show_kde: # TODO - make kde work for datasets with one cond only
+                spaced_conditions = ["spacer_0"] + list(
+                    chain.from_iterable(
+                        (cond, f"spacer_{i+1}") if i < len(conditions) - 1 else (cond,)
+                        for i, cond in enumerate(conditions)
+                    )
+                )
+                # Categorical with unobserved categories retained (order matters for aligning x)
+                _df['Condition'] = pd.Categorical(_df['Condition'],
+                                                categories=spaced_conditions,
+                                                ordered=True)
+                categories_for_stats = spaced_conditions
             else:
-                hue = 'Replicate'
+                _df['Condition'] = pd.Categorical(_df['Condition'],
+                                                categories=conditions,
+                                                ordered=True)
+                categories_for_stats = conditions
 
-            if show_mean and show_median:
-                if set_main_line == 'mean':
-                    mean_ls = '-'
-                    median_ls = '--'
-                elif set_main_line == 'median':
-                    mean_ls = '--'
-                    median_ls = '-'
-            if show_mean and not show_median:
-                mean_ls = '-'
-            if not show_mean and show_median:
-                median_ls = '-'
-            
+            _palette = _build_replicate_palette(_df, palette_fallback=palette)
 
-            # ======================= KDE INSET =========================
-            # If True, ensures spacing inbetween conditions for KDE plots
+            # === stats (single pass) ===
+            # keep all categories (observed=False) so spacers appear with NaNs
+            _cond_stats = (
+                _df.groupby('Condition', observed=False)[metric]
+                .agg(mean='mean', median='median', std='std', count='count')
+                .reindex(categories_for_stats)        # align to category order
+                .reset_index()
+            )
+            _rep_stats = (
+                _df.groupby(['Condition', 'Replicate'], observed=False)[metric]
+                .agg(mean='mean', median='median')
+                .reset_index()
+            )
+
+            # === base layers (seaborn handles packing/jitter efficiently) ===
+            if show_swarm:
+                sp = sns.swarmplot(
+                    data=_df,
+                    x="Condition",
+                    y=metric,
+                    hue='Replicate',
+                    palette=_palette,
+                    size=swarm_size,
+                    edgecolor=swarm_outline_color,
+                    dodge=False,
+                    alpha=swarm_alpha,
+                    legend=False,
+                    zorder=1,
+                    ax=ax,
+                )
+
+            if show_violin:
+                sns.violinplot(
+                    data=_df,
+                    x='Condition',
+                    y=metric,
+                    color=violin_fill_color,
+                    edgecolor=violin_edge_color if violin_edge_color else None,
+                    linewidth=violin_outline_width,   # (seaborn uses 'linewidth')
+                    inner=None,
+                    gap=0.1,
+                    alpha=violin_alpha,
+                    zorder=0,
+                    ax=ax,
+                )
+
+            # === replicate mean/median markers (single scatter each) ===
+            if show_mean_balls:
+                sns.scatterplot(
+                    data=_rep_stats,
+                    x='Condition', y='mean',
+                    hue='Replicate',
+                    palette=_palette,
+                    edgecolor=mean_ball_outline_color,
+                    s=mean_ball_size,
+                    legend=False,
+                    alpha=mean_ball_alpha,
+                    linewidth=mean_ball_outline_width,
+                    zorder=4,
+                    ax=ax,
+                )
+
+            if show_median_balls:
+                sns.scatterplot(
+                    data=_rep_stats,
+                    x='Condition', y='median',
+                    hue='Replicate',
+                    palette=_palette,
+                    edgecolor=median_ball_outline_color,
+                    s=median_ball_size,
+                    legend=False,
+                    alpha=median_ball_alpha,
+                    linewidth=median_ball_outline_width,
+                    zorder=4,
+                    ax=ax,
+                )
+
+            # === vectorized lines & error bars (big win) ===
+            # Build x centers as 0..N-1 in category order (seaborn does the same internally)
+            n = len(categories_for_stats)
+            x_centers = np.arange(n)
+
+            # Mask out spacers so we don't draw stats on them
+            is_spacer = _cond_stats['Condition'].astype(str).str.startswith('spacer')
+            valid = ~is_spacer
+
+            y_mean = _cond_stats.loc[valid, 'mean'].to_numpy()
+            y_median = _cond_stats.loc[valid, 'median'].to_numpy()
+            y_std = _cond_stats.loc[valid, 'std'].to_numpy()
+            x_valid = x_centers[valid.to_numpy()]
+
+            # Mean & median short spans using vectorized hlines
+            if show_mean and y_mean.size:
+                xmin = x_valid - mean_span
+                xmax = x_valid + mean_span
+                ax.hlines(y_mean, xmin, xmax,
+                        colors=mean_color, linestyles=mean_ls,
+                        linewidths=line_width, zorder=3, label='Mean')
+
+            if show_median and y_median.size:
+                xmin_m = x_valid - median_span
+                xmax_m = x_valid + median_span
+                # If both present, only label once (matplotlib de-dupes identical labels later)
+                ax.hlines(y_median, xmin_m, xmax_m,
+                        colors=median_color, linestyles=median_ls,
+                        linewidths=line_width, zorder=3,
+                        label=('Median' if not show_mean else None))
+
+            if show_error_bars and y_mean.size:
+                ax.errorbar(
+                    x_valid, y_mean, yerr=y_std,
+                    fmt='none',
+                    color=errorbar_color,
+                    alpha=errorbar_alpha,
+                    linewidth=errorbar_lw,
+                    capsize=errorbar_capsize,
+                    zorder=3,
+                    label=('Mean ± SD' if (show_mean or show_median) else 'SD')
+                )
+
+            # === KDE insets (loop only once per actual condition) ===
             if show_kde:
-
-
-                # ----------- Create artificial and dirty x-axis positions for the KDE plots ------------
-
-                spaced_conditions = ['spacer_0']
-
-                for i, condition in enumerate(conditions):
-                    spaced_conditions.append(condition)
-
-                    if i < len(conditions) - 1:
-                        spaced_conditions.append(f"spacer_{i+1}")
-
-                df['Condition'] = pd.Categorical(df['Condition'], categories=spaced_conditions, ordered=True)
-                
-                
-                # ----------------------- Swarm plot --------------------------
-
-                if show_swarm:
-                    ax = plt.gca()
-                    sns.swarmplot(
-                        data=df,
-                        x="Condition",
-                        y=metric,
-                        hue=hue,
-                        palette=palette,
-                        size=swarm_size,
-                        edgecolor=swarm_outline_color,
-                        dodge=False,
-                        alpha=swarm_alpha,
-                        legend=False,
-                        zorder=2,
-                        ax=ax,
-                    )
-                            
-                
-
-                # ------------------------ Violinplot -------------------------
-                if show_violin:
-                    sns.violinplot(
-                        data=df, 
-                        x='Condition', 
-                        y=metric, 
-                        color=violin_fill_color, 
-                        edgecolor=violin_edge_color if violin_edge_color else None, 
-                        width=violin_outline_width, 
-                        inner=None,
-                        gap=0.1, 
-                        alpha=violin_alpha, 
-                        zorder=2, 
-                        order=spaced_conditions
-                        )
-                
-
-                # ------------------------ Scatterplot of replicate means ------------------------------
-
-                
-                if show_mean_balls:
-                    replicate_means = df.groupby(['Condition', 'Replicate'])[metric].mean().reset_index()
-                    sns.scatterplot(
-                        data=replicate_means, 
-                        x='Condition', 
-                        y=metric, 
-                        hue=hue, 
-                        palette=palette, 
-                        edgecolor=mean_ball_outline_color, 
-                        s=mean_ball_size, 
-                        legend=False, 
-                        alpha=mean_ball_alpha, 
-                        linewidth=mean_ball_outline_width, 
-                        zorder=4
-                        )
-                if show_median_balls:
-                    replicate_medians = df.groupby(['Condition', 'Replicate'])[metric].median().reset_index()
-                    sns.scatterplot(
-                        data=replicate_medians, 
-                        x='Condition', 
-                        y=metric, 
-                        hue=hue, 
-                        palette=palette, 
-                        edgecolor=median_ball_outline_color, 
-                        s=median_ball_size, 
-                        legend=False, 
-                        alpha=median_ball_alpha, 
-                        linewidth=median_ball_outline_width, 
-                        zorder=4
-                        )
-                
-
-                # ---------------------------- Mean, Meadian and Error bars --------------------------------
-
-                condition_stats = df.groupby('Condition')[metric].agg(['mean', 'median', 'std']).reset_index()
-
-                cond_num_list = list(range(len(conditions)*2)) 
-                for cond in cond_num_list:
-
-                    x_center = cond_num_list[cond]  # Get the x position for the condition
-
-                    if show_mean:
-                        sns.lineplot(
-                            x=[x_center - mean_span, x_center + mean_span],
-                            y=[condition_stats['mean'].iloc[cond], condition_stats['mean'].iloc[cond]],
-                            color=mean_color, 
-                            linestyle=mean_ls, 
-                            linewidth=line_width,
-                            label='Mean' if cond == 0 else "", zorder=5
-                            )
-                        
-                    if show_median:
-                        sns.lineplot(
-                            x=[x_center - median_span, x_center + median_span],
-                            y=[condition_stats['median'].iloc[cond], condition_stats['median'].iloc[cond]],
-                            color=median_color, 
-                            linestyle=median_ls, 
-                            linewidth=line_width,
-                            label='Median' if cond == 0 else "", zorder=5
-                            )
-                        
-                    if show_error_bars:
-                        plt.errorbar(
-                            x_center, 
-                            condition_stats['mean'].iloc[cond], 
-                            yerr=condition_stats['std'].iloc[cond], 
-                            fmt='None',
-                            color=errorbar_color, 
-                            alpha=errorbar_alpha,
-                            linewidth=errorbar_lw, 
-                            capsize=errorbar_capsize, 
-                            zorder=5, 
-                            label='Mean ± SD' if cond == 0 else "",
-                            )
-                        
-
-                # -------------------------------- P-tests -------------------------------------
-
-                if p_test:
-
-                    real_conditions = [cond for cond in spaced_conditions if not cond.startswith('spacer')]
-                    pos_mapping = {cat: idx for idx, cat in enumerate(spaced_conditions)}
-                
-                    y_max = df[metric].max()
-                    y_offset = y_max * 0.1
-
-                    for i, (cond1, cond2) in enumerate(combinations(real_conditions, 2)):
-                        data1 = df[df['Condition'] == cond1][metric]
-                        data2 = df[df['Condition'] == cond2][metric]
-                        stat, p_value = mannwhitneyu(data1, data2)
-                        x1, x2 = pos_mapping[cond1], pos_mapping[cond2]
-                        y = y_max + y_offset * (i + 1)
-                        plt.plot([x1, x1, x2, x2],
-                                [y+4.5, y + y_offset / 2.5, y + y_offset / 2.5, y+1.5],
-                                lw=1, color='black')
-                        plt.text((x1 + x2) / 2, y + y_offset / 2,
-                                f'p = {round(p_value, 3):.3f}', ha='center', va='bottom', 
-                                fontsize=10, color='black')
-                
-
-
-                # ------------------------ Dirty B.     ..ars ----------------------------
-                # A dirty way to shift the x-axis positions and make room for the KDE plots
-
-                dirty_b = list(range(-1, len(conditions)*2))
-                for i in dirty_b:
-                    x_val = dirty_b[i]
-                    sns.lineplot(
-                        x=x_val-0.5,
-                        y=[condition_stats['median'].iloc[i]],
-                        color='white', 
-                        linewidth=0,
-                        label="", 
-                        zorder=0
-                        )
-
-
-                # ------------------------ KDE inset plots ----------------------------
-
-                ax = plt.gca()
+                # After base layers, use established y-limits to size insets
                 y_ax_min, y_ax_max = ax.get_ylim()
-                
-                for cond in cond_num_list[::2]:
-                    group_df = df[df['Condition'] == conditions[cond // 2]]   # DataFrame group for a given condition
 
-                    y_max = group_df[metric].max()
-                    inset_height = y_ax_max * (y_max/y_ax_max) + abs(y_ax_min)   # height of the inset plot
-                    inset_y = y_ax_min   # y inset position
+                # Iterate over actual conditions (even positions in spaced layout)
+                for i, cond in enumerate(conditions):
+                    group_df = _df[_df['Condition'] == cond]
+                    if group_df.empty:
+                        continue
 
-                    x_val = cond_num_list[cond]  
-                    offset_x = 0.5
+                    # inset geometry in data coords
+                    x_pos = 2 * i + 2  # even positions: 0,2,4...
+                    offset_x = 0.31
+                    inset_height = y_ax_max - (y_ax_max - group_df[metric].max()) + abs(y_ax_min * 2)
 
-                    inset_ax = ax.inset_axes([x_val - offset_x, inset_y, kde_inset_width, inset_height], transform=ax.transData, zorder=0, clip_on=True)
-                    
+                    inset_ax = ax.inset_axes(
+                        [x_pos - offset_x, y_ax_min, kde_inset_width, inset_height],
+                        transform=ax.transData, zorder=0, clip_on=True
+                    )
                     sns.kdeplot(
-                        data=group_df,
-                        y=metric,
-                        hue=hue,
-                        fill=kde_fill,
-                        alpha=kde_alpha,
-                        lw=kde_outline,
-                        palette=palette,
-                        ax=inset_ax,
-                        legend=kde_legend,
-                        zorder=0,
-                        clip=(y_ax_min, y_ax_max)
-                        )
-                    
-                    inset_ax.invert_xaxis()
-                    inset_ax.set_xticks([])
-                    inset_ax.set_yticks([])
-                    inset_ax.set_xlabel('')
-                    inset_ax.set_ylabel('')
-        
-                    sns.despine(ax=inset_ax, left=True, bottom=False, top=True, right=True)
-
-
-
-                # ------------------------ X axis clean-up ----------------------------
-                # Another dirty trick - removing the spacer labels from the x-axis
-
-                plt.xticks(
-                    ticks=range(len(spaced_conditions)),
-                    labels=[lbl if not lbl.startswith("spacer") else "" for lbl in spaced_conditions]
+                        data=group_df, y=metric, hue='Replicate',
+                        fill=kde_fill, alpha=kde_alpha, lw=kde_outline,
+                        palette=_palette, ax=inset_ax, legend=False,
+                        zorder=0, clip=(y_ax_min, y_ax_max),
                     )
-                # plt.yticks(ticks=np.arange(0, y_ax_max, step=25))
+                    # inset_ax.invert_xaxis()
+                    inset_ax.set_xticks([]); inset_ax.set_yticks([])
+                    inset_ax.set_xlabel(''); inset_ax.set_ylabel('')
+                    sns.despine(ax=inset_ax, left=True, bottom=True, top=True, right=True)
 
+                # Ticks: show only real conditions
+                ticks = [i for i, lbl in enumerate(categories_for_stats) if not str(lbl).startswith('spacer')]
+                labels = [categories_for_stats[i] for i in ticks]
+                plt.xticks(ticks=ticks, labels=labels)
 
-
-
-            # ======================= IF FALSE KDE INSET =========================
-            
-            if show_kde == False:
-
-                # ------------------------------------------ Swarm plot -----------------------------------------------------------
-
-                if show_swarm:
-                    ax = plt.gca()
-                    sns.swarmplot(
-                        data=df,
-                        x="Condition",
-                        y=metric,
-                        hue=hue,
-                        palette=palette,
-                        size=swarm_size,
-                        edgecolor=swarm_outline_color,
-                        dodge=False,
-                        alpha=swarm_alpha,
-                        legend=False,
-                        zorder=2,
-                        ax=ax,
-                    )
-
-
-                # ----------------------------------- Scatterplot of replicate means ------------------------------------------------------
-
-                if show_mean_balls:
-                    replicate_means = df.groupby(['Condition', 'Replicate'])[metric].mean().reset_index()
-                    sns.scatterplot(
-                        data=replicate_means, 
-                        x='Condition', 
-                        y=metric, 
-                        hue=hue, 
-                        palette=palette, 
-                        edgecolor=mean_ball_outline_color, 
-                        s=mean_ball_size, 
-                        legend=False, 
-                        alpha=mean_ball_alpha, 
-                        linewidth=mean_ball_outline_width, 
-                        zorder=4
-                        )
-                if show_median_balls:
-                    replicate_medians = df.groupby(['Condition', 'Replicate'])[metric].median().reset_index()
-                    sns.scatterplot(
-                        data=replicate_medians, 
-                        x='Condition', 
-                        y=metric, 
-                        hue=hue, 
-                        palette=palette, 
-                        edgecolor=median_ball_outline_color, 
-                        s=median_ball_size, 
-                        legend=False, 
-                        alpha=median_ball_alpha, 
-                        linewidth=median_ball_outline_width, 
-                        zorder=4
-                        )
-
-
-                # -------------------------------------------- Violin plot ---------------------------------------------------------
-
-                if show_violin:
-                    sns.violinplot(
-                        data=df, 
-                        x='Condition', 
-                        y=metric, 
-                        color=violin_fill_color, 
-                        edgecolor=violin_edge_color if violin_edge_color else None, 
-                        width=violin_outline_width, 
-                        inner=None,
-                        gap=0.2, 
-                        alpha=violin_alpha, 
-                        zorder=1
-                        )
-                
-
-                #  ------------------------------------ Mean, median and errorbar lines -------------------------------------------
-
-                condition_stats = df.groupby('Condition')[metric].agg(['mean', 'median', 'std']).reset_index()
-                for i, row in condition_stats.iterrows():
-                    x_center = i   # x coordinate
-                    if show_mean:
-                        sns.lineplot(
-                            x=[x_center - mean_span, x_center + mean_span], 
-                            y=[row['mean'], row['mean']], 
-                            color=mean_color, 
-                            linestyle=mean_ls, 
-                            linewidth=line_width, 
-                            label='Mean' if i == 0 else "", 
-                            zorder=4
-                            )
-                    
-                    if show_median:
-                        sns.lineplot(
-                            x=[x_center - median_span, x_center + median_span], 
-                            y=[row['median'], row['median']], 
-                            color=median_color, 
-                            linestyle=median_ls, 
-                            linewidth=line_width, 
-                            label='Median' if i == 0 else "", 
-                            zorder=4
-                            )
-                    
-                    if show_error_bars:
-                        plt.errorbar(
-                            x=x_center, 
-                            y=row['mean'], 
-                            yerr=row['std'], 
-                            fmt='None',
-                            color=errorbar_color, 
-                            alpha=errorbar_alpha, 
-                            linewidth=errorbar_lw, 
-                            capsize=errorbar_capsize, 
-                            zorder=5, 
-                            label='Mean ± SD' if i == 0 else ""
-                            )
-                    
-                
-                # ---------------------------------------- P-tests ------------------------------------------------------------
-
-                if p_test:
-                    conditions = df['Condition'].unique()
-                    pairs = list(combinations(conditions, 2))
-                    y_max = df[metric].max()
-                    y_offset = (y_max * 0.1)  # Offset for p-value annotations
-                    for i, (cond1, cond2) in enumerate(pairs):
-                        data1 = df[df['Condition'] == cond1][metric]
-                        data2 = df[df['Condition'] == cond2][metric]
-                        stat, p_value = mannwhitneyu(data1, data2)
-                        
-                        # Annotate the plot with the p-value
-                        x1, x2 = conditions.tolist().index(cond1), conditions.tolist().index(cond2)
-                        y = y_max + y_offset * (i + 1)
-                        plt.plot([x1, x1, x2, x2], [y+4.5, y + y_offset / 2.5, y + y_offset / 2.5, y+1.5], lw=1, color='black')
-                        plt.text((x1 + x2) / 2, y + y_offset / 2, f'p = {round(p_value, 3):.3f}', ha='center', va='bottom', fontsize=10, color='black')
-
-                
-
-            # ----------------------- Title settings ----------------------------
-
-            # title = f"Swarm Plot"
-
-
+            # === axes cosmetics (unchanged) ===
             plt.title(title)
             plt.xlabel("Condition")
-            plt.ylabel(metric)
+            plt.ylabel(f"{metric} {SetUnits(t='s').get(metric)}")
 
-            # Add a legend
-            if show_mean_balls:
-                replicate_handle = mlines.Line2D([], [], marker='o', color='w', markerfacecolor=sns.color_palette(palette)[0], markeredgecolor=mean_ball_outline_color, markersize=10, label='Replicate Means')
-                handles, labels = plt.gca().get_legend_handles_labels()
-                handles.insert(0, replicate_handle)
-                labels.insert(0, 'Replicate Means')
-            if show_median_balls:
-                replicate_handle = mlines.Line2D([], [], marker='o', color='w', markerfacecolor=sns.color_palette(palette)[0], markeredgecolor='black', markersize=10, label='Replicate Medians')
-                handles, labels = plt.gca().get_legend_handles_labels()
-                handles.insert(0, replicate_handle)
-                labels.insert(0, 'Replicate Medians')
-            
-            try:
-                if show_legend:
-                    plt.legend(handles=handles, labels=labels, title='Legend', title_fontsize='12', fontsize='10', loc='upper right', bbox_to_anchor=(1.15, 1), frameon=True)
-                else:
+            if show_legend:
+                handles, labels = [], []
+
+                # Replicate entries
+                for r in _df['Replicate'].astype(str).unique().tolist():
+                    c = _palette.get(r, 'grey')
+                    handles.append(mlines.Line2D([], [], linestyle='None',
+                                                marker='o', markersize=8,
+                                                markerfacecolor=c,
+                                                markeredgecolor='black',
+                                                label=(str(r) + " median")))
+                    labels.append(str(r) + " median")
+
+                # Stats entries (mirror your original logic)
+                if show_mean and not show_error_bars:
+                    handles.append(mlines.Line2D([], [], color=mean_color,
+                                                linestyle=mean_ls, linewidth=line_width,
+                                                label='Mean'))
+                    labels.append('Mean')
+                elif show_error_bars and not show_mean:
+                    handles.append(mlines.Line2D([], [], color=errorbar_color,
+                                                linestyle='-', linewidth=errorbar_lw,
+                                                marker='_', markersize=10,
+                                                label='SD'))
+                    labels.append('SD')
+                elif show_mean and show_error_bars:
+                    handles.append(mlines.Line2D([], [], color=errorbar_color,
+                                                linestyle='-', linewidth=errorbar_lw,
+                                                marker='_', markersize=10,
+                                                label='Mean ± SD'))
+                    labels.append('Mean ± SD')
+
+                if show_median:
+                    handles.append(mlines.Line2D([], [], color=median_color,
+                                                linestyle=median_ls, linewidth=line_width,
+                                                label='Median'))
+                    labels.append('Median')
+
+                leg = ax.legend(handles, labels, title='Legend',
+                                title_fontsize=12, fontsize=10,
+                                loc='upper right', bbox_to_anchor=(1.15, 1),
+                                frameon=True)
+                try:
+                    sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1))
+                except Exception:
+                    pass
+            else:
+                try:
                     plt.legend().remove()
-
-            except:
-                pass
+                except Exception:
+                    pass
 
             sns.despine(top=open_spine, right=open_spine, bottom=False, left=False)
             plt.tick_params(axis='y', which='major', length=7, width=1.5, direction='out', color='black')
-            plt.tick_params(axis='x', which='major', length=0)
+            plt.tick_params(axis='x', which='major', length=5, width=1.5, direction='out', color='black', rotation=345)
             if show_grid:
                 plt.grid(show_grid, axis='y', color='lightgrey', linewidth=1.5, alpha=0.2)
             else:
                 plt.grid(False)
 
-            # Only move legend if it exists
+            # Keep your legend move safeguard
             try:
                 if plt.gca().get_legend() is not None:
                     sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1))
-            except:
+            except Exception:
                 try:
                     ax = plt.gca()
                     if plt.gca().get_legend() is not None:
                         sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1))
-                except:
+                except Exception:
                     pass
 
-            # plt.savefig("plot.svg", format='svg', bbox_inches='tight')
             return plt.gcf()
 
+
     class Tracks:
-        pass
+        
+        @staticmethod
+        def VisualizeTracksRealistics(
+            Spots_df: pd.DataFrame,
+            Tracks_df: pd.DataFrame,
+            condition: str,
+            *args,
+            replicate: str = 'all',
+            c_mode: str = 'differentiate replicates',
+            only_one_color: str = 'blue',
+            lut_scaling_metric: str = 'Track displacement',
+            background: str = 'dark',
+            smoothing_index: int | float = 0,
+            lw: float = 1.0,
+            show_tracks: bool = True,
+            grid: bool = True,
+            arrows: bool = False,
+            arrowsize: float = 5.0,
+        ):
+            # --- Early outs / guards -------------------------------------------------
+
+            Spots = Spots_df.copy()
+            Tracks = Tracks_df.copy()
+            
+            # --- Filter & sort once ---------------------------------------------------
+            required = ['Condition', 'Replicate', 'Track ID', 'Time point', 'X coordinate', 'Y coordinate']
+            if any(col not in Spots.columns for col in required):
+                return plt.gcf()
+
+            if replicate == 'all':
+                Spots = Spots.loc[Spots['Condition'] == condition]
+                Tracks = Tracks.loc[Tracks['Condition'] == condition]
+            elif replicate != 'all':
+                Spots = Spots.loc[Spots['Replicate'] == replicate]
+                Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+
+            Spots = Spots.sort_values(['Condition', 'Replicate', 'Track ID', 'Time point'])
+            Tracks = Tracks.sort_values(['Condition', 'Replicate', 'Track ID'])
+
+            # Ensure we can group efficiently
+            key_cols = ['Condition', 'Replicate', 'Track ID']
+
+            # Ensure keys exist only as index (no duplicate columns)
+            Spots = Spots.set_index(key_cols, drop=True)      # drop=True is the default; keeps keys out of columns
+            Tracks = Tracks.set_index(key_cols, drop=True)
+
+            # --- Optional smoothing (vectorized) --------------------------------------
+            if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+                win = int(smoothing_index)
+                Spots['X coordinate'] = (
+                    Spots.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+                )
+                Spots['Y coordinate'] = (
+                    Spots.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+                )
+
+            # --- Colors: compute once, map to each track ------------------------------
+            rng = np.random.default_rng(42)
+
+            def rand_color():
+                return mcolors.to_hex(rng.random(3))
+            def rand_grey():
+                g = float(rng.random())
+                return mcolors.to_hex((g, g, g))
+
+            colormap = None
+            if c_mode in ['random colors', 'random greys', 'only-one-color']:
+                # one color per *track*
+                unique_tracks = Tracks.index.unique()
+                if c_mode == 'random colors':
+                    colors = [rand_color() for _ in range(len(unique_tracks))]
+                elif c_mode == 'random greys':
+                    colors = [rand_grey() for _ in range(len(unique_tracks))]
+                else:
+                    colors = [only_one_color] * len(unique_tracks)
+                track_to_color = dict(zip(unique_tracks, colors))
+                Tracks['Track color'] = [track_to_color[idx] for idx in Tracks.index]
+
+            elif c_mode == 'differentiate replicates':
+                Tracks['Track color'] = Tracks['Replicate color'] if 'Replicate color' in Tracks.columns else "black"
+
+            else:
+                # interpret c_mode as a matplotlib cmap name
+                colormap = _get_cmap(c_mode)
+                vmin = float(Tracks[lut_scaling_metric].min())
+                vmax = float(Tracks[lut_scaling_metric].max())
+                norm = plt.Normalize(vmin, vmax)
+                Tracks['Track color'] = [mcolors.to_hex(colormap(norm(v))) for v in Tracks[lut_scaling_metric].to_numpy()]
+
+            # Map per-track color down to Spots (single join; vectorized)
+            # Replace the ambiguous join with this:
+            Spots = Spots.join(
+                Tracks[['Track color']],
+                on=['Condition', 'Replicate', 'Track ID'],
+                how='left',
+                validate='many_to_one',
+            )
+            # --- Build line segments for LineCollection -------------------------------
+            # Each segment is an array of shape (Ni, 2) for a track
+            segments = []
+            seg_colors = []
+            # Using groupby over MultiIndex is still C-optimized; the loop is per-track (not per-point)
+            for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                if xy.shape[0] >= 2:
+                    segments.append(xy)
+                    seg_colors.append(g['Track color'].iloc[0])
+
+            # --- Figure / axes setup ---------------------------------------------------
+            if background == 'light':
+                grid_color, face_color, grid_alpha, grid_ls = 'gainsboro', 'white', 0.5, '-.' if grid else 'None'
+            else:
+                grid_color, face_color, grid_alpha, grid_ls = 'silver', 'darkgrey', 0.75, '-.' if grid else 'None'
+
+            fig, ax = plt.subplots(figsize=(13, 10))
+            if len(Spots):
+                x = Spots['X coordinate'].to_numpy()
+                y = Spots['Y coordinate'].to_numpy()
+                ax.set_xlim(np.nanmin(x), np.nanmax(x))
+                ax.set_ylim(np.nanmin(y), np.nanmax(y))
+
+            ax.set_aspect('equal', adjustable='box')
+            ax.set_xlabel('X coordinate [microns]')
+            ax.set_ylabel('Y coordinate [microns]')
+            ax.set_title('Track Visualization', fontsize=12)
+            ax.set_facecolor(face_color)
+            ax.grid(grid, which='both', axis='both', color=grid_color, linestyle=grid_ls, linewidth=1, alpha=grid_alpha)
+
+            # Ticks: use Locators/Formatters instead of setting ticklabels manually
+            ax.xaxis.set_major_locator(MultipleLocator(200))
+            ax.yaxis.set_major_locator(MultipleLocator(200))
+            ax.xaxis.set_minor_locator(MultipleLocator(50))
+            ax.yaxis.set_minor_locator(MultipleLocator(50))
+            ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            ax.tick_params(axis='both', which='major', labelsize=8)
+
+            # --- Draw all tracks at once ----------------------------------------------
+            if segments:
+                lc = LineCollection(segments, colors=seg_colors, linewidths=lw if show_tracks else 0, zorder=10)
+                ax.add_collection(lc)
+
+            # --- Optional arrows (use quiver in one batch) ----------------------------
+            if arrows:
+                # Take the last two points of each track to estimate direction
+                tails_x, tails_y, dxs, dys, c_arr = [], [], [], [], []
+                # Vectorized-ish: one pass per track (still cheap)
+                for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+                    arr = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                    if arr.shape[0] >= 2:
+                        x0, y0 = arr[-2]
+                        x1, y1 = arr[-1]
+                        dx, dy = x1 - x0, y1 - y0
+                        tails_x.append(x0); tails_y.append(y0)
+                        dxs.append(dx); dys.append(dy)
+                        c_arr.append(g['Track color'].iloc[0])
+                if tails_x:
+                    # Matplotlib quiver supports a single color or an array mapped via a colormap.
+                    # We add multiple quivers in chunks to preserve per-arrow colors efficiently.
+                    # (One large call per unique color is still fast.)
+                    tails_x = np.array(tails_x); tails_y = np.array(tails_y)
+                    dxs = np.array(dxs); dys = np.array(dys)
+                    c_arr = np.array(c_arr)
+                    for col in np.unique(c_arr):
+                        mask = c_arr == col
+                        ax.quiver(
+                            tails_x[mask], tails_y[mask], dxs[mask], dys[mask],
+                            angles='xy', scale_units='xy', scale=1,
+                            width=0.003 * arrowsize, headlength=5*arrowsize, headaxislength=4*arrowsize, headwidth=4*arrowsize,
+                            color=col, zorder=30
+                        )
+            return plt.gcf()
+
+
+        @staticmethod
+        def VisualizeTracksNormalized(
+            Spots_df: pd.DataFrame,
+            Tracks_df: pd.DataFrame,
+            condition: str,
+            *args,
+            replicate: str = 'all',
+            c_mode: str = 'differentiate replicates',
+            only_one_color: str = 'blue',
+            lut_scaling_metric: str = 'Track displacement',
+            smoothing_index: float = 0,
+            lw: float = 1.0,
+            show_tracks: bool = True,
+            grid: bool = True,
+            arrows: bool = False,
+            arrowsize: int = 5,
+        ):
+            # ----------------- copies / guards -----------------
+            Spots_all = Spots_df.copy()
+            Spots = Spots_df.copy()
+            Tracks = Tracks_df.copy()
+
+            required_spots = ['Condition','Replicate','Track ID','Time point','X coordinate','Y coordinate']
+            if any(col not in Spots.columns for col in required_spots):
+                return plt.gcf()
+
+            # ----------------- filter subset to draw -----------------
+            if condition == 'all':
+                if replicate != 'all':
+                    Spots = Spots.loc[Spots['Replicate'] == replicate]
+                    Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+            else:
+                Spots = Spots.loc[Spots['Condition'] == condition]
+                Tracks = Tracks.loc[Tracks['Condition'] == condition]
+                if replicate != 'all':
+                    Spots = Spots.loc[Spots['Replicate'] == replicate]
+                    Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+
+            sort_cols = ['Condition','Replicate','Track ID','Time point']
+            key_cols = ['Condition','Replicate','Track ID']
+            Spots = Spots.sort_values(sort_cols).set_index(key_cols, drop=True)
+            Tracks = Tracks.sort_values(['Condition','Replicate','Track ID']).set_index(key_cols, drop=True)
+
+            # ----------------- smoothing (subset) -----------------
+            if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+                win = int(smoothing_index)
+                Spots['X coordinate'] = Spots.groupby(level=key_cols)['X coordinate'] \
+                    .transform(lambda s: s.rolling(win, min_periods=1).mean())
+                Spots['Y coordinate'] = Spots.groupby(level=key_cols)['Y coordinate'] \
+                    .transform(lambda s: s.rolling(win, min_periods=1).mean())
+
+            # ----------------- normalize (subset) -----------------
+            x0 = Spots.groupby(level=key_cols)['X coordinate'].transform('first')
+            y0 = Spots.groupby(level=key_cols)['Y coordinate'].transform('first')
+            Spots['Xn'] = Spots['X coordinate'] - x0
+            Spots['Yn'] = Spots['Y coordinate'] - y0
+
+            # ----------------- colors on Tracks, join to Spots -----------------
+            rng = np.random.default_rng(42)
+            track_index = Tracks.index.unique()
+
+            if c_mode in ['random colors', 'random greys', 'only-one-color']:
+                if c_mode == 'random colors':
+                    cols = _rand_hex_colors(len(track_index), rng)
+                elif c_mode == 'random greys':
+                    cols = _rand_hex_greys(len(track_index), rng)
+                else:
+                    cols = [mcolors.to_hex(only_one_color)] * len(track_index)
+                Tracks['Track color'] = [dict(zip(track_index, cols))[idx] for idx in Tracks.index]
+
+            elif c_mode == 'differentiate replicates':
+                if 'Replicate color' in Tracks.columns:
+                    Tracks['Track color'] = Tracks['Replicate color'].astype(str)
+                else:
+                    reps = Tracks.reset_index()['Replicate'].unique().tolist()
+                    rep_cols = _rand_hex_colors(len(reps), rng)
+                    rep2col = dict(zip(reps, rep_cols))
+                    Tracks = Tracks.reset_index()
+                    Tracks['Track color'] = Tracks['Replicate'].map(rep2col)
+                    Tracks = Tracks.set_index(key_cols)
+
+            else:
+                cmap = _get_cmap(c_mode)
+                vmin = float(Tracks[lut_scaling_metric].min()) if lut_scaling_metric in Tracks.columns else 0.0
+                vmax = float(Tracks[lut_scaling_metric].max()) if lut_scaling_metric in Tracks.columns else 1.0
+                norm = plt.Normalize(vmin, vmax)
+                vals = Tracks[lut_scaling_metric].to_numpy() if lut_scaling_metric in Tracks.columns else np.zeros(len(Tracks))
+                Tracks['Track color'] = [mcolors.to_hex(cmap(norm(v))) for v in vals]
+
+            Spots = Spots.join(Tracks[['Track color']], on=key_cols, how='left', validate='many_to_one')
+
+            # ----------------- polar conversion (subset) -----------------
+            Spots['r'] = np.sqrt(Spots['Xn']**2 + Spots['Yn']**2)
+            Spots['theta'] = np.arctan2(Spots['Yn'], Spots['Xn'])
+
+            # ----------------- GLOBAL y_max from full dataset -----------------
+            All = Spots_all.sort_values(sort_cols).set_index(key_cols, drop=True)
+            if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+                win = int(smoothing_index)
+                AllX = All.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+                AllY = All.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+            else:
+                AllX, AllY = All['X coordinate'], All['Y coordinate']
+            AllX0 = AllX.groupby(level=key_cols).transform('first')
+            AllY0 = AllY.groupby(level=key_cols).transform('first')
+            All_r = np.sqrt((AllX - AllX0)**2 + (AllY - AllY0)**2)
+
+            y_max_global = float(np.nanmax(All_r.to_numpy())) if len(All_r) else 1.0
+            if not np.isfinite(y_max_global) or y_max_global <= 0:
+                y_max_global = 1.0
+            y_max = y_max_global * 1.1  # headroom
+
+            # ----------------- segments (subset) -----------------
+            segments, seg_colors = [], []
+            for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+                th = g['theta'].to_numpy(dtype=float, copy=False)
+                rr = g['r'].to_numpy(dtype=float, copy=False)
+                if th.size >= 2:
+                    segments.append(np.column_stack([th, rr]))
+                    seg_colors.append(g['Track color'].iloc[0])
+
+            # ----------------- figure / axes -----------------
+            fig, ax = plt.subplots(figsize=(12.5, 9.5), subplot_kw={'projection': 'polar'})
+            ax.set_facecolor('white')
+            ax.set_title('Normalized Tracks', fontsize=12)
+            ax.set_ylim(0, y_max)        # <- global, consistent across subsets
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.spines['polar'].set_visible(False)
+            ax.grid(grid)
+
+            # ----------------- draw tracks -----------------
+            if segments:
+                lc = LineCollection(segments, colors=seg_colors, linewidths=lw if show_tracks else 0, zorder=10)
+                lc.set_transform(ax.transData)
+                ax.add_collection(lc)
+
+            # ----------------- arrows (optional) -----------------
+            if arrows and 'Direction mean (rad)' in Tracks.columns:
+                arrow_length = 1.0
+                last_pts = Spots.groupby(level=key_cols, sort=False).tail(1).reset_index()
+                mean_dir = Tracks.reset_index()[key_cols + ['Direction mean (rad)','Track color']]
+                merged = pd.merge(last_pts, mean_dir, on=key_cols, how='left', validate='one_to_one')
+                xe, ye = merged['Xn'].to_numpy(), merged['Yn'].to_numpy()
+                md = merged['Direction mean (rad)'].to_numpy()
+                cols = merged['Track color'].astype(str).to_numpy()
+                xt, yt = xe + arrow_length*np.cos(md), ye + arrow_length*np.sin(md)
+                tail_r = np.sqrt(xe**2 + ye**2); tail_th = np.arctan2(ye, xe)
+                tip_r  = np.sqrt(xt**2 + yt**2); tip_th  = np.arctan2(yt, xt)
+                if tail_r.size:
+                    for col in np.unique(cols):
+                        m = (cols == col)
+                        for th0, r0, th1, r1 in zip(tail_th[m], tail_r[m], tip_th[m], tip_r[m]):
+                            ax.annotate('', xy=(th1, r1), xytext=(th0, r0),
+                                        arrowprops=dict(arrowstyle='-|>', color=str(col),
+                                                        lw=lw if show_tracks else 0, mutation_scale=arrowsize),
+                                        annotation_clip=False)
+
+            # ----------------- subtle grid cosmetics -----------------
+            for i, line in enumerate(ax.get_xgridlines()):
+                if i % 2 == 0:
+                    line.set_linestyle('--'); line.set_color('grey'); line.set_linewidth(0.5)
+            for line in ax.get_ygridlines():
+                line.set_linestyle('-.'); line.set_color('lightgrey'); line.set_linewidth(0.5)
+
+            # ----------------- μm label on the side (no line) -----------------
+            # Show the global radius (rounded) just outside the right edge, centered vertically.
+            label_um = f"{int(np.round(y_max_global))} μm"
+            ax.text(1.03, 0.5, label_um,
+                    transform=ax.transAxes, ha='left', va='center',
+                    fontsize=10, color='dimgray', clip_on=False)
+
+            return plt.gcf()
+
+
 
     class TimeCharts:
         pass

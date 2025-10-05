@@ -72,12 +72,34 @@ class Metrics:
         "Direction std (rad)",
     ]
 
-    TimeUnits = {
-        "seconds": "s",
-        "minutes": "min",
-        "hours": "h",
-        "days": "d",
-    }
+    class Units:
+        """
+        Class holding units options for the UI.
+        """
+
+        TimeUnits = {
+            "seconds": "s",
+            "minutes": "min",
+            "hours": "h",
+            "days": "d",
+        }
+
+        def SetUnits(t: str) -> dict:
+            return {
+                "Track length": "(µm)",
+                "Track displacement": "(µm)",
+                "Confinement ratio": "",
+                "Track points": "",
+                "Speed mean": f"(µm·{t}⁻¹)",
+                "Speed median": f"(µm·{t}⁻¹)",
+                "Speed max": f"(µm·{t}⁻¹)",
+                "Speed min": f"(µm·{t}⁻¹)",
+                "Speed std": f"(µm·{t}⁻¹)",
+                "Direction mean (deg)": "",
+                "Direction mean (rad)": "",
+                "Direction std (deg)": "",
+                "Direction std (rad)": "",
+            }
     
 
     class Thresholding:
@@ -144,7 +166,7 @@ class Styles:
     ColorMode = [
         "random colors",
         "random greys",
-        "differentiate conditions/replicates",
+        "differentiate replicates",
         "only-one-color",
         "greyscale LUT", 
         "jet LUT", 

@@ -144,7 +144,7 @@ app_ui = ui.page_sidebar(
                                 ui.input_selectize("select_t", "Time point:", ["e.g. POSITION_T"]),
                                 ui.row(
                                     ui.column(6,
-                                        ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.TimeUnits.keys()), selected="seconds"),
+                                        ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.Units.TimeUnits.keys()), selected="seconds"),
                                         style_="margin-bottom: 5px;",
                                     ),
                                 ),
@@ -248,7 +248,7 @@ app_ui = ui.page_sidebar(
                             """
                         ),
 
-                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic - image", "Realistic - image w hover-info", "Realistic - sequence", "Normalized",  "Normalized w hover-info"], selected="Realistic - image"),
+                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic", "Normalized"], selected="Realistic - image"),
 
                         ui.accordion(
                             ui.accordion_panel(
@@ -290,8 +290,8 @@ app_ui = ui.page_sidebar(
                                 "Coloring",
                                 ui.input_selectize("color_mode", "Color mode:", Styles.ColorMode),
                                 ui.panel_conditional(
-                                    "input.color_mode != 'random greys' && input.color_mode != 'random colors' && input.color_mode != 'only-one-color' && input.color_mode != 'differentiate conditions/replicates'",
-                                    ui.input_selectize('lut_scaling', 'LUT scaling metric:', []),
+                                    "input.color_mode != 'random greys' && input.color_mode != 'random colors' && input.color_mode != 'only-one-color' && input.color_mode != 'differentiate replicates'",
+                                    ui.input_selectize('lut_scaling', 'LUT scaling metric:', ["Track displacement"]),
                                 ),
                                 ui.panel_conditional(
                                     "input.color_mode == 'only-one-color'",
@@ -300,17 +300,30 @@ app_ui = ui.page_sidebar(
                                 ui.input_selectize('background', 'Background:', Styles.Background),
                                 ui.input_checkbox("show_gridlines", "Gridlines", True),
                             ),
-                            ui.accordion_panel(
-                                "Hover info",
-                                ui.input_selectize("let_me_look_at_these", "Let me look at these:", ["Condition", "Track length", "Track displacement", "Speed mean"], multiple=True),
-                                ui.input_action_button("hover_info", "See info"),
-                            ),
                         ),
+                        ui.markdown(""" <br> """),
+                        ui.input_text(id="tv_title", label=None, placeholder="Title me!"),
+
+                        ui.markdown(""" <br> """),
+                        ui.input_task_button(id="tv_generate", label="Generate", class_="btn-secondary", width="100%"),
                     ),
                     ui.markdown(""" <br> """),
                     # Plotly outputs
-                    ui.output_plot("track_reconstruction"),
-                    ui.download_button("download_track_reconstruction", "Download Plot"),
+                    ui.panel_conditional(
+                        "input.track_reconstruction_method == 'Realistic'",
+                        ui.card(
+                            ui.output_plot("track_reconstruction_realistic"),
+                            full_screen=True
+                        )
+                    ),
+                    ui.panel_conditional(
+                        "input.track_reconstruction_method == 'Normalized'",
+                        ui.card(
+                            ui.output_plot("track_reconstruction_normalized"),
+                            full_screen=True
+                        )
+                    ),
+                    ui.download_button("download_track_reconstruction", "Download", width="100%"),
                     ui.panel_conditional(
                         "input.color_mode != 'random greys' && input.color_mode != 'random colors' && input.color_mode != 'only-one-color' && input.color_mode != 'differentiate conditions/replicates'",
                         ui.download_button("download_lut_map_svg", "Download LUT Map SVG"),
@@ -613,11 +626,11 @@ app_ui = ui.page_sidebar(
                                 ui.row(
                                     ui.column(
                                         6,
-                                        ui.input_numeric(id="sp_fig_width", label="Fig width:", value=15, min=1, step=0.5)
+                                        ui.input_numeric(id="sp_fig_width", label="Fig width:", value=10, min=1, step=0.5)
                                     ),
                                     ui.column(
                                         6,
-                                        ui.input_numeric(id="sp_fig_height", label="Fig height:", value=9, min=1, step=0.5)
+                                        ui.input_numeric(id="sp_fig_height", label="Fig height:", value=7, min=1, step=0.5)
                                     ),
                                 ),
                             ),
@@ -766,16 +779,17 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.markdown(""" <br> """),
                     # ui.output_ui("sp_plot_card"),
-                    ui.card(
-                        ui.div(
-                            # Make the *plot image* larger than the panel so scrolling kicks in
-                            # ui.output_plot("bigplot", width="1400px", height="1000px"),
-                            ui.output_plot(id="swarmplot", fill=False),
-                            style="height: 300px; overflow:auto;",
-                            # class_="scroll-panel",
-                        ),
-                        full_screen=False,
-                    ),
+                    ui.output_ui("sp_plot_card"),
+                    # ui.card(
+                    #     ui.div(
+                    #         # Make the *plot image* larger than the panel so scrolling kicks in
+                    #         # ui.output_plot("bigplot", width="1400px", height="1000px"),
+                    #         ui.output_plot(id="swarmplot", fill=False),
+                    #         style="height: 300px; overflow:auto;",
+                    #         # class_="scroll-panel",
+                    #     ),
+                    #     full_screen=True, fill=False
+                    # ),
                     ui.markdown(""" <br> """),
                     ui.download_button(id="download_swarmplot_svg", label="Download SVG", width="100%"),
                 ),
@@ -831,6 +845,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     TRACKSTATS = reactive.Value(pd.DataFrame())
     FRAMESTATS = reactive.Value(pd.DataFrame())
 
+    UNITS = reactive.Value()
 
 
 
@@ -1046,27 +1061,27 @@ def server(input: Inputs, output: Outputs, session: Session):
                             print(input[f"replicate_color{idx}"]())
                             color = input[f"replicate_color{idx}"]()
                             if color:
-                                df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate Color"] = color
-                                df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate Color"] = color
-                                df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate Color"] = color
-                                df_spots.loc[df_spots["Replicate"] == rep, "Replicate Color"] = color
-                                df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate Color"] = color
-                                df_frames.loc[df_frames["Replicate"] == rep, "Replicate Color"] = color
+                                df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate color"] = color
+                                df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate color"] = color
+                                df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate color"] = color
+                                df_spots.loc[df_spots["Replicate"] == rep, "Replicate color"] = color
+                                df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate color"] = color
+                                df_frames.loc[df_frames["Replicate"] == rep, "Replicate color"] = color
 
                     elif not input.write_replicate_colors():
                         print("Removing replicate colors...")
-                        if 'Replicate Color' in df_unfiltered_spots.columns:
-                            df_unfiltered_spots.drop(columns=['Replicate Color'], inplace=True)
-                        if 'Replicate Color' in df_unfiltered_tracks.columns:
-                            df_unfiltered_tracks.drop(columns=['Replicate Color'], inplace=True)
-                        if 'Replicate Color' in df_unfiltered_frames.columns:
-                            df_unfiltered_frames.drop(columns=['Replicate Color'], inplace=True)
-                        if 'Replicate Color' in df_spots.columns:
-                            df_spots.drop(columns=['Replicate Color'], inplace=True)
-                        if 'Replicate Color' in df_tracks.columns:
-                            df_tracks.drop(columns=['Replicate Color'], inplace=True)
-                        if 'Replicate Color' in df_frames.columns:
-                            df_frames.drop(columns=['Replicate Color'], inplace=True)
+                        if 'Replicate color' in df_unfiltered_spots.columns:
+                            df_unfiltered_spots.drop(columns=['Replicate color'], inplace=True)
+                        if 'Replicate color' in df_unfiltered_tracks.columns:
+                            df_unfiltered_tracks.drop(columns=['Replicate color'], inplace=True)
+                        if 'Replicate color' in df_unfiltered_frames.columns:
+                            df_unfiltered_frames.drop(columns=['Replicate color'], inplace=True)
+                        if 'Replicate color' in df_spots.columns:
+                            df_spots.drop(columns=['Replicate color'], inplace=True)
+                        if 'Replicate color' in df_tracks.columns:
+                            df_tracks.drop(columns=['Replicate color'], inplace=True)
+                        if 'Replicate color' in df_frames.columns:
+                            df_frames.drop(columns=['Replicate color'], inplace=True)
 
                     UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
                     SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(df_frames)
@@ -1115,8 +1130,9 @@ def server(input: Inputs, output: Outputs, session: Session):
             FRAMESTATS.set(Calc.Frames(df))
 
             THRESHOLDS.set({1: {"spots": UNFILTERED_SPOTSTATS.get(), "tracks": UNFILTERED_TRACKSTATS.get()}})
-
             ui.update_action_button(id="append_threshold", disabled=False)
+            # (optional) show sidebar like in the raw path
+            ui.update_sidebar(id="sidebar", show=True)
 
         except:
             pass
@@ -1210,7 +1226,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 
         if all_data:
             all_data = pd.concat(all_data, axis=0)
-            all_data["Time unit"] = Metrics.TimeUnits.get(input.select_t_unit())
+            all_data["Time unit"] = Metrics.Units.TimeUnits.get(input.select_t_unit())
             RAWDATA.set(all_data)
             UNFILTERED_SPOTSTATS.set(Calc.Spots(RAWDATA.get()))
             UNFILTERED_TRACKSTATS.set(Calc.Tracks(RAWDATA.get()))
@@ -1276,15 +1292,15 @@ def server(input: Inputs, output: Outputs, session: Session):
 
             req(not UNFILTERED_SPOTSTATS.get().empty)
 
-            if 'Replicate Color' not in UNFILTERED_SPOTSTATS.get().columns:
-                UNFILTERED_SPOTSTATS.get()['Replicate Color'] = "#59a9d7"  # default color
+            if 'Replicate color' not in UNFILTERED_SPOTSTATS.get().columns:
+                UNFILTERED_SPOTSTATS.get()['Replicate color'] = "#59a9d7"  # default color
 
             replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
             items = []
             for idx, rep in enumerate(replicates):
 
                 try:
-                    value = UNFILTERED_SPOTSTATS.get().loc[UNFILTERED_SPOTSTATS.get()["Replicate"] == rep, "Replicate Color"].iloc[0]
+                    value = UNFILTERED_SPOTSTATS.get().loc[UNFILTERED_SPOTSTATS.get()["Replicate"] == rep, "Replicate color"].iloc[0]
                 except:
                     value = "#59a9d7"
 
@@ -1316,6 +1332,16 @@ def server(input: Inputs, output: Outputs, session: Session):
                 )
             return ui.div(*items)
 
+    # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+
+    # _ _ _ _ SET UNITS _ _ _ _
+
+    @reactive.Effect
+    def set_units():
+        UNITS.set(Metrics.Units.SetUnits(t=Metrics.Units.TimeUnits.get(input.select_t_unit())))
+
+    # _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 
     # _ _ _ _ SIDEBAR ACCORDION THRESHOLDS LAYOUT  _ _ _ _
@@ -2458,7 +2484,26 @@ def server(input: Inputs, output: Outputs, session: Session):
         )
     
 
-            
+
+    
+    # @output(id='sp_plot_card')
+    # @render.ui
+    # def plot_card():
+
+    #     req(input.sp_fig_height() is not None and input.sp_fig_width() is not None)
+    #     fig_height, fig_width = input.sp_fig_height() * 96, input.sp_fig_width() * 96
+    
+    #     return ui.card(
+    #         ui.div(
+    #             # Make the *plot image* larger than the panel so scrolling kicks in
+    #             ui.output_plot("swarmplot", width=f"{fig_width}px", height=f"{fig_height}px"),
+    #             # ui.output_plot(id="swarmplot"),
+    #             style=f"height: {fig_height}px; width: {fig_width}px; margin: auto",
+    #             # style=f"overflow: auto;",
+    #             class_="scroll-panel",
+    #         ),
+    #         full_screen=True, fill=False
+    #     ), 
 
 
 
@@ -2518,10 +2563,6 @@ def server(input: Inputs, output: Outputs, session: Session):
             ui.update_numeric(f"sp_median_bullet_size", value=70)
             ui.update_numeric(f"sp_mean_bullet_size", value=50)
 
-
-
-
-
     # _ _ _ _ - - Swarmplot _ _ _ _ 
 
     @ui.bind_task_button(button_id="sp_generate")
@@ -2547,7 +2588,6 @@ def server(input: Inputs, output: Outputs, session: Session):
         median_span,
         median_color,
         line_width,
-        set_main_line,
         show_error_bars,
         errorbar_capsize,
         errorbar_color,
@@ -2567,9 +2607,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         kde_inset_width,
         kde_outline,
         kde_alpha,
-        kde_legend,
         kde_fill,
-        p_test,
         show_legend,
         show_grid,
         open_spine,
@@ -2607,7 +2645,6 @@ def server(input: Inputs, output: Outputs, session: Session):
                     median_span=median_span,
                     median_color=median_color,
                     line_width=line_width,
-                    set_main_line=set_main_line,
                     show_error_bars=show_error_bars,
                     errorbar_capsize=errorbar_capsize,
                     errorbar_color=errorbar_color,
@@ -2627,9 +2664,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                     kde_inset_width=kde_inset_width,
                     kde_outline=kde_outline,
                     kde_alpha=kde_alpha,
-                    kde_legend=kde_legend,
                     kde_fill=kde_fill,
-                    p_test=p_test,
                     show_legend=show_legend,
                     show_grid=show_grid,
                     open_spine=open_spine,
@@ -2642,76 +2677,99 @@ def server(input: Inputs, output: Outputs, session: Session):
         # return await asyncio.to_thread(build)
     
 
-    @reactive.effect
+    @reactive.Effect
     @reactive.event(input.sp_generate, ignore_none=False)
     def trigger_swarmplot():
-        output_swarmplot.cancel()
 
-        output_swarmplot(
-            df=TRACKSTATS.get() if TRACKSTATS.get() is not None else pd.DataFrame(),
-            metric=input.sp_metric(),
-            title=input.sp_title(), 
-            palette=input.sp_palette(),
+        @reactive.Effect
+        @reactive.event(input.sp_generate, ignore_none=False)
+        def _():
+            @output(id='sp_plot_card')
+            @render.ui
+            def plot_card():
 
-            show_swarm=input.sp_show_swarms(),
-            swarm_size=input.sp_swarm_marker_size(),
-            swarm_outline_color=input.sp_swarm_marker_outline(),
-            swarm_alpha=input.sp_swarm_marker_alpha() if 0.0 <= input.sp_swarm_marker_alpha() <= 1.0 else 1.0,
-
-            show_violin=input.sp_show_violins(),
-            violin_fill_color=input.sp_violin_fill(),
-            violin_edge_color=input.sp_violin_outline(),
-            violin_alpha=input.sp_violin_alpha() if 0.0 <= input.sp_violin_alpha() <= 1.0 else 1.0,
-            violin_outline_width=input.sp_violin_outline_width(),
-
-            show_mean=input.sp_show_cond_mean(),
-            mean_span=input.sp_mean_line_span(),
-            mean_color=input.sp_mean_line_color(),
-            show_median=input.sp_show_cond_median(),
-            median_span=input.sp_median_line_span(),
-            median_color=input.sp_median_line_color(),
-            line_width=input.sp_lines_lw(),
-            set_main_line=input.sp_set_as_primary(),
-            show_error_bars=input.sp_show_errbars(),
-            errorbar_capsize=input.sp_errorbar_capsize(),
-            errorbar_color=input.sp_errorbar_color(),
-            errorbar_lw=input.sp_errorbar_lw(),
-            errorbar_alpha=input.sp_errorbar_alpha() if 0.0 <= input.sp_errorbar_alpha() <= 1.0 else 1.0,
-
-            show_mean_balls=input.sp_show_rep_means(),
-            mean_ball_size=input.sp_mean_bullet_size(),
-            mean_ball_outline_color=input.sp_mean_bullet_outline(),
-            mean_ball_outline_width=input.sp_mean_bullet_outline_width(),
-            mean_ball_alpha=input.sp_mean_bullet_alpha() if 0.0 <= input.sp_mean_bullet_alpha() <= 1.0 else 1.0,
-            show_median_balls=input.sp_show_rep_medians(),
-            median_ball_size=input.sp_median_bullet_size(),
-            median_ball_outline_color=input.sp_median_bullet_outline(),
-            median_ball_outline_width=input.sp_median_bullet_outline_width(),
-            median_ball_alpha=input.sp_median_bullet_alpha() if 0.0 <= input.sp_median_bullet_alpha() <= 1.0 else 1.0,
-
-            show_kde=input.sp_show_kde(),
-            kde_inset_width=input.sp_kde_bandwidth(),
-            kde_outline=input.sp_kde_line_width(),
-            kde_alpha=input.sp_kde_fill_alpha() if 0.0 <= input.sp_kde_fill_alpha() <= 1.0 else 1.0,
-            kde_legend=input.sp_kde_legend(),
-            kde_fill=input.sp_kde_fill(),
-
-            p_test=False,
-            show_legend=input.sp_show_legend(),
-            show_grid=input.sp_grid(),
-            open_spine=input.sp_spine(),
+                with reactive.isolate():
+                    req(input.sp_fig_height() is not None and input.sp_fig_width() is not None)
+                    fig_height, fig_width = input.sp_fig_height() * 96, input.sp_fig_width() * 96
             
-            plot_width=input.sp_fig_width(),
-            plot_height=input.sp_fig_height(),
-        )
+                return ui.card(
+                    ui.div(
+                        # Make the *plot image* larger than the panel so scrolling kicks in
+                        ui.output_plot("swarmplot", width=f"{fig_width}px", height=f"{fig_height}px"),
+                        # ui.output_plot(id="swarmplot"),
+                        style=f"height: {fig_height}px; width: {fig_width}px; margin: auto",
+                        # style=f"overflow: auto;",
+                        class_="scroll-panel",
+                    ),
+                    full_screen=True, fill=False
+                ), 
+
+
+        @reactive.Effect
+        @reactive.event(input.sp_generate, ignore_none=False)
+        def make_swarmplot():
+            output_swarmplot.cancel()
+
+            output_swarmplot(
+                df=TRACKSTATS.get() if TRACKSTATS.get() is not None else pd.DataFrame(),
+                metric=input.sp_metric(),
+                title=input.sp_title(), 
+                palette=input.sp_palette(),
+
+                show_swarm=input.sp_show_swarms(),
+                swarm_size=input.sp_swarm_marker_size(),
+                swarm_outline_color=input.sp_swarm_marker_outline(),
+                swarm_alpha=input.sp_swarm_marker_alpha() if 0.0 <= input.sp_swarm_marker_alpha() <= 1.0 else 1.0,
+
+                show_violin=input.sp_show_violins(),
+                violin_fill_color=input.sp_violin_fill(),
+                violin_edge_color=input.sp_violin_outline(),
+                violin_alpha=input.sp_violin_alpha() if 0.0 <= input.sp_violin_alpha() <= 1.0 else 1.0,
+                violin_outline_width=input.sp_violin_outline_width(),
+
+                show_mean=input.sp_show_cond_mean(),
+                mean_span=input.sp_mean_line_span(),
+                mean_color=input.sp_mean_line_color(),
+                show_median=input.sp_show_cond_median(),
+                median_span=input.sp_median_line_span(),
+                median_color=input.sp_median_line_color(),
+                line_width=input.sp_lines_lw(),
+                show_error_bars=input.sp_show_errbars(),
+                errorbar_capsize=input.sp_errorbar_capsize(),
+                errorbar_color=input.sp_errorbar_color(),
+                errorbar_lw=input.sp_errorbar_lw(),
+                errorbar_alpha=input.sp_errorbar_alpha() if 0.0 <= input.sp_errorbar_alpha() <= 1.0 else 1.0,
+
+                show_mean_balls=input.sp_show_rep_means(),
+                mean_ball_size=input.sp_mean_bullet_size(),
+                mean_ball_outline_color=input.sp_mean_bullet_outline(),
+                mean_ball_outline_width=input.sp_mean_bullet_outline_width(),
+                mean_ball_alpha=input.sp_mean_bullet_alpha() if 0.0 <= input.sp_mean_bullet_alpha() <= 1.0 else 1.0,
+                show_median_balls=input.sp_show_rep_medians(),
+                median_ball_size=input.sp_median_bullet_size(),
+                median_ball_outline_color=input.sp_median_bullet_outline(),
+                median_ball_outline_width=input.sp_median_bullet_outline_width(),
+                median_ball_alpha=input.sp_median_bullet_alpha() if 0.0 <= input.sp_median_bullet_alpha() <= 1.0 else 1.0,
+
+                show_kde=input.sp_show_kde(),
+                kde_inset_width=input.sp_kde_bandwidth(),
+                kde_outline=input.sp_kde_line_width(),
+                kde_alpha=input.sp_kde_fill_alpha() if 0.0 <= input.sp_kde_fill_alpha() <= 1.0 else 1.0,
+                kde_fill=input.sp_kde_fill(),
+
+                show_legend=input.sp_show_legend(),
+                show_grid=input.sp_grid(),
+                open_spine=input.sp_spine(),
+                
+                plot_width=input.sp_fig_width(),
+                plot_height=input.sp_fig_height(),
+            )
 
     # @output(id="swarmplot")
     @render.plot
     def swarmplot():
         # Only update when output_swarmplot task completes (not reactively)
         return output_swarmplot.result()
-
-
 
     @render.download(filename=f"Swarmplot {date.today()}.svg")
     def download_swarmplot_svg():
@@ -2740,7 +2798,6 @@ def server(input: Inputs, output: Outputs, session: Session):
             median_span=input.sp_median_line_span(),
             median_color=input.sp_median_line_color(),
             line_width=input.sp_lines_lw(),
-            set_main_line=input.sp_set_as_primary(),
             show_error_bars=input.sp_show_errbars(),
             errorbar_capsize=input.sp_errorbar_capsize(),
             errorbar_color=input.sp_errorbar_color(),
@@ -2762,10 +2819,8 @@ def server(input: Inputs, output: Outputs, session: Session):
             kde_inset_width=input.sp_kde_bandwidth(),
             kde_outline=input.sp_kde_line_width(),
             kde_alpha=input.sp_kde_fill_alpha(),
-            kde_legend=input.sp_kde_legend(),
             kde_fill=input.sp_kde_fill(),
 
-            p_test=False,
             show_legend=input.sp_show_legend(),
             show_grid=input.sp_grid(),
             open_spine=input.sp_spine(),
@@ -2780,7 +2835,146 @@ def server(input: Inputs, output: Outputs, session: Session):
     
     
     
+
+    # _ _ _ _ TRACK VISUALIZATION _ _ _ _
+
+    @ui.bind_task_button(button_id="tv_generate")
+    @reactive.extended_task
+    async def output_track_reconstruction_realistic(
+        Spots_df,
+        Tracks_df,
+        condition,
+        # replicate,
+        c_mode,
+        # only_one_color,
+        # lut_scaling_metric,
+        # background,
+        # smoothing_index,
+        # lw,
+        # show_tracks,
+        # grid,
+        # arrows,
+        # arrowsize
+    ):
+        
+        # run sync plotting off the event loop
+        def _build():
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+
+                local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
+                local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
+                return Plot.Tracks.VisualizeTracksRealistics(
+                    Spots_df=local_Spots_df,
+                    Tracks_df=local_Tracks_df,
+                    condition=local_Tracks_df['Condition'].unique().tolist()[0] if 'Condition' in local_Tracks_df.columns else condition,
+                    # replicate=replicate,
+                    c_mode=c_mode,
+                    # only_one_color=only_one_color,
+                    # lut_scaling_metric=lut_scaling_metric,
+                    # background=background,
+                    # smoothing_index=smoothing_index,
+                    # lw=lw,
+                    # show_tracks=show_tracks,
+                    # grid=grid,
+                    # arrows=arrows,
+                    # arrowsize=arrowsize
+                )
+
+        # Either form is fine; pick one:
+        return await asyncio.get_running_loop().run_in_executor(None, _build)
+        # return await asyncio.to_thread(build)
     
+    @ui.bind_task_button(button_id="tv_generate")
+    @reactive.extended_task
+    async def output_track_reconstruction_normalized(
+        Spots_df,
+        Tracks_df,
+        condition,
+        # replicate,
+        c_mode,
+        # only_one_color,
+        # lut_scaling_metric,
+        # background,
+        # smoothing_index,
+        # lw,
+        # show_tracks,
+        # grid,
+        # arrows,
+        # arrowsize
+    ):
+        
+        # run sync plotting off the event loop
+        def _build():
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+
+                local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
+                local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
+                return Plot.Tracks.VisualizeTracksNormalized(
+                    Spots_df=local_Spots_df,
+                    Tracks_df=local_Tracks_df,
+                    condition=local_Tracks_df['Condition'].unique().tolist()[0] if 'Condition' in local_Tracks_df.columns else condition,
+                    # replicate=replicate,
+                    c_mode=c_mode,
+                    # only_one_color=only_one_color,
+                    # lut_scaling_metric=lut_scaling_metric,
+                    # background=background,
+                    # smoothing_index=smoothing_index,
+                    # lw=lw,
+                    # show_tracks=show_tracks,
+                    # grid=grid,
+                    # arrows=arrows,
+                    # arrowsize=arrowsize
+                )
+
+        # Either form is fine; pick one:
+        return await asyncio.get_running_loop().run_in_executor(None, _build)
+        # return await asyncio.to_thread(build)
+
+
+    @reactive.Effect
+    @reactive.event(input.tv_generate, ignore_none=False)
+    def _():
+            
+        output_track_reconstruction_realistic.cancel()
+
+        req(SPOTSTATS.get() is not None and not SPOTSTATS.get().empty and 'Condition' in SPOTSTATS.get().columns)
+        output_track_reconstruction_realistic(
+            Spots_df=SPOTSTATS.get(),
+            Tracks_df=TRACKSTATS.get(),
+            condition=SPOTSTATS.get()['Condition'].unique().tolist()[0] if 'Condition' in SPOTSTATS.get().columns else None,
+            c_mode=input.color_mode()
+        )
+
+
+        output_track_reconstruction_normalized.cancel()
+
+        req(SPOTSTATS.get() is not None and not SPOTSTATS.get().empty and 'Condition' in SPOTSTATS.get().columns)
+        output_track_reconstruction_normalized(
+            Spots_df=SPOTSTATS.get(),
+            Tracks_df=TRACKSTATS.get(),
+            condition=SPOTSTATS.get()['Condition'].unique().tolist()[0] if 'Condition' in SPOTSTATS.get().columns else None,
+            c_mode=input.color_mode()
+        )
+
+
+    @render.plot
+    def track_reconstruction_realistic():
+        return output_track_reconstruction_realistic.result()
+
+    @render.plot
+    def track_reconstruction_normalized():
+        return output_track_reconstruction_normalized.result()
+
     
     
     

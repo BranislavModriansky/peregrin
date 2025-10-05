@@ -1,41 +1,46 @@
-from shiny import App, ui, reactive, render
-import shiny_sortable as sortable
 
-from utils.Customize import Format
 
-ITEMS = ["distance", "speed", "persistency", "mean_step", "angle"]
 
-@sortable.make(updatable=True)  # lets you programmatically reset later if you want
-def ladder(inputID: str, items: list[str]):
-    # data-id carries the *string* value you want back on the server
-    lis = [
-        ui.tags.li(label, **{"data-id": label}, class_="p-2 mb-2 border rounded")
-        for label in items
-    ]
-    return ui.tags.ul(*lis, id=inputID)
+# _ _ _ _ _ DRAGGABLE LIST _ _ _ _ _
 
-app_ui = ui.page_fluid(
-    ui.h4("Reorder metrics (drag to change order)"),
-    ladder("metric_order"),
-    ui.hr(),
-    ui.output_text_verbatim("order"),
-    ui.tags.style(Format.Ladder),
-)
+# from shiny import App, ui, reactive, render
+# import shiny_sortable as sortable
 
-def server(input, output, session):
-    latest = reactive.value(ITEMS[:])
+# from utils.Customize import Format
 
-    @reactive.effect
-    @reactive.event(input.metric_order)   # fires after each drop
-    def _update_order():
-        latest.set(input.metric_order())  # <-- list[str] in current order
+# ITEMS = ["distance", "speed", "persistency", "mean_step", "angle"]
 
-    @output
-    @render.text
-    def order():
-        return f"Current order: {latest()}"
+# @sortable.make(updatable=True)  # lets you programmatically reset later if you want
+# def ladder(inputID: str, items: list[str]):
+#     # data-id carries the *string* value you want back on the server
+#     lis = [
+#         ui.tags.li(label, **{"data-id": label}, class_="p-2 mb-2 border rounded")
+#         for label in items
+#     ]
+#     return ui.tags.ul(*lis, id=inputID)
 
-app = App(app_ui, server)
+# app_ui = ui.page_fluid(
+#     ui.h4("Reorder metrics (drag to change order)"),
+#     ladder("metric_order"),
+#     ui.hr(),
+#     ui.output_text_verbatim("order"),
+#     ui.tags.style(Format.Ladder),
+# )
+
+# def server(input, output, session):
+#     latest = reactive.value(ITEMS[:])
+
+#     @reactive.effect
+#     @reactive.event(input.metric_order)   # fires after each drop
+#     def _update_order():
+#         latest.set(input.metric_order())  # <-- list[str] in current order
+
+#     @output
+#     @render.text
+#     def order():
+#         return f"Current order: {latest()}"
+
+# app = App(app_ui, server)
 
 
 #  _ _ _ _ SCROLLABLE PLOT _ _ _ _
