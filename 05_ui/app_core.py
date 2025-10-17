@@ -33,9 +33,9 @@ warnings.filterwarnings(
     category=ShinyDeprecationWarning,
 )
 
-@sortable.make(updatable=True)  # lets you programmatically reset later if you want
+# _ _  CUSTOM SORTABLE UI COMPONENTS _ _
+@sortable.make(updatable=True)
 def ladder(inputID: str, items: list[str]):
-    # data-id carries the *string* value you want back on the server
     lis = [
         ui.tags.li(label, **{"data-id": label}, class_="p-2 mb-2 border rounded")
         for label in items
@@ -44,10 +44,10 @@ def ladder(inputID: str, items: list[str]):
 
 
 
-# _ _ _ _  UI design definition  _ _ _ _ 
+# _ _ _ _  UI DESIGN DEFINITION  _ _ _ _
 app_ui = ui.page_sidebar(
 
-    # ========== SIDEBAR - DATA FILTERING ==========
+    # _ _ _ SIDEBAR - DATA FILTERING _ _ _
     ui.sidebar(
         ui.tags.style(Format.Accordion),
         ui.markdown("""  <p>  """),
@@ -62,67 +62,65 @@ app_ui = ui.page_sidebar(
         id="sidebar", open="closed", position="right", bg="f8f8f8",
     ),
 
-    # ========== MAIN NAVIGATION BAR ==========
+    # _ _ _ PANEL NAVIGATION BAR _ _ _
     ui.navset_bar(
-        # ========== RAW DATA INPUT - ANALYSIS INITIALIZATION ==========    
+
+        # _ _ _ _ RAW DATA INPUT PANEL - APP INITIALIZATION _ _ _ _
         ui.nav_panel(
-            "Input",
+            "Input Menu",
             ui.div(
                 {"id": "data-inputs"},
-                # Action buttons
+
+                # _ Buttons & input UIs _
                 ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
                 ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
                 ui.input_action_button("run", label="Run", class_="btn-secondary", disabled=True),
-                # ui.input_action_button("reset", "Reset", class_="btn-danger"),
-                # ui.input_action_button("input_help", "Show help"),
+                # TODO - ui.input_action_button("reset", "Reset", class_="btn-danger"),
+                # TODO - ui.input_action_button("input_help", "Show help"),
                 ui.output_ui("initialize_loader1"),
                 ui.markdown(" <br> "),
 
+                # _ Label settings (secondary sidebar) _
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.div(
-                            ui.markdown(
-                                """ 
-                                <br>
-                                <h4><b>
-                                    Label settings:  
-                                </h4></b> 
-                                """
-                            ),
+                            ui.markdown(""" <br><h4><b>  Label settings:  </h4></b> """), 
                             style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"
                         ),
-                        ui.div(
+                        ui.div(  
                             ui.tags.style(Format.Link1),
                             ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
-                            ui.input_switch("auto_label", "Auto-label", False),
+                            ui.input_checkbox("auto_label", "Auto-label", False),
+
                             ui.panel_conditional(
                                 "input.run > 0",
-                                ui.input_switch("write_replicate_labels", "Write replicate labels", False),
+                                ui.input_switch("write_replicate_labels", "Write replicate labels", False)
                             ),
                             ui.panel_conditional(
                                 "input.write_replicate_labels == true",
                                 ui.output_ui("replicate_labels_inputs")
                             ),
+
                             ui.panel_conditional(
                                 "input.run > 0",
-                                ui.input_switch("write_replicate_colors", "Set replicate colors", False),
+                                ui.input_switch("write_replicate_colors", "Set replicate colors", False)
                             ),
                             ui.panel_conditional(
                                 "input.write_replicate_colors == true && input.run > 0",
-                                ui.output_ui("replicate_colors_inputs"),
+                                ui.output_ui("replicate_colors_inputs")
                             ),
+
                             ui.panel_conditional(
                                 "input.run > 0",
-                                ui.input_switch("set_condition_order", "Set condition order", False),
+                                ui.input_switch("set_condition_order", "Set condition order", False)
                             ),
                             ui.panel_conditional(
                                 "input.set_condition_order == true",
                                 ui.tags.style(Format.Ladder),
                                 ui.output_ui("condition_order_ladder")
-                            ),
-                        ),
-                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"),
-                        
+                            )
+                        ), 
+                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"), 
                         bg="#f8f8f8",
                     ), 
                     # File inputs
@@ -134,6 +132,7 @@ app_ui = ui.page_sidebar(
                     ), border=True, border_color="whitesmoke", bg="#fefefe",
                 ),
 
+                # _ Draggable accordion panel - columns selection _
                 ui.tags.style(Format.AccordionDraggable),
                 ui.panel_absolute(
                     ui.card(
@@ -146,45 +145,44 @@ app_ui = ui.page_sidebar(
                                     ui.column(6,
                                         ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.Units.TimeUnits.keys()), selected="seconds"),
                                         style_="margin-bottom: 5px;",
-                                    ),
+                                    )
                                 ),
-                                # ui.input_selectize(id="select_t_unit", label=None, choices=["seconds", "minutes", "hours", "days", "weeks"], selected="seconds"),
                                 ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
                                 ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
                                 ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"),
-                            ), open=False, class_="custom-accordion"
-                        ), 
-                        # class_="bg-light border-tertiary rounded",
-                    ),
-                    width="350px", right="450px", top="130px", draggable=True,
-                    class_="elevated-panel", style_="z-index: 1000;",
-                ),
-            ),
+                            ), 
+                            open=False, class_="custom-accordion"
+                        )
+                    ), 
+                    width="350px", right="450px", top="130px", draggable=True, 
+                    class_="elevated-panel", style_="z-index: 1000;"
+                )
+            )
         ),
 
-
         # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
-
         ui.nav_panel(
             "Data Tables",
 
-            # Input for already processed data
-            ui.row(ui.column(6, 
-                ui.markdown(
-                    """ 
-                    <p style='line-height:0.1;'> <br> </p>
-                    <h4 style='margin: 0.5;'> Got previously processed data? </h4> 
-                    <p style='color: #0171b7;'><i> Drop in <b>Spot Stats CSV</b> file here: </i></p>
-                    """
-                ),
-                ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False),
-                
-                offset=1
-            )),
+            # _ Input for already processed data _
+            ui.row(
+                ui.column(6, 
+                    ui.markdown(
+                        """ 
+                        <p style='line-height:0.1;'> <br> </p>
+                        <h4 style='margin: 0.5;'> 
+                            Got previously processed data? </h4> 
+                        <p style='color: #0171b7;'><i> 
+                            Drop in <b>Spot Stats CSV</b> file here: </i></p>
+                        """
+                    ),
+                    ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False), 
+                    offset=1
+                )
+            ), 
             ui.markdown(""" ___ """),
-            # "#0171b7"
 
-            # Data frames display
+            # _ Data display _
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Spot stats", class_="bg-blue"),
@@ -208,11 +206,9 @@ app_ui = ui.page_sidebar(
             ui.output_ui("initialize_loader2"),
         ),
         
-
-        # _ _ _ _ DATA GATING _ _ _ _
-
+        # TODO - _ _ _ _ GATING _ _ _ _
         ui.nav_panel(
-            "Gating",
+            "Gating Panel",
             ui.layout_sidebar(
                 ui.sidebar(
                     "Gating_sidebar", 
@@ -228,87 +224,79 @@ app_ui = ui.page_sidebar(
             
         ),
 
-
         # _ _ _ _ VISUALIZATION PANEL _ _ _ _
-
         ui.nav_panel(
             "Visualisation",
-
             ui.navset_pill_list(
-            
+
+                # _ _ _ TRACKS VISUALIZATION _ _ _
                 ui.nav_panel(
                     "Tracks",
-                    # Interactive settings
-                    ui.panel_well(
-                        ui.markdown(
+
+                    ui.panel_well( 
+                        ui.markdown(   # TODO - annotate which libraries were used
                             """
                             #### **Track visualization**
-                            *made with*  `plotly`
+                            *used libraries:*  `matplotlib`,..
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
 
-                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic", "Normalized"], selected="Realistic - image"),
+                        # _ _ SETTINGS _ _
+                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic", "Normalized"], selected="Realistic"),
 
                         ui.accordion(
                             ui.accordion_panel(
-                                "Dataset",
-                                ui.input_selectize("condition_tracks", "Condition:", ["all", "not all"]),
-                                ui.panel_conditional(
-                                    "input.condition_tracks != 'all'",
-                                    ui.input_selectize("replicate_tracks", "Replicate:", []),
-                                ),
+                                "Select condition/replicate",
+                                ui.input_selectize("tracks_conditions", "Condition:", []),
+                                ui.input_selectize("tracks_replicates", "Replicate:", ["all"]),
+                            
                             ),
                             ui.accordion_panel(
-                                "Track lines",
-                                ui.input_checkbox("show_tracks", "Show tracks", True),
-                                ui.panel_conditional(
-                                    "input.show_tracks",
-                                    ui.input_numeric("smoothing", "Smoothing index:", 0),
-                                    ui.input_numeric('track_line_width', 'Line width:', 0.85),
-                                ),
+                                "Tracks",
+                                ui.input_numeric("tracks_smoothing_index", "Smoothing index:", 0),
+                                ui.input_numeric("tracks_line_width", "Line width:", 0.85),
                             ),
                             ui.accordion_panel(
-                                "Markers",
-                                ui.input_checkbox("show_markers", "Show end track markers", True),
+                                "Track heads",
+                                ui.input_checkbox("tracks_mark_heads", "Mark track heads", True),
                                 ui.panel_conditional(
-                                    "input.show_markers",
-                                    ui.panel_conditional(
-                                        "input.basic",
-                                        ui.input_selectize("basic_markers", "Markers:", Markers.PlotlyOpen),
-                                        ui.input_numeric("basic_marker_size", "Marker size:", 5),
-                                    ),
-                                    ui.panel_conditional(
-                                        "input.basic == false",
-                                        ui.input_selectize("not_basic_markers", "Markers:", Markers.Emoji),
-                                        ui.input_numeric("not_basic_marker_size", "Marker size:", 5),
-                                    ),
-                                    ui.input_switch("basic", "Basic", True),
+                                    "input.tracks_mark_heads",
+                                    ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="circle-full"),
+                                    ui.input_numeric("tracks_marks_size", "Marker size:", 5, min=0),
                                 ),
                             ),
                             ui.accordion_panel(
                                 "Coloring",
-                                ui.input_selectize("color_mode", "Color mode:", Styles.ColorMode),
+                                ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode),
                                 ui.panel_conditional(
-                                    "input.color_mode != 'random greys' && input.color_mode != 'random colors' && input.color_mode != 'only-one-color' && input.color_mode != 'differentiate replicates'",
-                                    ui.input_selectize('lut_scaling', 'LUT scaling metric:', ["Track displacement"]),
+                                    "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
+                                    ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut),
                                 ),
                                 ui.panel_conditional(
-                                    "input.color_mode == 'only-one-color'",
-                                    ui.input_selectize('only_one_color', 'Color:', Styles.Color),
+                                    "input.tracks_color_mode == 'only-one-color'",
+                                    ui.input_selectize("tracks_only_one_color", "Color:", Styles.Color),
                                 ),
-                                ui.input_selectize('background', 'Background:', Styles.Background),
-                                ui.input_checkbox("show_gridlines", "Gridlines", True),
+                                ui.input_selectize("tracks_background", "Background:", Styles.Background),
+                                ui.input_checkbox("tracks_show_grid", "Show grid", True),
                             ),
                         ),
+
+                        # _ Title and generate plot _
                         ui.markdown(""" <br> """),
                         ui.input_text(id="tv_title", label=None, placeholder="Title me!"),
-
-                        ui.markdown(""" <br> """),
-                        ui.input_task_button(id="tv_generate", label="Generate", class_="btn-secondary", width="100%"),
+                        ui.panel_conditional(
+                            "input.track_reconstruction_method == 'Realistic'",
+                            ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary", width="100%"),
+                        ),
+                        ui.panel_conditional(
+                            "input.track_reconstruction_method == 'Normalized'",
+                            ui.input_task_button(id="tnr_generate", label="Generate", class_="btn-secondary", width="100%"),
+                        )
                     ),
+
+                    # _ _ PLOT DISPLAYS AND DOWNLOADS _ _
                     ui.markdown(""" <br> """),
-                    # Plotly outputs
                     ui.panel_conditional(
                         "input.track_reconstruction_method == 'Realistic'",
                         ui.card(
@@ -324,9 +312,10 @@ app_ui = ui.page_sidebar(
                         )
                     ),
                     ui.download_button("download_track_reconstruction", "Download", width="100%"),
+                    ui.markdown(""" <p></p> """),
                     ui.panel_conditional(
                         "input.color_mode != 'random greys' && input.color_mode != 'random colors' && input.color_mode != 'only-one-color' && input.color_mode != 'differentiate conditions/replicates'",
-                        ui.download_button("download_lut_map_svg", "Download LUT Map SVG"),
+                        ui.download_button(id="download_lut_map_svg", label="Download LUT Map SVG", width="100%"),
                     ),
                 ),
 
@@ -882,7 +871,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 placeholder="Drag and drop here!",
                 multiple=True,
             ),
-            ui.markdown('<hr style="border: none; border-top: 1px dotted" />'),
+            ui.markdown("<hr style='border: none; border-top: 1px dotted' />"),
         )
 
     @reactive.effect
@@ -991,7 +980,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         if TRACKSTATS.get() is not None:
             req(not TRACKSTATS.get().empty)
 
-            items = TRACKSTATS.get()['Condition'].unique().tolist()
+            items = TRACKSTATS.get()["Condition"].unique().tolist()
 
             if isinstance(items, list) and len(items) > 1:
                 return ladder("order", items)
@@ -1070,18 +1059,18 @@ def server(input: Inputs, output: Outputs, session: Session):
 
                     elif not input.write_replicate_colors():
                         print("Removing replicate colors...")
-                        if 'Replicate color' in df_unfiltered_spots.columns:
-                            df_unfiltered_spots.drop(columns=['Replicate color'], inplace=True)
-                        if 'Replicate color' in df_unfiltered_tracks.columns:
-                            df_unfiltered_tracks.drop(columns=['Replicate color'], inplace=True)
-                        if 'Replicate color' in df_unfiltered_frames.columns:
-                            df_unfiltered_frames.drop(columns=['Replicate color'], inplace=True)
-                        if 'Replicate color' in df_spots.columns:
-                            df_spots.drop(columns=['Replicate color'], inplace=True)
-                        if 'Replicate color' in df_tracks.columns:
-                            df_tracks.drop(columns=['Replicate color'], inplace=True)
-                        if 'Replicate color' in df_frames.columns:
-                            df_frames.drop(columns=['Replicate color'], inplace=True)
+                        if "Replicate color" in df_unfiltered_spots.columns:
+                            df_unfiltered_spots.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_unfiltered_tracks.columns:
+                            df_unfiltered_tracks.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_unfiltered_frames.columns:
+                            df_unfiltered_frames.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_spots.columns:
+                            df_spots.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_tracks.columns:
+                            df_tracks.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_frames.columns:
+                            df_frames.drop(columns=["Replicate color"], inplace=True)
 
                     UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
                     SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(df_frames)
@@ -1100,12 +1089,12 @@ def server(input: Inputs, output: Outputs, session: Session):
                 req(input.order() is not None and not len(input.order()) < 2)
                 order = list(input.order())
 
-                df_unfiltered_spots.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_unfiltered_tracks.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_unfiltered_frames.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_spots.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_tracks.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_frames.sort_values('Condition', key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_unfiltered_spots.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_unfiltered_tracks.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_unfiltered_frames.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_spots.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_tracks.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                df_frames.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
 
                 UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
                 SPOTSTATS.set(df_spots); TRACKSTATS.set(df_tracks); FRAMESTATS.set(df_frames)
@@ -1292,8 +1281,8 @@ def server(input: Inputs, output: Outputs, session: Session):
 
             req(not UNFILTERED_SPOTSTATS.get().empty)
 
-            if 'Replicate color' not in UNFILTERED_SPOTSTATS.get().columns:
-                UNFILTERED_SPOTSTATS.get()['Replicate color'] = "#59a9d7"  # default color
+            if "Replicate color" not in UNFILTERED_SPOTSTATS.get().columns:
+                UNFILTERED_SPOTSTATS.get()["Replicate color"] = "#59a9d7"  # default color
 
             replicates = sorted(UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
             items = []
@@ -1806,9 +1795,9 @@ def server(input: Inputs, output: Outputs, session: Session):
                 # Color threshold
                 for i in range(len(patches)):
                     if bins[i] < slider_low_pct or bins[i+1] > slider_high_pct:
-                        patches[i].set_facecolor('grey')
+                        patches[i].set_facecolor("grey")
                     else:
-                        patches[i].set_facecolor('#337ab7')
+                        patches[i].set_facecolor("#337ab7")
 
                 # Add KDE curve (scaled to match histogram)
                 kde = gaussian_kde(values)
@@ -1816,11 +1805,11 @@ def server(input: Inputs, output: Outputs, session: Session):
                 y_kde = kde(x_kde)
                 # Scale KDE to histogram
                 y_kde_scaled = y_kde * (n.max() / y_kde.max())
-                ax.plot(x_kde, y_kde_scaled, color='black', linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
 
                 ax.set_xticks([])  # Remove x-axis ticks
                 ax.set_yticks([])  # Remove y-axis ticks
-                ax.spines[['top', 'left', 'right']].set_visible(False)
+                ax.spines[["top", "left", "right"]].set_visible(False)
 
                 return fig
             
@@ -1839,9 +1828,9 @@ def server(input: Inputs, output: Outputs, session: Session):
                 # Color threshold
                 for i in range(len(patches)):
                     if bins[i] < slider_low_pct or bins[i+1] > slider_high_pct:
-                        patches[i].set_facecolor('grey')
+                        patches[i].set_facecolor("grey")
                     else:
-                        patches[i].set_facecolor('#337ab7')
+                        patches[i].set_facecolor("#337ab7")
 
                 # Add KDE curve (scaled to match histogram)
                 kde = gaussian_kde(normalized)
@@ -1849,11 +1838,11 @@ def server(input: Inputs, output: Outputs, session: Session):
                 y_kde = kde(x_kde)
                 # Scale KDE to histogram
                 y_kde_scaled = y_kde * (n.max() / y_kde.max())
-                ax.plot(x_kde, y_kde_scaled, color='black', linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
 
                 ax.set_xticks([])  # Remove x-axis ticks
                 ax.set_yticks([])  # Remove y-axis ticks
-                ax.spines[['top', 'left', 'right']].set_visible(False)
+                ax.spines[["top", "left", "right"]].set_visible(False)
 
                 return fig
 
@@ -1879,20 +1868,20 @@ def server(input: Inputs, output: Outputs, session: Session):
                 for i in range(len(patches)):
                     bin_start, bin_end = bins[i], bins[i + 1]
                     if bin_end < lower_bound or bin_start > upper_bound:
-                        patches[i].set_facecolor('grey')
+                        patches[i].set_facecolor("grey")
                     else:
-                        patches[i].set_facecolor('#337ab7')
+                        patches[i].set_facecolor("#337ab7")
 
                 # KDE curve
                 kde = gaussian_kde(values)
                 x_kde = np.linspace(values.min(), values.max(), 500)
                 y_kde = kde(x_kde)
                 y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                ax.plot(x_kde, y_kde_scaled, color='black', linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
 
                 ax.set_xticks([])
                 ax.set_yticks([])
-                ax.spines[['top', 'left', 'right']].set_visible(False)
+                ax.spines[["top", "left", "right"]].set_visible(False)
                 return fig
 
             if threshold_type == "Relative to...":
@@ -1934,22 +1923,22 @@ def server(input: Inputs, output: Outputs, session: Session):
                 for i in range(len(patches)):
                     bin_start, bin_end = bins[i], bins[i+1]
                     if _intersects_symmetric(bin_start, bin_end, sel_low, sel_high):
-                        patches[i].set_facecolor('#337ab7')
+                        patches[i].set_facecolor("#337ab7")
                     else:
-                        patches[i].set_facecolor('grey')
+                        patches[i].set_facecolor("grey")
 
                 # KDE on shifted values (optional but matches your style)
                 kde = gaussian_kde(shifted)
                 x_kde = np.linspace(bins[0], bins[-1], 500)
                 y_kde = kde(x_kde)
                 y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                ax.plot(x_kde, y_kde_scaled, color='black', linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
 
-                ax.axvline(0, linestyle='--', linewidth=1, color='black')
+                ax.axvline(0, linestyle="--", linewidth=1, color="black")
 
 
                 ax.set_xticks([]); ax.set_yticks([])
-                ax.spines[['top', 'left', 'right']].set_visible(False)
+                ax.spines[["top", "left", "right"]].set_visible(False)
                 return fig
 
     @reactive.Effect
@@ -2276,7 +2265,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
         def tspan(text, cls=None):
             if cls:
-                return f'<tspan class="{cls}">{escape(str(text))}</tspan>'
+                return f"<tspan class='{cls}'>{escape(str(text))}</tspan>"
             return f"<tspan>{escape(str(text))}</tspan>"
 
         # ---------- totals ----------
@@ -2292,25 +2281,25 @@ def server(input: Inputs, output: Outputs, session: Session):
         x = pad
         y = pad + title_size
         parts = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="__HEIGHT__" '
-            f'viewBox="0 0 {width} __HEIGHT__" role="img" aria-label="Info panel">',
-            '<style>.bold{font-weight:700}.ital{font-style:italic}</style>',
-            f'<text x="{x}" y="{y}" font-family="{font_family}" font-size="{title_size}" '
-            f'font-weight="700" fill="{txt_color}">Info</text>',
-            f'<g font-family="{font_family}" font-size="{body_size}" fill="{txt_color}">'
+            f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='__HEIGHT__' "
+            f"viewBox='0 0 {width} __HEIGHT__' role='img' aria-label='Info panel'>",
+            "<style>.bold{font-weight:700}.ital{font-style:italic}</style>",
+            f"<text x='{x}' y='{y}' font-family='{font_family}' font-size='{title_size}' "
+            f"font-weight='700' fill='{txt_color}'>Info</text>",
+            f"<g font-family='{font_family}' font-size='{body_size}' fill='{txt_color}'>"
         ]
 
         # ---------- header body ----------
         y = addy(y, section_gap + body_size)
-        parts.append(f'<text x="{x}" y="{y}">Cells in total:</text>')
+        parts.append(f"<text x='{x}' y='{y}'>Cells in total:</text>")
         y = addy(y, body_size + line_gap)
-        parts.append(f'<text x="{x}" y="{y}"><tspan class="bold">{total_tracks}</tspan></text>')
+        parts.append(f"<text x='{x}' y='{y}'>{tspan(total_tracks,'bold')}</text>")
 
         y = addy(y, section_gap + body_size)
-        parts.append(f'<text x="{x}" y="{y}">In focus:</text>')
+        parts.append(f"<text x='{x}' y='{y}'>In focus:</text>")
         y = addy(y, body_size + line_gap)
         parts.append(
-            f'<text x="{x}" y="{y}">{tspan(filtered_tracks,"bold")} {tspan(f"({percent}%)","bold")}</text>'
+            f"<text x='{x}' y='{y}'>{tspan(filtered_tracks,'bold')} {tspan(f'({percent}%)','bold')}</text>"
         )
 
         # ---------- thresholds (read reactives exactly like your UI) ----------
@@ -2346,43 +2335,43 @@ def server(input: Inputs, output: Outputs, session: Session):
 
                 # hr
                 y = addy(y, rule_gap + section_gap)
-                parts.append(f'<line x1="{pad}" x2="{width-pad}" y1="{y}" y2="{y}" stroke="{rule_color}" stroke-width="1"/>')
+                parts.append(f"<line x1='{pad}' x2='{width-pad}' y1='{y}' y2='{y}' stroke='{rule_color}' stroke-width='1'/>")
                 y = addy(y, rule_gap)
 
                 # threshold header
                 y = addy(y, body_size + line_gap)
-                parts.append(f'<text x="{x}" y="{y}">{tspan(f"Threshold {t}","bold")}</text>')
+                parts.append(f"<text x='{x}' y='{y}'>{tspan(f'Threshold {t}','bold')}</text>")
 
                 # filtered out
                 y = addy(y, body_size + line_gap)
                 parts.append(
-                    f'<text x="{x}" y="{y}">Filtered out: '
-                    f'{tspan(out,"ital bold")} {tspan(f"({out_percent}%)","ital bold")}</text>'
+                    f"<text x='{x}' y='{y}'>Filtered out: "
+                    f"{tspan(out,'ital bold')} {tspan(f'({out_percent}%)','ital bold')}</text>"
                 )
 
                 # property / threshold / range / reference
                 y = addy(y, body_size + section_gap)
-                parts.append(f'<text x="{x}" y="{y}">Property:</text>')
+                parts.append(f"<text x='{x}' y='{y}'>Property:</text>")
                 y = addy(y, body_size)
-                parts.append(f'<text x="{x}" y="{y}">{tspan(prop,"bold ital")}</text>')
+                parts.append(f"<text x='{x}' y='{y}'>{tspan(prop,'bold ital')}</text>")
 
                 y = addy(y, body_size + section_gap)
-                parts.append(f'<text x="{x}" y="{y}">Filter:</text>')
+                parts.append(f"<text x='{x}' y='{y}'>Filter:</text>")
                 y = addy(y, body_size)
-                parts.append(f'<text x="{x}" y="{y}">{tspan(ftype,"bold ital")}</text>')
+                parts.append(f"<text x='{x}' y='{y}'>{tspan(ftype,'bold ital')}</text>")
 
                 y = addy(y, body_size + section_gap)
-                parts.append(f'<text x="{x}" y="{y}">Range:</text>')
+                parts.append(f"<text x='{x}' y='{y}'>Range:</text>")
                 y = addy(y, body_size)
                 parts.append(
-                    f'<text x="{x}" y="{y}">{tspan(vmin,"bold ital")} - {tspan(vmax,"bold ital")}</text>'
+                    f"<text x='{x}' y='{y}'>{tspan(vmin,'bold ital')} - {tspan(vmax,'bold ital')}</text>"
                 )
 
                 if reference:
                     y = addy(y, body_size + section_gap)
-                    parts.append(f'<text x="{x}" y="{y}">Reference:</text>')
+                    parts.append(f"<text x='{x}' y='{y}'>Reference:</text>")
                     y = addy(y, body_size)
-                    parts.append(f'<text x="{x}" y="{y}">{tspan(reference,"bold ital")}</text>')
+                    parts.append(f"<text x='{x}' y='{y}'>{tspan(reference,'bold ital')}</text>")
 
 
         except Exception:
@@ -2486,7 +2475,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
 
     
-    # @output(id='sp_plot_card')
+    # @output(id="sp_plot_card")
     # @render.ui
     # def plot_card():
 
@@ -2508,6 +2497,13 @@ def server(input: Inputs, output: Outputs, session: Session):
 
 
     # ======================= DATA VISUALIZATION =======================
+
+    @reactive.Effect
+    def update_choices():
+        if TRACKSTATS.get() is None or TRACKSTATS.get().empty:
+            return
+        ui.update_selectize(id="tracks_conditions", choices=TRACKSTATS.get()["Condition"].unique().tolist())
+        ui.update_selectize(id="tracks_replicates", choices=["all"] + TRACKSTATS.get()["Replicate"].unique().tolist())
 
     @reactive.Effect
     def get_preset():
@@ -2684,7 +2680,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         @reactive.Effect
         @reactive.event(input.sp_generate, ignore_none=False)
         def _():
-            @output(id='sp_plot_card')
+            @output(id="sp_plot_card")
             @render.ui
             def plot_card():
 
@@ -2830,7 +2826,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         )
         if fig is not None:
             with io.BytesIO() as buffer:
-                fig.savefig(buffer, format="svg", bbox_inches='tight')
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
                 yield buffer.getvalue()
     
     
@@ -2838,23 +2834,23 @@ def server(input: Inputs, output: Outputs, session: Session):
 
     # _ _ _ _ TRACK VISUALIZATION _ _ _ _
 
-    @ui.bind_task_button(button_id="tv_generate")
+    @ui.bind_task_button(button_id="trr_generate")
     @reactive.extended_task
     async def output_track_reconstruction_realistic(
         Spots_df,
         Tracks_df,
         condition,
-        # replicate,
+        replicate,
         c_mode,
-        # only_one_color,
-        # lut_scaling_metric,
-        # background,
-        # smoothing_index,
-        # lw,
-        # show_tracks,
-        # grid,
-        # arrows,
-        # arrowsize
+        only_one_color,
+        lut_scaling_metric,
+        background,
+        smoothing_index,
+        lw,
+        grid,
+        mark_heads,
+        marker,
+        markersize
     ):
         
         # run sync plotting off the event loop
@@ -2871,109 +2867,104 @@ def server(input: Inputs, output: Outputs, session: Session):
                 return Plot.Tracks.VisualizeTracksRealistics(
                     Spots_df=local_Spots_df,
                     Tracks_df=local_Tracks_df,
-                    condition=local_Tracks_df['Condition'].unique().tolist()[0] if 'Condition' in local_Tracks_df.columns else condition,
-                    # replicate=replicate,
+                    condition=condition,
+                    replicate=replicate,
                     c_mode=c_mode,
-                    # only_one_color=only_one_color,
-                    # lut_scaling_metric=lut_scaling_metric,
-                    # background=background,
-                    # smoothing_index=smoothing_index,
-                    # lw=lw,
-                    # show_tracks=show_tracks,
-                    # grid=grid,
-                    # arrows=arrows,
-                    # arrowsize=arrowsize
+                    only_one_color=only_one_color,
+                    lut_scaling_metric=lut_scaling_metric,
+                    background=background,
+                    smoothing_index=smoothing_index,
+                    lw=lw,
+                    grid=grid,
+                    mark_heads=mark_heads,
+                    marker=marker,
+                    markersize=markersize
                 )
 
         # Either form is fine; pick one:
         return await asyncio.get_running_loop().run_in_executor(None, _build)
-        # return await asyncio.to_thread(build)
+        # return await asyncio.to_thread(_build)
     
-    @ui.bind_task_button(button_id="tv_generate")
-    @reactive.extended_task
-    async def output_track_reconstruction_normalized(
-        Spots_df,
-        Tracks_df,
-        condition,
-        # replicate,
-        c_mode,
-        # only_one_color,
-        # lut_scaling_metric,
-        # background,
-        # smoothing_index,
-        # lw,
-        # show_tracks,
-        # grid,
-        # arrows,
-        # arrowsize
-    ):
+    # @ui.bind_task_button(button_id="tnr_generate")
+    # @reactive.extended_task
+    # async def output_track_reconstruction_normalized(
+    #     Spots_df,
+    #     Tracks_df,
+    #     condition,
+    #     replicate,
+    #     c_mode,
+    #     only_one_color,
+    #     lut_scaling_metric,
+    #     background,
+    #     smoothing_index,
+    #     lw,
+    #     show_tracks,
+    #     markers,
+    #     markersize
+    # ):
         
-        # run sync plotting off the event loop
-        def _build():
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                    category=UserWarning,
-                )
+    #     # run sync plotting off the event loop
+    #     def _build():
+    #         with warnings.catch_warnings():
+    #             warnings.filterwarnings(
+    #                 "ignore",
+    #                 message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+    #                 category=UserWarning,
+    #             )
 
-                local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
-                local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
-                return Plot.Tracks.VisualizeTracksNormalized(
-                    Spots_df=local_Spots_df,
-                    Tracks_df=local_Tracks_df,
-                    condition=local_Tracks_df['Condition'].unique().tolist()[0] if 'Condition' in local_Tracks_df.columns else condition,
-                    # replicate=replicate,
-                    c_mode=c_mode,
-                    # only_one_color=only_one_color,
-                    # lut_scaling_metric=lut_scaling_metric,
-                    # background=background,
-                    # smoothing_index=smoothing_index,
-                    # lw=lw,
-                    # show_tracks=show_tracks,
-                    # grid=grid,
-                    # arrows=arrows,
-                    # arrowsize=arrowsize
-                )
+    #             local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
+    #             local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
+    #             return Plot.Tracks.VisualizeTracksNormalized(
+    #                 Spots_df=local_Spots_df,
+    #                 Tracks_df=local_Tracks_df,
+    #                 condition=local_Tracks_df["Condition"].unique().tolist()[0] if "Condition" in local_Tracks_df.columns else condition,
+    #                 replicate=replicate,
+    #                 c_mode=c_mode,
+    #                 only_one_color=only_one_color,
+    #                 lut_scaling_metric=lut_scaling_metric,
+    #                 background=background,
+    #                 smoothing_index=smoothing_index,
+    #                 lw=lw,
+    #                 show_tracks=show_tracks,
+    #                 markers=markers,
+    #                 markersize=markersize
+    #             )
 
-        # Either form is fine; pick one:
-        return await asyncio.get_running_loop().run_in_executor(None, _build)
-        # return await asyncio.to_thread(build)
+    #     # Either form is fine; pick one:
+    #     return await asyncio.get_running_loop().run_in_executor(None, _build)
+    #     # return await asyncio.to_thread(build)
 
 
     @reactive.Effect
-    @reactive.event(input.tv_generate, ignore_none=False)
+    @reactive.event(input.trr_generate, ignore_none=False)
     def _():
             
         output_track_reconstruction_realistic.cancel()
 
-        req(SPOTSTATS.get() is not None and not SPOTSTATS.get().empty and 'Condition' in SPOTSTATS.get().columns)
+        req(SPOTSTATS.get() is not None and not SPOTSTATS.get().empty and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns)
+        print("HERE 2")
         output_track_reconstruction_realistic(
             Spots_df=SPOTSTATS.get(),
             Tracks_df=TRACKSTATS.get(),
-            condition=SPOTSTATS.get()['Condition'].unique().tolist()[0] if 'Condition' in SPOTSTATS.get().columns else None,
-            c_mode=input.color_mode()
+            condition=input.tracks_conditions(),
+            replicate=input.tracks_replicates(),
+            c_mode=input.tracks_color_mode(),
+            only_one_color=input.tracks_only_one_color(),
+            lut_scaling_metric=input.tracks_lut_scaling_metric(),
+            background=input.tracks_background(),
+            smoothing_index=input.tracks_smoothing_index(),
+            lw=input.tracks_line_width(),
+            grid=input.tracks_show_grid(),
+            mark_heads=input.tracks_mark_heads(),
+            marker=Markers.TrackHeads.get(input.tracks_marker_type()),
+            markersize=input.tracks_marks_size()*10,
         )
 
-
-        output_track_reconstruction_normalized.cancel()
-
-        req(SPOTSTATS.get() is not None and not SPOTSTATS.get().empty and 'Condition' in SPOTSTATS.get().columns)
-        output_track_reconstruction_normalized(
-            Spots_df=SPOTSTATS.get(),
-            Tracks_df=TRACKSTATS.get(),
-            condition=SPOTSTATS.get()['Condition'].unique().tolist()[0] if 'Condition' in SPOTSTATS.get().columns else None,
-            c_mode=input.color_mode()
-        )
-
+    print("HERE 3")
 
     @render.plot
     def track_reconstruction_realistic():
         return output_track_reconstruction_realistic.result()
-
-    @render.plot
-    def track_reconstruction_normalized():
-        return output_track_reconstruction_normalized.result()
 
     
     
@@ -3020,3 +3011,8 @@ app = App(app_ui, server)
 #      - Must have an option to download the whole app settings together with the data 
 
 # TODO - add ui where the user can define the order of the conditions
+
+# TODO - implement a log scale for thresholding. Ideally a logarithmic scale that:
+#      - first checks whether the data has 0 values or negative values
+#      - chooses the log calculation accordingly
+#      - then sets an automated code which finds out the best possible setting of the log scale function so that after it is applied to the data, its distribution always ends up in a normal gaussian distributian

@@ -1336,10 +1336,10 @@ class Plot:
             background: str = 'dark',
             smoothing_index: int | float = 0,
             lw: float = 1.0,
-            show_tracks: bool = True,
             grid: bool = True,
-            arrows: bool = False,
-            arrowsize: float = 5.0,
+            mark_heads: bool = False,
+            marker: dict = {"symbol": "o", "fill": True},
+            markersize: float = 5.0,
         ):
             # --- Early outs / guards -------------------------------------------------
 
@@ -1431,10 +1431,16 @@ class Plot:
                     seg_colors.append(g['Track color'].iloc[0])
 
             # --- Figure / axes setup ---------------------------------------------------
-            if background == 'light':
+            if background == 'white':
                 grid_color, face_color, grid_alpha, grid_ls = 'gainsboro', 'white', 0.5, '-.' if grid else 'None'
-            else:
-                grid_color, face_color, grid_alpha, grid_ls = 'silver', 'darkgrey', 0.75, '-.' if grid else 'None'
+            elif background == 'light':
+                grid_color, face_color, grid_alpha, grid_ls = 'silver', 'lightgrey', 0.5, '-.' if grid else 'None'
+            elif background == 'mid':
+                grid_color, face_color, grid_alpha, grid_ls = 'silver', 'darkgrey', 0.5, '-.' if grid else 'None'
+            elif background == 'dark':
+                grid_color, face_color, grid_alpha, grid_ls = 'grey', 'dimgrey', 0.5, '-.' if grid else 'None'
+            elif background == 'black':
+                grid_color, face_color, grid_alpha, grid_ls = 'dimgrey', 'black', 0.5, '-.' if grid else 'None'
 
             fig, ax = plt.subplots(figsize=(13, 10))
             if len(Spots):
@@ -1461,38 +1467,30 @@ class Plot:
 
             # --- Draw all tracks at once ----------------------------------------------
             if segments:
-                lc = LineCollection(segments, colors=seg_colors, linewidths=lw if show_tracks else 0, zorder=10)
+                lc = LineCollection(segments, colors=seg_colors, linewidths=lw, zorder=10)
                 ax.add_collection(lc)
 
             # --- Optional arrows (use quiver in one batch) ----------------------------
-            if arrows:
-                # Take the last two points of each track to estimate direction
-                tails_x, tails_y, dxs, dys, c_arr = [], [], [], [], []
-                # Vectorized-ish: one pass per track (still cheap)
-                for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
-                    arr = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
-                    if arr.shape[0] >= 2:
-                        x0, y0 = arr[-2]
-                        x1, y1 = arr[-1]
-                        dx, dy = x1 - x0, y1 - y0
-                        tails_x.append(x0); tails_y.append(y0)
-                        dxs.append(dx); dys.append(dy)
-                        c_arr.append(g['Track color'].iloc[0])
-                if tails_x:
-                    # Matplotlib quiver supports a single color or an array mapped via a colormap.
-                    # We add multiple quivers in chunks to preserve per-arrow colors efficiently.
-                    # (One large call per unique color is still fast.)
-                    tails_x = np.array(tails_x); tails_y = np.array(tails_y)
-                    dxs = np.array(dxs); dys = np.array(dys)
-                    c_arr = np.array(c_arr)
-                    for col in np.unique(c_arr):
-                        mask = c_arr == col
-                        ax.quiver(
-                            tails_x[mask], tails_y[mask], dxs[mask], dys[mask],
-                            angles='xy', scale_units='xy', scale=1,
-                            width=0.003 * arrowsize, headlength=5*arrowsize, headaxislength=4*arrowsize, headwidth=4*arrowsize,
-                            color=col, zorder=30
+            if mark_heads:
+                # Plot a marker at the end of each track
+                ends = Spots.groupby(level=key_cols, sort=False).tail(1)
+                if len(ends):
+                    xe = ends['X coordinate'].to_numpy(dtype=float, copy=False)
+                    ye = ends['Y coordinate'].to_numpy(dtype=float, copy=False)
+                    cols = ends['Track color'].astype(str).to_numpy()
+                    m = np.isfinite(xe) & np.isfinite(ye)
+                    if m.any():
+                        ax.scatter(
+                            xe[m],
+                            ye[m],
+                            marker=marker["symbol"],
+                            s=markersize,
+                            edgecolor=cols[m],
+                            facecolor=cols[m] if marker["fill"] else "none",
+                            linewidths=lw,
+                            zorder=12,
                         )
+
             return plt.gcf()
 
 

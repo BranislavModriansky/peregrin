@@ -61,6 +61,7 @@ class Metrics:
         "Track displacement", 
         "Confinement ratio",
         "Track points",
+        "Speed instantaneous",
         "Speed mean",
         "Speed median",
         "Speed max",
@@ -305,9 +306,11 @@ class Styles:
     ]
 
     Background = [
+        "white",
         "light",
+        "mid",
         "dark",
-        "transparent",
+        "black"
     ]
 
     LineStyle = [
@@ -323,6 +326,21 @@ class Markers:
     """
     Class holding marker options for the UI.
     """
+
+    TrackHeads = {  # TODO - add smiley face markers which will enable a lut map assigning sad faces to "dead cells", so the value spectrum for the lut map will be something like track length or diffusion coefficient [0, max value in the dataset]
+        "circle-full": {"symbol": "o", "fill": True},
+        "circle-empty": {"symbol": "o", "fill": False},
+        "diamond-full": {"symbol": "D", "fill": True},
+        "diamond-empty": {"symbol": "D", "fill": False},
+        "pentagon-full": {"symbol": "P", "fill": True},
+        "pentagon-empty": {"symbol": "P", "fill": False},
+        "hexagon-full": {"symbol": "h", "fill": True},
+        "hexagon-empty": {"symbol": "h", "fill": False},
+        "octagon-full": {"symbol": "p", "fill": True},
+        "octagon-empty": {"symbol": "p", "fill": False},
+        "star-full": {"symbol": "*", "fill": True},
+        "star-empty": {"symbol": "*", "fill": False},
+    }
 
     PlotlyOpen = [
         "circle-open", 
