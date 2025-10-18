@@ -284,7 +284,7 @@ app_ui = ui.page_sidebar(
 
                         # _ Title and generate plot _
                         ui.markdown(""" <br> """),
-                        ui.input_text(id="tv_title", label=None, placeholder="Title me!"),
+                        ui.input_text(id="tracks_title", label=None, placeholder="Title me!"),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Realistic'",
                             ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary", width="100%"),
@@ -2850,7 +2850,8 @@ def server(input: Inputs, output: Outputs, session: Session):
         grid,
         mark_heads,
         marker,
-        markersize
+        markersize,
+        title
     ):
         
         # run sync plotting off the event loop
@@ -2878,7 +2879,8 @@ def server(input: Inputs, output: Outputs, session: Session):
                     grid=grid,
                     mark_heads=mark_heads,
                     marker=marker,
-                    markersize=markersize
+                    markersize=markersize,
+                    title=title
                 )
 
         # Either form is fine; pick one:
@@ -2958,6 +2960,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             mark_heads=input.tracks_mark_heads(),
             marker=Markers.TrackHeads.get(input.tracks_marker_type()),
             markersize=input.tracks_marks_size()*10,
+            title=input.tracks_title()
         )
 
     print("HERE 3")

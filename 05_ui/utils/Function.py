@@ -869,33 +869,6 @@ class Plot:
         
         return list(markers.items())[-1][-1]            # Return the last symbol for thr 100th percentile (which is not included in the ranges)
 
-    # def _get_markers(markers):
-    #     """
-    #     Get the markers according to the selected mode.
-
-    #     """
-
-    #     if markers == 'cell':
-    #         return _cell
-    #     elif markers == 'scaled':
-    #         return _scaled
-    #     elif markers == 'trains':
-    #         return _trains
-    #     elif markers == 'random':
-    #         return _random
-    #     elif markers == 'farm':
-    #         return _farm
-    #     elif markers == 'safari':
-    #         return _safari
-    #     elif markers == 'insects':
-    #         return _insects
-    #     elif markers == 'birds':
-    #         return _birds
-    #     elif markers == 'forest':
-    #         return _forest
-    #     elif markers == 'aquarium':
-    #         return _aquarium
-
 
     class Superplots:
 
@@ -1340,6 +1313,7 @@ class Plot:
             mark_heads: bool = False,
             marker: dict = {"symbol": "o", "fill": True},
             markersize: float = 5.0,
+            title: str = 'Track Visualization',
         ):
             # --- Early outs / guards -------------------------------------------------
 
@@ -1401,34 +1375,79 @@ class Plot:
                 Tracks['Track color'] = [track_to_color[idx] for idx in Tracks.index]
 
             elif c_mode == 'differentiate replicates':
-                Tracks['Track color'] = Tracks['Replicate color'] if 'Replicate color' in Tracks.columns else "black"
+                # Color by replicate if available, else fall back
+                Tracks['Track color'] = Tracks['Replicate color'] if 'Replicate color' in Tracks.columns else "red"
 
             else:
                 # interpret c_mode as a matplotlib cmap name
-                colormap = _get_cmap(c_mode)
-                vmin = float(Tracks[lut_scaling_metric].min())
-                vmax = float(Tracks[lut_scaling_metric].max())
-                norm = plt.Normalize(vmin, vmax)
-                Tracks['Track color'] = [mcolors.to_hex(colormap(norm(v))) for v in Tracks[lut_scaling_metric].to_numpy()]
+                use_instantaneous = (lut_scaling_metric == 'Speed instantaneous')
 
-            # Map per-track color down to Spots (single join; vectorized)
-            # Replace the ambiguous join with this:
-            Spots = Spots.join(
-                Tracks[['Track color']],
-                on=['Condition', 'Replicate', 'Track ID'],
-                how='left',
-                validate='many_to_one',
-            )
+                if lut_scaling_metric in Tracks.columns and not use_instantaneous:
+                    colormap = _get_cmap(c_mode)
+                    vmin = float(Tracks[lut_scaling_metric].min())
+                    vmax = float(Tracks[lut_scaling_metric].max())
+                    norm = plt.Normalize(vmin, vmax if np.isfinite(vmax) and vmax > vmin else vmin + 1.0)
+                    Tracks['Track color'] = [mcolors.to_hex(colormap(norm(v))) for v in Tracks[lut_scaling_metric].to_numpy()]
+
+                elif use_instantaneous:
+                    # Color segments by the most-recent (ending) spot of each segment
+                    # Compute per-spot speed for the segment that ENDS at this spot:
+                    # speed_end[i] = distance from spot i-1 -> i
+                    colormap = _get_cmap(c_mode)
+                    if 'Distance' not in Spots.columns:
+                        # Fallback: compute instantaneous distances if missing
+                        g = Spots.groupby(level=key_cols)
+                        d = np.sqrt(
+                            (g['X coordinate'].diff())**2 +
+                            (g['Y coordinate'].diff())**2
+                        )
+                        speed_end = d
+                    else:
+                        # Distance in Calc.Spots is from current -> next; shift to align with segment end
+                        speed_end = Spots.groupby(level=key_cols)['Distance'].shift(1)
+
+                    vmax = float(np.nanmax(speed_end.to_numpy())) if np.isfinite(speed_end.to_numpy()).any() else 1.0
+                    vmin = 0.0
+                    norm = plt.Normalize(vmin, vmax if vmax > 0 else 1.0)
+
+                    # Color each spot by the speed of the segment that ends at this spot
+                    Spots['Spot color'] = [
+                        mcolors.to_hex(colormap(norm(v))) if np.isfinite(v) else mcolors.to_hex(colormap(0.0))
+                        for v in speed_end.to_numpy()
+                    ]
+
+                # else: no-op; colors may have been assigned above
+
+            # Map per-track color down to Spots only if not using instantaneous coloring
+            if not (lut_scaling_metric == 'Speed instantaneous'):
+                Spots = Spots.join(
+                    Tracks[['Track color']],
+                    on=['Condition', 'Replicate', 'Track ID'],
+                    how='left',
+                    validate='many_to_one',
+                )
+
             # --- Build line segments for LineCollection -------------------------------
-            # Each segment is an array of shape (Ni, 2) for a track
             segments = []
             seg_colors = []
-            # Using groupby over MultiIndex is still C-optimized; the loop is per-track (not per-point)
-            for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
-                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
-                if xy.shape[0] >= 2:
-                    segments.append(xy)
-                    seg_colors.append(g['Track color'].iloc[0])
+
+            if lut_scaling_metric == 'Speed instantaneous':
+                # One segment per consecutive pair, colored by the ending spot's color
+                for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+                    xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                    if xy.shape[0] >= 2:
+                        cols = g['Spot color'].astype(str).to_numpy()
+                        # Build pairwise segments: [i-1 -> i], colored by cols[i]
+                        for i in range(1, xy.shape[0]):
+                            segments.append(xy[i-1:i+1])
+                            seg_colors.append(cols[i])
+            else:
+                # One polyline per track, colored by its track color
+                for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+                    xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                    if xy.shape[0] >= 2:
+                        segments.append(xy)
+                        seg_colors.append(g['Track color'].iloc[0])
 
             # --- Figure / axes setup ---------------------------------------------------
             if background == 'white':
@@ -1452,11 +1471,11 @@ class Plot:
             ax.set_aspect('equal', adjustable='box')
             ax.set_xlabel('X coordinate [microns]')
             ax.set_ylabel('Y coordinate [microns]')
-            ax.set_title('Track Visualization', fontsize=12)
+            ax.set_title(title, fontsize=12)
             ax.set_facecolor(face_color)
             ax.grid(grid, which='both', axis='both', color=grid_color, linestyle=grid_ls, linewidth=1, alpha=grid_alpha)
 
-            # Ticks: use Locators/Formatters instead of setting ticklabels manually
+            # Ticks
             ax.xaxis.set_major_locator(MultipleLocator(200))
             ax.yaxis.set_major_locator(MultipleLocator(200))
             ax.xaxis.set_minor_locator(MultipleLocator(50))
@@ -1470,14 +1489,16 @@ class Plot:
                 lc = LineCollection(segments, colors=seg_colors, linewidths=lw, zorder=10)
                 ax.add_collection(lc)
 
-            # --- Optional arrows (use quiver in one batch) ----------------------------
+            # --- Optional markers at track heads -------------------------------------
             if mark_heads:
-                # Plot a marker at the end of each track
                 ends = Spots.groupby(level=key_cols, sort=False).tail(1)
                 if len(ends):
                     xe = ends['X coordinate'].to_numpy(dtype=float, copy=False)
                     ye = ends['Y coordinate'].to_numpy(dtype=float, copy=False)
-                    cols = ends['Track color'].astype(str).to_numpy()
+                    if lut_scaling_metric == 'Speed instantaneous':
+                        cols = ends['Spot color'].astype(str).to_numpy()
+                    else:
+                        cols = ends['Track color'].astype(str).to_numpy()
                     m = np.isfinite(xe) & np.isfinite(ye)
                     if m.any():
                         ax.scatter(
