@@ -262,12 +262,12 @@ app_ui = ui.page_sidebar(
                                 ui.input_checkbox("tracks_mark_heads", "Mark track heads", True),
                                 ui.panel_conditional(
                                     "input.tracks_mark_heads",
-                                    ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="circle-full"),
-                                    ui.input_numeric("tracks_marks_size", "Marker size:", 5, min=0),
+                                    ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="circle-empty"),
+                                    ui.input_numeric("tracks_marks_size", "Marker size:", 3, min=0),
                                 ),
                             ),
                             ui.accordion_panel(
-                                "Coloring",
+                                "Aesthetics",
                                 ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode),
                                 ui.panel_conditional(
                                     "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
@@ -279,6 +279,14 @@ app_ui = ui.page_sidebar(
                                 ),
                                 ui.input_selectize("tracks_background", "Background:", Styles.Background),
                                 ui.input_checkbox("tracks_show_grid", "Show grid", True),
+                                ui.panel_conditional(
+                                    "input.tracks_show_grid",
+                                    ui.input_selectize("tracks_grid_style", "Grid style:", ["simple-1", "simple-2", "spindle", "radial", "dartboard-1", "dartboard-2"]),
+                                ),
+                                ui.panel_conditional(
+                                    "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
+                                    ui.input_checkbox(id="tracks_lutmap_extend_edges", label="Sharp LUT scale edges", value=True)
+                                ),
                             ),
                         ),
 
@@ -301,20 +309,29 @@ app_ui = ui.page_sidebar(
                         "input.track_reconstruction_method == 'Realistic'",
                         ui.card(
                             ui.output_plot("track_reconstruction_realistic"),
-                            full_screen=True
+                            full_screen=False,
+                            height="800px",
                         )
                     ),
                     ui.panel_conditional(
                         "input.track_reconstruction_method == 'Normalized'",
                         ui.card(
                             ui.output_plot("track_reconstruction_normalized"),
-                            full_screen=True
+                            full_screen=False,
+                            height="800px",
                         )
                     ),
-                    ui.download_button("download_track_reconstruction", "Download", width="100%"),
-                    ui.markdown(""" <p></p> """),
                     ui.panel_conditional(
-                        "input.color_mode != 'random greys' && input.color_mode != 'random colors' && input.color_mode != 'only-one-color' && input.color_mode != 'differentiate conditions/replicates'",
+                        "input.track_reconstruction_method == 'Realistic'",
+                        ui.download_button("trr_download", "Download", width="100%"),
+                    ),
+                    ui.panel_conditional(
+                        "input.track_reconstruction_method == 'Normalized'",
+                        ui.download_button("tnr_download", "Download", width="100%"),
+                    ),
+                    ui.panel_conditional(
+                        "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
+                        ui.markdown(""" <p></p> """),
                         ui.download_button(id="download_lut_map_svg", label="Download LUT Map SVG", width="100%"),
                     ),
                 ),
@@ -1960,7 +1977,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
     def sync_threshold_values(id):
 
-        @Debounce(2)
+        @Debounce(50)
         @reactive.Effect
         @reactive.event(
             input[f"floor_threshold_value_{id}"],
@@ -1991,7 +2008,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 if cur_floor != existing[0] or cur_ceil != existing[1]:
                     ui.update_slider(f"threshold_slider_{id}", value=(cur_floor, cur_ceil))
 
-        @Debounce(2)
+        @Debounce(50)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def sync_with_threshold_slider():
@@ -2021,6 +2038,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                     ui.update_numeric(f"floor_threshold_value_{id}", value=float(slider_vals[0]))
                     ui.update_numeric(f"ceil_threshold_value_{id}", value=float(slider_vals[1]))
 
+    @Throttle(50)
     @reactive.Effect
     def sync_thresholds():
         for id in range(1, THRESHOLDS_ID.get()+1):
@@ -2031,6 +2049,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     
     def update_thresholds_wired(id):
 
+        @Debounce(50)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def pass_thresholded_data():
@@ -2060,6 +2079,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
             THRESHOLDS.set(thresholds)
 
+        @Debounce(50)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def update_next_threshold():
@@ -2099,6 +2119,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 step=steps
             )   
 
+    @Debounce(100)
     @reactive.Effect
     def update_thresholds():
         try:
@@ -2769,9 +2790,9 @@ def server(input: Inputs, output: Outputs, session: Session):
 
     @render.download(filename=f"Swarmplot {date.today()}.svg")
     def download_swarmplot_svg():
-        track_df = TRACKSTATS.get() if TRACKSTATS.get() is not None else pd.DataFrame()
+        if TRACKSTATS.get() is None or TRACKSTATS.get().empty: return
         fig = Plot.Superplots.SwarmPlot(
-            df=track_df,
+            df=TRACKSTATS.get(),
             metric=input.sp_metric(),
             title=input.sp_title(),
             palette=input.sp_palette(),
@@ -2863,11 +2884,9 @@ def server(input: Inputs, output: Outputs, session: Session):
                     category=UserWarning,
                 )
 
-                local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
-                local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
                 return Plot.Tracks.VisualizeTracksRealistics(
-                    Spots_df=local_Spots_df,
-                    Tracks_df=local_Tracks_df,
+                    Spots_df=Spots_df,
+                    Tracks_df=Tracks_df,
                     condition=condition,
                     replicate=replicate,
                     c_mode=c_mode,
@@ -2887,64 +2906,18 @@ def server(input: Inputs, output: Outputs, session: Session):
         return await asyncio.get_running_loop().run_in_executor(None, _build)
         # return await asyncio.to_thread(_build)
     
-    # @ui.bind_task_button(button_id="tnr_generate")
-    # @reactive.extended_task
-    # async def output_track_reconstruction_normalized(
-    #     Spots_df,
-    #     Tracks_df,
-    #     condition,
-    #     replicate,
-    #     c_mode,
-    #     only_one_color,
-    #     lut_scaling_metric,
-    #     background,
-    #     smoothing_index,
-    #     lw,
-    #     show_tracks,
-    #     markers,
-    #     markersize
-    # ):
-        
-    #     # run sync plotting off the event loop
-    #     def _build():
-    #         with warnings.catch_warnings():
-    #             warnings.filterwarnings(
-    #                 "ignore",
-    #                 message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-    #                 category=UserWarning,
-    #             )
-
-    #             local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
-    #             local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
-    #             return Plot.Tracks.VisualizeTracksNormalized(
-    #                 Spots_df=local_Spots_df,
-    #                 Tracks_df=local_Tracks_df,
-    #                 condition=local_Tracks_df["Condition"].unique().tolist()[0] if "Condition" in local_Tracks_df.columns else condition,
-    #                 replicate=replicate,
-    #                 c_mode=c_mode,
-    #                 only_one_color=only_one_color,
-    #                 lut_scaling_metric=lut_scaling_metric,
-    #                 background=background,
-    #                 smoothing_index=smoothing_index,
-    #                 lw=lw,
-    #                 show_tracks=show_tracks,
-    #                 markers=markers,
-    #                 markersize=markersize
-    #             )
-
-    #     # Either form is fine; pick one:
-    #     return await asyncio.get_running_loop().run_in_executor(None, _build)
-    #     # return await asyncio.to_thread(build)
-
-
     @reactive.Effect
     @reactive.event(input.trr_generate, ignore_none=False)
     def _():
             
         output_track_reconstruction_realistic.cancel()
 
-        req(SPOTSTATS.get() is not None and not SPOTSTATS.get().empty and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns)
-        print("HERE 2")
+        req(
+            SPOTSTATS.get() is not None and not SPOTSTATS.get().empty 
+            and TRACKSTATS.get() is not None and not TRACKSTATS.get().empty
+            and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns
+        )
+
         output_track_reconstruction_realistic(
             Spots_df=SPOTSTATS.get(),
             Tracks_df=TRACKSTATS.get(),
@@ -2963,17 +2936,183 @@ def server(input: Inputs, output: Outputs, session: Session):
             title=input.tracks_title()
         )
 
-    print("HERE 3")
-
     @render.plot
     def track_reconstruction_realistic():
         return output_track_reconstruction_realistic.result()
 
-    
-    
-    
-    
-    
+    @render.download(filename=f"Realistic Track Reconstruction {date.today()}.svg")
+    def trr_download():
+        req(
+            SPOTSTATS.get() is not None and not SPOTSTATS.get().empty 
+            and TRACKSTATS.get() is not None and not TRACKSTATS.get().empty
+            and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns
+        )
+
+        fig = Plot.Tracks.VisualizeTracksRealistics(
+            Spots_df=SPOTSTATS.get(),
+            Tracks_df=TRACKSTATS.get(),
+            condition=input.tracks_conditions(),
+            replicate=input.tracks_replicates(),
+            c_mode=input.tracks_color_mode(),
+            only_one_color=input.tracks_only_one_color(),
+            lut_scaling_metric=input.tracks_lut_scaling_metric(),
+            background=input.tracks_background(),
+            smoothing_index=input.tracks_smoothing_index(),
+            lw=input.tracks_line_width(),
+            grid=input.tracks_show_grid(),
+            mark_heads=input.tracks_mark_heads(),
+            marker=Markers.TrackHeads.get(input.tracks_marker_type()),
+            markersize=input.tracks_marks_size()*10,
+            title=input.tracks_title()
+        )
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+
+
+    @ui.bind_task_button(button_id="tnr_generate")
+    @reactive.extended_task
+    async def output_track_reconstruction_normalized(
+        Spots_df,
+        Tracks_df,
+        condition,
+        replicate,
+        c_mode,
+        only_one_color,
+        lut_scaling_metric,
+        smoothing_index,
+        lw,
+        background,
+        grid,
+        grid_style,
+        mark_heads,
+        marker,
+        markersize,
+        title
+    ):
+        
+        # run sync plotting off the event loop
+        def _build():
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+
+                local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
+                local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
+                return Plot.Tracks.VisualizeTracksNormalized(
+                    Spots_df=local_Spots_df,
+                    Tracks_df=local_Tracks_df,
+                    condition=local_Tracks_df["Condition"].unique().tolist()[0] if "Condition" in local_Tracks_df.columns else condition,
+                    replicate=replicate,
+                    c_mode=c_mode,
+                    only_one_color=only_one_color,
+                    lut_scaling_metric=lut_scaling_metric,
+                    smoothing_index=smoothing_index,
+                    lw=lw,
+                    background=background,
+                    grid=grid,
+                    grid_style=grid_style,
+                    mark_heads=mark_heads,
+                    marker=marker,
+                    markersize=markersize,
+                    title=title
+                )
+
+        # Either form is fine; pick one:
+        return await asyncio.get_running_loop().run_in_executor(None, _build)
+        # return await asyncio.to_thread(build)
+
+    @reactive.Effect
+    @reactive.event(input.tnr_generate, ignore_none=False)
+    def _():
+            
+        output_track_reconstruction_normalized.cancel()
+
+        req(
+            SPOTSTATS.get() is not None and not SPOTSTATS.get().empty 
+            and TRACKSTATS.get() is not None and not TRACKSTATS.get().empty
+            and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns
+        )
+
+        output_track_reconstruction_normalized(
+            Spots_df=SPOTSTATS.get(),
+            Tracks_df=TRACKSTATS.get(),
+            condition=input.tracks_conditions(),
+            replicate=input.tracks_replicates(),
+            c_mode=input.tracks_color_mode(),
+            only_one_color=input.tracks_only_one_color(),
+            lut_scaling_metric=input.tracks_lut_scaling_metric(),
+            smoothing_index=input.tracks_smoothing_index(),
+            lw=input.tracks_line_width(),
+            background=input.tracks_background(),
+            grid=input.tracks_show_grid(),
+            grid_style=input.tracks_grid_style(),
+            mark_heads=input.tracks_mark_heads(),
+            marker=Markers.TrackHeads.get(input.tracks_marker_type()),
+            markersize=input.tracks_marks_size()*10,
+            title=input.tracks_title()
+        )
+
+    @render.plot
+    def track_reconstruction_normalized():
+        return output_track_reconstruction_normalized.result()
+
+    @render.download(filename=f"Normalized Track Reconstruction {date.today()}.svg")
+    def tnr_download():
+        req(
+            SPOTSTATS.get() is not None and not SPOTSTATS.get().empty 
+            and TRACKSTATS.get() is not None and not TRACKSTATS.get().empty
+            and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns
+        )
+
+        fig = Plot.Tracks.VisualizeTracksNormalized(
+            Spots_df=SPOTSTATS.get(),
+            Tracks_df=TRACKSTATS.get(),
+            condition=input.tracks_conditions(),
+            replicate=input.tracks_replicates(),
+            c_mode=input.tracks_color_mode(),
+            only_one_color=input.tracks_only_one_color(),
+            lut_scaling_metric=input.tracks_lut_scaling_metric(),
+            smoothing_index=input.tracks_smoothing_index(),
+            lw=input.tracks_line_width(),
+            background=input.tracks_background(),
+            grid=input.tracks_show_grid(),
+            grid_style=input.tracks_grid_style(),
+            mark_heads=input.tracks_mark_heads(),
+            marker=Markers.TrackHeads.get(input.tracks_marker_type()),
+            markersize=input.tracks_marks_size()*10,
+            title=input.tracks_title()
+        )
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Lut Map {date.today()}.svg")
+    def download_lut_map_svg():
+        req(
+            SPOTSTATS.get() is not None and not SPOTSTATS.get().empty 
+            and TRACKSTATS.get() is not None and not TRACKSTATS.get().empty
+            and "Condition" in SPOTSTATS.get().columns and "Replicate" in SPOTSTATS.get().columns
+        )
+
+        fig = Plot.Tracks.GetLutMap(
+            Spots_df=SPOTSTATS.get(),
+            Tracks_df=TRACKSTATS.get(),
+            c_mode=input.tracks_color_mode(),
+            lut_scaling_metric=input.tracks_lut_scaling_metric(),
+            units=UNITS.get(),
+            _extend=input.tracks_lutmap_extend_edges()
+        )
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
     
     
     

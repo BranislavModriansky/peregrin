@@ -85,6 +85,7 @@ class Metrics:
             "days": "d",
         }
 
+        @staticmethod
         def SetUnits(t: str) -> dict:
             return {
                 "Track length": "(µm)",
@@ -96,6 +97,7 @@ class Metrics:
                 "Speed max": f"(µm·{t}⁻¹)",
                 "Speed min": f"(µm·{t}⁻¹)",
                 "Speed std": f"(µm·{t}⁻¹)",
+                "Speed instantaneous": f"(µm·{t}⁻¹)",
                 "Direction mean (deg)": "",
                 "Direction mean (rad)": "",
                 "Direction std (deg)": "",
@@ -169,16 +171,25 @@ class Styles:
         "random greys",
         "differentiate replicates",
         "only-one-color",
-        "greyscale LUT", 
-        "jet LUT", 
-        "brg LUT", 
-        "hot LUT", 
-        "gnuplot LUT", 
-        "viridis LUT", 
-        "rainbow LUT", 
-        "turbo LUT", 
-        "nipy-spectral LUT", 
+        "greyscale LUT",
+        "reverse grayscale LUT",
+        "jet LUT",
+        "brg LUT",
+        "cool LUT",
+        "hot LUT",
+        "inferno LUT",
+        "plasma LUT",
+        "CMR-map LUT",
+        "gist-stern LUT",
+        "gnuplot LUT",
+        "viridis LUT",
+        "cividis LUT",
+        "rainbow LUT",
+        "turbo LUT",
+        "nipy-spectral LUT",
         "gist-ncar LUT",
+        "twilight LUT",
+        "seismic LUT",
     ]
 
     PaletteQuantitative = [
