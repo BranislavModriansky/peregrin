@@ -583,24 +583,9 @@ app_ui = ui.page_sidebar(
                             """
                         ),
 
-                        ui.input_selectize(id="type_superplot", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms"),
+                        ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms"),
 
                         ui.accordion(
-
-                            # ui.accordion_panel(
-                            #     "Dataset",
-                            #     # ui.input_selectize("sp_condition", "Condition:", ["all", "not all"]),
-                            #     # ui.panel_conditional(
-                            #     #     "input.sp_condition != 'all'",
-                            #     #     ui.input_selectize("sp_replicate", "Replicate:", ["all", "not all"]),
-                            #     # ),
-                            #     ui.markdown(
-                            #         """
-                            #         **Note:** Superplots always show all conditions and replicates. <br>
-                            #         *In future versions, an option, in which desired conditions can be specified may be added.*
-                            #         """
-                            #     ),
-                            # ),
 
                             ui.accordion_panel(
                                 "Pre-sets",
@@ -781,23 +766,26 @@ app_ui = ui.page_sidebar(
                         ui.input_text(id="sp_title", label=None, placeholder="Title me!"),
 
                         ui.markdown(""" <br> """),
-                        ui.input_task_button(id="sp_generate", label="Generate", class_="btn-secondary", width="100%"),
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Swarms'",
+                            ui.input_task_button(id="sps_generate", label="Generate", class_="btn-secondary", width="100%")
+                        ),
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Violins'",
+                            ui.input_task_button(id="spv_generate", label="Generate", class_="btn-secondary", width="100%")
+                        )
                     ),
                     ui.markdown(""" <br> """),
-                    # ui.output_ui("sp_plot_card"),
-                    ui.output_ui("sp_plot_card"),
-                    # ui.card(
-                    #     ui.div(
-                    #         # Make the *plot image* larger than the panel so scrolling kicks in
-                    #         # ui.output_plot("bigplot", width="1400px", height="1000px"),
-                    #         ui.output_plot(id="swarmplot", fill=False),
-                    #         style="height: 300px; overflow:auto;",
-                    #         # class_="scroll-panel",
-                    #     ),
-                    #     full_screen=True, fill=False
-                    # ),
-                    ui.markdown(""" <br> """),
-                    ui.download_button(id="download_swarmplot_svg", label="Download SVG", width="100%"),
+                    ui.panel_conditional(
+                        "input.superplot_type == 'Swarms'",
+                        ui.output_ui("sps_plot_card"),
+                        ui.download_button(id="sps_download_svg", label="Download SVG", width="100%"),
+                    ),
+                    ui.panel_conditional(
+                        "input.superplot_type == 'Violins'",
+                        ui.output_ui("spv_plot_card"),
+                        ui.download_button(id="spv_download_svg", label="Download SVG", width="100%"),
+                    )
                 ),
                 widths = (2, 10)
             ),
@@ -2496,7 +2484,7 @@ def server(input: Inputs, output: Outputs, session: Session):
 
 
     
-    # @output(id="sp_plot_card")
+    # @output(id="sps_plot_card")
     # @render.ui
     # def plot_card():
 
@@ -2580,9 +2568,10 @@ def server(input: Inputs, output: Outputs, session: Session):
             ui.update_numeric(f"sp_median_bullet_size", value=70)
             ui.update_numeric(f"sp_mean_bullet_size", value=50)
 
-    # _ _ _ _ - - Swarmplot _ _ _ _ 
 
-    @ui.bind_task_button(button_id="sp_generate")
+    # _ _ _ _ SWARMPPLOT _ _ _ _ 
+
+    @ui.bind_task_button(button_id="sps_generate")
     @reactive.extended_task
     async def output_swarmplot(
         df,
@@ -2695,13 +2684,13 @@ def server(input: Inputs, output: Outputs, session: Session):
     
 
     @reactive.Effect
-    @reactive.event(input.sp_generate, ignore_none=False)
+    @reactive.event(input.sps_generate, ignore_none=False)
     def trigger_swarmplot():
 
         @reactive.Effect
-        @reactive.event(input.sp_generate, ignore_none=False)
+        @reactive.event(input.sps_generate, ignore_none=False)
         def _():
-            @output(id="sp_plot_card")
+            @output(id="sps_plot_card")
             @render.ui
             def plot_card():
 
@@ -2723,7 +2712,252 @@ def server(input: Inputs, output: Outputs, session: Session):
 
 
         @reactive.Effect
-        @reactive.event(input.sp_generate, ignore_none=False)
+        @reactive.event(input.sps_generate, ignore_none=False)
+        def make_swarmplot():
+            output_swarmplot.cancel()
+
+            output_swarmplot(
+                df=TRACKSTATS.get() if TRACKSTATS.get() is not None else pd.DataFrame(),
+                metric=input.sp_metric(),
+                title=input.sp_title(), 
+                palette=input.sp_palette(),
+
+                show_swarm=input.sp_show_swarms(),
+                swarm_size=input.sp_swarm_marker_size(),
+                swarm_outline_color=input.sp_swarm_marker_outline(),
+                swarm_alpha=input.sp_swarm_marker_alpha() if 0.0 <= input.sp_swarm_marker_alpha() <= 1.0 else 1.0,
+
+                show_violin=input.sp_show_violins(),
+                violin_fill_color=input.sp_violin_fill(),
+                violin_edge_color=input.sp_violin_outline(),
+                violin_alpha=input.sp_violin_alpha() if 0.0 <= input.sp_violin_alpha() <= 1.0 else 1.0,
+                violin_outline_width=input.sp_violin_outline_width(),
+
+                show_mean=input.sp_show_cond_mean(),
+                mean_span=input.sp_mean_line_span(),
+                mean_color=input.sp_mean_line_color(),
+                show_median=input.sp_show_cond_median(),
+                median_span=input.sp_median_line_span(),
+                median_color=input.sp_median_line_color(),
+                line_width=input.sp_lines_lw(),
+                show_error_bars=input.sp_show_errbars(),
+                errorbar_capsize=input.sp_errorbar_capsize(),
+                errorbar_color=input.sp_errorbar_color(),
+                errorbar_lw=input.sp_errorbar_lw(),
+                errorbar_alpha=input.sp_errorbar_alpha() if 0.0 <= input.sp_errorbar_alpha() <= 1.0 else 1.0,
+
+                show_mean_balls=input.sp_show_rep_means(),
+                mean_ball_size=input.sp_mean_bullet_size(),
+                mean_ball_outline_color=input.sp_mean_bullet_outline(),
+                mean_ball_outline_width=input.sp_mean_bullet_outline_width(),
+                mean_ball_alpha=input.sp_mean_bullet_alpha() if 0.0 <= input.sp_mean_bullet_alpha() <= 1.0 else 1.0,
+                show_median_balls=input.sp_show_rep_medians(),
+                median_ball_size=input.sp_median_bullet_size(),
+                median_ball_outline_color=input.sp_median_bullet_outline(),
+                median_ball_outline_width=input.sp_median_bullet_outline_width(),
+                median_ball_alpha=input.sp_median_bullet_alpha() if 0.0 <= input.sp_median_bullet_alpha() <= 1.0 else 1.0,
+
+                show_kde=input.sp_show_kde(),
+                kde_inset_width=input.sp_kde_bandwidth(),
+                kde_outline=input.sp_kde_line_width(),
+                kde_alpha=input.sp_kde_fill_alpha() if 0.0 <= input.sp_kde_fill_alpha() <= 1.0 else 1.0,
+                kde_fill=input.sp_kde_fill(),
+
+                show_legend=input.sp_show_legend(),
+                show_grid=input.sp_grid(),
+                open_spine=input.sp_spine(),
+                
+                plot_width=input.sp_fig_width(),
+                plot_height=input.sp_fig_height(),
+            )
+
+    # @output(id="swarmplot")
+    @render.plot
+    def swarmplot():
+        # Only update when output_swarmplot task completes (not reactively)
+        return output_swarmplot.result()
+
+    @render.download(filename=f"Swarmplot {date.today()}.svg")
+    def download_swarmplot_svg():
+        if TRACKSTATS.get() is None or TRACKSTATS.get().empty: return
+        fig = Plot.Superplots.SwarmPlot(
+            df=TRACKSTATS.get(),
+            metric=input.sp_metric(),
+            title=input.sp_title(),
+            palette=input.sp_palette(),
+
+            show_swarm=input.sp_show_swarms(),
+            swarm_size=input.sp_swarm_marker_size(),
+            swarm_outline_color=input.sp_swarm_marker_outline(),
+            swarm_alpha=input.sp_swarm_marker_alpha(),
+
+            show_violin=input.sp_show_violins(),
+            violin_fill_color=input.sp_violin_fill(),
+            violin_edge_color=input.sp_violin_outline(),
+            violin_alpha=input.sp_violin_alpha(),
+            violin_outline_width=input.sp_violin_outline_width(),
+
+            show_mean=input.sp_show_cond_mean(),
+            mean_span=input.sp_mean_line_span(),
+            mean_color=input.sp_mean_line_color(),
+            show_median=input.sp_show_cond_median(),
+            median_span=input.sp_median_line_span(),
+            median_color=input.sp_median_line_color(),
+            line_width=input.sp_lines_lw(),
+            show_error_bars=input.sp_show_errbars(),
+            errorbar_capsize=input.sp_errorbar_capsize(),
+            errorbar_color=input.sp_errorbar_color(),
+            errorbar_lw=input.sp_errorbar_lw(),
+            errorbar_alpha=input.sp_errorbar_alpha(),
+
+            show_mean_balls=input.sp_show_rep_means(),
+            mean_ball_size=input.sp_mean_bullet_size(),
+            mean_ball_outline_color=input.sp_mean_bullet_outline(),
+            mean_ball_outline_width=input.sp_mean_bullet_outline_width(),
+            mean_ball_alpha=input.sp_mean_bullet_alpha(),
+            show_median_balls=input.sp_show_rep_medians(),
+            median_ball_size=input.sp_median_bullet_size(),
+            median_ball_outline_color=input.sp_median_bullet_outline(),
+            median_ball_outline_width=input.sp_median_bullet_outline_width(),
+            median_ball_alpha=input.sp_median_bullet_alpha(),
+
+            show_kde=input.sp_show_kde(),
+            kde_inset_width=input.sp_kde_bandwidth(),
+            kde_outline=input.sp_kde_line_width(),
+            kde_alpha=input.sp_kde_fill_alpha(),
+            kde_fill=input.sp_kde_fill(),
+
+            show_legend=input.sp_show_legend(),
+            show_grid=input.sp_grid(),
+            open_spine=input.sp_spine(),
+            
+            plot_width=input.sp_fig_width(),
+            plot_height=input.sp_fig_height(),
+        )
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+
+    
+    # _ _ _ _ SUPERVIOLINPLOT _ _ _ _ 
+
+    @ui.bind_task_button(button_id="sps_generate")
+    @reactive.extended_task
+    async def output_superviolinplot(
+        df,
+        metric,
+        title,
+        palette,
+        show_swarm,
+        swarm_size,
+        swarm_outline_color,
+        swarm_alpha,
+        show_violin,
+        violin_fill_color,
+        violin_edge_color,
+        violin_alpha,
+        violin_outline_width,
+        show_mean,
+        mean_span,
+        mean_color,
+        show_median,
+        median_span,
+        median_color,
+        line_width,
+        show_error_bars,
+        errorbar_capsize,
+        errorbar_color,
+        errorbar_lw,
+        errorbar_alpha,
+        show_mean_balls,
+        mean_ball_size,
+        mean_ball_outline_color,
+        mean_ball_outline_width,
+        mean_ball_alpha,
+        show_median_balls,
+        median_ball_size,
+        median_ball_outline_color,
+        median_ball_outline_width,
+        median_ball_alpha,
+        show_kde,
+        kde_inset_width,
+        kde_outline,
+        kde_alpha,
+        kde_fill,
+        show_legend,
+        show_grid,
+        open_spine,
+        plot_width,
+        plot_height
+    ):
+        # run sync plotting off the event loop
+        def build():
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+
+                return Plot.Superplots.SuperviolinPlot(
+                    df=df,
+                    metric=metric,
+                    title=title,
+                    units=UNITS.get() if UNITS.get() is not None else "",
+                    centre_val="mean",
+                    middle_vals="mean",
+                    error_bars="SEM",
+                    total_width=0.8,
+                    outline_lw=1,
+                    dataframe=False,
+                    sep_lw=0,
+                    bullet_lw=0.75,
+                    errorbar_lw=1,
+                    bullet_size=50,
+                    palette="Accent",
+                    use_my_colors=True,
+                    show_legend=True,
+                    plot_width=12,
+                    plot_height=5
+                )
+
+        # Either form is fine; pick one:
+        return await asyncio.get_running_loop().run_in_executor(None, build)
+        # return await asyncio.to_thread(build)
+    
+
+    @reactive.Effect
+    @reactive.event(input.sps_generate, ignore_none=False)
+    def trigger_swarmplot():
+
+        @reactive.Effect
+        @reactive.event(input.sps_generate, ignore_none=False)
+        def _():
+            @output(id="sps_plot_card")
+            @render.ui
+            def plot_card():
+
+                with reactive.isolate():
+                    req(input.sp_fig_height() is not None and input.sp_fig_width() is not None)
+                    fig_height, fig_width = input.sp_fig_height() * 96, input.sp_fig_width() * 96
+            
+                return ui.card(
+                    ui.div(
+                        # Make the *plot image* larger than the panel so scrolling kicks in
+                        ui.output_plot("swarmplot", width=f"{fig_width}px", height=f"{fig_height}px"),
+                        # ui.output_plot(id="swarmplot"),
+                        style=f"height: {fig_height}px; width: {fig_width}px; margin: auto",
+                        # style=f"overflow: auto;",
+                        class_="scroll-panel",
+                    ),
+                    full_screen=True, fill=False
+                ), 
+
+
+        @reactive.Effect
+        @reactive.event(input.sps_generate, ignore_none=False)
         def make_swarmplot():
             output_swarmplot.cancel()
 
