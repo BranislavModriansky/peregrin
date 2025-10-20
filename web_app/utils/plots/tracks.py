@@ -1,0 +1,536 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib.collections import LineCollection
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from ..plots.graphics import Colors
+
+
+@staticmethod
+def VisualizeTracksRealistics(
+    Spots_df: pd.DataFrame,
+    Tracks_df: pd.DataFrame,
+    condition: str,
+    *args,
+    replicate: str = 'all',
+    c_mode: str = 'differentiate replicates',
+    only_one_color: str = 'blue',
+    lut_scaling_metric: str = 'Track displacement',
+    background: str = 'dark',
+    smoothing_index: int | float = 0,
+    lw: float = 1.0,
+    grid: bool = True,
+    mark_heads: bool = False,
+    marker: dict = {"symbol": "o", "fill": True},
+    markersize: float = 5.0,
+    title: str = 'Track Visualization',
+):
+    # --- Early outs / guards -------------------------------------------------
+
+    Spots = Spots_df.copy()
+    Tracks = Tracks_df.copy()
+    
+    # --- Filter & sort once ---------------------------------------------------
+    required = ['Condition', 'Replicate', 'Track ID', 'Time point', 'X coordinate', 'Y coordinate']
+    if any(col not in Spots.columns for col in required):
+        return plt.gcf()
+
+    if replicate == 'all':
+        Spots = Spots.loc[Spots['Condition'] == condition]
+        Tracks = Tracks.loc[Tracks['Condition'] == condition]
+    elif replicate != 'all':
+        Spots = Spots.loc[Spots['Replicate'] == replicate]
+        Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+
+    Spots = Spots.sort_values(['Condition', 'Replicate', 'Track ID', 'Time point'])
+    Tracks = Tracks.sort_values(['Condition', 'Replicate', 'Track ID'])
+
+    # Ensure we can group efficiently
+    key_cols = ['Condition', 'Replicate', 'Track ID']
+
+    # Ensure keys exist only as index (no duplicate columns)
+    Spots = Spots.set_index(key_cols, drop=True)      # drop=True is the default; keeps keys out of columns
+    Tracks = Tracks.set_index(key_cols, drop=True)
+
+    # --- Optional smoothing (vectorized) --------------------------------------
+    if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+        win = int(smoothing_index)
+        Spots['X coordinate'] = (
+            Spots.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+        )
+        Spots['Y coordinate'] = (
+            Spots.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+        )
+
+    # --- Colors: compute once, map to each track ------------------------------
+    rng = np.random.default_rng(42)
+
+    def rand_color():
+        return mcolors.to_hex(rng.random(3))
+    def rand_grey():
+        g = float(rng.random())
+        return mcolors.to_hex((g, g, g))
+
+    colormap = None
+    if c_mode in ['random colors', 'random greys', 'only-one-color']:
+        # one color per *track*
+        unique_tracks = Tracks.index.unique()
+        if c_mode == 'random colors':
+            colors = [rand_color() for _ in range(len(unique_tracks))]
+        elif c_mode == 'random greys':
+            colors = [rand_grey() for _ in range(len(unique_tracks))]
+        else:
+            colors = [only_one_color] * len(unique_tracks)
+        track_to_color = dict(zip(unique_tracks, colors))
+        Tracks['Track color'] = [track_to_color[idx] for idx in Tracks.index]
+
+    elif c_mode == 'differentiate replicates':
+        # Color by replicate if available, else fall back
+        Tracks['Track color'] = Tracks['Replicate color'] if 'Replicate color' in Tracks.columns else "red"
+
+    else:
+        # interpret c_mode as a matplotlib cmap name
+        use_instantaneous = (lut_scaling_metric == 'Speed instantaneous')
+
+        if lut_scaling_metric in Tracks.columns and not use_instantaneous:
+            colormap = Colors.GetCmap(c_mode)
+            vmin = float(Tracks[lut_scaling_metric].min())
+            vmax = float(Tracks[lut_scaling_metric].max())
+            norm = plt.Normalize(vmin, vmax if np.isfinite(vmax) and vmax > vmin else vmin + 1.0)
+            Tracks['Track color'] = [mcolors.to_hex(colormap(norm(v))) for v in Tracks[lut_scaling_metric].to_numpy()]
+
+        elif use_instantaneous:
+            # Color segments by the most-recent (ending) spot of each segment
+            # Compute per-spot speed for the segment that ENDS at this spot:
+            # speed_end[i] = distance from spot i-1 -> i
+            colormap = Colors.GetCmap(c_mode)
+            if 'Distance' not in Spots.columns:
+                # Fallback: compute instantaneous distances if missing
+                g = Spots.groupby(level=key_cols)
+                d = np.sqrt(
+                    (g['X coordinate'].diff())**2 +
+                    (g['Y coordinate'].diff())**2
+                )
+                speed_end = d
+            else:
+                # Distance in Calc.Spots is from current -> next; shift to align with segment end
+                speed_end = Spots.groupby(level=key_cols)['Distance'].shift(1)
+
+            vmax = float(np.nanmax(speed_end.to_numpy())) if np.isfinite(speed_end.to_numpy()).any() else 1.0
+            vmin = 0.0
+            norm = plt.Normalize(vmin, vmax if vmax > 0 else 1.0)
+
+            # Color each spot by the speed of the segment that ends at this spot
+            Spots['Spot color'] = [
+                mcolors.to_hex(colormap(norm(v))) if np.isfinite(v) else mcolors.to_hex(colormap(0.0))
+                for v in speed_end.to_numpy()
+            ]
+
+        # else: no-op; colors may have been assigned above
+
+    # Map per-track color down to Spots only if not using instantaneous coloring
+    if not (lut_scaling_metric == 'Speed instantaneous'):
+        Spots = Spots.join(
+            Tracks[['Track color']],
+            on=['Condition', 'Replicate', 'Track ID'],
+            how='left',
+            validate='many_to_one',
+        )
+
+    # --- Build line segments for LineCollection -------------------------------
+    segments = []
+    seg_colors = []
+
+    if lut_scaling_metric == 'Speed instantaneous':
+        # One segment per consecutive pair, colored by the ending spot's color
+        for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+            xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+            if xy.shape[0] >= 2:
+                cols = g['Spot color'].astype(str).to_numpy()
+                # Build pairwise segments: [i-1 -> i], colored by cols[i]
+                for i in range(1, xy.shape[0]):
+                    segments.append(xy[i-1:i+1])
+                    seg_colors.append(cols[i])
+    else:
+        # One polyline per track, colored by its track color
+        for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+            xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+            if xy.shape[0] >= 2:
+                segments.append(xy)
+                seg_colors.append(g['Track color'].iloc[0])
+
+    # --- Figure / axes setup ---------------------------------------------------
+    if background == 'white':
+        grid_color, face_color, grid_alpha, grid_ls = 'gainsboro', 'white', 0.5, '-.' if grid else 'None'
+    elif background == 'light':
+        grid_color, face_color, grid_alpha, grid_ls = 'silver', 'lightgrey', 0.5, '-.' if grid else 'None'
+    elif background == 'mid':
+        grid_color, face_color, grid_alpha, grid_ls = 'silver', 'darkgrey', 0.5, '-.' if grid else 'None'
+    elif background == 'dark':
+        grid_color, face_color, grid_alpha, grid_ls = 'grey', 'dimgrey', 0.5, '-.' if grid else 'None'
+    elif background == 'black':
+        grid_color, face_color, grid_alpha, grid_ls = 'dimgrey', 'black', 0.5, '-.' if grid else 'None'
+
+    fig, ax = plt.subplots(figsize=(13, 10))
+    if len(Spots):
+        x = Spots['X coordinate'].to_numpy()
+        y = Spots['Y coordinate'].to_numpy()
+        ax.set_xlim(np.nanmin(x), np.nanmax(x))
+        ax.set_ylim(np.nanmin(y), np.nanmax(y))
+
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_xlabel('X coordinate [microns]')
+    ax.set_ylabel('Y coordinate [microns]')
+    ax.set_title(title, fontsize=12)
+    ax.set_facecolor(face_color)
+    ax.grid(grid, which='both', axis='both', color=grid_color, linestyle=grid_ls, linewidth=1, alpha=grid_alpha) if grid else ax.grid(False)
+
+    # Ticks
+    ax.xaxis.set_major_locator(MultipleLocator(200))
+    ax.yaxis.set_major_locator(MultipleLocator(200))
+    ax.xaxis.set_minor_locator(MultipleLocator(50))
+    ax.yaxis.set_minor_locator(MultipleLocator(50))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    ax.tick_params(axis='both', which='major', labelsize=8)
+
+    # --- Draw all tracks at once ----------------------------------------------
+    if segments:
+        lc = LineCollection(segments, colors=seg_colors, linewidths=lw, zorder=10)
+        ax.add_collection(lc)
+
+    # --- Optional markers at track heads -------------------------------------
+    if mark_heads:
+        ends = Spots.groupby(level=key_cols, sort=False).tail(1)
+        if len(ends):
+            xe = ends['X coordinate'].to_numpy(dtype=float, copy=False)
+            ye = ends['Y coordinate'].to_numpy(dtype=float, copy=False)
+            if lut_scaling_metric == 'Speed instantaneous':
+                cols = ends['Spot color'].astype(str).to_numpy()
+            else:
+                cols = ends['Track color'].astype(str).to_numpy()
+            m = np.isfinite(xe) & np.isfinite(ye)
+            if m.any():
+                ax.scatter(
+                    xe[m],
+                    ye[m],
+                    marker=marker["symbol"],
+                    s=markersize,
+                    edgecolor=cols[m],
+                    facecolor=cols[m] if marker["fill"] else "none",
+                    linewidths=lw,
+                    zorder=12,
+                )
+
+    return plt.gcf()
+
+
+@staticmethod
+def VisualizeTracksNormalized(
+    Spots_df: pd.DataFrame,
+    Tracks_df: pd.DataFrame,
+    condition: str,
+    *args,
+    replicate: str = 'all',
+    c_mode: str = 'differentiate replicates',
+    only_one_color: str = 'blue',
+    lut_scaling_metric: str = 'Track displacement',
+    smoothing_index: float = 0,
+    lw: float = 1.0,
+    background: str = 'white',
+    grid: bool = True,
+    grid_style: str = 'alternating 1',
+    mark_heads: bool = False,
+    marker: dict = {"symbol": "o", "fill": True},
+    markersize: int = 5,
+    title: str = 'Normalized Track Visualization',
+):
+    # ----------------- copies / guards -----------------
+    Spots_all = Spots_df.copy()
+    Spots = Spots_df.copy()
+    Tracks = Tracks_df.copy()
+
+    required_spots = ['Condition','Replicate','Track ID','Time point','X coordinate','Y coordinate']
+    if any(col not in Spots.columns for col in required_spots):
+        return plt.gcf()
+
+    # ----------------- filter subset to draw -----------------
+    if replicate == 'all':
+        Spots = Spots.loc[Spots['Condition'] == condition]
+        Tracks = Tracks.loc[Tracks['Condition'] == condition]
+    elif replicate != 'all':
+        Spots = Spots.loc[Spots['Replicate'] == replicate]
+        Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+
+    sort_cols = ['Condition','Replicate','Track ID','Time point']
+    key_cols = ['Condition','Replicate','Track ID']
+    Spots = Spots.sort_values(sort_cols).set_index(key_cols, drop=True)
+    Tracks = Tracks.sort_values(['Condition','Replicate','Track ID']).set_index(key_cols, drop=True)
+
+    # ----------------- smoothing (subset) -----------------
+    if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+        win = int(smoothing_index)
+        Spots['X coordinate'] = Spots.groupby(level=key_cols)['X coordinate'] \
+            .transform(lambda s: s.rolling(win, min_periods=1).mean())
+        Spots['Y coordinate'] = Spots.groupby(level=key_cols)['Y coordinate'] \
+            .transform(lambda s: s.rolling(win, min_periods=1).mean())
+
+    # ----------------- normalize (subset) -----------------
+    x0 = Spots.groupby(level=key_cols)['X coordinate'].transform('first')
+    y0 = Spots.groupby(level=key_cols)['Y coordinate'].transform('first')
+    Spots['Xn'] = Spots['X coordinate'] - x0
+    Spots['Yn'] = Spots['Y coordinate'] - y0
+
+    # ----------------- colors on Tracks, join to Spots -----------------
+    rng = np.random.default_rng(42)
+    track_index = Tracks.index.unique()
+
+    if c_mode in ['random colors', 'random greys', 'only-one-color']:
+        if c_mode == 'random colors':
+            cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(track_index))]
+        elif c_mode == 'random greys':
+            cols = [mcolors.to_hex((float(g), float(g), float(g))) for g in rng.random(len(track_index))]
+        else:
+            cols = [mcolors.to_hex(only_one_color)] * len(track_index)
+        Tracks['Track color'] = [dict(zip(track_index, cols))[idx] for idx in Tracks.index]
+
+    elif c_mode == 'differentiate replicates':
+        if 'Replicate color' in Tracks.columns:
+            Tracks['Track color'] = Tracks['Replicate color'].astype(str)
+        else:
+            reps = Tracks.reset_index()['Replicate'].unique().tolist()
+            rep_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(reps))]
+            rep2col = dict(zip(reps, rep_cols))
+            Tracks = Tracks.reset_index()
+            Tracks['Track color'] = Tracks['Replicate'].map(rep2col)
+            Tracks = Tracks.set_index(key_cols)
+
+    else:
+        # interpret c_mode as a matplotlib cmap name
+        use_instantaneous = (lut_scaling_metric == 'Speed instantaneous')
+
+        if lut_scaling_metric in Tracks.columns and not use_instantaneous:
+            cmap = Colors.GetCmap(c_mode)
+            vmin = float(Tracks[lut_scaling_metric].min()) if lut_scaling_metric in Tracks.columns else 0.0
+            vmax = float(Tracks[lut_scaling_metric].max()) if lut_scaling_metric in Tracks.columns else 1.0
+            # guard against degenerate range
+            if not np.isfinite(vmin): vmin = 0.0
+            if not np.isfinite(vmax) or vmax <= vmin: vmax = vmin + 1.0
+            norm = plt.Normalize(vmin, vmax)
+            vals = Tracks[lut_scaling_metric].to_numpy() if lut_scaling_metric in Tracks.columns else np.zeros(len(Tracks))
+            Tracks['Track color'] = [mcolors.to_hex(cmap(norm(v))) for v in vals]
+
+        elif use_instantaneous:
+            # Color by instantaneous speed at each spot (ending segment)
+            colormap = Colors.GetCmap(c_mode)
+            if 'Distance' not in Spots.columns:
+                # Fallback: compute instantaneous distances if missing
+                g = Spots.groupby(level=key_cols)
+                d = np.sqrt(
+                    (g['X coordinate'].diff())**2 +
+                    (g['Y coordinate'].diff())**2
+                )
+                speed_end = d
+            else:
+                # Distance in Calc.Spots is from current -> next; shift to align with segment end
+                speed_end = Spots.groupby(level=key_cols)['Distance'].shift(1)
+
+            vmax = float(np.nanmax(speed_end.to_numpy())) if np.isfinite(speed_end.to_numpy()).any() else 1.0
+            vmin = 0.0
+            vmax = vmax if vmax > 0 else 1.0
+            norm = plt.Normalize(vmin, vmax)
+
+            # Color each spot by the speed of the segment that ends at this spot
+            Spots['Spot color'] = [
+                mcolors.to_hex(colormap(norm(v))) if np.isfinite(v) else mcolors.to_hex(colormap(0.0))
+                for v in speed_end.to_numpy()
+            ]
+
+    # Only join per-track colors when not using instantaneous LUT
+    if lut_scaling_metric != 'Speed instantaneous':
+        Spots = Spots.join(Tracks[['Track color']], on=key_cols, how='left', validate='many_to_one')
+
+    # ----------------- polar conversion (subset) -----------------
+    Spots['r'] = np.sqrt(Spots['Xn']**2 + Spots['Yn']**2)
+    Spots['theta'] = np.arctan2(Spots['Yn'], Spots['Xn'])
+
+    # ----------------- GLOBAL y_max from full dataset -----------------
+    All = Spots_all.sort_values(sort_cols).set_index(key_cols, drop=True)
+    if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+        win = int(smoothing_index)
+        AllX = All.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+        AllY = All.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
+    else:
+        AllX, AllY = All['X coordinate'], All['Y coordinate']
+    AllX0 = AllX.groupby(level=key_cols).transform('first')
+    AllY0 = AllY.groupby(level=key_cols).transform('first')
+    All_r = np.sqrt((AllX - AllX0)**2 + (AllY - AllY0)**2)
+
+    y_max_global = float(np.nanmax(All_r.to_numpy())) if len(All_r) else 1.0
+    if not np.isfinite(y_max_global) or y_max_global <= 0:
+        y_max_global = 1.0
+    y_max = y_max_global * 1.1  # headroom
+
+    # ----------------- segments (subset) -----------------
+    segments, seg_colors = [], []
+    if lut_scaling_metric == 'Speed instantaneous':
+        # One segment per consecutive pair in polar coords, colored by ending spot color
+        for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+            th = g['theta'].to_numpy(dtype=float, copy=False)
+            rr = g['r'].to_numpy(dtype=float, copy=False)
+            cols = g.get('Spot color', pd.Series(index=g.index, dtype=object)).astype(str).to_numpy()
+            n = th.size
+            if n >= 2:
+                for i in range(1, n):
+                    # segment from i-1 -> i
+                    segments.append(np.array([[th[i-1], rr[i-1]], [th[i], rr[i]]], dtype=float))
+                    # color by ending spot
+                    seg_colors.append(cols[i] if i < len(cols) else cols[-1] if len(cols) else 'black')
+    else:
+        # One polyline per track in polar coords, colored by track color
+        for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
+            th = g['theta'].to_numpy(dtype=float, copy=False)
+            rr = g['r'].to_numpy(dtype=float, copy=False)
+            if th.size >= 2:
+                segments.append(np.column_stack([th, rr]))
+                seg_colors.append(g['Track color'].iloc[0])
+
+    # ----------------- figure / axes -----------------
+    fig, ax = plt.subplots(figsize=(12.5, 9.5), subplot_kw={'projection': 'polar'})
+    ax.set_title(title, fontsize=12)
+    ax.set_ylim(0, y_max)        # <- global, consistent across subsets
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.spines['polar'].set_visible(False)
+    # ax.grid(grid)
+
+    # ----------------- draw tracks -----------------
+    if segments:
+        lc = LineCollection(segments, colors=seg_colors, linewidths=lw, zorder=10)
+        lc.set_transform(ax.transData)
+        ax.add_collection(lc)
+
+    # ----------------- arrows (optional) -----------------
+    if mark_heads:
+        ends = Spots.groupby(level=key_cols, sort=False).tail(1)
+        if len(ends):
+            th_e = ends['theta'].to_numpy(dtype=float, copy=False)
+            r_e = ends['r'].to_numpy(dtype=float, copy=False)
+            if lut_scaling_metric == 'Speed instantaneous':
+                cols = ends['Spot color'].astype(str).to_numpy()
+            else:
+                cols = ends['Track color'].astype(str).to_numpy()
+            m = np.isfinite(th_e) & np.isfinite(r_e)
+            if m.any():
+                ax.scatter(
+                    th_e[m],
+                    r_e[m],
+                    marker=marker["symbol"],
+                    s=markersize,
+                    edgecolor=cols[m],
+                    facecolor=cols[m] if marker["fill"] else "none",
+                    linewidths=lw,
+                    zorder=12,
+                )
+
+    # ----------------- subtle grid cosmetics -----------------
+    if background == 'white':
+        ax.set_facecolor('white')
+        _color, _alpha1, _alpha2 = 'lightgrey', 0.7, 0.8
+    elif background == 'light':
+        ax.set_facecolor('lightgrey')
+        _color, _alpha1, _alpha2 = 'darkgrey', 0.7, 0.6
+    elif background == 'mid':
+        ax.set_facecolor('darkgrey')
+        _color, _alpha1, _alpha2 = 'dimgrey', 0.7, 0.5
+    elif background == 'dark':
+        ax.set_facecolor('dimgrey')
+        _color, _alpha1, _alpha2 = 'grey', 0.7, 0.6
+    elif background == 'black':
+        ax.set_facecolor('black')
+        _color, _alpha1, _alpha2 = 'dimgrey', 0.5, 0.4
+
+    if grid:
+        if grid_style in ['simple-1', 'simple-2']:
+            ax.xaxis.grid(True, color=_color, linestyle='-', linewidth=1, alpha=_alpha1)
+            ax.yaxis.grid(False)
+
+            if grid_style == 'simple-1':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 != 0:
+                        line.set_color('none')
+            if grid_style == 'simple-2':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 == 0:
+                        line.set_color('none')
+
+        if grid_style in ['dartboard-1', 'dartboard-2']:
+            ax.grid(True, lw=0.75, color=_color, alpha=_alpha1)
+            if grid_style == 'dartboard-1':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 == 0:
+                        line.set_linestyle('-.'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha1)
+                for line in ax.get_ygridlines():
+                    line.set_linestyle('--'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha2)
+
+            if grid_style == 'dartboard-2':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 != 0:
+                        line.set_linestyle('-.'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha1)
+                for line in ax.get_ygridlines():
+                    line.set_linestyle('--'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha2)
+        elif grid_style == 'spindle':
+            ax.xaxis.grid(True, color=_color, linestyle='-', linewidth=1, alpha=_alpha1)
+            ax.yaxis.grid(False)
+        elif grid_style == 'radial':
+            ax.xaxis.grid(False)
+            ax.yaxis.grid(True, color=_color, linestyle='-', linewidth=1, alpha=_alpha1)
+
+    elif not grid:
+        ax.grid(False)
+
+    # ----------------- μm label on the side (no line) -----------------
+    # Show the global radius (rounded) just outside the right edge, centered vertically.
+    label_um = f"{int(np.round(y_max_global))} μm"
+    ax.text(1.03, 0.5, label_um,
+            transform=ax.transAxes, ha='left', va='center',
+            fontsize=10, color='dimgray', clip_on=False)
+
+    return plt.gcf()
+
+
+@staticmethod
+def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):
+
+    if c_mode not in ['random colors', 'random greys', 'only-one-color', 'diferentiate replicates']:
+
+        if lut_scaling_metric != 'Speed instantaneous':
+            lut_norm_df = Tracks_df[[lut_scaling_metric]].drop_duplicates()
+            _lut_scaling_metric = lut_scaling_metric
+        if lut_scaling_metric == 'Speed instantaneous':
+            lut_norm_df = Spots_df[['Distance']].drop_duplicates()
+            _lut_scaling_metric = 'Distance'
+
+        # Normalize the Net distance to a 0-1 range
+        lut_min = lut_norm_df[_lut_scaling_metric].min()
+        lut_max = lut_norm_df[_lut_scaling_metric].max()
+        norm = plt.Normalize(vmin=lut_min, vmax=lut_max)
+
+        # Get the colormap based on the selected mode
+        colormap = Colors.GetCmap(c_mode)
+    
+        # Add a colorbar to show the LUT map
+        sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
+        sm.set_array([])
+        # Create a separate figure for the LUT map (colorbar)
+        fig_lut, ax_lut = plt.subplots(figsize=(2, 6))
+        ax_lut.axis('off')
+        cbar = fig_lut.colorbar(sm, ax=ax_lut, orientation='vertical', extend='both' if _extend else 'neither')
+        print(units.get(lut_scaling_metric))
+        cbar.set_label(f"{lut_scaling_metric} {units.get(lut_scaling_metric)}", fontsize=10)
+
+        return plt.gcf()
+
+    else:
+        pass
