@@ -5,6 +5,10 @@ from scipy.stats import gaussian_kde
 import shiny.ui as ui
 from shiny import render, reactive, req, ui
 from utils import Frames, Metrics, Threshold, Debounce, Throttle
+from utils._compute._filters import Threshold
+
+# one shared instance (tune eps if needed)
+THRESH = Threshold(eps=1e-12)
 
 
 def mount_thresholds_calc(input, output, session, S):
@@ -30,7 +34,7 @@ def mount_thresholds_calc(input, output, session, S):
             threshold_type = input[f"threshold_type_{id}"]()
             req(property_name and threshold_type)
             
-            minimal, maximal, steps, _ = Threshold.get_threshold_value_params(
+            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
                 spot_data=spot_data,
                 track_data=track_data,
                 property_name=property_name,
@@ -40,8 +44,8 @@ def mount_thresholds_calc(input, output, session, S):
                 reference_value=input[f"my_own_value_{id}"]()
             )
             
-            v_lo, v_hi = Threshold.format_numeric_pair((minimal,maximal))
-            min_fmt, max_fmt = Threshold.int_if_whole(minimal), Threshold.int_if_whole(maximal)
+            v_lo, v_hi = THRESH.format_numeric_pair((minimal,maximal))
+            min_fmt, max_fmt = THRESH.int_if_whole(minimal), THRESH.int_if_whole(maximal)
 
             return ui.row(
                 ui.column(6, ui.input_numeric(
@@ -76,7 +80,7 @@ def mount_thresholds_calc(input, output, session, S):
             threshold_type = input[f"threshold_type_{id}"]()
             req(property_name and threshold_type)
             
-            minimal, maximal, steps, _ = Threshold.get_threshold_value_params(
+            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
                 spot_data=spot_data,
                 track_data=track_data,
                 property_name=property_name,
@@ -375,7 +379,7 @@ def mount_thresholds_calc(input, output, session, S):
             spot_data = data.get("spots")
             track_data = data.get("tracks")
 
-            filter = Threshold.filter_data(
+            filter = THRESH.filter_data(
                 df=spot_data if input[f"threshold_property_{id}"]() in Metrics.Thresholding.SpotProperties else track_data,
                 threshold=input[f"threshold_slider_{id}"](),
                 property=input[f"threshold_property_{id}"](),
@@ -415,7 +419,7 @@ def mount_thresholds_calc(input, output, session, S):
             threshold_type = input[f"threshold_type_{id+1}"]()
             req(property_name and threshold_type)
             
-            minimal, maximal, steps, _ = Threshold.get_threshold_value_params(
+            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
                 spot_data=spot_data,
                 track_data=track_data,
                 property_name=property_name,

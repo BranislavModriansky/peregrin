@@ -244,11 +244,7 @@ def mount_thresholds_info_export(input, output, session, S):
 
     @render.download(filename=f"Threshold Info {date.today()}.svg", media_type="svg")
     def download_threshold_info():
-        svg = GetInfoSVG(S.UNFILTERED_TRACKSTATS.get() if S.UNFILTERED_TRACKSTATS.get() is not None else pd.DataFrame(),
-                         S.TRACKSTATS.get() if S.TRACKSTATS.get() is not None else pd.DataFrame(),
-                         S.THRESHOLDS.get(),
-                         S.THRESHOLDS_ID.get()
-                         )
+        svg = GetInfoSVG()
         yield svg.encode("utf-8")
 
         

@@ -10,7 +10,9 @@ from .filters.threshold1d.export_info import mount_thresholds_info_export
 from .viz.tracks import mount_tracks
 from .viz.superplots import mount_superplots
 # from .viz.timeseries import mount_timeseries
-from .jobs.background_tasks import mount_loaders
+from .jobs.loaders import mount_loaders
+from .jobs.background_tasks import mount_tasks
+
 
 def server(input: Inputs, output: Outputs, session: Session):
     S = build_state()
@@ -25,3 +27,4 @@ def server(input: Inputs, output: Outputs, session: Session):
     mount_superplots(input, output, session, S)
     # mount_timeseries(input, output, session, S)
     mount_loaders(input, output, session, S)
+    mount_tasks(S)

@@ -8,13 +8,18 @@ app = App(app_ui, server)
 
 
 
-# TODO - Keep the Track UID column in the dataframes when downloaded
-
 # TODO - Track visualization plot with a slider;
 #      - metrics for lut scaling would include SPOTSTATS metrics:
 #      - e.g. speed: track point = n;   assigned distance value = 15 (colors for each distance value assigned based on the min. max. value for the current dataset)
 #                    track point = n+1; assigned distance value = 20
 #                    the line between n and n+1 would be coloured inn a gradient from the color at distance value 15 to the color at the distance value 20
+
+
+
+
+
+# TODO - Keep the Track UID column in the dataframes when downloaded
+
 
 
 # TODO - define pre-sets for plot settings, so that the user can try out different looks easily

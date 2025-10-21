@@ -8,72 +8,129 @@ from utils import BeyondSwarms, SuperViolins
 
 def mount_superplots(input, output, session, S):
 
-    # ======================= DATA VISUALIZATION =======================
-
-    @reactive.Effect
-    def update_choices():
-        if S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty:
-            return
-        ui.update_selectize(id="tracks_conditions", choices=S.TRACKSTATS.get()["Condition"].unique().tolist())
-        ui.update_selectize(id="tracks_replicates", choices=["all"] + S.TRACKSTATS.get()["Replicate"].unique().tolist())
-
+    # _ UPDATES ON SWARMPLOT PRESETS SELECTION _
     @reactive.Effect
     def get_preset():
+        # Get the selected preset and update the UI accordingly
         preset = input.sp_preset()
+        if preset == "Swarms":
+            ( # Swarms
+                ui.update_checkbox(id=f"sp_show_swarms", value=True),
+                ui.update_numeric(id=f"sp_swarm_marker_size", value=2.5),
+                ui.update_numeric(id=f"sp_swarm_marker_alpha", value=1),
+            )
+            ( # Violins
+                ui.update_checkbox(id=f"sp_show_violins", value=False),
+            )
+            ( # KDEs
+                ui.update_checkbox(id=f"sp_show_kde", value=False),
+            )
+            ( # Bullets
+                ui.update_checkbox(id=f"sp_show_rep_medians", value=True),
+                ui.update_numeric(id=f"sp_median_bullet_size", value=90),
+            )
+            ( # Cond Stats
+                ui.update_checkbox(id=f"sp_show_cond_mean", value=True),
+                ui.update_checkbox(id=f"sp_show_cond_median", value=False),
+                ui.update_checkbox(id=f"sp_show_errbars", value=True),
+            )
+            ( # Palette
+                ui.update_selectize(id=f"sp_palette", selected="Set2"),
+            )
 
-        ui.update_checkbox(f"sp_show_swarms", value=True if preset in ["Bees", "Bees n Bass", "Bees n Bass n Bows"] else False)
-        ui.update_checkbox(f"sp_show_violins", value=True if preset in ["Bass", "Bees n Bass", "Bass n Bows", "Bees n Bass n Bows"] else False)
-        ui.update_checkbox(f"sp_show_kde", value=True if preset in ["Bass n Bows", "Bees n Bass n Bows"] else False)
-        ui.update_checkbox(f"sp_show_cond_mean", value=True if preset in ["Bass", "Bass n Bows", "Bees n Bass n Bows"] else False)
-        ui.update_checkbox(f"sp_show_cond_median", value=True if preset in ["Bass", "Bees n Bass", "Bass n Bows", "Bees n Bass n Bows"] else False)
-        ui.update_checkbox(f"sp_show_errbars", value=True if preset in ["Bass", "Bass n Bows", "Bees n Bass n Bows"] else False)
-        ui.update_checkbox(f"sp_show_rep_medians", value=True if preset in ["Bees", "Bees n Bass", "Bees n Bass n Bows"] else False)
+        if preset == "Swarms & Violins":
+            ( # Swarms
+                ui.update_checkbox(id=f"sp_show_swarms", value=True),
+                ui.update_numeric(id=f"sp_swarm_marker_size", value=2.5),
+            )
+            ( # Violins
+                ui.update_checkbox(id=f"sp_show_violins", value=True),
+                ui.update_numeric(id=f"sp_violin_alpha", value=0.65),
+                ui.update_selectize(id=f"sp_violin_fill", selected="whitesmoke"),
+                ui.update_selectize(id=f"sp_violin_outline", selected="lightgrey"),
+                ui.update_numeric(id=f"sp_violin_outline_width", value=1),
+            )
+            ( # KDEs
+                ui.update_checkbox(id=f"sp_show_kde", value=False),
+            )
+            ( # Bullets
+                ui.update_checkbox(id=f"sp_show_rep_medians", value=True),
+                ui.update_numeric(id=f"sp_median_bullet_size", value=70),
+            )
+            ( # Cond Stats
+                ui.update_checkbox(id=f"sp_show_cond_mean", value=True),
+                ui.update_checkbox(id=f"sp_show_cond_median", value=False),
+                ui.update_checkbox(id=f"sp_show_errbars", value=True),
+            )
+            ( # Palette
+                ui.update_selectize(id=f"sp_palette", selected="Set2"),
+            )
 
-        if preset == "Bees":
-            ui.update_numeric(f"sp_swarm_marker_alpha", value=1)
-            ui.update_numeric(f"sp_swarm_marker_size", value=2.5)
-            ui.update_selectize(f"sp_palette", selected="Set2")
-            ui.update_numeric(f"sp_median_bullet_size", value=90)
-        if preset == "Bass":
-            ui.update_numeric(f"sp_violin_alpha", value=1)
-            ui.update_selectize(f"sp_palette", selected="Pastel1")
-            ui.update_selectize(f"sp_violin_fill", selected="sienna")
-            ui.update_selectize(f"sp_violin_outline", selected="black")
-            ui.update_numeric(f"sp_violin_outline_width", value=1)
-        if preset == "Bees n Bass":
-            ui.update_numeric(f"sp_swarm_marker_size", value=2.5)
-            ui.update_numeric(f"sp_violin_alpha", value=0.65)
-            ui.update_selectize(f"sp_palette", selected="Set2")
-            ui.update_selectize(f"sp_violin_fill", selected="whitesmoke")
-            ui.update_selectize(f"sp_violin_outline", selected="lightgrey")
-            ui.update_numeric(f"sp_violin_outline_width", value=1)
-            ui.update_numeric(f"sp_median_bullet_size", value=70)
-        if preset == "Bass n Bows":
-            ui.update_numeric(f"sp_violin_alpha", value=1)
-            ui.update_selectize(f"sp_palette", selected="Pastel2")
-            ui.update_selectize(f"sp_violin_fill", selected="lightgrey")
-            ui.update_selectize(f"sp_violin_outline", selected="dimgrey")
-            ui.update_numeric(f"sp_violin_outline_width", value=1)
-            ui.update_numeric(f"sp_kde_alpha", value=0.5)
-            ui.update_numeric(f"sp_kde_line_width", value=0)
-            ui.update_checkbox(f"sp_kde_fill", value=True)
-        if preset == "Bees n Bass n Bows":
-            ui.update_numeric(f"sp_swarm_marker_size", value=1.5)
-            ui.update_numeric(f"sp_swarm_marker_alpha", value=0.75)
-            ui.update_numeric(f"sp_violin_alpha", value=0.5)
-            ui.update_selectize(f"sp_palette", selected="tab10")
-            ui.update_selectize(f"sp_violin_fill", selected="whitesmoke")
-            ui.update_selectize(f"sp_violin_outline", selected="lightgrey")
-            ui.update_numeric(f"sp_violin_outline_width", value=1)
-            ui.update_numeric(f"sp_kde_alpha", value=0.75)
-            ui.update_numeric(f"sp_kde_line_width", value=1)
-            ui.update_checkbox(f"sp_kde_fill", value=False)
-            ui.update_numeric(f"sp_median_bullet_size", value=70)
-            ui.update_numeric(f"sp_mean_bullet_size", value=50)
+        if preset == "Violins & KDEs":
+            ( # Swarms
+                ui.update_checkbox(id=f"sp_show_swarms", value=False),
+            )
+            ( # Violins
+                ui.update_checkbox(id=f"sp_show_violins", value=True),
+                ui.update_numeric(id=f"sp_violin_alpha", value=1),
+                ui.update_selectize(id=f"sp_violin_fill", selected="lightgrey"),
+                ui.update_selectize(id=f"sp_violin_outline", selected="dimgrey"),
+                ui.update_numeric(id=f"sp_violin_outline_width", value=1),
+            )
+            ( # KDEs
+                ui.update_checkbox(id=f"sp_show_kde", value=True),
+                ui.update_numeric(id=f"sp_kde_alpha", value=0.5),
+                ui.update_numeric(id=f"sp_kde_line_width", value=0),
+                ui.update_checkbox(id=f"sp_kde_fill", value=True),
+            )
+            ( # Bullets
+                ui.update_checkbox(id=f"sp_show_rep_medians", value=False),
+            )
+            ( # Cond Stats
+                ui.update_checkbox(id=f"sp_show_cond_mean", value=True),
+                ui.update_checkbox(id=f"sp_show_cond_median", value=True),
+                ui.update_checkbox(id=f"sp_show_errbars", value=True),
+            )
+            ( # Palette
+                ui.update_selectize(id=f"sp_palette", selected="Pastel2"),
+            )
+
+        if preset == "Swarms & Violins & KDEs":
+            ( # Swarms
+                ui.update_checkbox(id=f"sp_show_swarms", value=True),
+                ui.update_numeric(id=f"sp_swarm_marker_size", value=1.5),
+                ui.update_numeric(id=f"sp_swarm_marker_alpha", value=0.75),
+            )
+            ( # Violins
+                ui.update_checkbox(id=f"sp_show_violins", value=True),
+                ui.update_numeric(id=f"sp_violin_alpha", value=0.5),
+                ui.update_selectize(id=f"sp_violin_fill", selected="whitesmoke"),
+                ui.update_selectize(id=f"sp_violin_outline", selected="lightgrey"),
+                ui.update_numeric(id=f"sp_violin_outline_width", value=1),
+            )
+            ( # KDEs
+                ui.update_checkbox(id=f"sp_show_kde", value=True),
+                ui.update_numeric(id=f"sp_kde_alpha", value=0.75),
+                ui.update_numeric(id=f"sp_kde_line_width", value=1),
+                ui.update_checkbox(id=f"sp_kde_fill", value=False),
+            )
+            ( # Bullets
+                ui.update_checkbox(id=f"sp_show_rep_medians", value=True),
+                ui.update_numeric(id=f"sp_median_bullet_size", value=70),
+                ui.update_numeric(id=f"sp_mean_bullet_size", value=50),
+            )
+            ( # Cond Stats
+                ui.update_checkbox(id=f"sp_show_cond_mean", value=False),
+                ui.update_checkbox(id=f"sp_show_cond_median", value=False),
+                ui.update_checkbox(id=f"sp_show_errbars", value=False),
+            )
+            ( # Palette
+                ui.update_selectize(id=f"sp_palette", selected="tab10"),
+            )
 
 
-    # _ _ _ _ SWARMPPLOT _ _ _ _ 
-
+    # _ _ _ _ SWARMPPLOT _ _ _ _
+     
     @ui.bind_task_button(button_id="sps_generate")
     @reactive.extended_task
     async def output_swarmplot(
@@ -133,7 +190,7 @@ def mount_superplots(input, output, session, S):
                 )
 
                 local_df = df.copy(deep=True) if df is not None else pd.DataFrame()
-                return BeyondSwarms(
+                return BeyondSwarms.SwarmPlot(
                     df=local_df,
                     metric=metric,
                     title=title,
@@ -185,7 +242,6 @@ def mount_superplots(input, output, session, S):
         return await asyncio.get_running_loop().run_in_executor(None, build)
         # return await asyncio.to_thread(build)
     
-
     @reactive.Effect
     @reactive.event(input.sps_generate, ignore_none=False)
     def trigger_swarmplot():
@@ -274,7 +330,6 @@ def mount_superplots(input, output, session, S):
                 plot_height=input.sp_fig_height(),
             )
 
-    # @output(id="swarmplot")
     @render.plot
     def swarmplot():
         # Only update when output_swarmplot task completes (not reactively)
@@ -283,7 +338,7 @@ def mount_superplots(input, output, session, S):
     @render.download(filename=f"Swarmplot {date.today()}.svg")
     def download_swarmplot_svg():
         if S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty: return
-        fig = BeyondSwarms(
+        fig = BeyondSwarms.SwarmPlot(
             df=S.TRACKSTATS.get(),
             metric=input.sp_metric(),
             title=input.sp_title(),
@@ -344,7 +399,7 @@ def mount_superplots(input, output, session, S):
 
 
     
-    # # _ _ _ _ SUPERVIOLINPLOT _ _ _ _ 
+    # _ _ _ _ SUPERVIOLINPLOT _ _ _ _ 
 
     # @ui.bind_task_button(button_id="sps_generate")
     # @reactive.extended_task
@@ -586,5 +641,4 @@ def mount_superplots(input, output, session, S):
     #         with io.BytesIO() as buffer:
     #             fig.savefig(buffer, format="svg", bbox_inches="tight")
     #             yield buffer.getvalue()
-    
-    
+

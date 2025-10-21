@@ -558,7 +558,7 @@ app_ui = ui.page_sidebar(
 
                             ui.accordion_panel(
                                 "Pre-sets",
-                                ui.input_selectize("sp_preset", "Choose a preset:", ["Bees", "Bass", "Bees n Bass", "Bass n Bows", "Bees n Bass n Bows"], selected="Bees"),
+                                ui.input_selectize("sp_preset", "Try a preset:", ["Swarms", "Swarms & Violins", "Violins & KDEs", "Swarms & Violins & KDEs"], selected="Swarms & Violins"),
                             ),
                             ui.accordion_panel(
                                 "Metric",

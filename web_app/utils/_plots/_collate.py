@@ -171,14 +171,14 @@ class BeyondSwarms:
             ax = plt.gca()
 
             if df is None or df.empty:
-                return
+                return 
 
             _df = df.copy()
 
             # === condition order & optional spacers (for KDE layout) ===
             conditions = _df['Condition'].unique().tolist()
 
-            if show_kde: # TODO - make kde work for datasets with one cond only
+            if show_kde:
                 spaced_conditions = ["spacer_0"] + list(
                     chain.from_iterable(
                         (cond, f"spacer_{i+1}") if i < len(conditions) - 1 else (cond,)
@@ -214,7 +214,7 @@ class BeyondSwarms:
 
             # === base layers (seaborn handles packing/jitter efficiently) ===
             if show_swarm:
-                sp = sns.swarmplot(
+                sns.swarmplot(
                     data=_df,
                     x="Condition",
                     y=metric,
@@ -330,8 +330,8 @@ class BeyondSwarms:
                         continue
 
                     # inset geometry in data coords
-                    x_pos = 2 * i + 2  # even positions: 0,2,4...
-                    offset_x = 0.31
+                    x_pos = 2 * i   # even positions: 0,2,4...
+                    offset_x = 0.25
                     inset_height = y_ax_max - (y_ax_max - group_df[metric].max()) + abs(y_ax_min * 2)
 
                     inset_ax = ax.inset_axes(
@@ -344,7 +344,7 @@ class BeyondSwarms:
                         palette=_palette, ax=inset_ax, legend=False,
                         zorder=0, clip=(y_ax_min, y_ax_max),
                     )
-                    # inset_ax.invert_xaxis()
+                    inset_ax.invert_xaxis()
                     inset_ax.set_xticks([]); inset_ax.set_yticks([])
                     inset_ax.set_xlabel(''); inset_ax.set_ylabel('')
                     sns.despine(ax=inset_ax, left=True, bottom=True, top=True, right=True)
@@ -353,6 +353,7 @@ class BeyondSwarms:
                 ticks = [i for i, lbl in enumerate(categories_for_stats) if not str(lbl).startswith('spacer')]
                 labels = [categories_for_stats[i] for i in ticks]
                 plt.xticks(ticks=ticks, labels=labels)
+                plt.xlim(-0.75, len(categories_for_stats))
 
             # === axes cosmetics (unchanged) ===
             plt.title(title)
@@ -422,14 +423,15 @@ class BeyondSwarms:
             # Keep your legend move safeguard
             try:
                 if plt.gca().get_legend() is not None:
-                    sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1))
+                    sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1), fontsize=plot_height * 1.5)
             except Exception:
                 try:
                     ax = plt.gca()
                     if plt.gca().get_legend() is not None:
-                        sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1))
+                        sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1), fontsize=plot_height * 1.5)
                 except Exception:
                     pass
+
 
             return plt.gcf()
 
