@@ -1,0 +1,19 @@
+from shiny import reactive
+import pandas as pd
+
+def build_state():
+    return type("State", (object,), {
+        "INPUTS": reactive.Value(1),
+        "THRESHOLDS": reactive.Value(None),
+        "THRESHOLDS_ID": reactive.Value(1),
+        "RAWDATA": reactive.Value(pd.DataFrame()),
+        "UNFILTERED_SPOTSTATS": reactive.Value(pd.DataFrame()),
+        "UNFILTERED_TRACKSTATS": reactive.Value(pd.DataFrame()),
+        "UNFILTERED_FRAMESTATS": reactive.Value(pd.DataFrame()),
+        "SPOTSTATS": reactive.Value(pd.DataFrame()),
+        "TRACKSTATS": reactive.Value(pd.DataFrame()),
+        "FRAMESTATS": reactive.Value(pd.DataFrame()),
+        "UNITS": reactive.Value(),
+    })
+
+    
