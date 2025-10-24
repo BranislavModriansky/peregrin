@@ -7,12 +7,18 @@ import pandas as pd
 
 from shiny import render, reactive, ui, req
 from utils import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers
+from utils import Animated
+
+
+import numpy as np
+from io import BytesIO
+from PIL import Image
+import base64
+
 
 
 
 def mount_tracks(input, output, session, S):
-
-    
 
     @ui.bind_task_button(button_id="trr_generate")
     @reactive.extended_task
@@ -274,4 +280,133 @@ def mount_tracks(input, output, session, S):
                 yield buffer.getvalue()
     
     
+
     
+    @output()
+    @render.ui
+    def replay_slider():
+        req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
+        num_frames = S.FRAMESTATS.get()["Frame"].unique().size
+        return ui.input_slider(
+            "frame_replay", "Replay",
+            min=1, max=num_frames, value=1, step=1,
+            animate={"interval": input.interval(), "loop": input.loop(),  # ~30 fps
+                        "play_button": ui.input_action_button(id="play", label="▶", width="100%"),  # ~30 fps
+                        "pause_button": ui.input_action_button(id="stop", label="❚❚", width="100%")},
+            width="100%"
+        )
+
+    def set_frame(i: int):
+        try:
+
+            i = 1 if i < 1 else (S.FRAMESTATS.get()["Frame"].unique().size if i > S.FRAMESTATS.get()["Frame"].unique().size else i)
+            session.send_input_message("frame_replay", {"value": i})
+        except Exception as e:
+            print(f"Error in set_frame: {e}")
+
+    @reactive.Effect
+    @reactive.event(input.prev)
+    def _():
+        try:
+            ui.update_slider("frame_replay", value=input.frame_replay() - 1)
+        except Exception:
+            pass
+
+    @reactive.Effect
+    @reactive.event(input.next)
+    def _():
+        try:
+            ui.update_slider("frame_replay", value=input.frame_replay() + 1)
+        except Exception:
+            pass
+
+    @reactive.Effect
+    @reactive.event(input.calculate_replay_animation)
+    def _():
+        try:
+            req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
+
+            print("Calculating replay animation...")
+
+            STACK = Animated.create_image_stack(
+                    Spots_df=S.SPOTSTATS.get(),
+                    Tracks_df=S.TRACKSTATS.get(),
+                    condition=input.tracks_conditions(),
+                    replicate=input.tracks_replicates(),
+                    c_mode=input.tracks_color_mode(),
+                    only_one_color=input.tracks_only_one_color(),
+                    lut_scaling_metric=input.tracks_lut_scaling_metric(),
+                    background=input.tracks_background(),
+                    smoothing_index=input.tracks_smoothing_index(),
+                    lw=input.tracks_line_width(),
+                    grid=input.tracks_show_grid(),
+                    mark_heads=input.tracks_mark_heads(),
+                    marker=Markers.TrackHeads.get(input.tracks_marker_type()),
+                    markersize=input.tracks_marks_size()*10,
+                    title=input.tracks_title(),
+                    units_time = S.UNITS.get()["Time point"],
+                    units = S.UNITS.get()["X coordinate"] if S.UNITS.get()["X coordinate"] == S.UNITS.get()["Y coordinate"] else "",
+                )  # (N,H,W,4)
+
+            # Pre-encode frames to WebP data URLs (avoid file IO each render)
+            def to_webp_data_url(arr: np.ndarray) -> str:
+                im = Image.fromarray(arr, mode="RGBA")
+                if (arr[:, :, 3] == 255).all():
+                    im = im.convert("RGB")
+                bio = BytesIO()
+                im.save(bio, format="WEBP", quality=80, method=6)
+                b64 = base64.b64encode(bio.getvalue()).decode("ascii")
+                return f"data:image/webp;base64,{b64}"
+
+            FRAME_URLS = [to_webp_data_url(STACK[i]) for i in range(S.FRAMESTATS.get()["Frame"].max())]
+
+            S.REPLAY_ANIMATION.set(FRAME_URLS)
+            print("Replay animation calculated.")
+
+        except Exception as e:
+            print(f"Error in calculate_replay_animation: {e}")
+
+
+    @render.ui
+    def viewer():
+        try:
+            req(S.REPLAY_ANIMATION.get() is not None)
+            idx = int(input.frame_replay()) - 1
+            src = S.REPLAY_ANIMATION.get()[idx]
+            return ui.img({"src": src, "style": "display:block;"})
+        except Exception as e:
+            print(f"Error in viewer: {e}")
+
+
+            
+    # @render.ui
+    # def viewer():
+    #     req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
+    #     try:
+    #         idx = int(input.frame_replay()) - 1
+    #         frame_urls = Animated.create_image_stack(
+    #             Spots_df=S.SPOTSTATS.get(),
+    #             Tracks_df=S.TRACKSTATS.get(),
+    #             condition=input.tracks_conditions(),
+    #             replicate=input.tracks_replicates(),
+    #             c_mode=input.tracks_color_mode(),
+    #             only_one_color=input.tracks_only_one_color(),
+    #             lut_scaling_metric=input.tracks_lut_scaling_metric(),
+    #             background=input.tracks_background(),
+    #             smoothing_index=input.tracks_smoothing_index(),
+    #             lw=input.tracks_line_width(),
+    #             grid=input.tracks_show_grid(),
+    #             mark_heads=input.tracks_mark_heads(),
+    #             marker=Markers.TrackHeads.get(input.tracks_marker_type()),
+    #             markersize=input.tracks_marks_size()*10,
+    #             title=input.tracks_title(),
+    #             units_time = S.UNITS.get()["Time point"],
+    #             units = S.UNITS.get()["X coordinate"] if S.UNITS.get()["X coordinate"] == S.UNITS.get()["Y coordinate"] else "",
+    #         )
+    #         src = frame_urls[idx]
+    #         return ui.img(
+    #             # {"src": src, "width": 800, "height": 600, "style": "display:block;"}
+    #             {"src": src, "style": "display:block;"}
+    #         )
+        # except Exception as e:
+        #     print(f"Error in viewer: {e}")

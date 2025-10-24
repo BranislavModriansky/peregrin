@@ -1,36 +1,13 @@
-from shiny import App, ui, reactive, render
+from shiny import App, ui
 
-N = 6  # however many buttons you currently have (can change)
+MEDIA_DIR = r"C:\Users\modri\Desktop\Lab\Peregrin project\Shots"  # served at /media
 
 app_ui = ui.page_fluid(
-    ui.h3("Click any button"),
-    ui.div(
-        *[
-            ui.input_action_button(
-                f"pass_selected_{i}",
-                f"Select {i}",
-                # send a single value to the server with the index that was clicked
-                onclick=f"Shiny.setInputValue('pass_selected', {i}, {{priority: 'event'}});"
-            )
-            for i in range(N)
-        ],
-        class_="space-x-2"
+    ui.h3("Video player"),
+    ui.tags.video(
+        {"controls": True, "width": "640"},
+        ui.tags.source(src="/media/Gating%20demo.mp4", type="video/mp4"),  # URL, not C:\ path
     ),
-    ui.output_text("last_clicked"),
 )
 
-def server(input, output, session):
-    # React to *any* of the buttons via one input
-    @reactive.Effect
-    @reactive.event(input.pass_selected)
-    def _on_any_click():
-        i = input.pass_selected()
-        print("Clicked:", i)  # do your work here
-
-    @output
-    @render.text
-    def last_clicked():
-        val = input.pass_selected()
-        return "Nothing yet" if val is None else f"Last clicked index: {val}"
-
-app = App(app_ui, server)
+app = App(app_ui, None, static_assets={"/media": MEDIA_DIR})

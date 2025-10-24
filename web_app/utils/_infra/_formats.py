@@ -80,6 +80,31 @@ class Customize:
       }
     """
 
+    ReplaySliderButtons = """
+        #prev, #next {
+            border: none !important;
+            background: none !important;
+            box-shadow: none !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 3rem;
+        }
+        #prev:hover, #next:hover {
+            color: #007bff;
+            cursor: pointer;
+        }
+        #play, #stop {
+            border: none !important;
+            background: none !important;
+            box-shadow: none !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 2rem;
+        }
+        #play:hover, #stop:hover {
+            color: dimgrey;
+            cursor: pointer;
+        }
+    """
+
 
 FilenameFormatExample = pd.DataFrame({
     "Filename": [

@@ -104,7 +104,7 @@ def mount_data_input(input, output, session, S):
             for file_idx, fileinfo in enumerate(files, start=1):
                 try:
                     df = DataLoader.GetDataFrame(fileinfo["datapath"])
-                    print(df.head())
+                    # print(df.head())
                     extracted = DataLoader.Extract(
                         df,
                         id_col=input.select_id(),
@@ -122,7 +122,6 @@ def mount_data_input(input, output, session, S):
                 
         if all_data:
             all_data = pd.concat(all_data, axis=0)
-            all_data["Time unit"] = S.UNITS.get()
             S.RAWDATA.set(all_data)
             S.UNFILTERED_SPOTSTATS.set(Spots(all_data))
             S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))

@@ -153,14 +153,14 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     """
     if df.empty:
         # define columns
-        cols = ['Condition','Replicate','Time point'] + \
+        cols = ['Condition','Replicate','Time point','Frame'] + \
             [f'{metric} {stat}' for metric in ['Track length','Track displacement','Confinement ratio'] for stat in ['min','max','mean','std','median']] + \
             [f'Speed {stat}' for stat in ['min','max','mean','std','median']] + \
             ['Direction mean (rad)','Direction std (rad)','Direction median (rad)',
                 'Direction mean (deg)','Direction std (deg)','Direction median (deg)']
         return pd.DataFrame(columns=cols)
 
-    group_cols = ['Condition','Replicate','Time point']
+    group_cols = ['Condition','Replicate','Time point','Frame']
 
     # 1) stats on track metrics per frame
     metrics = ['Cumulative track length','Cumulative track displacement','Cumulative confinement ratio']
