@@ -164,11 +164,13 @@ def SwarmsAndBeyond(
         Don't show the top and right axes spines (default: True);
     """
 
+    if df is None or df.empty:
+        return
+
     plt.figure(figsize=(plot_width, plot_height))
     ax = plt.gca()
 
-    if df is None or df.empty:
-        return 
+     
 
     _df = df.copy()
 

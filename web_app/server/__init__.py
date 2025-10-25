@@ -7,7 +7,8 @@ from .filters.threshold1d.build_thresholds import mount_thresholds_build
 from .filters.threshold1d.calc_thresholds import mount_thresholds_calc
 from .filters.threshold1d.export_info import mount_thresholds_info_export
 # from .gates.gating2d import *
-from .viz.tracks import mount_tracks
+# from .viz.tracks import mount_tracks
+from .viz.tracks import MountTracks
 from .viz.superplots import mount_superplots
 # from .viz.timeseries import mount_timeseries
 from .jobs.loaders import mount_loaders
@@ -23,7 +24,11 @@ def server(input: Inputs, output: Outputs, session: Session):
     mount_thresholds_calc(input, output, session, S)
     mount_thresholds_info_export(input, output, session, S)
     # mount_gating2d(input, output, session, S)   
-    mount_tracks(input, output, session, S)
+    # mount_tracks(input, output, session, S)
+    MountTracks.realistic_reconstruction(input, output, session, S)
+    MountTracks.polar_reconstruction(input, output, session, S)
+    MountTracks.animated_reconstruction(input, output, session, S)
+    MountTracks.lut_map(input, output, session, S)
     mount_superplots(input, output, session, S)
     # mount_timeseries(input, output, session, S)
     mount_loaders(input, output, session, S)

@@ -9,6 +9,7 @@ from ._plot._tracks._reconstruct import (
     GetLutMap,
     Animated
 )
+from ._plot._tracks._subs import frame_interval_ms
 from ._plot._collate._SwarmsAndBeyond import SwarmsAndBeyond
 from ._plot._collate._Superviolins import Superviolins
 from ._scheduling._ratelimit import Debounce, Throttle
@@ -21,5 +22,6 @@ __all__ = [
     "SwarmsAndBeyond", "Superviolins",
     "Metrics", "Styles", "Markers", "Modes",
     "Customize", "FilenameFormatExample",
+    "frame_interval_ms"
     "Debounce", "Throttle"
 ]

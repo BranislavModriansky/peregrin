@@ -538,6 +538,17 @@ def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_
 
 
 
+def _rgba_over_background(rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndarray:
+        """Composite uint8 RGBA over an RGB background. Returns uint8 RGB."""
+        if rgba.shape[-1] != 4:
+            raise ValueError("expected RGBA input")
+        rgb = rgba[..., :3].astype(np.float32)
+        a = rgba[..., 3:4].astype(np.float32) / 255.0
+        bg_rgb = np.array(bg, dtype=np.float32).reshape(1, 1, 1, 3)
+        out = rgb * a + bg_rgb * (1.0 - a)
+        return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
+
 class Animated:
 
     def create_image_stack(
@@ -723,7 +734,7 @@ class Animated:
             ax.set_ylim(*ylim)
             ax.set_xlabel(f"X coordinate {units}")
             ax.set_ylabel(f"Y coordinate {units}")
-            ax.set_title(f"{title} | Time point: {t} {units_time}")
+            ax.set_title(f"{title} | Time point: {t} {units_time}" if title else f"Time point: {t} {units_time}")
             ax.set_facecolor(face_color)
             if grid:
                 ax.grid(True, which="both", axis="both", color=grid_color, linestyle=grid_ls, linewidth=1, alpha=grid_alpha)
@@ -778,5 +789,80 @@ class Animated:
 
         return np_stack
 
+
     
+    @staticmethod
+    def save_image_stack_as_mp4(
+        stack: np.ndarray,
+        path: str,
+        fps: int = 30,
+        codec: str = "libx264",
+        crf: int | None = 18,
+        pix_fmt: str = "yuv420p",
+        background: tuple[int, int, int] = (255, 255, 255),
+        bitrate: str | None = None,
+    ) -> None:
+        """
+        Save an image stack to MP4.
+
+        Parameters
+        ----------
+        stack : np.ndarray
+            Frames with shape (N, H, W[, C]). C in {1, 3, 4}. uint8 preferred.
+            Your create_image_stack returns (N, H, W, 4) RGBA uint8.
+        path : str
+            Output filename, e.g. 'movie.mp4'.
+        fps : int
+            Frames per second.
+        codec : str
+            FFmpeg video codec. 'libx264' is widely compatible.
+        crf : int | None
+            Constant rate factor for x264. Lower is higher quality. None to skip.
+        pix_fmt : str
+            Pixel format. 'yuv420p' maximizes compatibility.
+        background : (R, G, B)
+            Used only if input has alpha. Composites RGBA over this color.
+        bitrate : str | None
+            e.g. '6M'. If set, FFmpeg will target this bitrate. Usually omit when using CRF.
+        """
+        if stack.ndim not in (3, 4):
+            raise ValueError("stack must have shape (N,H,W) or (N,H,W,C)")
+        if stack.ndim == 3:
+            stack = stack[..., None]  # (N,H,W,1)
+
+        N, H, W, C = stack.shape
+        if C not in (1, 3, 4):
+            raise ValueError("last dimension must be 1, 3, or 4 channels")
+
+        # Ensure uint8
+        if stack.dtype != np.uint8:
+            stack = np.clip(stack, 0, 255).astype(np.uint8)
+
+        # Expand to RGB
+        if C == 1:
+            rgb = np.repeat(stack, 3, axis=-1)
+        elif C == 3:
+            rgb = stack
+        else:
+            # RGBA -> RGB over background
+            rgb = _rgba_over_background(stack, background)
+
+        # Build ffmpeg output params
+        out_params: list[str] = ["-pix_fmt", pix_fmt]
+        if crf is not None:
+            out_params += ["-crf", str(crf)]
+        if bitrate is not None:
+            out_params += ["-b:v", str(bitrate)]
+
+        return rgb, out_params
+
+        # Write
+        # iio.imwrite(
+        #     path,
+        #     rgb,                       # shape (N,H,W,3)
+        #     # plugin="ffmpeg",
+        #     fps=fps,
+        #     codec=codec,
+        #     output_params=out_params,
+        # )
 

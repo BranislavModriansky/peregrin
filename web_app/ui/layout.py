@@ -206,20 +206,18 @@ app_ui = ui.page_sidebar(
                         ui.markdown(   # TODO - annotate which libraries were used
                             """
                             #### **Track visualization**
-                            *used libraries:*  `matplotlib`,..
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
 
                         # _ _ SETTINGS _ _
-                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic", "Normalized", "Animated"], selected="Realistic"),
+                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated"),
 
                         ui.accordion(
                             ui.accordion_panel(
                                 "Select condition/replicate",
                                 ui.input_selectize("tracks_conditions", "Condition:", []),
                                 ui.input_selectize("tracks_replicates", "Replicate:", ["all"]),
-                            
                             ),
                             ui.accordion_panel(
                                 "Tracks",
@@ -249,7 +247,7 @@ app_ui = ui.page_sidebar(
                                 ui.input_selectize("tracks_background", "Background:", Styles.Background),
                                 ui.input_checkbox("tracks_show_grid", "Show grid", True),
                                 ui.panel_conditional(
-                                    "input.tracks_show_grid",
+                                    "input.tracks_show_grid && input.track_reconstruction_method == 'Polar'",
                                     ui.input_selectize("tracks_grid_style", "Grid style:", ["simple-1", "simple-2", "spindle", "radial", "dartboard-1", "dartboard-2"]),
                                 ),
                                 ui.panel_conditional(
@@ -267,10 +265,20 @@ app_ui = ui.page_sidebar(
                             ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary", width="100%"),
                         ),
                         ui.panel_conditional(
-                            "input.track_reconstruction_method == 'Normalized'",
+                            "input.track_reconstruction_method == 'Polar'",
                             ui.input_task_button(id="tnr_generate", label="Generate", class_="btn-secondary", width="100%"),
+                        ),
+                        ui.panel_conditional(
+                            "input.track_reconstruction_method == 'Animated'",
+                            ui.panel_well(
+                                ui.input_numeric("tar_dpi", "DPI (dots per inch)", value=100, min=10, max=1000, step=10),
+                                style="background-color: #ffffff; border: 1px solid #c0c4ca;",
+                            ),
+                            ui.markdown(""" <p></p> """),
+                            ui.input_task_button(id="tar_generate", label="Generate", class_="btn-secondary", width="100%"),
                         )
                     ),
+                    # "#c0c4ca",
 
                     # _ _ PLOT DISPLAYS AND DOWNLOADS _ _
                     ui.markdown(""" <br> """),
@@ -284,7 +292,7 @@ app_ui = ui.page_sidebar(
                         ui.download_button("trr_download", "Download", width="100%")
                     ),
                     ui.panel_conditional(
-                        "input.track_reconstruction_method == 'Normalized'",
+                        "input.track_reconstruction_method == 'Polar'",
                         ui.card(
                             ui.output_plot("track_reconstruction_normalized"),
                             full_screen=False,
@@ -294,7 +302,7 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.panel_conditional(
                         "input.track_reconstruction_method == 'Animated'",
-                        ui.input_action_button("calculate_replay_animation", "Calc", class_="btn-secondary", width="100%"),
+                        # ui.input_action_button("calculate_replay_animation", "Calc", class_="btn-secondary", width="100%"),
                         ui.tags.style(Customize.ReplaySliderButtons),
                         ui.card(
                             ui.div(
@@ -306,18 +314,18 @@ app_ui = ui.page_sidebar(
                             ui.output_ui("replay_slider"),
                             full_screen=False, width="100", height="800px"
                         ),
-                        ui.input_checkbox("loop", "Loop", True),
-                        ui.input_numeric("interval", "Time interval between consecutive frames (ms)", value=200, min=10, max=1000, step=1),
-                        ui.download_button("tra_download", "Download", width="100%"),
+                        ui.markdown(""" <p></p> """),
+                        ui.panel_well(
+                            ui.accordion(
+                                ui.accordion_panel(
+                                    "Replay settings",
+                                    ui.input_numeric("tar_framerate", "Frame rate (fps)", value=30, min=1, max=1000, step=1),
+                                )
+                            ),
+                            ui.markdown(""" <p></p> """),
+                            ui.download_button("tar_download", "Download video", width="100%"),
+                        )
                     ),
-                    # ui.panel_conditional(
-                    #     "input.track_reconstruction_method == 'Realistic'",
-                    #     ui.download_button("trr_download", "Download", width="100%"),
-                    # ),
-                    # ui.panel_conditional(
-                    #     "input.track_reconstruction_method == 'Normalized'",
-                    #     ui.download_button("tnr_download", "Download", width="100%"),
-                    # ),
                     ui.panel_conditional(
                         "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
                         ui.markdown(""" <p></p> """),
@@ -332,7 +340,6 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Time series charts**
-                            *made with*  `altair`
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
@@ -342,10 +349,10 @@ app_ui = ui.page_sidebar(
                         ui.accordion(
                             ui.accordion_panel(
                                 "Dataset",
-                                ui.input_selectize("tch_condition", "Condition:", ["all", "not all"]),
+                                ui.input_selectize("tch_condition", "Condition:", ["all"]),
                                 ui.panel_conditional(
                                     "input.tch_condition != 'all'",
-                                    ui.input_selectize("tch_replicate", "Replicate:", ["all", "not all"]),
+                                    ui.input_selectize("tch_replicate", "Replicate:", ["all"]),
                                     ui.panel_conditional(
                                         "input.tch_replicate == 'all'",
                                         ui.input_checkbox("time_separate_replicates", "Show replicates separately", False),
@@ -567,7 +574,6 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Superplots**
-                            *Used libraries:*  `seaborn`,..
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
