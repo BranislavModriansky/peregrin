@@ -100,24 +100,6 @@ def mount_data_labeling(input, output, session, S):
     @reactive.Effect
     def replicate_labels_and_colors_inputs():
 
-        # _ Replicate labels input ui _
-        @output(id="replicate_labels_inputs")
-        @render.ui
-        def replicate_labels_inputs():
-            req(not S.UNFILTERED_SPOTSTATS.get().empty)
-            replicates = sorted(S.UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
-            inputs = []
-            for idx, rep in enumerate(replicates):
-                inputs.append(
-                    ui.input_text(
-                        id=f"replicate_label{idx}",
-                        label=None,
-                        placeholder=f"Replicate {rep}"
-                    )
-                )
-            return ui.div(*inputs)
-    
-
         # _ Replicate colors ui _
         @output(id="replicate_colors_inputs")
         @render.ui
@@ -162,6 +144,68 @@ def mount_data_labeling(input, output, session, S):
                     )
                 )
             return ui.div(*items)
+        
+
+        @output(id="condition_colors_inputs")
+        @render.ui
+        def condition_colors_inputs():
+            req(not S.UNFILTERED_SPOTSTATS.get().empty)
+
+            if "Condition color" not in S.UNFILTERED_SPOTSTATS.get().columns:
+                S.UNFILTERED_SPOTSTATS.get()["Condition color"] = "#59a9d7"  # default color
+
+            conditions = sorted(S.UNFILTERED_SPOTSTATS.get()["Condition"].unique())
+            items = []
+            for idx, cond in enumerate(conditions):
+                try:
+                    value = S.UNFILTERED_SPOTSTATS.get().loc[S.UNFILTERED_SPOTSTATS.get()["Condition"] == cond, "Condition color"].iloc[0]
+                except:
+                    value = "#59a9d7"
+
+                cid = f"condition_color{idx}"
+                items.append(
+                    ui.div(
+                        ui.tags.label(f"{cond}", **{"for": cid}),
+                        ui.tags.input(
+                            type="color",
+                            id=cid,
+                            value=value,
+                            style="width:100%; height:2.2rem; padding:0; border:none;"
+                        ),
+                        ui.tags.script(
+                            f"""
+                            (function(){{
+                            const el = document.getElementById('{cid}');
+                            function send() {{
+                                Shiny.setInputValue('{cid}', el.value, {{priority:'event'}});
+                            }}
+                            el.addEventListener('input', send);
+                            // push initial so input.{cid}() is defined immediately
+                            send();
+                            }})();
+                            """
+                        ),
+                        style="margin-bottom: 0.5rem;"
+                    )
+                )
+            return ui.div(*items)
+
+        # _ Replicate labels input ui _
+        @output(id="replicate_labels_inputs")
+        @render.ui
+        def replicate_labels_inputs():
+            req(not S.UNFILTERED_SPOTSTATS.get().empty)
+            replicates = sorted(S.UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
+            inputs = []
+            for idx, rep in enumerate(replicates):
+                inputs.append(
+                    ui.input_text(
+                        id=f"replicate_label{idx}",
+                        label=None,
+                        placeholder=f"Replicate {rep}"
+                    )
+                )
+            return ui.div(*inputs)
 
 
 
@@ -187,28 +231,6 @@ def mount_data_labeling(input, output, session, S):
             replicates = sorted(df_tracks["Replicate"].unique())
             if len(set(type(rep) for rep in replicates)) > 1:
                 return
-
-            @reactive.Effect
-            def _replicate_labels():
-                with reactive.isolate():
-                    if input.write_replicate_labels() == False:
-                        return
-
-                    for idx, rep in enumerate(replicates):
-                        
-                        label = input[f"replicate_label{idx}"]() if isinstance(input[f"replicate_label{idx}"](), str) and input[f"replicate_label{idx}"]() != "" else rep
-                        if label != str(rep):
-
-                            df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate"] = label
-                            df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate"] = label
-                            df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate"] = label
-                            df_spots.loc[df_spots["Replicate"] == rep, "Replicate"] = label
-                            df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate"] = label
-                            df_frames.loc[df_frames["Replicate"] == rep, "Replicate"] = label
-
-                    S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames);
-                    S.SPOTSTATS.set(df_spots); S.TRACKSTATS.set(df_tracks); S.FRAMESTATS.set(df_frames)
-
 
             @reactive.Effect
             def _replicate_colors():
@@ -244,29 +266,112 @@ def mount_data_labeling(input, output, session, S):
                         if "Replicate color" in df_frames.columns:
                             df_frames.drop(columns=["Replicate color"], inplace=True)
 
-                    S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
-                    S.SPOTSTATS.set(df_spots); S.TRACKSTATS.set(df_tracks); S.FRAMESTATS.set(df_frames)
+                    if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
+                    if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
+                    if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
+                    if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
+                    if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
+
+
+            @reactive.Effect
+            def _replicate_labels():
+
+                with reactive.isolate():
+                    if input.write_replicate_labels() == False:
+                        return
+
+                    for idx, rep in enumerate(replicates):
+                        
+                        label = input[f"replicate_label{idx}"]() if isinstance(input[f"replicate_label{idx}"](), str) and input[f"replicate_label{idx}"]() != "" else rep
+                        if label != str(rep):
+
+                            df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate"] = label
+                            df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate"] = label
+                            df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate"] = label
+                            df_spots.loc[df_spots["Replicate"] == rep, "Replicate"] = label
+                            df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate"] = label
+                            df_frames.loc[df_frames["Replicate"] == rep, "Replicate"] = label
+
+                    if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
+                    if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
+                    if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
+                    if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
+                    if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
 
 
 
-        # _ Condition Order _
+
+        # _ Condition Colors and Order _
         @reactive.Effect
         def _condition_values():
             req("Condition" in df_tracks.columns)
 
-            with reactive.isolate():
-                if not input.set_condition_order():
-                    return
-                
-                req(input.order() is not None and not len(input.order()) < 2)
-                order = list(input.order())
+            @reactive.Effect
+            def _condition_colors():
+                with reactive.isolate():
+                    conditions = sorted(df_tracks["Condition"].unique())
+                    if len(set(type(cond) for cond in conditions)) > 1:
+                        raise Exception("Inconsistent condition types.")
 
-                df_unfiltered_spots.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_unfiltered_tracks.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_unfiltered_frames.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_spots.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_tracks.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
-                df_frames.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                    if input.write_condition_colors():
 
-                S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots); S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks); S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
-                S.SPOTSTATS.set(df_spots); S.TRACKSTATS.set(df_tracks); S.FRAMESTATS.set(df_frames)
+                        for idx, cond in enumerate(conditions):
+                            # print(input[f"replicate_color{idx}"]())
+                            color = input[f"condition_color{idx}"]()
+                            if color:
+                                df_unfiltered_spots.loc[df_unfiltered_spots["Condition"] == cond, "Condition color"] = color
+                                df_unfiltered_tracks.loc[df_unfiltered_tracks["Condition"] == cond, "Condition color"] = color
+                                df_unfiltered_frames.loc[df_unfiltered_frames["Condition"] == cond, "Condition color"] = color
+                                df_spots.loc[df_spots["Condition"] == cond, "Condition color"] = color
+                                df_tracks.loc[df_tracks["Condition"] == cond, "Condition color"] = color
+                                df_frames.loc[df_frames["Condition"] == cond, "Condition color"] = color
+
+                    elif not input.write_condition_colors():
+                        # print("Removing condition colors...")
+                        if "Condition color" in df_unfiltered_spots.columns:
+                            df_unfiltered_spots.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_unfiltered_tracks.columns:
+                            df_unfiltered_tracks.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_unfiltered_frames.columns:
+                            df_unfiltered_frames.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_spots.columns:
+                            df_spots.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_tracks.columns:
+                            df_tracks.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_frames.columns:
+                            df_frames.drop(columns=["Condition color"], inplace=True)
+
+                    if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
+                    if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
+                    if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
+                    if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
+                    if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
+
+
+            @reactive.Effect
+            def _condition_order():
+                with reactive.isolate():
+                    if not input.set_condition_order():
+                        return
+                    
+                    req(input.order() is not None and not len(input.order()) < 2)
+                    order = list(input.order())
+
+                    df_unfiltered_spots.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                    df_unfiltered_tracks.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                    df_unfiltered_frames.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                    df_spots.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                    df_tracks.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+                    df_frames.sort_values("Condition", key=lambda x: x.map({v: i for i, v in enumerate(order)}), inplace=True)
+
+                    if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
+                    if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
+                    if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
+                    if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
+                    if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
+
+            

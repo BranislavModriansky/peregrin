@@ -30,23 +30,10 @@ class Metrics:
     ]
 
     Time = [
-        "Track length mean",
-        "Track displacement mean",
-        "Confinement ratio mean",
-        "Track length median",
-        "Track displacement median",
-        "Confinement ratio median",
-        "Distance min",
-        "Direction std (deg)",
-        "Direction median (deg)",
-        "Direction mean (rad)",
-        "Direction std (rad)",
-        "Direction median (rad)",
-        "Speed min",
-        "Speed max",
-        "Speed mean",
-        "Speed std",
-        "Speed median"
+        "Track length",
+        "Track displacement",
+        "Confinement ratio",
+        "Speed"
     ]
 
     LookFor = {

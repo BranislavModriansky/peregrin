@@ -63,20 +63,20 @@ app_ui = ui.page_sidebar(
 
                             ui.panel_conditional(
                                 "input.run > 0",
-                                ui.input_switch("write_replicate_labels", "Write replicate labels", False)
-                            ),
-                            ui.panel_conditional(
-                                "input.write_replicate_labels == true",
-                                ui.output_ui("replicate_labels_inputs")
-                            ),
-
-                            ui.panel_conditional(
-                                "input.run > 0",
                                 ui.input_switch("write_replicate_colors", "Set replicate colors", False)
                             ),
                             ui.panel_conditional(
                                 "input.write_replicate_colors == true && input.run > 0",
                                 ui.output_ui("replicate_colors_inputs")
+                            ),
+
+                            ui.panel_conditional(
+                                "input.run > 0",
+                                ui.input_switch("write_condition_colors", "Set condition colors", False)
+                            ),
+                            ui.panel_conditional(
+                                "input.write_condition_colors == true && input.run > 0",
+                                ui.output_ui("condition_colors_inputs")
                             ),
 
                             ui.panel_conditional(
@@ -87,7 +87,17 @@ app_ui = ui.page_sidebar(
                                 "input.set_condition_order == true",
                                 ui.tags.style(Customize.Ladder),
                                 ui.output_ui("condition_order_ladder")
+                            ),
+
+                            ui.panel_conditional(
+                                "input.run > 0",
+                                ui.input_switch("write_replicate_labels", "Write replicate labels", False)
+                            ),
+                            ui.panel_conditional(
+                                "input.write_replicate_labels == true",
+                                ui.output_ui("replicate_labels_inputs")
                             )
+
                         ), 
                         ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"), 
                         bg="#f8f8f8",
@@ -211,55 +221,75 @@ app_ui = ui.page_sidebar(
                         ),
 
                         # _ _ SETTINGS _ _
-                        ui.input_selectize(id="track_reconstruction_method", label="Select reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated"),
+                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated", width="200px"),
 
                         ui.accordion(
                             ui.accordion_panel(
-                                "Select condition/replicate",
-                                ui.input_selectize("tracks_conditions", "Condition:", []),
-                                ui.input_selectize("tracks_replicates", "Replicate:", ["all"]),
+                                "Desired group variables",
+                                ui.row(
+                                    ui.column(6,
+                                        ui.input_selectize("tracks_conditions", "Condition:", [])
+                                    ),
+                                    ui.column(6,
+                                        ui.input_selectize("tracks_replicates", "Replicate:", ["all"]),
+                                    )
+                                )
                             ),
                             ui.accordion_panel(
-                                "Tracks",
-                                ui.input_numeric("tracks_smoothing_index", "Smoothing index:", 0),
-                                ui.input_numeric("tracks_line_width", "Line width:", 0.85),
+                                "Elements & Specs",
+                                ui.accordion(
+                                    ui.accordion_panel(
+                                        "Tracks",
+                                        ui.row(
+                                            ui.input_numeric("tracks_smoothing_index", "Smoothing index:", 0, width="170px"),
+                                            ui.input_numeric("tracks_line_width", "Line width:", 0.85, width="120px")
+                                        )
+                                    ),
+                                    ui.accordion_panel(
+                                        "Head markers",
+                                        ui.input_checkbox("tracks_mark_heads", "Mark track heads", True),
+                                        ui.panel_conditional(
+                                            "input.tracks_mark_heads",
+                                            ui.row(
+                                                ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="circle-empty", width="200px"),
+                                                ui.input_numeric("tracks_marks_size", "Marker size:", 3, min=0, width="130px")
+                                            )
+                                        ),
+                                    ),
+                                    ui.accordion_panel(
+                                        "Plot specs",
+                                        ui.input_checkbox("tracks_show_grid", "Show grid", True),
+                                        ui.panel_conditional(
+                                            "input.tracks_show_grid && input.track_reconstruction_method == 'Polar'",
+                                            ui.input_selectize("tracks_grid_style", "Grid style:", ["simple-1", "simple-2", "spindle", "radial", "dartboard-1", "dartboard-2"], width="140px"),
+                                        ),
+                                    ),
+                                )
                             ),
                             ui.accordion_panel(
-                                "Track heads",
-                                ui.input_checkbox("tracks_mark_heads", "Mark track heads", True),
-                                ui.panel_conditional(
-                                    "input.tracks_mark_heads",
-                                    ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="circle-empty"),
-                                    ui.input_numeric("tracks_marks_size", "Marker size:", 3, min=0),
+                                "Coloring",
+                                ui.row(
+                                    ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode, width="250px"),
+                                    ui.panel_conditional(
+                                        "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
+                                        ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut, width="230px"),
+                                    ),
+                                    ui.panel_conditional(
+                                        "input.tracks_color_mode == 'only-one-color'",
+                                        ui.input_selectize("tracks_only_one_color", "Color:", Styles.Color, width="190px"),
+                                    ),
+                                    ui.input_selectize("tracks_background", "Background:", Styles.Background, width="120px"),
                                 ),
-                            ),
-                            ui.accordion_panel(
-                                "Aesthetics",
-                                ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode),
                                 ui.panel_conditional(
                                     "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
-                                    ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut),
-                                ),
-                                ui.panel_conditional(
-                                    "input.tracks_color_mode == 'only-one-color'",
-                                    ui.input_selectize("tracks_only_one_color", "Color:", Styles.Color),
-                                ),
-                                ui.input_selectize("tracks_background", "Background:", Styles.Background),
-                                ui.input_checkbox("tracks_show_grid", "Show grid", True),
-                                ui.panel_conditional(
-                                    "input.tracks_show_grid && input.track_reconstruction_method == 'Polar'",
-                                    ui.input_selectize("tracks_grid_style", "Grid style:", ["simple-1", "simple-2", "spindle", "radial", "dartboard-1", "dartboard-2"]),
-                                ),
-                                ui.panel_conditional(
-                                    "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
-                                    ui.input_checkbox(id="tracks_lutmap_extend_edges", label="Sharp LUT scale edges", value=True)
+                                    ui.input_checkbox(id="tracks_lutmap_extend_edges", label="Sharp edged LUT scale", value=True)
                                 ),
                             ),
                         ),
 
                         # _ Title and generate plot _
                         ui.markdown(""" <br> """),
-                        ui.input_text(id="tracks_title", label=None, placeholder="Title me!"),
+                        ui.row(ui.input_text(id="tracks_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Realistic'",
                             ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary", width="100%"),
@@ -270,11 +300,12 @@ app_ui = ui.page_sidebar(
                         ),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Animated'",
-                            ui.panel_well(
-                                ui.input_numeric("tar_dpi", "DPI (dots per inch)", value=100, min=10, max=1000, step=10),
-                                style="background-color: #ffffff; border: 1px solid #c0c4ca;",
+                            ui.markdown(""" <p> </p> """),
+                            ui.row(
+                                ui.input_numeric("tar_dpi", "DPI resolution:", value=100, min=10, max=1000, step=10, width="180px"),
+                                style="margin-left: 4px;"
                             ),
-                            ui.markdown(""" <p></p> """),
+                            ui.markdown(""" <p> </p> """),
                             ui.input_task_button(id="tar_generate", label="Generate", class_="btn-secondary", width="100%"),
                         )
                     ),
@@ -319,7 +350,7 @@ app_ui = ui.page_sidebar(
                             ui.accordion(
                                 ui.accordion_panel(
                                     "Replay settings",
-                                    ui.input_numeric("tar_framerate", "Frame rate (fps)", value=30, min=1, max=1000, step=1),
+                                    ui.input_numeric("tar_framerate", "Frame rate (fps)", value=30, min=1, max=1000, step=1, width="140px"),
                                 )
                             ),
                             ui.markdown(""" <p></p> """),
@@ -363,7 +394,16 @@ app_ui = ui.page_sidebar(
                             ui.accordion_panel(
                                 "Metric",
                                 ui.input_selectize("tch_metric", label=None, choices=Metrics.Time, selected="Confinement ratio mean"),
-                                ui.input_radio_buttons("y_axis", "Y axis with", ["Absolute values", "Relative values"]),
+                                ui.row(
+                                    ui.column(2,
+                                        ui.input_radio_buttons("tch_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
+                                        style="margin-left: 10px;",
+                                    ), 
+                                    ui.column(3,
+                                        ui.input_selectize("tch_descriptive_stats", "Descriptive statistics:", ["mean", "median", "max", "min"], selected="mean", multiple=True),
+                                        style="margin-left: 30px;",
+                                    )
+                                )
                             ),
 
                             ui.accordion_panel(
@@ -578,76 +618,36 @@ app_ui = ui.page_sidebar(
                             """
                         ),
 
-                        ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms"),
+                        ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms", width="110px"),
                         # _ _ Swarmplot settings _ _
                         ui.panel_conditional(
                             "input.superplot_type == 'Swarms'",
                             ui.accordion(
                                 ui.accordion_panel(
                                     "Pre-sets",
-                                    ui.input_selectize("sp_preset", "Try a preset:", ["Swarms", "Swarms & Violins", "Violins & KDEs", "Swarms & Violins & KDEs"], selected="Swarms & Violins"),
+                                    ui.input_selectize("sp_preset", "Choose a preset:", ["Swarms", "Swarms & Violins", "Violins & KDEs", "Swarms & Violins & KDEs"], selected="Swarms & Violins", width="230px"),
                                 ),
                                 ui.accordion_panel(
                                     "Metric",
-                                    ui.input_selectize("sp_metric", label=None, choices=Metrics.Track, selected="Confinement ratio"),
+                                    ui.input_selectize("sp_metric", label=None, choices=Metrics.Track, selected="Confinement ratio", width="200px"),
                                     # TODO: ui.input_radio_buttons("sp_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
                                 ),
                                 ui.accordion_panel(
-                                    "General",
-                                    ui.input_checkbox(id="sp_show_swarms", label="Show swarms", value=True),
-                                    ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
-                                    ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False),
-                                    ui.panel_conditional(
-                                        "input.sp_show_kde == true",
-                                        ui.input_checkbox(id="sp_kde_legend", label="Show KDE legend", value=False),
-                                    ),
-                                    ui.input_checkbox(id="sp_show_cond_mean", label="Show condition means as lines", value=False),
-                                    ui.input_checkbox(id="sp_show_cond_median", label="Show condition medians as lines", value=False),
-                                    ui.input_checkbox(id="sp_show_errbars", label="Show error bars", value=False),
-                                    ui.input_checkbox(id="sp_show_rep_means", label="Show replicate mean bullets", value=False),
-                                    ui.input_checkbox(id="sp_show_rep_medians", label="Show replicate median bullets", value=True),
-                                    ui.input_checkbox(id="sp_show_legend", label="Show legend", value=True),
-                                    ui.input_checkbox(id="sp_grid", label="Show grid", value=False),
-                                    ui.input_checkbox(id="sp_spine", label="Open axes top/right", value=True),
-                                    # TODO: ui.input_checkbox(id="sp_flip", label="Flip axes", value=False),
-                                    ui.row(
-                                        ui.column(
-                                            6,
-                                            ui.input_numeric(id="sp_fig_width", label="Fig width:", value=10, min=1, step=0.5)
-                                        ),
-                                        ui.column(
-                                            6,
-                                            ui.input_numeric(id="sp_fig_height", label="Fig height:", value=7, min=1, step=0.5)
-                                        ),
-                                    ),
-                                ),
-                                ui.accordion_panel(
-                                    "Aesthetics",
-                                    ui.input_checkbox(id="sp_use_stock_palette", label="Use stock color palette", value=False),
-                                    ui.input_selectize(id="sp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn, selected="pastel"),
-
+                                    "Elements & Specs",
                                     ui.accordion(
-                                        
                                         ui.accordion_panel(
                                             "Swarms",
+                                            ui.input_checkbox(id="sp_show_swarms", label="Show swarms", value=True),
                                             ui.panel_conditional(
                                                 "input.sp_show_swarms == true",
                                                 ui.input_numeric("sp_swarm_marker_size", "Dot size:", 1, min=0, step=0.5),
                                                 ui.input_numeric("sp_swarm_marker_alpha", "Dot opacity:", 0.5, min=0, max=1, step=0.1),
                                                 ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", Styles.Color, selected="black"),
                                             ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_swarms == false",
-                                                ui.markdown(
-                                                    """
-                                                    *Swarms not enabled.*
-                                                    """
-                                                )
-                                            )
                                         ),
-
                                         ui.accordion_panel(
                                             "Violins",
+                                            ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
                                             ui.panel_conditional(
                                                 "input.sp_show_violins == true",
                                                 ui.input_selectize("sp_violin_fill", "Fill color:", Styles.Color, selected="whitesmoke"),
@@ -655,23 +655,10 @@ app_ui = ui.page_sidebar(
                                                 ui.input_selectize("sp_violin_outline", "Outline color:", Styles.Color, selected="lightgrey"),
                                                 ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
                                             ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_violins == false",
-                                                ui.markdown(
-                                                    """
-                                                    *Violins not enabled.*
-                                                    """
-                                                )
-                                            ),
                                         ),
-
                                         ui.accordion_panel(
-                                            "Kernel Density Estimate (KDE)",
-                                            ui.markdown(
-                                                """
-                                                *KDEs are computed across data points of specific replicates in each condition, modeling the underlying data distribution* <br>
-                                                """
-                                            ),
+                                            "KDE",
+                                            ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False),
                                             ui.panel_conditional(
                                                 "input.sp_show_kde == true",
                                                 ui.input_numeric("sp_kde_line_width", "Outline width:", 1, min=0, step=0.1),
@@ -682,18 +669,12 @@ app_ui = ui.page_sidebar(
                                                 ),
                                                 ui.input_numeric("sp_kde_bandwidth", "KDE bandwidth:", 0.75, min=0.1, step=0.1),
                                             ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_kde == false",
-                                                ui.markdown(
-                                                    """
-                                                    *KDE not enabled.*
-                                                    """
-                                                )
-                                            ),
                                         ),
-
                                         ui.accordion_panel(
-                                            "Lines and error bars",
+                                            "Skeleton",
+                                            ui.input_checkbox(id="sp_show_cond_mean", label="Show condition mean lines", value=False),
+                                            ui.input_checkbox(id="sp_show_cond_median", label="Show condition median lines", value=False),
+                                            ui.input_checkbox(id="sp_show_errbars", label="Show error bars", value=False),
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_mean == true && input.sp_show_cond_median == true",
                                                 ui.input_selectize("sp_set_as_primary", label="Set as primary:", choices=["mean", "median"], selected="mean"),
@@ -728,9 +709,10 @@ app_ui = ui.page_sidebar(
                                                 )
                                             ),
                                         ),
-
                                         ui.accordion_panel(
                                             "Bullets",
+                                            ui.input_checkbox(id="sp_show_rep_means", label="Show replicate mean bullets", value=False),
+                                            ui.input_checkbox(id="sp_show_rep_medians", label="Show replicate median bullets", value=True),
                                             ui.panel_conditional(
                                                 "input.sp_show_rep_means == true",
                                                 ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
@@ -745,20 +727,161 @@ app_ui = ui.page_sidebar(
                                                 ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
                                                 ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
                                             ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_rep_means == false && input.sp_show_rep_medians == false",
-                                                ui.markdown(
-                                                    """
-                                                    *Replicate means/medians not enabled.*
-                                                    """
-                                                ),
-                                            ),
                                         ),
+                                        ui.accordion_panel(
+                                            "Plot specs",
+                                            
+                                            ui.row(
+                                                ui.column(3,
+                                                    ui.input_checkbox(id="sp_show_legend", label="Show legend", value=True),
+                                                    ui.input_checkbox(id="sp_grid", label="Show grid", value=False),
+                                                    ui.input_checkbox(id="sp_spine", label="Open axes top/right", value=True),
+                                                ),
+                                                ui.input_numeric(id="sp_fig_width", label="Fig width:", value=10, min=1, step=0.5),
+                                                ui.input_numeric(id="sp_fig_height", label="Fig height:", value=7, min=1, step=0.5)
+                                            ),
+                                        )
                                     ),
+
+
+                                    
+                                    
+                                    # TODO: ui.input_checkbox(id="sp_flip", label="Flip axes", value=False),
+                                    
+                                ),
+                                ui.accordion_panel(
+                                    "Coloring",
+                                    ui.input_checkbox(id="sp_use_stock_palette", label="Use stock color palette", value=False),
+                                    ui.input_selectize(id="sp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn, selected="pastel"),
+
+                                    # ui.accordion(
+                                        
+                                    #     ui.accordion_panel(
+                                    #         "Swarms",
+                                            
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_swarms == false",
+                                    #             ui.markdown(
+                                    #                 """
+                                    #                 *Swarms not enabled.*
+                                    #                 """
+                                    #             )
+                                    #         )
+                                    #     ),
+
+                                    #     ui.accordion_panel(
+                                    #         "Violins",
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_violins == true",
+                                    #             ui.input_selectize("sp_violin_fill", "Fill color:", Styles.Color, selected="whitesmoke"),
+                                    #             ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
+                                    #             ui.input_selectize("sp_violin_outline", "Outline color:", Styles.Color, selected="lightgrey"),
+                                    #             ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_violins == false",
+                                    #             ui.markdown(
+                                    #                 """
+                                    #                 *Violins not enabled.*
+                                    #                 """
+                                    #             )
+                                    #         ),
+                                    #     ),
+
+                                    #     ui.accordion_panel(
+                                    #         "Kernel Density Estimate (KDE)",
+                                    #         ui.markdown(
+                                    #             """
+                                    #             *KDEs are computed across data points of specific replicates in each condition, modeling the underlying data distribution* <br>
+                                    #             """
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_kde == true",
+                                    #             ui.input_numeric("sp_kde_line_width", "Outline width:", 1, min=0, step=0.1),
+                                    #             ui.input_checkbox("sp_kde_fill", "Fill area", False),
+                                    #             ui.panel_conditional(
+                                    #                 "input.sp_kde_fill == true",
+                                    #                 ui.input_numeric("sp_kde_fill_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
+                                    #             ),
+                                    #             ui.input_numeric("sp_kde_bandwidth", "KDE bandwidth:", 0.75, min=0.1, step=0.1),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_kde == false",
+                                    #             ui.markdown(
+                                    #                 """
+                                    #                 *KDE not enabled.*
+                                    #                 """
+                                    #             )
+                                    #         ),
+                                    #     ),
+
+                                    #     ui.accordion_panel(
+                                    #         "Lines and error bars",
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_cond_mean == true && input.sp_show_cond_median == true",
+                                    #             ui.input_selectize("sp_set_as_primary", label="Set as primary:", choices=["mean", "median"], selected="mean"),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_cond_mean == true",
+                                    #             ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
+                                    #             ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Styles.Color, selected="black"),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_cond_median == true",
+                                    #             ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
+                                    #             ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Styles.Color, selected="darkblue"),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
+                                    #             ui.input_numeric(id="sp_lines_lw", label="Mean/Median Line width:", value=1, min=0, step=0.5),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_errbars == true",
+                                    #             ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
+                                    #             ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
+                                    #             ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Styles.Color, selected="black"),
+                                    #             ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_cond_means == false && input.sp_show_cond_medians == false && input.sp_show_errbars == false",
+                                    #             ui.markdown(
+                                    #                 """
+                                    #                 *Condition means/medians/error bars not enabled.*
+                                    #                 """
+                                    #             )
+                                    #         ),
+                                    #     ),
+
+                                    #     ui.accordion_panel(
+                                    #         "Bullets",
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_rep_means == true",
+                                    #             ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
+                                    #             ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Styles.Color, selected="black"),
+                                    #             ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
+                                    #             ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_rep_medians == true",
+                                    #             ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
+                                    #             ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Styles.Color, selected="black"),
+                                    #             ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
+                                    #             ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
+                                    #         ),
+                                    #         ui.panel_conditional(
+                                    #             "input.sp_show_rep_means == false && input.sp_show_rep_medians == false",
+                                    #             ui.markdown(
+                                    #                 """
+                                    #                 *Replicate means/medians not enabled.*
+                                    #                 """
+                                    #             ),
+                                    #         ),
+                                        # ),
+                                    # ),
                                 ),
                             ),
                             ui.markdown(""" <br> """),
-                            ui.input_text(id="sp_title", label=None, placeholder="Title me!"),
+                            ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;")
                         ),
 
                         # _ _ Violinplot settings _ _
@@ -811,7 +934,7 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             ui.markdown(""" <br> """),
-                            ui.input_text(id="vp_title", label=None, placeholder="Title me!"),
+                            ui.row(ui.input_text(id="vp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
                         ),
                         
                         ui.markdown(""" <br> """),
