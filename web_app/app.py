@@ -9,6 +9,9 @@ app = App(app_ui, server)
 
 
 
+# TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.
+#      - Switch the "metric" annotations to "parameter" as that is correct
+
 # TODO - Add a button to reset all thresholding settings to default
 
 # TODO - Keep all the raw data (columns) - rather format them (stripping of _ and have them not all caps)

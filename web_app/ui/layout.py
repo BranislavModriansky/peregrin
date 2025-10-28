@@ -459,7 +459,7 @@ app_ui = ui.page_sidebar(
                                         ui.accordion_panel(
                                             "Coloring",
                                             ui.input_selectize("tch_scatter_background", "Background:", Styles.Background),
-                                            ui.input_selectize("tch_scatter_color_palette", "Color palette:", Styles.PaletteQualitative),
+                                            ui.input_selectize("tch_scatter_color_palette", "Color palette:", Styles.PaletteQualitativeAltair),
                                         ),
 
                                         ui.accordion_panel(
@@ -506,7 +506,7 @@ app_ui = ui.page_sidebar(
                                         ui.accordion_panel(
                                             "Coloring",
                                             ui.input_selectize("tch_line_background", "Background:", Styles.Background),
-                                            ui.input_selectize("tch_line_color_palette", "Color palette:", Styles.PaletteQualitative),
+                                            ui.input_selectize("tch_line_color_palette", "Color palette:", Styles.PaletteQualitativeAltair),
                                         ),
                                         ui.accordion_panel(
                                             "Elements",
@@ -530,7 +530,7 @@ app_ui = ui.page_sidebar(
                                         ui.accordion_panel(
                                             "Coloring",
                                             ui.input_selectize("tch_errorband_background", "Background:", Styles.Background),
-                                            ui.input_selectize("tch_errorband_color_palette", "Color palette:", Styles.PaletteQualitative),
+                                            ui.input_selectize("tch_errorband_color_palette", "Color palette:", Styles.PaletteQualitativeAltair),
                                         ),
                                     
                                         ui.accordion_panel(
@@ -913,7 +913,7 @@ app_ui = ui.page_sidebar(
                                 ui.accordion_panel(
                                     "Aesthetics",
                                     ui.input_checkbox(id="vp_use_stock_palette", label="Use stock color palette", value=False),
-                                    ui.input_selectize(id="vp_palette", label="Color palette:", choices=Styles.PaletteQualitative, selected="Accent"),
+                                    ui.input_selectize(id="vp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn, selected="Accent"),
                                     ui.accordion(
                                         ui.accordion_panel(
                                             "Violins",

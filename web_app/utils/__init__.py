@@ -1,7 +1,7 @@
 from ._io._load import DataLoader
 from ._infra._selections import *
 from ._infra._formats import *
-from ._compute._metrics import *
+from ._compute._params import *
 from ._compute._filters import Threshold
 from ._plot._tracks._reconstruct import (
     VisualizeTracksRealistics,
