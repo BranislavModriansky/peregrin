@@ -10,7 +10,8 @@ app = App(app_ui, server)
 
 
 # TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.
-#      - Switch the "metric" annotations to "parameter" as that is correct
+#      - Switch the "metric" annotations to "parameter" or "value" as that is correct
+#      - Make sure all parameter names are consistent and the logic is global: not Speed mean, Direction mean (rad), but Speed mean, Direction (rad) mean
 
 # TODO - Add a button to reset all thresholding settings to default
 

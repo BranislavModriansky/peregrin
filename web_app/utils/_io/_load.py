@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 import os.path as op
 from typing import List
@@ -41,7 +42,7 @@ class DataLoader:
     
 
     @staticmethod
-    def Extract(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, mirror_y: bool = True) -> pd.DataFrame:
+    def ExtractStripped(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, mirror_y: bool = True) -> pd.DataFrame:
         # Keep only relevant columns and convert to numeric
         df = df[[id_col, t_col, x_col, y_col]].apply(pd.to_numeric, errors='coerce').dropna().reset_index(drop=True)
 
@@ -57,6 +58,64 @@ class DataLoader:
 
         # Standardize column names
         return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
+    
+
+    @staticmethod
+    def ExtractFull(
+        df: pd.DataFrame,
+        id_col: str,
+        t_col: str,
+        x_col: str,
+        y_col: str,
+        mirror_y: bool = True
+    ) -> pd.DataFrame:
+        """
+        Prepare tracking data:
+        - Converts chosen coordinate columns to numeric.
+        - Mirrors Y if requested.
+        - Renames the 4 key columns to standard names.
+        - Keeps all other columns intact.
+        - Normalizes column labels (e.g. 'CONTRAST_CH' → 'Contrast ch').
+        """
+        df = df.copy()
+
+        # convert only selected columns to numeric
+        for c in [id_col, t_col, x_col, y_col]:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+
+        # drop rows missing key coordinates
+        df = df.dropna(subset=[id_col, t_col, x_col, y_col]).reset_index(drop=True)
+
+        # mirror Y if needed
+        if mirror_y:
+            y_mid = (df[y_col].min() + df[y_col].max()) / 2
+            df[y_col] = 2 * y_mid - df[y_col]
+
+        # rename main columns
+        rename_map = {
+            id_col: "Track ID",
+            t_col: "Time point",
+            x_col: "X coordinate",
+            y_col: "Y coordinate",
+        }
+        df = df.rename(columns=rename_map)
+
+        # normalize column names for readability
+        def clean_name(name: str) -> str:
+            name = str(name)
+            name = name.replace("_", " ")
+            name = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+            name = name.strip().capitalize()
+            return name
+
+        try:
+            # df = df.rename(columns=lambda c: clean_name(c) if c != 'Track ID' else c)
+            df.columns = [clean_name(c) if c != 'Track ID' else c for c in df.columns]
+        except Exception as e:
+            print(e)
+
+        return df
+
 
 
     @staticmethod

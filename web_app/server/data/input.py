@@ -105,25 +105,39 @@ def mount_data_input(input, output, session, S):
                 try:
                     df = DataLoader.GetDataFrame(fileinfo["datapath"])
                     # print(df.head())
-                    extracted = DataLoader.Extract(
-                        df,
-                        id_col=input.select_id(),
-                        t_col=input.select_t(),
-                        x_col=input.select_x(),
-                        y_col=input.select_y(),
-                        mirror_y=True,
-                    )
+                    if input.strip_data():
+                        extracted = DataLoader.ExtractStripped(
+                            df,
+                            id_col=input.select_id(),
+                            t_col=input.select_t(),
+                            x_col=input.select_x(),
+                            y_col=input.select_y(),
+                            mirror_y=True,
+                        )
+                    else:
+                        extracted = DataLoader.ExtractFull(
+                            df,
+                            id_col=input.select_id(),
+                            t_col=input.select_t(),
+                            x_col=input.select_x(),
+                            y_col=input.select_y(),
+                            mirror_y=True,
+                        )
+
                 except: continue
 
                 extracted["Condition"] = cond_label if cond_label else str(idx)
                 extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
 
                 all_data.append(extracted)
+
+                
                 
         if all_data:
             all_data = pd.concat(all_data, axis=0)
             S.RAWDATA.set(all_data)
             S.UNFILTERED_SPOTSTATS.set(Spots(all_data))
+            S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
             S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
             S.UNFILTERED_FRAMESTATS.set(Frames(all_data))
             S.SPOTSTATS.set(S.UNFILTERED_SPOTSTATS.get())

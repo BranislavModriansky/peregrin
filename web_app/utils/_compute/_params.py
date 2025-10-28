@@ -1,5 +1,7 @@
+from __future__ import annotations
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 @staticmethod
 def Spots(df: pd.DataFrame) -> pd.DataFrame:
@@ -59,84 +61,103 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+
 @staticmethod
 def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute comprehensive track-level metrics for each cell track in the DataFrame, including:
-    - Track length: sum of Distance
-    - Track displacement: straight-line from first to last position
-    - Confinement ratio: Track displacement / Track length
-    - Min speed, Max speed, Mean speed, Std speed, Median speed (per-track on Distance)
-    - Mean direction (rad/deg), Std deviation (rad/deg), Median direction (rad/deg) (circular stats)
-
+    - Track length, displacement, confinement ratio
+    - Speed stats: min, max, mean, std, var, median, quantiles, IQR, SEM, CI95
+    - Circular direction stats (mean/median in rad/deg; 'std' via resultant length proxy)
     Expects columns: Condition, Replicate, Track ID, Distance, X coordinate, Y coordinate, Direction (rad)
-    Returns a single DataFrame indexed by Condition, Replicate, Track ID with all metrics.
     """
     if df.empty:
         cols = [
             'Condition','Replicate','Track ID',
             'Track length','Track displacement','Confinement ratio',
-            'Speed min','Speed max','Speed mean','Speed std','Speed median',
-            'Direction mean (rad)','Direction std (rad)','Direction median (rad)',
-            'Direction mean (deg)','Direction std (deg)','Direction median (deg)',
+            'Speed min','Speed max','Speed mean','Speed std','Speed var','Speed median',
+            'Speed q10','Speed q25','Speed q50','Speed q75','Speed q95','Speed IQR',
+            'Speed SEM','Speed CI95 low','Speed CI95 high',
+            'Direction (rad) mean','Direction (rad) std','Direction (rad) median',
+            'Direction (deg) mean','Direction (deg) std','Direction (deg) median',
+            'Track points'
         ]
         return pd.DataFrame(columns=cols)
 
-    # Group by track
     grp = df.groupby(['Condition','Replicate','Track ID'], sort=False)
 
-    agg = grp.agg(
-        **{
-            'Track length': ('Distance', 'sum'),
-            'Speed mean':  ('Distance', 'mean'),
-            'Speed median':('Distance', 'median'),
-            'Speed min':   ('Distance', 'min'),
-            'Speed max':   ('Distance', 'max'),
-            'Speed std':   ('Distance', 'std'),
-            'Speed var':   ('Distance', 'var'),
-            'start_x':     ('X coordinate', 'first'),
-            'end_x':       ('X coordinate', 'last'),
-            'start_y':     ('Y coordinate', 'first'),
-            'end_y':       ('Y coordinate', 'last')
-        }
-    )
+    # choose the quantiles you want; edit as needed
+    quantiles = [0.10, 0.25, 0.50, 0.75, 0.95]
+
+    agg_spec = {
+        'Track length': ('Distance', 'sum'),
+        'Speed mean':   ('Distance', 'mean'),
+        'Speed median': ('Distance', 'median'),
+        'Speed min':    ('Distance', 'min'),
+        'Speed max':    ('Distance', 'max'),
+        'Speed std':    ('Distance', 'std'),
+        'Speed var':    ('Distance', 'var'),
+        'start_x':      ('X coordinate', 'first'),
+        'end_x':        ('X coordinate', 'last'),
+        'start_y':      ('Y coordinate', 'first'),
+        'end_y':        ('Y coordinate', 'last'),
+        **{f'Speed q{int(q*100)}': ('Distance', (lambda x, q=q: float(pd.Series(x).quantile(q))))
+           for q in quantiles},
+    }
+
+    agg = grp.agg(**agg_spec)
 
     if 'Replicate color' in df.columns:
         colors = grp['Replicate color'].first()
         agg = agg.merge(colors, left_index=True, right_index=True)
 
-    # Compute net displacement and confinement ratio
+    # Displacement and confinement
     agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
     agg['Confinement ratio'] = (agg['Track displacement'] / agg['Track length'].replace(0, np.nan)).fillna(0)
     agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
-    # Circular direction statistics: need sin & cos per observation
+    # IQR
+    if 'Speed q75' in agg and 'Speed q25' in agg:
+        agg['Speed IQR'] = agg['Speed q75'] - agg['Speed q25']
+    else:
+        agg['Speed IQR'] = np.nan
+
+    # Points per track
+    n = grp.size().rename('Track points')
+    agg = agg.merge(n, left_index=True, right_index=True)
+
+    # SEM and CI95 with SciPy t critical; undefined for n<2
+    valid = agg['Track points'] >= 2
+    agg['Speed SEM'] = (agg['Speed std'] / np.sqrt(agg['Track points'])).where(valid)
+
+    dfree = (agg['Track points'] - 1).where(valid)
+    tcrit = stats.t.ppf(0.975, dfree)  # two-sided 95%
+    half_width = tcrit * agg['Speed SEM']
+    agg['Speed CI95 low'] = (agg['Speed mean'] - half_width).where(valid)
+    agg['Speed CI95 high'] = (agg['Speed mean'] + half_width).where(valid)
+
+    # Circular direction stats
     sin_cos = df.assign(_sin=np.sin(df['Direction (rad)']), _cos=np.cos(df['Direction (rad)']))
     dir_agg = sin_cos.groupby(['Condition','Replicate','Track ID'], sort=False).agg(
-        mean_sin=('_sin','mean'), mean_cos=('_cos','mean'),
-        median_sin=('_sin','median'), median_cos=('_cos','median')
+        mean_sin=('_sin','mean'),
+        mean_cos=('_cos','mean'),
+        median_sin=('_sin','median'),
+        median_cos=('_cos','median')
     )
-    # derive circular metrics
-    dir_agg['Direction mean (rad)'] = np.arctan2(dir_agg['mean_sin'], dir_agg['mean_cos'])
-    dir_agg['Direction std (rad)'] = np.hypot(dir_agg['mean_sin'], dir_agg['mean_cos'])
-    dir_agg['Direction median (rad)'] = np.arctan2(dir_agg['median_sin'], dir_agg['median_cos'])
-    dir_agg['Direction mean (deg)'] = np.degrees(dir_agg['Direction mean (rad)']) % 360
-    dir_agg['Direction std (deg)'] = np.degrees(dir_agg['Direction std (rad)']) % 360
-    dir_agg['Direction median (deg)'] = np.degrees(dir_agg['Direction median (rad)']) % 360
+    dir_agg['Direction (rad) mean'] = np.arctan2(dir_agg['mean_sin'], dir_agg['mean_cos'])
+    R = np.hypot(dir_agg['mean_sin'], dir_agg['mean_cos']).clip(upper=1.0)
+    dir_agg['Direction (rad) std'] = np.sqrt(2.0 * (1.0 - R))
+    dir_agg['Direction (rad) median'] = np.arctan2(dir_agg['median_sin'], dir_agg['median_cos'])
+    dir_agg['Direction (deg) mean'] = np.degrees(dir_agg['Direction (rad) mean']) % 360
+    dir_agg['Direction (deg) std'] = np.degrees(dir_agg['Direction (rad) std'])
+    dir_agg['Direction (deg) median'] = np.degrees(dir_agg['Direction (rad) median']) % 360
     dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos','median_sin','median_cos'])
 
-        # Count points per track
-    # number of rows (frames) per track
-    point_counts = grp.size().rename('Track points')
-
-    # Merge all metrics into one DataFrame
-    result = agg.merge(dir_agg, left_index=True, right_index=True)
-    # Merge point counts
-    result = result.merge(point_counts, left_index=True, right_index=True).reset_index()
-    result['Track UID'] = np.arange(len(result))  # starts at 0
+    result = agg.merge(dir_agg, left_index=True, right_index=True).reset_index()
+    result['Track UID'] = np.arange(len(result))
     result.set_index('Track UID', drop=True, inplace=True, verify_integrity=True)
-
     return result
+
 
 
 @staticmethod

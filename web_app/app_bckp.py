@@ -1184,7 +1184,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 try:
                     df = DataLoader.GetDataFrame(fileinfo["datapath"])
                     print(df.head())
-                    extracted = DataLoader.Extract(
+                    extracted = DataLoader.ExtractStripped(
                         df,
                         id_col=input.select_id(),
                         t_col=input.select_t(),

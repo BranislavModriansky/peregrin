@@ -56,6 +56,7 @@ app_ui = ui.page_sidebar(
                             ui.markdown(""" <br><h4><b>  Label settings:  </h4></b> """), 
                             style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"
                         ),
+                        ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
                         ui.div(  
                             ui.tags.style(Customize.Link1),
                             ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
