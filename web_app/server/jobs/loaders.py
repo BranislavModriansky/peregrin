@@ -15,8 +15,9 @@ def mount_loaders(input, output, session, S):
                 await asyncio.sleep(0.04)
         pass
 
-    @reactive.effect
-    @reactive.event(input.run, ignore_none=True)
+    
+    # @reactive.effect
+    # @reactive.event(input.run, ignore_none=True)
     def initialize_loader1():
         return loader1()
         
@@ -31,7 +32,7 @@ def mount_loaders(input, output, session, S):
                 await asyncio.sleep(0.12)
         pass
 
-    @reactive.effect
-    @reactive.event(input.already_processed_input, ignore_none=True)
+    # @reactive.effect
+    # @reactive.event(input.already_processed_input, ignore_none=True)
     def initialize_loader2():
         return loader2()

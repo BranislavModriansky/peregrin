@@ -3,6 +3,7 @@ import pandas as pd
 
 def build_state():
     return type("State", (object,), {
+        "READYTORUN": reactive.Value(False),
         "INPUTS": reactive.Value(1),
         "THRESHOLDS": reactive.Value(None),
         "THRESHOLDS_ID": reactive.Value(1),
@@ -10,6 +11,7 @@ def build_state():
         "UNFILTERED_SPOTSTATS": reactive.Value(pd.DataFrame()),
         "UNFILTERED_TRACKSTATS": reactive.Value(pd.DataFrame()),
         "UNFILTERED_FRAMESTATS": reactive.Value(pd.DataFrame()),
+        "UNFILTERED_TINTERVALSTATS": reactive.Value(pd.DataFrame()),
         "SPOTSTATS": reactive.Value(pd.DataFrame()),
         "TRACKSTATS": reactive.Value(pd.DataFrame()),
         "FRAMESTATS": reactive.Value(pd.DataFrame()),

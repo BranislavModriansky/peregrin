@@ -8,6 +8,9 @@ app = App(app_ui, server)
 
 
 
+# TODO - Finalize the Time interval implementation everywhere - filtering!!!
+
+# TODO - use / utilize np.nan values where data is not able to be calculated instead of 0 values and be sure it doesnt get into way of calculations and graph generations
 
 # TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.
 #      - Switch the "metric" annotations to "parameter" or "value" as that is correct

@@ -1,9 +1,0 @@
-	memory-ctr	memory-cxcl12	memory-cxcl12-mu	memory-mu	naive-ctr	naive-cxcl12	naive-cxcl12-mu	naive-mu
-memory-ctr	1.0	1.0	1.0	0.908	0.348	0.908	1.0	0.998
-memory-cxcl12	1.0	1.0	0.986	0.655	0.646	0.994	1.0	1.0
-memory-cxcl12-mu	1.0	0.986	1.0	0.985	0.19	0.733	0.987	0.972
-memory-mu	0.908	0.655	0.985	1.0	0.032	0.242	0.663	0.583
-naive-ctr	0.348	0.646	0.19	0.032	1.0	0.967	0.638	0.715
-naive-cxcl12	0.908	0.994	0.733	0.242	0.967	1.0	0.994	0.998
-naive-cxcl12-mu	1.0	1.0	0.987	0.663	0.638	0.994	1.0	1.0
-naive-mu	0.998	1.0	0.972	0.583	0.715	0.998	1.0	1.0

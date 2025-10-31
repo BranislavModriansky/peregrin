@@ -1,7 +1,8 @@
 import pandas as pd
 import shiny.ui as ui
-from shiny import reactive   
+from shiny import reactive, render   
 from utils import DataLoader, Spots, Tracks, Frames
+from web_app.utils._compute._params import TimeIntervals
 
 
 
@@ -76,13 +77,25 @@ def mount_data_input(input, output, session, S):
 
     # _ _ _ _ RUN - COMPUTE RAW INPUT _ _ _ _
 
+    
     @reactive.Effect
-    def enable_run_button():
+    def run_btn_toggle():
         files_uploaded = [input[f"input_file{idx}"]() for idx in range(1, S.INPUTS.get()+1)]
         def is_busy(val):
             return isinstance(val, list) and len(val) > 0
         all_busy = all(is_busy(f) for f in files_uploaded)
-        session.send_input_message("run", {"disabled": not all_busy})
+        if all_busy:
+            S.READYTORUN.set(True)
+        else:
+            S.READYTORUN.set(False)
+
+    @output()
+    @render.ui
+    def run_btn_ui():
+        if S.READYTORUN.get():
+            return ui.input_task_button("run", label="Run", class_="btn-secondary")
+        else:
+            return ui.input_action_button("run", label="Run", class_="btn-secondary", disabled=True)
 
     @reactive.Effect
     @reactive.event(input.run)
@@ -140,6 +153,7 @@ def mount_data_input(input, output, session, S):
             S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
             S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
             S.UNFILTERED_FRAMESTATS.set(Frames(all_data))
+            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(all_data))
             S.SPOTSTATS.set(S.UNFILTERED_SPOTSTATS.get())
             S.TRACKSTATS.set(S.UNFILTERED_TRACKSTATS.get())
             S.FRAMESTATS.set(S.UNFILTERED_FRAMESTATS.get())

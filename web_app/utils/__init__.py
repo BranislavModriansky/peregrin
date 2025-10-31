@@ -16,7 +16,7 @@ from ._scheduling._ratelimit import Debounce, Throttle
 
 __all__ = [
     "DataLoader",
-    "Spots", "Tracks", "Frames",
+    "Spots", "Tracks", "Frames", "TimeIntervals",
     "Threshold",
     "VisualizeTracksRealistics", "VisualizeTracksNormalized", "GetLutMap", "Animated",
     "SwarmsAndBeyond", "Superviolins",

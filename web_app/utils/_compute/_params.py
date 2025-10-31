@@ -2,6 +2,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from scipy import stats
+from collections import defaultdict
+
+
 
 @staticmethod
 def Spots(df: pd.DataFrame) -> pd.DataFrame:
@@ -9,7 +12,7 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute per-frame tracking metrics for each cell track in the DataFrame:
     - Distance: Euclidean distance between consecutive positions
-    - Direction (rad): direction of travel in radians
+    - Direction: direction of travel in radians
     - Track length: cumulative distance along the track
     - Track displacement: straight-line distance from track start
     - Confinement ratio: Track displacement / Track length
@@ -31,35 +34,34 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
     df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
     # Distance between current and next position
-    df['Distance'] = np.sqrt(
-        (grp['X coordinate'].shift(-1) - df['X coordinate'])**2 +
-        (grp['Y coordinate'].shift(-1) - df['Y coordinate'])**2
-        ).fillna(0)
+    df['Distance'] = np.hypot(
+        grp['X coordinate'].diff(),
+        grp['Y coordinate'].diff()
+    ).fillna(np.nan)
 
     # Direction of travel (radians) based on diff to previous point
-    df['Direction (rad)'] = np.arctan2(
+    df['Direction'] = np.arctan2(
         grp['Y coordinate'].diff(),
         grp['X coordinate'].diff()
-        ).fillna(0)
+        ).fillna(np.nan)
 
     # Cumulative track length
     df['Cumulative track length'] = grp['Distance'].cumsum()
 
     # Net (straight-line) distance from the start of the track
     start = grp[['X coordinate', 'Y coordinate']].transform('first')
-    df['Cumulative track displacement'] = np.sqrt(
-        (df['X coordinate'] - start['X coordinate'])**2 +
-        (df['Y coordinate'] - start['Y coordinate'])**2
-        )
+    df['Cumulative track displacement'] = np.hypot(
+        (df['X coordinate'] - start['X coordinate']),
+        (df['Y coordinate'] - start['Y coordinate'])
+    ).replace(0, np.nan)
 
     # Confinement ratio: Track displacement vs. actual path length
     # Avoid division by zero by replacing zeros with NaN, then fill
-    df['Cumulative confinement ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(0)
+    df['Cumulative confinement ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
     df['Frame'] = grp['Time point'].rank(method='dense').astype(int)
 
     return df
-
 
 
 @staticmethod
@@ -69,17 +71,16 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     - Track length, displacement, confinement ratio
     - Speed stats: min, max, mean, std, var, median, quantiles, IQR, SEM, CI95
     - Circular direction stats (mean/median in rad/deg; 'std' via resultant length proxy)
-    Expects columns: Condition, Replicate, Track ID, Distance, X coordinate, Y coordinate, Direction (rad)
+    Expects columns: Condition, Replicate, Track ID, Distance, X coordinate, Y coordinate, Direction
     """
     if df.empty:
         cols = [
             'Condition','Replicate','Track ID',
             'Track length','Track displacement','Confinement ratio',
-            'Speed min','Speed max','Speed mean','Speed std','Speed var','Speed median',
+            'Speed min','Speed max','Speed mean','Speed std','Speed median',
             'Speed q10','Speed q25','Speed q50','Speed q75','Speed q95','Speed IQR',
             'Speed SEM','Speed CI95 low','Speed CI95 high',
-            'Direction (rad) mean','Direction (rad) std','Direction (rad) median',
-            'Direction (deg) mean','Direction (deg) std','Direction (deg) median',
+            'Direction mean','Direction std','Direction median',
             'Track points'
         ]
         return pd.DataFrame(columns=cols)
@@ -87,22 +88,17 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     grp = df.groupby(['Condition','Replicate','Track ID'], sort=False)
 
     # choose the quantiles you want; edit as needed
-    quantiles = [0.10, 0.25, 0.50, 0.75, 0.95]
-
     agg_spec = {
-        'Track length': ('Distance', 'sum'),
-        'Speed mean':   ('Distance', 'mean'),
-        'Speed median': ('Distance', 'median'),
-        'Speed min':    ('Distance', 'min'),
-        'Speed max':    ('Distance', 'max'),
-        'Speed std':    ('Distance', 'std'),
-        'Speed var':    ('Distance', 'var'),
-        'start_x':      ('X coordinate', 'first'),
-        'end_x':        ('X coordinate', 'last'),
-        'start_y':      ('Y coordinate', 'first'),
-        'end_y':        ('Y coordinate', 'last'),
-        **{f'Speed q{int(q*100)}': ('Distance', (lambda x, q=q: float(pd.Series(x).quantile(q))))
-           for q in quantiles},
+        'Track length':     ('Distance', 'sum'),
+        'Speed min':        ('Distance', 'min'),
+        'Speed max':        ('Distance', 'max'),
+        'Speed mean':       ('Distance', 'mean'),
+        'Speed sd':         ('Distance', 'std'),
+        'Speed median':     ('Distance', 'median'),
+        'start_x':          ('X coordinate', 'first'),
+        'end_x':            ('X coordinate', 'last'),
+        'start_y':          ('Y coordinate', 'first'),
+        'end_y':            ('Y coordinate', 'last'),
     }
 
     agg = grp.agg(**agg_spec)
@@ -116,41 +112,32 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     agg['Confinement ratio'] = (agg['Track displacement'] / agg['Track length'].replace(0, np.nan)).fillna(0)
     agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
-    # IQR
-    if 'Speed q75' in agg and 'Speed q25' in agg:
-        agg['Speed IQR'] = agg['Speed q75'] - agg['Speed q25']
-    else:
-        agg['Speed IQR'] = np.nan
-
     # Points per track
     n = grp.size().rename('Track points')
     agg = agg.merge(n, left_index=True, right_index=True)
 
-    # SEM and CI95 with SciPy t critical; undefined for n<2
-    valid = agg['Track points'] >= 2
-    agg['Speed SEM'] = (agg['Speed std'] / np.sqrt(agg['Track points'])).where(valid)
-
-    dfree = (agg['Track points'] - 1).where(valid)
-    tcrit = stats.t.ppf(0.975, dfree)  # two-sided 95%
-    half_width = tcrit * agg['Speed SEM']
-    agg['Speed CI95 low'] = (agg['Speed mean'] - half_width).where(valid)
-    agg['Speed CI95 high'] = (agg['Speed mean'] + half_width).where(valid)
-
     # Circular direction stats
-    sin_cos = df.assign(_sin=np.sin(df['Direction (rad)']), _cos=np.cos(df['Direction (rad)']))
+    sin_cos = df.assign(
+        _sin=np.sin(df['Direction']), 
+        _cos=np.cos(df['Direction'])
+    )
+    
     dir_agg = sin_cos.groupby(['Condition','Replicate','Track ID'], sort=False).agg(
         mean_sin=('_sin','mean'),
         mean_cos=('_cos','mean'),
         median_sin=('_sin','median'),
         median_cos=('_cos','median')
     )
-    dir_agg['Direction (rad) mean'] = np.arctan2(dir_agg['mean_sin'], dir_agg['mean_cos'])
-    R = np.hypot(dir_agg['mean_sin'], dir_agg['mean_cos']).clip(upper=1.0)
-    dir_agg['Direction (rad) std'] = np.sqrt(2.0 * (1.0 - R))
-    dir_agg['Direction (rad) median'] = np.arctan2(dir_agg['median_sin'], dir_agg['median_cos'])
-    dir_agg['Direction (deg) mean'] = np.degrees(dir_agg['Direction (rad) mean']) % 360
-    dir_agg['Direction (deg) std'] = np.degrees(dir_agg['Direction (rad) std'])
-    dir_agg['Direction (deg) median'] = np.degrees(dir_agg['Direction (rad) median']) % 360
+
+    dir_aggs = {
+        'Direction mean': lambda row: np.arctan2(row['mean_sin'], row['mean_cos']),
+        'Direction sd': lambda row: np.sqrt(-2 * np.log(np.sqrt(row['mean_sin']**2 + row['mean_cos']**2))),
+        'Direction median': lambda row: np.arctan2(row['median_sin'], row['median_cos']),
+    }
+
+    for col, func in dir_aggs.items():
+        dir_agg[col] = dir_agg.apply(func, axis=1)
+
     dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos','median_sin','median_cos'])
 
     result = agg.merge(dir_agg, left_index=True, right_index=True).reset_index()
@@ -159,18 +146,17 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-
 @staticmethod
 def Frames(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute per-frame (time point) summary metrics grouped by Condition, Replicate, Time point:
     - Track length, Track displacement, Confinement ratio distributions: min, max, mean, std, median
     - Speed (Distance) distributions as Speed min, Speed max, Speed mean, Speed std, Speed median
-    - Direction (rad) distributions (circular): Direction mean (rad), Direction std (rad), Direction median (rad)
+    - Direction distributions (circular): Direction mean (rad), Direction std (rad), Direction median (rad)
         and corresponding degrees
 
     Expects columns: Condition, Replicate, Time point, Track length, Track displacement,
-                    Confinement ratio, Distance, Direction (rad)
+                    Confinement ratio, Distance, Direction
     Returns a DataFrame indexed by Condition, Replicate, Time point with all time-point metrics.
     """
     if df.empty:
@@ -199,20 +185,17 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
 
     # 3) circular direction stats per frame
     # compute sin/cos columns
-    tmp = df.assign(_sin=np.sin(df['Direction (rad)']), _cos=np.cos(df['Direction (rad)']))
-    dir_frame = tmp.groupby(group_cols).agg({'_sin':'mean','_cos':'mean','Direction (rad)':'count'})
+    tmp = df.assign(_sin=np.sin(df['Direction']), _cos=np.cos(df['Direction']))
+    dir_frame = tmp.groupby(group_cols).agg({'_sin':'mean','_cos':'mean','Direction':'count'})
     # mean direction
-    dir_frame['Direction mean (rad)'] = np.arctan2(dir_frame['_sin'], dir_frame['_cos'])
+    dir_frame['Direction mean'] = np.arctan2(dir_frame['_sin'], dir_frame['_cos'])
     # circular std: R = sqrt(mean_sin^2+mean_cos^2)
-    dir_frame['Direction std (rad)'] = np.hypot(dir_frame['_sin'], dir_frame['_cos'])
+    dir_frame['Direction std'] = np.hypot(dir_frame['_sin'], dir_frame['_cos'])
     # median direction: use groupby apply median sin/cos
     median = tmp.groupby(group_cols).agg({'_sin':'median','_cos':'median'})
-    dir_frame['Direction median (rad)'] = np.arctan2(median['_sin'], median['_cos'])
-    # degrees
-    dir_frame['Direction mean (deg)'] = np.degrees(dir_frame['Direction mean (rad)']) % 360
-    dir_frame['Direction std (deg)'] = np.degrees(dir_frame['Direction std (rad)']) % 360
-    dir_frame['Direction median (deg)'] = np.degrees(dir_frame['Direction median (rad)']) % 360
-    dir_frame = dir_frame.drop(columns=['_sin','_cos','Direction (rad)'], errors='ignore')
+    dir_frame['Direction median'] = np.arctan2(median['_sin'], median['_cos'])
+    
+    dir_frame = dir_frame.drop(columns=['_sin','_cos','Direction'], errors='ignore')
 
     # merge all
     time_stats = frame_agg.merge(speed_agg, left_index=True, right_index=True)
@@ -237,3 +220,93 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     time_stats = time_stats.reset_index()
 
     return time_stats
+
+
+@staticmethod
+def TimeIntervals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute mean displacement (your current 'MSD') for each Condition, Replicate, and time interval.
+    Exact outcome preserved:
+      - lag==1 uses mean of 'Distance'
+      - lag>1 uses mean of np.hypot(dx, dy)
+      - 'Tracks contributing' is the global count per lag (not per group)
+    Expects columns:
+      'Condition','Replicate','Track UID','Frame','Time point','X coordinate','Y coordinate','Distance' (for lag==1).
+    """
+    cols = [
+        'Condition', 'Replicate', 'Tracks contributing', 'Time lag',
+        'MSD mean', 'MSD sem', 'MSD sd', 'MSD median', 'Frame lag'
+    ]
+    if df.empty:
+        return pd.DataFrame(columns=cols)
+
+    df = df.copy()
+    # Ensure track-ordering by frame
+    df.set_index('Track UID', inplace=True, drop=False, verify_integrity=False)
+    df.sort_index(inplace=True)
+    # Time step from unique time points
+    t_unique = np.sort(df['Time point'].unique())
+    if t_unique.size < 2:
+        return pd.DataFrame(columns=cols)
+    t_step = (t_unique[-1] - t_unique[0]) / (t_unique.size - 1)
+
+    # Accumulators
+    values_by_key = defaultdict(list)   # key = (Condition, Replicate, lag)
+    contrib_global = defaultdict(int)   # key = lag -> number of tracks with length > lag
+
+    # Iterate tracks once
+    for track_uid, g in df.groupby(level='Track UID'):
+        n = len(g)
+        if n < 2:
+            continue
+
+        x = g['X coordinate'].to_numpy()
+        y = g['Y coordinate'].to_numpy()
+        cond = g['Condition'].iloc[0]
+        rep  = g['Replicate'].iloc[0]
+
+        # Precompute for lag==1 from provided Distance to match your output exactly
+        dist_col = g['Distance'].to_numpy() if 'Distance' in g else None
+
+        # For each lag, vectorized slice diffs; no inner per-step Python loop
+        for lag in range(1, n):
+            # track contributes at this lag
+            contrib_global[lag] += 1
+
+            # if lag == 1 and dist_col is not None:
+            #     msd_track = dist_col.mean()
+            # else:
+            dx = x[:-lag] - x[lag:]
+            dy = y[:-lag] - y[lag:]
+            # mean of Euclidean displacement, matching your code
+            msd_track = np.hypot(dx, dy).mean()
+
+            values_by_key[(cond, rep, lag)].append(msd_track)
+
+    # Build result once
+    out_rows = []
+    for (cond, rep, lag), vals in values_by_key.items():
+        arr = np.asarray(vals, dtype=float)
+        mean = arr.mean()
+        sd = arr.std(ddof=0)
+        sem = stats.sem(arr) if arr.size > 1 else np.nan
+        median = np.median(arr)
+        out_rows.append({
+            'Condition': cond,
+            'Replicate': rep,
+            'Tracks contributing': contrib_global.get(lag, 0),  # global count per lag to mirror original
+            'Time lag': lag * t_step,
+            'MSD mean': mean,
+            'MSD sem': sem,
+            'MSD sd': sd,
+            'MSD median': median,
+            'Frame lag': lag,
+        })
+
+    if not out_rows:
+        return pd.DataFrame(columns=cols)
+
+    out = pd.DataFrame(out_rows)
+    # Optional stable sort
+    out.sort_values(['Condition', 'Replicate', 'Frame lag'], inplace=True, ignore_index=True)
+    return out

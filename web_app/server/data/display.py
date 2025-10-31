@@ -30,6 +30,14 @@ def mount_data_display(input, output, session, S):
             return frame_stats
         else:
             pass
+
+    @render.data_frame
+    def render_time_interval_stats():
+        time_interval_stats = S.UNFILTERED_TINTERVALSTATS.get()
+        if time_interval_stats is not None and not time_interval_stats.empty:
+            return time_interval_stats
+        else:
+            pass
     
 
     # _ _ _ _ DATAFRAME CSV DOWNLOADS _ _ _ _

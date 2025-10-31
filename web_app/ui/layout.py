@@ -43,7 +43,8 @@ app_ui = ui.page_sidebar(
                 # _ Buttons & input UIs _
                 ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
                 ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
-                ui.input_action_button("run", label="Run", class_="btn-secondary", disabled=True),
+                ui.output_ui("run_btn_ui"),
+                # ui.input_task_button("run", label="Run", class_="btn-secondary", disabled=True),
                 # TODO - ui.input_action_button("reset", "Reset", class_="btn-danger"),
                 # TODO - ui.input_action_button("input_help", "Show help"),
                 ui.output_ui("initialize_loader1"),
@@ -180,6 +181,14 @@ app_ui = ui.page_sidebar(
                     ui.card_header("Frame stats", class_="bg-light"),
                     ui.output_data_frame("render_frame_stats"),
                     ui.download_button("download_frame_stats", "Download CSV"),
+                    full_screen=True, 
+                ),
+            ),
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Time interval stats", class_="bg-light"),
+                    ui.output_data_frame("render_time_interval_stats"),
+                    ui.download_button("download_time_interval_stats", "Download CSV"),
                     full_screen=True, 
                 ),
             ),

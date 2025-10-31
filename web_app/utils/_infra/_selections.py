@@ -8,6 +8,7 @@ class Metrics:
         "X coordinate",
         "Y coordinate",
         "Distance",
+        "Direction"
         "Cumulative length",
         "Cumulative displacement",
         "Cumulative confinement ratio",
@@ -23,10 +24,8 @@ class Metrics:
         "Speed max",
         "Speed min",
         "Speed std",
-        "Direction mean (deg)",
-        "Direction mean (rad)",
-        "Direction std (deg)",
-        "Direction std (rad)",
+        "Direction mean",
+        "Direction std",
     ]
 
     Time = [
