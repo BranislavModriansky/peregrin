@@ -20,6 +20,3 @@ kaleido>=0.2              # Plotly image export
 pyarrow>=17               # Parquet/Feather
 openpyxl>=3.1             # .xlsx
 imageio
-
-# Remove or keep only if you actually depend on the PyPI package
-# superviolin

@@ -6,7 +6,6 @@ import matplotlib.lines as mlines
 from itertools import chain
 from scipy.stats import gaussian_kde, norm
 from .._common import Colors
-from typing import Optional
 
 
 
