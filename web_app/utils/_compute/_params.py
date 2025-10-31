@@ -310,3 +310,4 @@ def TimeIntervals(df: pd.DataFrame) -> pd.DataFrame:
     # Optional stable sort
     out.sort_values(['Condition', 'Replicate', 'Frame lag'], inplace=True, ignore_index=True)
     return out
+
