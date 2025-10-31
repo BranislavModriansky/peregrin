@@ -5,7 +5,7 @@ from scipy.stats import gaussian_kde
 import shiny.ui as ui
 from shiny import render, reactive, req, ui
 from utils import Frames, Metrics, Threshold, Debounce, Throttle
-from utils._compute._filters import Threshold
+
 
 # one shared instance (tune eps if needed)
 THRESH = Threshold(eps=1e-12)

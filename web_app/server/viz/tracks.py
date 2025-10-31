@@ -6,8 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from utils import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms
-from utils import Animated
+from utils import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms, Animated
 
 
 import numpy as np

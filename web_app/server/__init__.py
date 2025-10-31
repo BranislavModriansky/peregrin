@@ -15,7 +15,7 @@ from .jobs.loaders import mount_loaders
 from .jobs.background_tasks import mount_tasks
 
 
-def server(input: Inputs, output: Outputs, session: Session):
+def Server(input: Inputs, output: Outputs, session: Session):
     S = build_state()
     mount_data_input(input, output, session, S)
     mount_data_display(input, output, session, S)

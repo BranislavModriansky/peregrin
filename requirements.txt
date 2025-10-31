@@ -1,6 +1,7 @@
 # Minimal runtime
 shiny>=1.0
 shinywidgets>=0.3
+shiny_sortable
 pandas>=2.2
 numpy>=1.26
 scipy>=1.11
@@ -18,6 +19,7 @@ kaleido>=0.2              # Plotly image export
 # Optional I/O helpers (enable only if you load these formats)
 pyarrow>=17               # Parquet/Feather
 openpyxl>=3.1             # .xlsx
+imageio
 
 # Remove or keep only if you actually depend on the PyPI package
 # superviolin

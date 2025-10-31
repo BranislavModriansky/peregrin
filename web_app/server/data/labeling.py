@@ -1,6 +1,6 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
-from web_app.ui.cstm_component import make_sortable_ui as ladder
+from ui.cstm_component import make_sortable_ui as ladder
 from utils import DataLoader, Metrics, FilenameFormatExample
 
 

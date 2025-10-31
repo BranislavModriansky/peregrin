@@ -1,10 +1,10 @@
 from shiny import App
-from web_app.ui.layout import app_ui
-from web_app.server import server
+from ui import app_ui
+from server import Server
 
 
 
-app = App(app_ui, server)
+app = App(app_ui, Server)
 
 
 

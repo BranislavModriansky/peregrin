@@ -6,7 +6,6 @@
 
 # Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
 
-# ARG PYTHON_VERSION=3.10.11
 FROM python:3.10.11
 
 # Prevents Python from writing pyc files.
@@ -42,7 +41,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 USER appuser
 
 # Copy the source code into the container.
-COPY web_app/ /app/
+COPY ./web_app .
 
 
 # Expose the port that the application listens on.

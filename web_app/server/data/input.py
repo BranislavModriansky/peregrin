@@ -1,8 +1,8 @@
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render   
-from utils import DataLoader, Spots, Tracks, Frames
-from web_app.utils._compute._params import TimeIntervals
+from utils import DataLoader, Spots, Tracks, Frames, TimeIntervals
+
 
 
 
