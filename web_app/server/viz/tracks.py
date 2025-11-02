@@ -170,12 +170,10 @@ class MountTracks:
                         category=UserWarning,
                     )
 
-                    local_Spots_df = Spots_df.copy(deep=True) if Spots_df is not None else pd.DataFrame()
-                    local_Tracks_df = Tracks_df.copy(deep=True) if Tracks_df is not None else pd.DataFrame()
                     return VisualizeTracksNormalized(
-                        Spots_df=local_Spots_df,
-                        Tracks_df=local_Tracks_df,
-                        condition=local_Tracks_df["Condition"].unique().tolist()[0] if "Condition" in local_Tracks_df.columns else condition,
+                        Spots_df=Spots_df,
+                        Tracks_df=Tracks_df,
+                        condition=condition,
                         replicate=replicate,
                         c_mode=c_mode,
                         only_one_color=only_one_color,

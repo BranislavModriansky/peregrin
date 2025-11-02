@@ -217,14 +217,14 @@ app_ui = ui.page_sidebar(
             "Visualisation",
             ui.navset_pill_list(
 
-                # _ _ _ TRACKS VISUALIZATION _ _ _
+                # _ _ _ TRACK RECONSTRUCTION _ _ _
                 ui.nav_panel(
-                    "Tracks",
+                    "Track reconstruction",
 
                     ui.panel_well( 
                         ui.markdown(   # TODO - annotate which libraries were used
                             """
-                            #### **Track visualization**
+                            #### **Track reconstruction**
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
@@ -373,13 +373,52 @@ app_ui = ui.page_sidebar(
                     ),
                 ),
 
-
+                # _ _ _ DIRECTIONALITY DISTRIBUTION _ _ _
                 ui.nav_panel(
-                    "Time charts",
+                    "Directionality distribution",
                     ui.panel_well(
                         ui.markdown(
                             """
-                            #### **Time series charts**
+                            #### **Directionality distribution**
+                            <hr style="height: 4px; background-color: black; border: none" />
+                            """
+                        ),
+                    )
+                ),
+
+                # _ _ _ MSD _ _ _
+                ui.nav_panel(
+                    "Mean Squared Displacement",
+                    ui.panel_well(
+                        ui.markdown(
+                            """
+                            #### **Mean Squared Displacement**
+                            <hr style="height: 4px; background-color: black; border: none" />
+                            """
+                        ),
+                    )
+                ),
+
+                # _ _ _ TURNING ANGLES _ _ _
+                ui.nav_panel(
+                    "Turning angles",
+                    ui.panel_well(
+                        ui.markdown(
+                            """
+                            #### **Turning angles**
+                            <hr style="height: 4px; background-color: black; border: none" />
+                            """
+                        ),
+                    )
+                ),
+
+                # _ _ _ TIME SERIES _ _ _
+                ui.nav_panel(
+                    "Time series",
+                    ui.panel_well(
+                        ui.markdown(
+                            """
+                            #### **Time series**
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
@@ -616,6 +655,7 @@ app_ui = ui.page_sidebar(
                     # ... more cards for line chart and errorband
                 ),
 
+                # _ _ _ SUPERPLOTS _ _ _
                 ui.nav_panel(
                     "Superplots",
 
