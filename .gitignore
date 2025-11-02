@@ -1,0 +1,66 @@
+# Python bytecode/caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Compiled extensions
+*.pyd
+*.so
+*.dll
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Packaging/build
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheelhouse/
+
+# Tests / coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+
+# Type checkers / linters
+.mypy_cache/
+.pyright/
+.pyre/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors / IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env / secrets
+.env
+.env.*
+*.secret
+*.token
+token.json
+
+# Logs
+*.log
+
+# Project-specific scratch
+/sketches/
