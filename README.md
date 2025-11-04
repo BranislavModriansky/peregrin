@@ -4,7 +4,7 @@
 
 ## Contents
 1. [About](#about)
-2. [Set-up](#set-up)
+2. [Set-up](#set-up) <br>
 2.1. [Installation](#Installation)
 3. [User's guide](#users-guide)
 4. [Exemplary data](#examples)

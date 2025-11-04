@@ -27,14 +27,6 @@ class DataLoader:
                 return _try_reading(filepath)
             elif ext in ['.xls', '.xlsx']:
                 return pd.read_excel(filepath)
-            elif ext == '.feather':
-                return pd.read_feather(filepath)
-            elif ext == '.parquet':
-                return pd.read_parquet(filepath)
-            elif ext in ['.h5', '.hdf5']:
-                return pd.read_hdf(filepath)
-            elif ext == '.json':
-                return pd.read_json(filepath)
         except ValueError as e:
             raise e(f"{ext} is not a supported file format.")
         except Exception as e:
