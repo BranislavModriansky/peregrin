@@ -1,6 +1,6 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
-from web_app.ui.components import make_sortable_ui as ladder
+from ui import make_sortable_ui
 from utils import DataLoader, Metrics, FilenameFormatExample
 from utils import Customize
 
@@ -148,7 +148,7 @@ def mount_data_labeling(input, output, session, S):
             items = S.TRACKSTATS.get()["Condition"].unique().tolist()
 
             if isinstance(items, list) and len(items) > 1:
-                return ladder("order", items)
+                return make_sortable_ui(inputID="order", items=items)
             elif isinstance(items, list) and len(items) == 1:
                 return ui.markdown("*Only one condition present.*")
             else:

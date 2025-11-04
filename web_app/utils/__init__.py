@@ -14,7 +14,6 @@ from ._plot._collate._SwarmsAndBeyond import SwarmsAndBeyond
 from ._plot._collate._Superviolins import Superviolins
 from ._handlers._scheduling import Debounce, Throttle
 from ._handlers._reports import Level, NoticeQueue
-from ._handlers._message_buffer import message_buffer
 
 
 
@@ -28,5 +27,5 @@ __all__ = [
     "Customize", "FilenameFormatExample",
     "frame_interval_ms",
     "Debounce", "Throttle",
-    "Level", "NoticeQueue", "message_buffer",
+    "Level", "NoticeQueue",
 ]

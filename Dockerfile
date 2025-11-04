@@ -14,6 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Keeps Python from buffering stdout and stderr to avoid situations where
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
+ENV MPLCONFIGDIR=/tmp/matplotlib
 
 WORKDIR /app
 
@@ -27,7 +28,7 @@ RUN adduser \
     --shell "/sbin/nologin" \
     --no-create-home \
     --uid "${UID}" \
-    appuser
+    appuser 
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
 # Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
@@ -45,7 +46,7 @@ COPY ./web_app .
 
 
 # Expose the port that the application listens on.
-EXPOSE 55032
+EXPOSE 59967
 
 # Run the application.
-CMD ["shiny", "run", "--port", "55032"]
+CMD ["shiny", "run", "--port", "59967"]
