@@ -1,4 +1,4 @@
-# **Peregrin is a py-shiny application for exploratory analysis of cell tracking data**
+# Peregrin is a py-shiny application for exploratory analysis of cell tracking data
 
 
 
@@ -8,18 +8,19 @@
 <!-- One-line project summary -->
 <!-- TODO: Add a concise description of what this project does and who it's for. -->
 
-# Contents
+## Contents
 - [About](#about)
-- [Set up](#set-up)
+- [Set-up](#set-up)
+    - [Installation](#Installation)
 - [User's guide](#users-guide)
-- [Examples](#examples)
+- [Exemplary data](#examples)
 
 ## About
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
 
-## Set up
+## Set-up
 ### Prerequisites
 <!-- TODO: List required tools (e.g., Python version, package manager, system deps). -->
 
