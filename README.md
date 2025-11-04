@@ -5,7 +5,7 @@
 ## Contents
 > [About](#about) <br>
 >
-> [Set-up](#set-up) <br>
+> [Set-up](#set-up)
 >> [Installation](#Installation) <br>
 >
 > [User's guide](#users-guide) <br>
