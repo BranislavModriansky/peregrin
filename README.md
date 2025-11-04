@@ -1,7 +1,6 @@
-<h1 style="font-size: 3em;">
-    Peregrin is a py-shiny application for exploratory analysis of cell tracking data
-</h1>
-    
+# **Peregrin is a py-shiny application for exploratory analysis of cell tracking data**
+
+
 
 
 <!-- **Web app for exploratory analysis of cell/particle tracking data.** -->
