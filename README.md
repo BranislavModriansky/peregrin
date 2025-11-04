@@ -1,9 +1,4 @@
-<h1 style="margin-bottom: 0px"> 
-    Peregrin <br>
-</h1>
-<h4 style="margin-top: 0px"><i>
-    A web application for exploratory analysis of cell tracking data
-</i></h4>
+# Peregin - a web application for exploratory analysis of cell tracking data
     
 
 
