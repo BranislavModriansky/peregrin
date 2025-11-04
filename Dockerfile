@@ -49,4 +49,4 @@ COPY ./web_app .
 EXPOSE 59967
 
 # Run the application.
-CMD ["shiny", "run", "--port", "59967"]
+CMD ["shiny", "run", "--host", "0.0.0.0", "--port", "59967"]

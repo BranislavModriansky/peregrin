@@ -4,11 +4,11 @@
 
 ## About
 
-Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/).
+Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
 
-### Features and Flows
+### Key Features and Flows
 
-#### Data input
+#### Data Input
 
 - Import raw tabular - CSV (recommended) / XLSX / XLS - data files containing information about spots of individual trajectories;
 - Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
@@ -27,22 +27,28 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
     - Time lag statistics visualizations;
     - Time charts;
     - Superplots.
-- Export figures as SVGs and more.
+- Export figures in SVG format and more.
 
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
 
 ## Set-up
-### Prerequisites
-<!-- TODO: List required tools (e.g., Python version, package manager, system deps). -->
 
 ### Installation
-<!-- TODO: Steps to clone and install dependencies. Example (adjust as needed): -->
+
+
+
+Create a folder inside of which the docker image will be stored and navigate to the created folder:
+
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd peregrin
+
+cd <your_folder>
+
+```
+
+
+
 
 # Create and activate a virtual environment (Windows PowerShell)
 python -m venv .venv
