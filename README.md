@@ -1,15 +1,22 @@
-# Peregrin
+<h1 style="margin-bottom: 0px"> 
+    Peregrin <br>
+</h1>
+<h4 style="margin-top: 0px"><i>
+    A web application for exploratory analysis of cell tracking data
+</i></h4>
+    
+
+
+<!-- **Web app for exploratory analysis of cell/particle tracking data.** -->
 
 <!-- One-line project summary -->
 <!-- TODO: Add a concise description of what this project does and who it's for. -->
 
-## Contents
+### Contents
 - [About](#about)
 - [Set up](#set-up)
 - [User's guide](#users-guide)
 - [Examples](#examples)
-
-___
 
 ## About
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
