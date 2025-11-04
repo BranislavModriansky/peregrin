@@ -2,42 +2,33 @@
 
 <!-- TODO: Add demonstrational video -->
 
-## Contents
-> [About](#about) <br>
->
-> [Set-up](#set-up)
->> [Installation](#Installation) <br>
->
-> [User's guide](#users-guide) <br>
-> 
-> [Exemplary data](#examples) <br>
-
 ## About
 
 Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/).
 
-### Features and flows:
-- Import files containing spot information of individual trajectories 
-     Support for CSV (recommended), XLSX, XLS
-    - Required columns like track_id, t/frame, x, y [, z] and optional metadata
-- Computes per-step and per-track metrics (speed, displacement, turning angle, directionality, MSD)
-- Provides interactive filtering, grouping, faceting, and condition comparisons
-- Exports figures (PNG/SVG) and tables (CSV) for downstream use or publication
+### Features and Flows
 
-Key features:
-- Interactive visualizations: trajectory overlays, time series, distributions, MSD plots
-- No-code analysis: build views via controls; bookmark/share URLs or save/load session state
-- Scales to thousands of tracks; designed for repeatable workflows
-- Extensible: modular panels and Python hooks for custom metrics and plots
+#### Data input
 
-Tech stack (at a glance):
-- UI: Shiny for Python
-- Data: pandas/numpy
-- Visualization: Plotly/Altair
+- Import raw tabular - CSV (recommended) / XLSX / XLS - data files containing information about spots of individual trajectories;
+- Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
+- Optionally, raw input may also contain other information;
+- Run Peregrin and compute track statistics;
+- Display computed data and download them in CSV format.
 
-Status and roadmap:
-- Early preview; APIs and UI may change
-- Planned: additional file format adapters, richer 3D support, batch reporting, plug‑in examples
+#### Filtering
+
+- Availible thresholding methods include *Literal*, *Normalized 0-1*, *Percentile*, and *Relative to (a selected value)*.
+
+#### Visualization
+
+- Generate interactive and highly customizable plots covering:
+    - Track reconstruction and animation;
+    - Time lag statistics visualizations;
+    - Time charts;
+    - Superplots.
+- Export figures as SVGs and more.
+
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
