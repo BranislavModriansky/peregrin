@@ -4,9 +4,12 @@
 
 ## Contents
 > [About](#about) <br>
+>
 > [Set-up](#set-up) <br>
+>> [Installation](#Installation) <br>
+>
 > [User's guide](#users-guide) <br>
-> > uhh <br>
+> 
 > [Exemplary data](#examples) <br>
 
 ## About
