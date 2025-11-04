@@ -4,11 +4,14 @@
 <!-- TODO: Add a concise description of what this project does and who it's for. -->
 
 ## Contents
-- [What is the project about](#what-is-the-project-about)
+- [About](#About)
 - [Set-up](#set-up)
+- [User's guide](#User's guide)
 - [Examples](#examples)
 
-## What is the project about
+___
+
+## About
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
@@ -52,6 +55,8 @@ python path\to\main.py
 ```bash
 pytest -q
 ```
+
+## User's guide
 
 ## Examples
 ### Minimal usage
