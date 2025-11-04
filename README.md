@@ -1,4 +1,6 @@
-# Peregin - a web application for exploratory analysis of cell tracking data
+<h1 style="font-size: 3em;">
+    Peregrin is a py-shiny application for exploratory analysis of cell tracking data
+</h1>
     
 
 
@@ -7,7 +9,7 @@
 <!-- One-line project summary -->
 <!-- TODO: Add a concise description of what this project does and who it's for. -->
 
-### Contents
+# Contents
 - [About](#about)
 - [Set up](#set-up)
 - [User's guide](#users-guide)
