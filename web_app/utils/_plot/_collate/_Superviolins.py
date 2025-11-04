@@ -459,7 +459,7 @@ def Superviolins(
     else: 
         try:
             try:
-                cmap = Colors.BuildRepPalette(df, palette_fallback=palette)
+                cmap = Colors.BuildRepPalette(df, tag='Replicate')
                 cmap = cmap
                 # colors = [cmap[rep] for rep in unique_reps]
                 colors = [cmap[r] for r in unique_reps]

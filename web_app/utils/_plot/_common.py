@@ -1,33 +1,17 @@
+from os import path
 import seaborn as sns
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
+from .._handlers._reports import Level
+
+# Use the singleton instance directly, don't create a new one
+# buffer = _message_buffer.MessageBuffer()  # REMOVE THIS LINE
 
 class Colors:
-
-    @staticmethod
-    def BuildRepPalette(df: pd.DataFrame, palette_fallback: str) -> dict:
-        reps = df['Replicate'].unique().tolist()
-        mp = {}
-        if 'Replicate color' in df.columns:
-            mp = (df[['Replicate', 'Replicate color']]
-                    .dropna()
-                    .drop_duplicates('Replicate')
-            )
-            mp = mp.set_index('Replicate')['Replicate color'].to_dict()
-
-        missing = [r for r in reps if r not in mp]
-        if missing:
-            cyc = sns.color_palette(palette_fallback, n_colors=len(missing))
-            mp.update({r: cyc[i] for i, r in enumerate(missing)})
-
-        # print(f"Replicate colors: {mp}")
-
-        return mp
     
-
     @staticmethod
     def GenerateRandomColor() -> str:
         """
@@ -114,25 +98,47 @@ class Colors:
         elif c_mode == 'seismic LUT':
             return plt.cm.seismic
         else:
-            return None
-
-
-    # @staticmethod
-    # def AssignMarker(value, markers):
-    #     """
-    #     Qualitatively map a metric's percentile value to a symbol.
-    #     """
-
-
-    #     lut = []    # Initialize a list to store the ranges and corresponding symbols
-
-    #     for key, val in markers.items():                # Iterate through the markers dictionary
-    #         low, high = map(float, key.split('-'))      # Split the key into low and high values
-    #         lut.append((low, high, val))                # Append the range and symbol to the list
-
-    #     for low, high, symbol in lut:               # Return the symbol for the range that contains the given value
-    #         if low <= value < high:                  # Check if the value falls within the range
-    #             return symbol
+            return plt.cm.jet
         
-    #     return list(markers.items())[-1][-1]            # Return the last symbol for thr 100th percentile (which is not included in the ranges)
+    @staticmethod
+    def BuildRepPalette(df: pd.DataFrame, tag: str = 'Replicate', **kwargs) -> dict:
+        queue = kwargs.get('queue', None) if 'queue' in kwargs else None
 
+        tags = df[tag].unique().tolist()
+        mp = {}
+        if f'{tag} color' in df.columns:
+            mp = (df[[tag, f'{tag} color']]
+                    .dropna()
+                    .drop_duplicates(tag)
+            )
+            mp = mp.set_index(tag)[f'{tag} color'].to_dict()
+        
+        missing = [t for t in tags if t not in mp]
+
+        if missing:
+            # Use the singleton instance
+            queue.Report(Level.warning, f"Missing colors in {tag} values. Generating random colors instead.")
+            
+            for t in missing:
+                mp[t] = Colors.GenerateRandomColor()
+
+        return mp
+
+class Values:
+
+    @staticmethod
+    def Clamp01(value: float) -> float:
+        """
+        Clamp a value between 0 and 1.
+        """
+
+        if not (0.0 <= value <= 1.0):
+
+            
+
+            if value < 0.0:
+                return 0.0
+            else:
+                return 1.0
+            
+        return value

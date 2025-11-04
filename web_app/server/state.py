@@ -3,6 +3,7 @@ import pandas as pd
 
 def build_state():
     return type("State", (object,), {
+        "NOTICES": reactive.Value([]),
         "READYTORUN": reactive.Value(False),
         "INPUTS": reactive.Value(1),
         "THRESHOLDS": reactive.Value(None),

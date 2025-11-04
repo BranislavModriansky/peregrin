@@ -4,9 +4,13 @@ import warnings
 import pandas as pd
 from datetime import date
 from shiny import ui, reactive, req, render
-from utils import SwarmsAndBeyond, Superviolins
+from utils import SwarmsAndBeyond, Superviolins, Debounce
 
-def mount_superplots(input, output, session, S):
+
+def mount_superplots(input, output, session, S, queue):
+
+    # Don't create a new instance - use the imported singleton
+    # buffer = _message_buffer.MessageBuffer()  # REMOVE THIS LINE
 
     # _ UPDATES ON SWARMPLOT PRESETS SELECTION _
     @reactive.Effect
@@ -130,7 +134,7 @@ def mount_superplots(input, output, session, S):
 
 
     # _ _ _ _ SWARMPPLOT _ _ _ _
-     
+    
     @ui.bind_task_button(button_id="sp_generate")
     @reactive.extended_task
     async def output_swarmplot(
@@ -180,8 +184,7 @@ def mount_superplots(input, output, session, S):
         open_spine,
         plot_width,
         plot_height
-    ):
-        # run sync plotting off the event loop
+    ):  
         def build():
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -190,9 +193,8 @@ def mount_superplots(input, output, session, S):
                     category=UserWarning,
                 )
 
-                local_df = df.copy(deep=True) if df is not None else pd.DataFrame()
                 return SwarmsAndBeyond(
-                    df=local_df,
+                    df=df,
                     metric=metric,
                     title=title,
                     palette=palette,
@@ -238,104 +240,110 @@ def mount_superplots(input, output, session, S):
                     open_spine=open_spine,
                     plot_width=plot_width,
                     plot_height=plot_height,
+                    queue=queue,
                 )
 
-        # Either form is fine; pick one:
-        return await asyncio.get_running_loop().run_in_executor(None, build)
-        # return await asyncio.to_thread(build)
+        result = await asyncio.get_running_loop().run_in_executor(None, build)
+        
+        return result
     
+    # @reactive.Effect
+    # @reactive.event(input.sp_generate, ignore_none=False)
+    # def trigger_swarmplot():
+
     @reactive.Effect
     @reactive.event(input.sp_generate, ignore_none=False)
-    def trigger_swarmplot():
+    def _():
+        @output(id="sp_plot_card")
+        @render.ui
+        def plot_card():
 
-        @reactive.Effect
-        @reactive.event(input.sp_generate, ignore_none=False)
-        def _():
-            @output(id="sp_plot_card")
-            @render.ui
-            def plot_card():
+            with reactive.isolate():
+                req(input.sp_fig_height() is not None and input.sp_fig_width() is not None)
+                fig_height, fig_width = input.sp_fig_height() * 96, input.sp_fig_width() * 96
+        
+            return ui.card(
+                ui.div(
+                    # Make the *plot image* larger than the panel so scrolling kicks in
+                    ui.output_plot("swarmplot", width=f"{fig_width}px", height=f"{fig_height}px"),
+                    # ui.output_plot(id="swarmplot"),
+                    style=f"height: {fig_height}px; width: {fig_width}px; margin: auto",
+                    # style=f"overflow: auto;",
+                    class_="scroll-panel",
+                ),
+                full_screen=True, fill=False
+            ), 
 
-                with reactive.isolate():
-                    req(input.sp_fig_height() is not None and input.sp_fig_width() is not None)
-                    fig_height, fig_width = input.sp_fig_height() * 96, input.sp_fig_width() * 96
+
+
+    @reactive.Effect
+    @reactive.event(input.sp_generate, ignore_none=False)
+    def make_swarmplot():
             
-                return ui.card(
-                    ui.div(
-                        # Make the *plot image* larger than the panel so scrolling kicks in
-                        ui.output_plot("swarmplot", width=f"{fig_width}px", height=f"{fig_height}px"),
-                        # ui.output_plot(id="swarmplot"),
-                        style=f"height: {fig_height}px; width: {fig_width}px; margin: auto",
-                        # style=f"overflow: auto;",
-                        class_="scroll-panel",
-                    ),
-                    full_screen=True, fill=False
-                ), 
+        output_swarmplot.cancel()
+        
+        output_swarmplot(
+            df=S.TRACKSTATS.get() if S.TRACKSTATS.get() is not None else pd.DataFrame(),
+            metric=input.sp_metric(),
+            title=input.sp_title(), 
+            palette=input.sp_palette(),
+            use_stock_palette=input.sp_use_stock_palette(),
 
+            show_swarm=input.sp_show_swarms(),
+            swarm_size=input.sp_swarm_marker_size(),
+            swarm_outline_color=input.sp_swarm_marker_outline(),
+            swarm_alpha=input.sp_swarm_marker_alpha() if 0.0 <= input.sp_swarm_marker_alpha() <= 1.0 else 1.0,
 
-        @reactive.Effect
-        @reactive.event(input.sp_generate, ignore_none=False)
-        def make_swarmplot():
-            output_swarmplot.cancel()
+            show_violin=input.sp_show_violins(),
+            violin_fill_color=input.sp_violin_fill(),
+            violin_edge_color=input.sp_violin_outline(),
+            violin_alpha=input.sp_violin_alpha() if 0.0 <= input.sp_violin_alpha() <= 1.0 else 1.0,
+            violin_outline_width=input.sp_violin_outline_width(),
 
-            output_swarmplot(
-                df=S.TRACKSTATS.get() if S.TRACKSTATS.get() is not None else pd.DataFrame(),
-                metric=input.sp_metric(),
-                title=input.sp_title(), 
-                palette=input.sp_palette(),
-                use_stock_palette=input.sp_use_stock_palette(),
+            show_mean=input.sp_show_cond_mean(),
+            mean_span=input.sp_mean_line_span(),
+            mean_color=input.sp_mean_line_color(),
+            show_median=input.sp_show_cond_median(),
+            median_span=input.sp_median_line_span(),
+            median_color=input.sp_median_line_color(),
+            line_width=input.sp_lines_lw(),
+            show_error_bars=input.sp_show_errbars(),
+            errorbar_capsize=input.sp_errorbar_capsize(),
+            errorbar_color=input.sp_errorbar_color(),
+            errorbar_lw=input.sp_errorbar_lw(),
+            errorbar_alpha=input.sp_errorbar_alpha() if 0.0 <= input.sp_errorbar_alpha() <= 1.0 else 1.0,
 
-                show_swarm=input.sp_show_swarms(),
-                swarm_size=input.sp_swarm_marker_size(),
-                swarm_outline_color=input.sp_swarm_marker_outline(),
-                swarm_alpha=input.sp_swarm_marker_alpha() if 0.0 <= input.sp_swarm_marker_alpha() <= 1.0 else 1.0,
+            show_mean_balls=input.sp_show_rep_means(),
+            mean_ball_size=input.sp_mean_bullet_size(),
+            mean_ball_outline_color=input.sp_mean_bullet_outline(),
+            mean_ball_outline_width=input.sp_mean_bullet_outline_width(),
+            mean_ball_alpha=input.sp_mean_bullet_alpha() if 0.0 <= input.sp_mean_bullet_alpha() <= 1.0 else 1.0,
+            show_median_balls=input.sp_show_rep_medians(),
+            median_ball_size=input.sp_median_bullet_size(),
+            median_ball_outline_color=input.sp_median_bullet_outline(),
+            median_ball_outline_width=input.sp_median_bullet_outline_width(),
+            median_ball_alpha=input.sp_median_bullet_alpha() if 0.0 <= input.sp_median_bullet_alpha() <= 1.0 else 1.0,
 
-                show_violin=input.sp_show_violins(),
-                violin_fill_color=input.sp_violin_fill(),
-                violin_edge_color=input.sp_violin_outline(),
-                violin_alpha=input.sp_violin_alpha() if 0.0 <= input.sp_violin_alpha() <= 1.0 else 1.0,
-                violin_outline_width=input.sp_violin_outline_width(),
+            show_kde=input.sp_show_kde(),
+            kde_inset_width=input.sp_kde_bandwidth(),
+            kde_outline=input.sp_kde_line_width(),
+            kde_alpha=input.sp_kde_fill_alpha() if 0.0 <= input.sp_kde_fill_alpha() <= 1.0 else 1.0,
+            kde_fill=input.sp_kde_fill(),
 
-                show_mean=input.sp_show_cond_mean(),
-                mean_span=input.sp_mean_line_span(),
-                mean_color=input.sp_mean_line_color(),
-                show_median=input.sp_show_cond_median(),
-                median_span=input.sp_median_line_span(),
-                median_color=input.sp_median_line_color(),
-                line_width=input.sp_lines_lw(),
-                show_error_bars=input.sp_show_errbars(),
-                errorbar_capsize=input.sp_errorbar_capsize(),
-                errorbar_color=input.sp_errorbar_color(),
-                errorbar_lw=input.sp_errorbar_lw(),
-                errorbar_alpha=input.sp_errorbar_alpha() if 0.0 <= input.sp_errorbar_alpha() <= 1.0 else 1.0,
+            show_legend=input.sp_show_legend(),
+            show_grid=input.sp_grid(),
+            open_spine=input.sp_spine(),
+            
+            plot_width=input.sp_fig_width(),
+            plot_height=input.sp_fig_height(),
+        )
 
-                show_mean_balls=input.sp_show_rep_means(),
-                mean_ball_size=input.sp_mean_bullet_size(),
-                mean_ball_outline_color=input.sp_mean_bullet_outline(),
-                mean_ball_outline_width=input.sp_mean_bullet_outline_width(),
-                mean_ball_alpha=input.sp_mean_bullet_alpha() if 0.0 <= input.sp_mean_bullet_alpha() <= 1.0 else 1.0,
-                show_median_balls=input.sp_show_rep_medians(),
-                median_ball_size=input.sp_median_bullet_size(),
-                median_ball_outline_color=input.sp_median_bullet_outline(),
-                median_ball_outline_width=input.sp_median_bullet_outline_width(),
-                median_ball_alpha=input.sp_median_bullet_alpha() if 0.0 <= input.sp_median_bullet_alpha() <= 1.0 else 1.0,
-
-                show_kde=input.sp_show_kde(),
-                kde_inset_width=input.sp_kde_bandwidth(),
-                kde_outline=input.sp_kde_line_width(),
-                kde_alpha=input.sp_kde_fill_alpha() if 0.0 <= input.sp_kde_fill_alpha() <= 1.0 else 1.0,
-                kde_fill=input.sp_kde_fill(),
-
-                show_legend=input.sp_show_legend(),
-                show_grid=input.sp_grid(),
-                open_spine=input.sp_spine(),
                 
-                plot_width=input.sp_fig_width(),
-                plot_height=input.sp_fig_height(),
-            )
 
     @render.plot
     def swarmplot():
         # Only update when output_swarmplot task completes (not reactively)
+        req(output_swarmplot.result())
         return output_swarmplot.result()
 
     @render.download(filename=f"Beyond Swarmplot {date.today()}.svg")

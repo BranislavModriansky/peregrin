@@ -67,6 +67,7 @@ def SwarmsAndBeyond(
 
     plot_width: int = 15,
     plot_height: int = 9,
+    **kwargs
 ):
     """
     **Swarmplot plotting function.**
@@ -163,6 +164,7 @@ def SwarmsAndBeyond(
         **open_spine**:
         Don't show the top and right axes spines (default: True);
     """
+    queue = kwargs.get('queue') if 'queue' in kwargs else lambda: None
 
     if df is None or df.empty:
         return
@@ -200,7 +202,9 @@ def SwarmsAndBeyond(
         _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
     else:
-        _palette = Colors.BuildRepPalette(_df, palette_fallback=palette)
+        _palette = Colors.BuildRepPalette(_df, tag='Replicate', queue=queue)
+
+    print(_palette)
 
     # === stats (single pass) ===
     # keep all categories (observed=False) so spacers appear with NaNs

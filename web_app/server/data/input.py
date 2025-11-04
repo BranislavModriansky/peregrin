@@ -3,6 +3,8 @@ import shiny.ui as ui
 from shiny import reactive, render   
 from utils import DataLoader, Spots, Tracks, Frames, TimeIntervals
 
+# from utils import emit_warning
+
 
 
 
@@ -15,6 +17,7 @@ def mount_data_input(input, output, session, S):
     @reactive.event(input.add_input)
     def add_input():
         id = S.INPUTS.get()
+        # emit_warning(report="Warning", message=f"Missing colors in {1} data: {2}. Generating random colors instead.")
         S.INPUTS.set(id + 1)
         session.send_input_message("remove_input", {"disabled": id < 1})
 
@@ -25,7 +28,6 @@ def mount_data_input(input, output, session, S):
         if id > 1:
             S.INPUTS.set(id - 1)
         if S.INPUTS.get() <= 1:
-
             session.send_input_message("remove_input", {"disabled": True})
 
     def _input_container_ui(id: int):
@@ -95,7 +97,7 @@ def mount_data_input(input, output, session, S):
         if S.READYTORUN.get():
             return ui.input_task_button("run", label="Run", class_="btn-secondary")
         else:
-            return ui.input_action_button("run", label="Run", class_="btn-secondary", disabled=True)
+            return ui.input_action_button("run0", label="Run", class_="btn-secondary", disabled=True)
 
     @reactive.Effect
     @reactive.event(input.run)
