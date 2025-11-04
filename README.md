@@ -4,8 +4,11 @@
 
 ## Contents
 > [About](#about)
+
 > [Set-up](#set-up)
+
 > [User's guide](#users-guide)
+
 > [Exemplary data](#examples)
 
 ## About
