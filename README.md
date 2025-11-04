@@ -35,19 +35,19 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
 
 ## Set-up
 
-### Installation
+### Initialization
 
-
-
-Create a folder inside of which the docker image will be stored and navigate to the created folder:
+Create a folder into which the docker image will be pulled. Navigate to the created folder:
 
 ```bash
-
 cd <your_folder>
-
 ```
 
+Pull the docker image:
 
+```bash
+docker pull branislavmodriansky/peregrin:<version>
+```
 
 
 # Create and activate a virtual environment (Windows PowerShell)
