@@ -4,9 +4,9 @@
 <!-- TODO: Add a concise description of what this project does and who it's for. -->
 
 ## Contents
-- [About](#About)
-- [Set-up](#set-up)
-- [User's guide](#User's guide)
+- [About](#about)
+- [Set up](#set-up)
+- [User's guide](#users-guide)
 - [Examples](#examples)
 
 ___
@@ -16,7 +16,7 @@ ___
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
 
-## Set-up
+## Set up
 ### Prerequisites
 <!-- TODO: List required tools (e.g., Python version, package manager, system deps). -->
 
