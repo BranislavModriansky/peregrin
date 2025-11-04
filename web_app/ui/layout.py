@@ -61,43 +61,8 @@ app_ui = ui.page_sidebar(
                             ui.tags.style(Customize.Link1),
                             ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                             ui.input_checkbox("auto_label", "Auto-label", False),
-
-                            ui.panel_conditional(
-                                "input.run > 0",
-                                ui.input_switch("write_replicate_colors", "Set replicate colors", False)
-                            ),
-                            ui.panel_conditional(
-                                "input.write_replicate_colors == true && input.run > 0",
-                                ui.output_ui("replicate_colors_inputs")
-                            ),
-
-                            ui.panel_conditional(
-                                "input.run > 0",
-                                ui.input_switch("write_condition_colors", "Set condition colors", False)
-                            ),
-                            ui.panel_conditional(
-                                "input.write_condition_colors == true && input.run > 0",
-                                ui.output_ui("condition_colors_inputs")
-                            ),
-
-                            ui.panel_conditional(
-                                "input.run > 0",
-                                ui.input_switch("set_condition_order", "Set condition order", False)
-                            ),
-                            ui.panel_conditional(
-                                "input.set_condition_order == true",
-                                ui.tags.style(Customize.Ladder),
-                                ui.output_ui("condition_order_ladder")
-                            ),
-
-                            ui.panel_conditional(
-                                "input.run > 0",
-                                ui.input_switch("write_replicate_labels", "Write replicate labels", False)
-                            ),
-                            ui.panel_conditional(
-                                "input.write_replicate_labels == true",
-                                ui.output_ui("replicate_labels_inputs")
-                            )
+                            
+                            ui.output_ui("data_labeling_ui"),
 
                         ), 
                         ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"), 
@@ -801,133 +766,11 @@ app_ui = ui.page_sidebar(
                                 ui.accordion_panel(
                                     "Coloring",
                                     ui.input_checkbox(id="sp_use_stock_palette", label="Use stock color palette", value=False),
-                                    ui.input_selectize(id="sp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn, selected="pastel"),
-
-                                    # ui.accordion(
-                                        
-                                    #     ui.accordion_panel(
-                                    #         "Swarms",
-                                            
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_swarms == false",
-                                    #             ui.markdown(
-                                    #                 """
-                                    #                 *Swarms not enabled.*
-                                    #                 """
-                                    #             )
-                                    #         )
-                                    #     ),
-
-                                    #     ui.accordion_panel(
-                                    #         "Violins",
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_violins == true",
-                                    #             ui.input_selectize("sp_violin_fill", "Fill color:", Styles.Color, selected="whitesmoke"),
-                                    #             ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                                    #             ui.input_selectize("sp_violin_outline", "Outline color:", Styles.Color, selected="lightgrey"),
-                                    #             ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_violins == false",
-                                    #             ui.markdown(
-                                    #                 """
-                                    #                 *Violins not enabled.*
-                                    #                 """
-                                    #             )
-                                    #         ),
-                                    #     ),
-
-                                    #     ui.accordion_panel(
-                                    #         "Kernel Density Estimate (KDE)",
-                                    #         ui.markdown(
-                                    #             """
-                                    #             *KDEs are computed across data points of specific replicates in each condition, modeling the underlying data distribution* <br>
-                                    #             """
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_kde == true",
-                                    #             ui.input_numeric("sp_kde_line_width", "Outline width:", 1, min=0, step=0.1),
-                                    #             ui.input_checkbox("sp_kde_fill", "Fill area", False),
-                                    #             ui.panel_conditional(
-                                    #                 "input.sp_kde_fill == true",
-                                    #                 ui.input_numeric("sp_kde_fill_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                                    #             ),
-                                    #             ui.input_numeric("sp_kde_bandwidth", "KDE bandwidth:", 0.75, min=0.1, step=0.1),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_kde == false",
-                                    #             ui.markdown(
-                                    #                 """
-                                    #                 *KDE not enabled.*
-                                    #                 """
-                                    #             )
-                                    #         ),
-                                    #     ),
-
-                                    #     ui.accordion_panel(
-                                    #         "Lines and error bars",
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_cond_mean == true && input.sp_show_cond_median == true",
-                                    #             ui.input_selectize("sp_set_as_primary", label="Set as primary:", choices=["mean", "median"], selected="mean"),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_cond_mean == true",
-                                    #             ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
-                                    #             ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Styles.Color, selected="black"),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_cond_median == true",
-                                    #             ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
-                                    #             ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Styles.Color, selected="darkblue"),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
-                                    #             ui.input_numeric(id="sp_lines_lw", label="Mean/Median Line width:", value=1, min=0, step=0.5),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_errbars == true",
-                                    #             ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
-                                    #             ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
-                                    #             ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Styles.Color, selected="black"),
-                                    #             ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_cond_means == false && input.sp_show_cond_medians == false && input.sp_show_errbars == false",
-                                    #             ui.markdown(
-                                    #                 """
-                                    #                 *Condition means/medians/error bars not enabled.*
-                                    #                 """
-                                    #             )
-                                    #         ),
-                                    #     ),
-
-                                    #     ui.accordion_panel(
-                                    #         "Bullets",
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_rep_means == true",
-                                    #             ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
-                                    #             ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Styles.Color, selected="black"),
-                                    #             ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
-                                    #             ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_rep_medians == true",
-                                    #             ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
-                                    #             ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Styles.Color, selected="black"),
-                                    #             ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
-                                    #             ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
-                                    #         ),
-                                    #         ui.panel_conditional(
-                                    #             "input.sp_show_rep_means == false && input.sp_show_rep_medians == false",
-                                    #             ui.markdown(
-                                    #                 """
-                                    #                 *Replicate means/medians not enabled.*
-                                    #                 """
-                                    #             ),
-                                    #         ),
-                                        # ),
-                                    # ),
-                                ),
+                                    ui.panel_conditional(
+                                        "input.sp_use_stock_palette == true",
+                                        ui.input_selectize(id="sp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn + Styles.PaletteQualitativeMatplotlib, selected=2),
+                                    )
+                                )
                             ),
                             ui.markdown(""" <br> """),
                             ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;")

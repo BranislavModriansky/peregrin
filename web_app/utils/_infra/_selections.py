@@ -157,7 +157,7 @@ class Styles:
         "Accent",
         "Dark2",
         "Pastel1",
-        "Pastel2",
+        "Pastel2"
     ]
 
     PaletteQualitativeSeaborn = [
@@ -168,7 +168,7 @@ class Styles:
         "dark", 
         "colorblind", 
         "husl",
-        "hsl",
+        "hsl"
     ]
 
     PaletteQualitativeAltair = [

@@ -202,7 +202,7 @@ class BeyondSwarms:
                 _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
             else:
-                _palette = Colors.BuildRepPalette(_df, palette_fallback=palette)
+                _palette = Colors.BuildRepPalette(_df, tag='Replicate')
 
             # === stats (single pass) ===
             # keep all categories (observed=False) so spacers appear with NaNs
@@ -523,7 +523,7 @@ class SuperViolins:
                 else: 
                     try:
                         try:
-                            cmap = Colors.BuildRepPalette(self.df, palette_fallback=self.palette)
+                            cmap = Colors.BuildRepPalette(self.df, tag='Replicate')
                             self.cmap = cmap
                             self.colours = [cmap[rep] for rep in self.unique_reps]
                         except Exception:
@@ -1460,7 +1460,7 @@ def funcSuperViolins(
     else: 
         try:
             try:
-                cmap = Colors.BuildRepPalette(df, palette_fallback=palette)
+                cmap = Colors.BuildRepPalette(df, tag='Replicate')
                 cmap = cmap
                 # colors = [cmap[rep] for rep in unique_reps]
                 colors = [cmap[r] for r in unique_reps]

@@ -1,11 +1,69 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
-from ui.cstm_component import make_sortable_ui as ladder
+from ui import make_sortable_ui
 from utils import DataLoader, Metrics, FilenameFormatExample
+from utils import Customize
 
 
 def mount_data_labeling(input, output, session, S):
 
+    @output()
+    @render.ui
+    def data_labeling_ui():
+        if input.run() > 0:
+            # Build UI without reading input.*() on the server side; use client-side panel_conditional
+            return [
+                ui.input_switch("write_replicate_colors", "Set replicate colors", False),
+                ui.output_ui("replicate_colors_inputs"),
+
+                ui.input_switch("write_condition_colors", "Set condition colors", False),
+                ui.output_ui("condition_colors_inputs"),
+
+                ui.input_switch("set_condition_order", "Set condition order", False),
+                ui.tags.style(Customize.Ladder),
+                ui.output_ui("condition_order_ladder"),
+
+                ui.input_switch("write_replicate_labels", "Write replicate labels", False),
+                ui.output_ui("replicate_labels_inputs"),
+            ]
+
+
+            # ui.panel_conditional(
+            #     "if 1 == 1",
+            #     ui.input_switch("write_replicate_colors", "Set replicate colors", False)
+            # ),
+            # ui.panel_conditional(
+            #     "input.write_replicate_colors == true && input.run > 0",
+            #     ui.output_ui("replicate_colors_inputs")
+            # ),
+
+            # ui.panel_conditional(
+            #     "input.run > 0",
+            #     ui.input_switch("write_condition_colors", "Set condition colors", False)
+            # ),
+            # ui.panel_conditional(
+            #     "input.write_condition_colors == true && input.run > 0",
+            #     ui.output_ui("condition_colors_inputs")
+            # ),
+
+            # ui.panel_conditional(
+            #     "input.run > 0",
+            #     ui.input_switch("set_condition_order", "Set condition order", False)
+            # ),
+            # ui.panel_conditional(
+            #     "input.set_condition_order == true",
+            #     ui.tags.style(Customize.Ladder),
+            #     ui.output_ui("condition_order_ladder")
+            # ),
+
+            # ui.panel_conditional(
+            #     "input.run > 0",
+            #     ui.input_switch("write_replicate_labels", "Write replicate labels", False)
+            # ),
+            # ui.panel_conditional(
+            #     "input.write_replicate_labels == true",
+            #     ui.output_ui("replicate_labels_inputs")
+            # )
 
     # _ _ _ _ RAW DATA INPUT (X, Y, T, ID) COLUMNS SPECIFICATION CONTROL _ _ _ _
 
@@ -81,13 +139,16 @@ def mount_data_labeling(input, output, session, S):
     @output(id="condition_order_ladder")
     @render.ui
     def condition_order_ladder():
+        if not input.set_condition_order():
+            return
+        
         if S.TRACKSTATS.get() is not None:
             req(not S.TRACKSTATS.get().empty)
 
             items = S.TRACKSTATS.get()["Condition"].unique().tolist()
 
             if isinstance(items, list) and len(items) > 1:
-                return ladder("order", items)
+                return make_sortable_ui(inputID="order", items=items)
             elif isinstance(items, list) and len(items) == 1:
                 return ui.markdown("*Only one condition present.*")
             else:
@@ -104,6 +165,8 @@ def mount_data_labeling(input, output, session, S):
         @output(id="replicate_colors_inputs")
         @render.ui
         def replicate_colors_inputs():
+            if not input.write_replicate_colors():
+                return
             req(not S.UNFILTERED_SPOTSTATS.get().empty)
 
             if "Replicate color" not in S.UNFILTERED_SPOTSTATS.get().columns:
@@ -149,6 +212,9 @@ def mount_data_labeling(input, output, session, S):
         @output(id="condition_colors_inputs")
         @render.ui
         def condition_colors_inputs():
+            if not input.write_condition_colors():
+                return
+            
             req(not S.UNFILTERED_SPOTSTATS.get().empty)
 
             if "Condition color" not in S.UNFILTERED_SPOTSTATS.get().columns:
@@ -194,6 +260,9 @@ def mount_data_labeling(input, output, session, S):
         @output(id="replicate_labels_inputs")
         @render.ui
         def replicate_labels_inputs():
+            if not input.write_replicate_labels():
+                return
+            
             req(not S.UNFILTERED_SPOTSTATS.get().empty)
             replicates = sorted(S.UNFILTERED_SPOTSTATS.get()["Replicate"].unique())
             inputs = []
