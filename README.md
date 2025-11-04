@@ -1,12 +1,6 @@
 # Peregrin is a py-shiny application for exploratory analysis of cell tracking data
 
-
-
-
-<!-- **Web app for exploratory analysis of cell/particle tracking data.** -->
-
-<!-- One-line project summary -->
-<!-- TODO: Add a concise description of what this project does and who it's for. -->
+<!-- TODO: Add demonstrational video -->
 
 ## Contents
 - [About](#about)
@@ -16,6 +10,32 @@
 - [Exemplary data](#examples)
 
 ## About
+
+Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/).
+
+#### Features and flows:
+- g
+
+What it does:
+- Imports tabular trajectories (CSV/Parquet) with columns like track_id, t/frame, x, y [, z] and optional metadata
+- Computes per-step and per-track metrics (speed, displacement, turning angle, directionality, MSD)
+- Provides interactive filtering, grouping, faceting, and condition comparisons
+- Exports figures (PNG/SVG) and tables (CSV) for downstream use or publication
+
+Key features:
+- Interactive visualizations: trajectory overlays, time series, distributions, MSD plots
+- No-code analysis: build views via controls; bookmark/share URLs or save/load session state
+- Scales to thousands of tracks; designed for repeatable workflows
+- Extensible: modular panels and Python hooks for custom metrics and plots
+
+Tech stack (at a glance):
+- UI: Shiny for Python
+- Data: pandas/numpy
+- Visualization: Plotly/Altair
+
+Status and roadmap:
+- Early preview; APIs and UI may change
+- Planned: additional file format adapters, richer 3D support, batch reporting, plug‑in examples
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
