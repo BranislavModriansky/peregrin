@@ -3,11 +3,11 @@
 <!-- TODO: Add demonstrational video -->
 
 ## Contents
-> [About](#about)
-> [Set-up](#set-up)
->>[Installation](#Installation)
-> [User's guide](#users-guide)
-> [Exemplary data](#examples)
+1. [About](#about)
+2. [Set-up](#set-up)
+2.1. [Installation](#Installation)
+3. [User's guide](#users-guide)
+4. [Exemplary data](#examples)
 
 ## About
 
