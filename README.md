@@ -3,21 +3,20 @@
 <!-- TODO: Add demonstrational video -->
 
 ## Contents
-- [About](#about)
-- [Set-up](#set-up)
-    - [Installation](#Installation)
-- [User's guide](#users-guide)
-- [Exemplary data](#examples)
+> [About](#about)
+> [Set-up](#set-up)
+>>[Installation](#Installation)
+> [User's guide](#users-guide)
+> [Exemplary data](#examples)
 
 ## About
 
 Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/).
 
-#### Features and flows:
-- g
-
-What it does:
-- Imports tabular trajectories (CSV/Parquet) with columns like track_id, t/frame, x, y [, z] and optional metadata
+### Features and flows:
+- Import files containing spot information of individual trajectories 
+     Support for CSV (recommended), XLSX, XLS
+    - Required columns like track_id, t/frame, x, y [, z] and optional metadata
 - Computes per-step and per-track metrics (speed, displacement, turning angle, directionality, MSD)
 - Provides interactive filtering, grouping, faceting, and condition comparisons
 - Exports figures (PNG/SVG) and tables (CSV) for downstream use or publication
