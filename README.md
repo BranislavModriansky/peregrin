@@ -1,6 +1,5 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-
 ![GIF](https://github.com/BranislavModriansky/peregrin/blob/re-structure/media/data_display.gif)
 
 
@@ -50,13 +49,13 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
 
 #### Set-up
 
-Create a folder into which the docker image will be pulled. Navigate to the created folder:
+1. Create a folder into which the docker image will be pulled and navigate to the created folder:
 
 ```bash
 cd <your_folder>
 ```
 
-Pull the docker image:
+2. Pull the docker image:
 
 ```bash
 docker pull branislavmodriansky/peregrin:<version>
@@ -70,11 +69,28 @@ docker pull branislavmodriansky/peregrin:<version>
 
 After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
 
+
+
+<!-- Custom auto lettering indentation -->
+<style>
+    ol.lower-alpha-paren {
+        list-style-type: lower-alpha;
+    }
+    ol.lower-alpha-paren li::marker {
+        content: counter(list-item, lower-alpha) ") ";
+    }
+</style>
+<!-- Custom auto lettering indentation -->
+
+
+
 #### Initialization
 
-To run the app:
-- Open docker desktop -> containers and start the *image*
-- Alternatively, the app can be launched from the image directory via:
+3. Run the app:
+    <ol class="lower-alpha-paren">
+        <li>   Open docker desktop -> containers and start the <i>image</i>           </li>
+        <li>   In preference, the app can be launched from the image directory via:   </li>
+    </ol>
 
 ```bash
 docker run branislavmodriansky/peregrin:<version>
@@ -88,10 +104,8 @@ docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --h
 
 <!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
-<!-- ### Running the App In VSCode
 
-
-## User's guide
+<!-- ## User's guide
 
 ## Examples -->
 
