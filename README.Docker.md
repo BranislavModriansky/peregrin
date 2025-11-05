@@ -1,6 +1,16 @@
 # Docker Cheatsheat ~ Building a docker image and pushing it to DockerHub
 
-> **Importnat:** In VSCode, open the repository and **make sure that the desired branch is selected** before building the docker image.
+> [!IMPORTANT]
+> In VS Code, open the repository and make sure the desired branch is selected (checked out) before building the Docker image.
+>
+> Verify:
+> ```bash
+> git branch --show-current
+> ```
+> Switch if needed:
+> ```bash
+> git switch <branch-name>
+> ```
 
 ## Build
 
