@@ -1,11 +1,9 @@
 # Docker Cheatsheat ~ Building a docker image and pushing it to DockerHub
 
-> [!IMPORTANT]
-> In VS Code, open the repository and make sure the desired branch is selected (checked out) before building the Docker image.
->
-> Verify:
-> ```bash
-> git branch --show-current
+> [!IMPORTANT] 
+> **Make sure that the desired branch is selected** before building the docker image!
+> ```bash 
+> git branch --show-current 
 > ```
 > Switch if needed:
 > ```bash
@@ -25,8 +23,8 @@ cd "repository_path"
 ```bash
 ls
 ```
-
-**Importnant:** Make sure that the container will be exposed at the correct network port, corresponding to the one listed when running the `app.py` script
+> [!IMPORTANT] 
+> Make sure that the container will be exposed at the correct network port, corresponding to the one listed when running the `app.py` script
 
 3. Build the docker image. 
 
