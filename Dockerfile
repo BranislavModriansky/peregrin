@@ -46,7 +46,7 @@ COPY ./web_app .
 
 
 # Expose the port that the application listens on.
-EXPOSE 59967
+EXPOSE 54193
 
 # Run the application.
-CMD ["shiny", "run", "--host", "0.0.0.0", "--port", "59967"]
+CMD ["shiny", "run", "--port", "54193", "app.py"]
