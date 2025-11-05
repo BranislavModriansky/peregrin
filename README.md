@@ -60,6 +60,12 @@ Pull the docker image:
 docker pull branislavmodriansky/peregrin:<version>
 ```
 
+> See the list of all accessible images
+>
+> ```bash
+> docker image ls
+> ```
+
 After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
 
 #### Initialization
@@ -71,12 +77,14 @@ To run the app:
 ```bash
 docker run branislavmodriansky/peregrin:<version>
 ```
+
 or
+
 ```bash
 docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --host 0.0.0.0 --port <port>
 ```
 
-
+<!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
 <!-- ### Running the App In VSCode
 

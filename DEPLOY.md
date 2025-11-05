@@ -1,38 +1,22 @@
-# Docker Cheatsheat ~ Building a docker image and pushing it to DockerHub
+# Docker Deploying Cheatsheat 
+
+**How to build a docker image and push it to DockerHub**
 
 ## Navigate
 
-> [!TIP] 
+> [!NOTE] 
 >
-> **Verify whether the desired branch is selected** before building the docker image!
+> **Verify whether the desired branch is selected** before building the docker image:
 >
 > ```bash 
->
 > git branch --show-current 
->
 > ```
 > 
 > Switch if needed:
 >
 > ```bash
->
-> git switch <branch-name>
->
-> ```
-
-> [!WARNING]
-> Switch if needed:
-> ```bash
 > git switch <branch-name>
 > ```
-
-> [!CAUTION]
-> Switch if needed:
-> ```bash
-> git switch <branch-name>
-> ```
-
-<!-- Other callout options: [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
 1. Navigate to the repository
 
@@ -49,7 +33,7 @@ ls
 ## Build
 
 > [!WARNING]
-> The container must expose the same network port as the one used by `app.py` script!
+> The container must expose the same network port as the one used by `app.py` script.
 
 3. Build the docker image. 
 
