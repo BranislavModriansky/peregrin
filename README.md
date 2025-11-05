@@ -1,8 +1,7 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-<video>
-    <source src="https://vimeo.com/1133687058?fl=ip&fe=ec">
-</video>
+<iframe src="https://player.vimeo.com/video/1133687058" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+
 
 ## About
 
