@@ -87,9 +87,10 @@ After succesfully pulling the `peregrin:<version>` docker image, it should be re
 #### Initialization
 
 3. Run the app:
-    a) Open docker desktop -> containers and start the *image*
-    b) In preference, the app can be launched from the image directory via:
-       
+    <ol type="a">
+      <li>Open Docker Desktop → Containers and start the container.</li>
+      <li>Alternatively, launch from the image directory:</li>
+    </ol>
 
 ```bash
 docker run branislavmodriansky/peregrin:<version>
