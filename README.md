@@ -87,12 +87,9 @@ After succesfully pulling the `peregrin:<version>` docker image, it should be re
 #### Initialization
 
 3. Run the app:
-    <style> ol.lower-alpha-paren { list-style-type: lower-alpha; } ol.lower-alpha-paren li::marker { content: counter(list-item, lower-alpha) ") "; }
-        <ol class="lower-alpha-paren">
-            <li>Open docker desktop -> containers and start the <i>image</i></li>
-            <li>In preference, the app can be launched from the image directory via:</li>
-        </ol>
-    </style>
+    a) Open docker desktop -> containers and start the *image*
+    b) In preference, the app can be launched from the image directory via:
+       
 
 ```bash
 docker run branislavmodriansky/peregrin:<version>
