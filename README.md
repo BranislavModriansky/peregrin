@@ -61,15 +61,23 @@ After succesfully pulling the `peregrin:<version>` docker image, it should be re
 #### Initialization
 
 To run the app:
-- Open docker desktop - containers and start the *image*
-- Alternatively, the app can be launched through
+- Open docker desktop -> containers and start the *image*
+- Alternatively, the app can be launched from the image directory via:
+
+```bash
+docker run branislavmodriansky/peregrin:<version>
+```
+or
+```bash
+docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --host 0.0.0.0 --port <port>
+```
 
 
-<!-- ### Running the App In VSCode -->
 
-<!-- #### Initialization
+<!-- ### Running the App In VSCode
 
 
 ## User's guide
 
 ## Examples -->
+
