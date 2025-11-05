@@ -2,11 +2,11 @@
 
 
 <iframe width="560" height="315"
-  src="https://www.youtube.com/watch?v=2RSeNY0dsEQ"
-  frameborder="0"
-  allow="autoplay; encrypted-media; picture-in-picture"
-  allowfullscreen>
-</iframe>
+src="https://www.youtube.com/watch?v=2RSeNY0dsEQ" 
+frameborder="0" 
+allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+allowfullscreen></iframe>
+
 
 
 ## About
