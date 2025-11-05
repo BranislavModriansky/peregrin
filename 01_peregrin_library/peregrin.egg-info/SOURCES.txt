@@ -1,8 +1,0 @@
-setup.py
-peregrin/__init__.py
-peregrin/scripts.py
-peregrin.egg-info/PKG-INFO
-peregrin.egg-info/SOURCES.txt
-peregrin.egg-info/dependency_links.txt
-peregrin.egg-info/top_level.txt
-tests/test_scripts.py
