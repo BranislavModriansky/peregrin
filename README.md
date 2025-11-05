@@ -1,5 +1,75 @@
-# Peregrin
-___
+# Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-### Tool for 2D Cell Migration Analysis 
+<!-- TODO: Add demonstrational video -->
 
+## About
+
+Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
+
+### Key Features and Flows
+
+#### Data Input
+
+- Import raw tabular - CSV (recommended) / XLSX / XLS - data files containing information about spots of individual trajectories;
+- Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
+- Optionally, raw input may also contain other information;
+- Run Peregrin and compute track statistics;
+- Display computed data and download them in CSV format.
+
+#### Filtering
+
+- Availible thresholding methods include *Literal*, *Normalized 0-1*, *Percentile*, and *Relative to (a selected value)*.
+
+#### Visualization
+
+- Generate interactive and highly customizable plots covering:
+    - Track reconstruction and animation;
+    - Time lag statistics visualizations;
+    - Time charts;
+    - Superplots.
+- Export figures in SVG format and more.
+
+<!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
+<!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
+<!-- TODO: Current status/roadmap (optional). -->
+
+## How to Install and Launch
+
+- Use **Docker** for **quick set-up** and **easy configuration**
+- Alternatively, use a source code editor (e.g. VSCode) for development, code modification and editing or debugging options. 
+
+### Running the App Using Docker
+
+> **Important: [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!** 
+
+#### Set-up
+
+Create a folder into which the docker image will be pulled. Navigate to the created folder:
+
+```bash
+cd <your_folder>
+```
+
+Pull the docker image:
+
+```bash
+docker pull branislavmodriansky/peregrin:<version>
+```
+
+After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
+
+#### Initialization
+
+To run the app:
+- Open docker desktop - containers and start the *image*
+- Alternatively, the app can be launched through
+
+
+<!-- ### Running the App In VSCode -->
+
+<!-- #### Initialization
+
+
+## User's guide
+
+## Examples -->
