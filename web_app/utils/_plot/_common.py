@@ -18,12 +18,11 @@ class Colors:
         Generate a random color in hexadecimal format.
         """
 
-        r = np.random.randint(0, 255)   # Red LED intensity
-        g = np.random.randint(0, 255)   # Green LED intensity
-        b = np.random.randint(0, 255)   # Blue LED intensity
+        r = np.random.randint(0, 255)   # Red intensity
+        g = np.random.randint(0, 255)   # Green intensity
+        b = np.random.randint(0, 255)   # Blue intensity
 
         return '#{:02x}{:02x}{:02x}'.format(r, g, b)
-
 
     @staticmethod
     def GenerateRandomGrey() -> str:
@@ -31,33 +30,39 @@ class Colors:
         Generate a random grey color in hexadecimal format.
         """
 
-        n = np.random.randint(0, 240)  # All LED intensities
+        n = np.random.randint(0, 240)  # All intensities
 
         return '#{:02x}{:02x}{:02x}'.format(n, n, n)
 
-
     @staticmethod
-    def MakeCmap(elements: list, cmap: str) -> list:
+    def MakeCmap(elements: list, cmap: str, **kwargs) -> list:
         """
         Generates a qualitative colormap for a given list of elements.
         """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        n = len(elements)   # Number of elements in the dictionary
-        if n == 0:          # Return an empty list if there are no elements
-            return []       
+        try:
+            n = len(elements)
+            if n == 0:
+                noticequeue.Report(Level.error, "No elements provided for colormap generation.")
+                return []
+            
+            else:
+                cmap = plt.get_cmap(cmap)
+            colors = [mcolors.to_hex(cmap(i / n)) for i in range(n)]
+
+            return colors
         
-        cmap = plt.get_cmap(cmap)                                   # Get the colormap
-        colors = [mcolors.to_hex(cmap(i / n)) for i in range(n)]    # Generate a color for each element
-
-        return colors
+        except Exception as e:
+            noticequeue.Report(Level.error, f"Error generating qualitative colormap: {str(e)}")
+            return None
     
-
     @staticmethod
-    def GetCmap(c_mode: str) -> mcolors.Colormap:
+    def GetCmap(c_mode: str, **kwargs) -> mcolors.Colormap:
         """
         Get a colormap according to the selected color mode.
-
         """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         if c_mode == 'greyscale LUT':
             return plt.cm.gist_gray
@@ -98,11 +103,12 @@ class Colors:
         elif c_mode == 'seismic LUT':
             return plt.cm.seismic
         else:
+            noticequeue.Report(Level.warning, f"Unsupported color mode: {c_mode}. Using 'jet LUT' instead.")
             return plt.cm.jet
         
     @staticmethod
     def BuildRepPalette(df: pd.DataFrame, tag: str = 'Replicate', **kwargs) -> dict:
-        queue = kwargs.get('queue', None) if 'queue' in kwargs else None
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         tags = df[tag].unique().tolist()
         mp = {}
@@ -116,8 +122,7 @@ class Colors:
         missing = [t for t in tags if t not in mp]
 
         if missing:
-            # Use the singleton instance
-            queue.Report(Level.warning, f"Missing colors in {tag} values. Generating random colors instead.")
+            noticequeue.Report(Level.warning, f"Missing colors in {tag} values. Generating random colors instead.")
             
             for t in missing:
                 mp[t] = Colors.GenerateRandomColor()
@@ -127,18 +132,22 @@ class Colors:
 class Values:
 
     @staticmethod
-    def Clamp01(value: float) -> float:
+    def Clamp01(value: float, **kwargs) -> float:
         """
         Clamp a value between 0 and 1.
         """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        if not (0.0 <= value <= 1.0):
-
-            
+        if not (0.0 <= value <= 1.0):    
 
             if value < 0.0:
-                return 0.0
+                clamped = 0
             else:
-                return 1.0
-            
+                clamped = 1
+
+            if noticequeue:
+                noticequeue.Report(Level.warning, f"{value} out of 0-1 range. Clamping to {clamped}.")
+
+            return clamped
+        
         return value

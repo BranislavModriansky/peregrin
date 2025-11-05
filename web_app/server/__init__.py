@@ -26,12 +26,12 @@ from server.bg_jobs.notify import mount_notifier
 def Server(input: Inputs, output: Outputs, session: Session):
     
     S = build_state()
-    queue = NoticeQueue()
+    noticequeue = NoticeQueue()
     
     args = (input, output, session, S)
-    kwargs = {'queue': queue}
+    kwargs = {'noticequeue': noticequeue}
     
-    mount_notifier(queue)
+    mount_notifier(noticequeue)
 
     mount_data_input(*args)
     mount_data_display(*args)
@@ -51,7 +51,6 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_loaders(*args)
     mount_tasks(S)
 
-    # session.on_ended(queue.Cleanse('all'))
 
     
 
