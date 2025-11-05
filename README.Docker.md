@@ -1,7 +1,9 @@
 # Docker Cheatsheat ~ Building a docker image and pushing it to DockerHub
 
+## Navigate
+
 > [!IMPORTANT] 
-> **Make sure that the desired branch is selected** before building the docker image!
+> **Verify whether the desired branch is selected** before building the docker image!
 > ```bash 
 > git branch --show-current 
 > ```
@@ -9,8 +11,6 @@
 > ```bash
 > git switch <branch-name>
 > ```
-
-## Build
 
 1. Navigate to the repository
 
@@ -23,8 +23,11 @@ cd "repository_path"
 ```bash
 ls
 ```
+
+## Build
+
 > [!IMPORTANT] 
-> Make sure that the container will be exposed at the correct network port, corresponding to the one listed when running the `app.py` script
+> The container must expose the same network port as the one used by `app.py` script!
 
 3. Build the docker image. 
 
@@ -32,7 +35,9 @@ ls
 docker build -f Dockerfile -t <username>/peregrin:<version> .
 ```
 
-Push the created docker image to DockerHub
+## Push
+
+4. Push the created docker image to DockerHub
 
 ```bash
 docker push <username>/peregrin:<version>
