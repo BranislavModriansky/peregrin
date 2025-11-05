@@ -1,9 +1,16 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
+
+<!-- 
+
+TODO: A multiframe gif "video" compiling various screen recordings of different features 
+
+
+embed as:
 ![GIF](https://github.com/BranislavModriansky/peregrin/blob/re-structure/media/data_display.gif)
 
 
-<!-- TODO: A multiframe video compiling various screen recordings of different features -->
+-->
 
 ## About
 
@@ -87,7 +94,7 @@ After succesfully pulling the `peregrin:<version>` docker image, it should be re
 #### Initialization
 
 3. Run the app: <br>
-&nbsp; a) Open Docker Desktop -> Containers and start the container. <br>
+&nbsp; a) Open Docker Desktop -> containers and start the container. <br>
 &nbsp; b) Alternatively, launch from the image directory:
 
 ```bash
