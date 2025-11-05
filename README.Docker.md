@@ -16,7 +16,7 @@ cd "repository_path"
 ls
 ```
 
-> **Importnant:** Make sure that the container will be exposed at the correct network port, corresponding to the one listed when running the `app.py` script
+**Importnant:** Make sure that the container will be exposed at the correct network port, corresponding to the one listed when running the `app.py` script
 
 3. Build the docker image. 
 
