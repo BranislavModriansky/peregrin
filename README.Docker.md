@@ -2,16 +2,22 @@
 
 ## Navigate
 
-> [!IMPORTANT] 
+> [!TIP] 
+>
 > **Verify whether the desired branch is selected** before building the docker image!
+>
 > ```bash 
+>
 > git branch --show-current 
+>
 > ```
-
-> [!TIP]
+> 
 > Switch if needed:
+>
 > ```bash
+>
 > git switch <branch-name>
+>
 > ```
 
 > [!WARNING]
@@ -42,7 +48,7 @@ ls
 
 ## Build
 
-> [!IMPORTANT] 
+> [!WARNING]
 > The container must expose the same network port as the one used by `app.py` script!
 
 3. Build the docker image. 

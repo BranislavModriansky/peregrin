@@ -42,7 +42,9 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
 
 ### Running the App Using Docker
 
-> **Important: [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!** 
+> [!NOTE]
+>
+> [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!
 
 #### Set-up
 
