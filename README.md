@@ -60,6 +60,8 @@ Pull the docker image:
 docker pull branislavmodriansky/peregrin:<version>
 ```
 
+> [!TIP]
+>
 > See the list of all accessible images
 >
 > ```bash
