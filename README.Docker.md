@@ -7,16 +7,19 @@
 > ```bash 
 > git branch --show-current 
 > ```
+
 > [!TIP]
 > Switch if needed:
 > ```bash
 > git switch <branch-name>
 > ```
+
 > [!WARNING]
 > Switch if needed:
 > ```bash
 > git switch <branch-name>
 > ```
+
 > [!CAUTION]
 > Switch if needed:
 > ```bash
