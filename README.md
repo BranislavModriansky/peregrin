@@ -33,9 +33,16 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
 
-## Set-up
+## How to Install and Launch
 
-### Initialization
+- Use **Docker** for **quick set-up** and **easy configuration**
+- Alternatively, use a source code editor (e.g. VSCode) for development, code modification and editing or debugging options. 
+
+### Running the App Using Docker
+
+> **Important: [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!** 
+
+#### Set-up
 
 Create a folder into which the docker image will be pulled. Navigate to the created folder:
 
@@ -49,53 +56,20 @@ Pull the docker image:
 docker pull branislavmodriansky/peregrin:<version>
 ```
 
+After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
 
-# Create and activate a virtual environment (Windows PowerShell)
-python -m venv .venv
-. .\.venv\Scripts\Activate.ps1
+#### Initialization
 
-# Install dependencies
-pip install -r requirements.txt
-```
+To run the app:
+- Open docker desktop - containers and start the *image*
+- Alternatively, the app can be launched through
 
-### Configuration
-<!-- TODO: Document environment variables, config files, and secrets. -->
-<!-- Example:
-- Copy .env.example to .env and fill in values
-- Update config.yaml with project-specific settings
--->
 
-### Running locally
-<!-- TODO: How to start the app or run the main script. -->
-```bash
-python -m peregrin
-# or
-python path\to\main.py
-```
+<!-- ### Running the App In VSCode -->
 
-### Running tests
-<!-- TODO: How to run tests locally/in CI. -->
-```bash
-pytest -q
-```
+<!-- #### Initialization
+
 
 ## User's guide
 
-## Examples
-### Minimal usage
-<!-- TODO: Show the simplest way to use the project (CLI or library). -->
-```bash
-# CLI example (if applicable)
-peregrin --input sample.txt --output out/
-```
-
-```python
-# Library example (if applicable)
-from peregrin import some_api
-
-result = some_api.do_something("input")
-print(result)
-```
-
-### Advanced usage
-<!-- TODO: Add a more involved example, parameters, and expected outputs. -->
+## Examples -->
