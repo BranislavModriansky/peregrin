@@ -2,6 +2,7 @@
 
 ![Screenshot](https://github.com/BranislavModriansky/peregrin/blob/re-structure/_exeplary/Screenshot.png?raw=true)
 
+<!-- TODO: A multiframe video compiling various screen recordings of different features -->
 
 ## About
 

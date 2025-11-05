@@ -1,9 +1,40 @@
-### Building and running your application
+# Docker Cheatsheat ~ Building a docker image and pushing it to DockerHub
 
-When you're ready, start your application by running:
-`docker compose up --build`.
+> **Importnat:** In VSCode, open the repository and **make sure that the desired branch is selected** before building the docker image.
 
-Your application will be available at http://localhost:59967.
+## Build
+
+1. Navigate to the repository
+
+```bash
+cd "repository_path"
+```
+
+2. To check whether Dockerfile is accessible run
+
+```bash
+ls
+```
+
+> **Importnant:** Make sure that the container will be exposed at the correct network port, corresponding to the one listed when running the `app.py` script
+
+3. Build the docker image. 
+
+```bash 
+docker build -f Dockerfile -t <username>/peregrin:<version> .
+```
+
+Push the created docker image to DockerHub
+
+```bash
+docker push <username>/peregrin:<version>
+```
+
+
+
+
+
+
 
 ### Deploying your application to the cloud
 
