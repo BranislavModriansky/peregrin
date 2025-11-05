@@ -1,6 +1,6 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-[VIDEO](file:///C:/Users/modri/Desktop/Lab/Peregrin%20project/Shots/Data%20display.mp4)
+[VIDEO](https://github.com/BranislavModriansky/peregrin/blob/re-structure/_exemplary/_videos/Data%20display.mp4)
 
 ## About
 
