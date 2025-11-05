@@ -1,6 +1,16 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-<!-- TODO: Add demonstrational video -->
+
+<!-- 
+
+TODO: A multiframe gif "video" compiling various screen recordings of different features 
+
+
+embed as:
+![GIF](https://github.com/BranislavModriansky/peregrin/blob/re-structure/media/data_display.gif)
+
+
+-->
 
 ## About
 
@@ -40,36 +50,67 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
 
 ### Running the App Using Docker
 
-> **Important: [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!** 
+> [!NOTE]
+>
+> [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!
 
 #### Set-up
 
-Create a folder into which the docker image will be pulled. Navigate to the created folder:
+1. Create a folder into which the docker image will be pulled and navigate to the created folder:
 
 ```bash
 cd <your_folder>
 ```
 
-Pull the docker image:
+2. Pull the docker image:
 
 ```bash
 docker pull branislavmodriansky/peregrin:<version>
 ```
 
+> *See the list of all accessible images*
+>
+> ```bash
+> docker image ls
+> ```
+
 After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
+
+
+
+<!-- Custom auto lettering indentation -->
+<!-- <style>
+    ol.lower-alpha-paren {
+        list-style-type: lower-alpha;
+    }
+    ol.lower-alpha-paren li::marker {
+        content: counter(list-item, lower-alpha) ") ";
+    }
+</style> -->
+<!-- Custom auto lettering indentation -->
+
+
 
 #### Initialization
 
-To run the app:
-- Open docker desktop - containers and start the *image*
-- Alternatively, the app can be launched through
+3. Run the app: <br>
+&nbsp; a) Open Docker Desktop -> containers and start the container. <br>
+&nbsp; b) Alternatively, launch from the image directory:
+
+```bash
+docker run branislavmodriansky/peregrin:<version>
+```
+
+or
+
+```bash
+docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --host 0.0.0.0 --port <port>
+```
+
+<!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
 
-<!-- ### Running the App In VSCode -->
-
-<!-- #### Initialization
-
-
-## User's guide
+<!-- ## User's guide
 
 ## Examples -->
+
