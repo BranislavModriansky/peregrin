@@ -202,7 +202,7 @@ def SwarmsAndBeyond(
         _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
     else:
-        _palette = Colors.BuildRepPalette(_df, tag='Replicate', noticequeue=noticequeue)
+        _palette = Colors.noticequeue(_df, tag='Replicate', noticequeue=noticequeue)
 
     print(_palette)
 

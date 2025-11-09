@@ -107,7 +107,7 @@ class Colors:
             return plt.cm.jet
         
     @staticmethod
-    def BuildRepPalette(df: pd.DataFrame, tag: str = 'Replicate', **kwargs) -> dict:
+    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         tags = df[tag].unique().tolist()
