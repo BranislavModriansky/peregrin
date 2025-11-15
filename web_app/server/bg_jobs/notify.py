@@ -5,16 +5,16 @@ from shiny import reactive, ui, req
 # utils.Debounce, Level assumed available from your utils
 from utils import Level  # Debounce not needed with poll()
 
-def mount_notifier(queue):
+def mount_notifier(noticequeue):
 
     """
-    Polls the queue every 2 seconds and shows notifications.
+    Polls the noticequeue every 2 seconds and shows notifications.
     """
 
     # @reactive.Calc
     def show_notifications():
         """Helper function to display notifications from data"""
-        data = queue.Emit()
+        data = noticequeue.Emit()
         if not data:
             return
 
@@ -35,9 +35,9 @@ def mount_notifier(queue):
                     ),
                 ),
                 type="default",
-                duration=data["default"]["duration"],
+                duration=data["default"]["duration"][0] if data["default"]["details"] else data["default"]["duration"][1],
             )
-            queue.Cleanse(Level.info)
+            noticequeue.Cleanse(Level.info)
 
         # warning
         if data["warning"]["count"] > 0:
@@ -56,9 +56,9 @@ def mount_notifier(queue):
                     ),
                 ),
                 type="warning",
-                duration=data["warning"]["duration"],
+                duration=data["warning"]["duration"][0] if data["warning"]["details"] else data["warning"]["duration"][1],
             )
-            queue.Cleanse(Level.warning)
+            noticequeue.Cleanse(Level.warning)
 
         # error
         if data["error"]["count"] > 0:
@@ -79,11 +79,11 @@ def mount_notifier(queue):
                 type="error",
                 duration=data["error"]["duration"],
             )
-            queue.Cleanse(Level.error)
+            noticequeue.Cleanse(Level.error)
 
         
     @reactive.poll(show_notifications, interval_secs=1.5)
     def read_queue():
-        """Reads data from the queue"""
-        print("Polling queue for notifications...")
+        """Reads data from the noticequeue"""
+        print("Polling noticequeue for notifications...")
         # return show_notifications()

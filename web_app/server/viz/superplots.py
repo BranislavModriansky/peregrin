@@ -7,7 +7,7 @@ from shiny import ui, reactive, req, render
 from utils import SwarmsAndBeyond, Superviolins, Debounce
 
 
-def mount_superplots(input, output, session, S, queue):
+def mount_superplots(input, output, session, S, noticequeue):
 
     # Don't create a new instance - use the imported singleton
     # buffer = _message_buffer.MessageBuffer()  # REMOVE THIS LINE
@@ -240,7 +240,7 @@ def mount_superplots(input, output, session, S, queue):
                     open_spine=open_spine,
                     plot_width=plot_width,
                     plot_height=plot_height,
-                    queue=queue,
+                    noticequeue=noticequeue,
                 )
 
         result = await asyncio.get_running_loop().run_in_executor(None, build)

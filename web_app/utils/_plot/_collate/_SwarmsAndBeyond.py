@@ -164,7 +164,7 @@ def SwarmsAndBeyond(
         **open_spine**:
         Don't show the top and right axes spines (default: True);
     """
-    queue = kwargs.get('queue') if 'queue' in kwargs else lambda: None
+    noticequeue = kwargs.get('noticequeue') if 'noticequeue' in kwargs else lambda: None
 
     if df is None or df.empty:
         return
@@ -202,7 +202,7 @@ def SwarmsAndBeyond(
         _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
     else:
-        _palette = Colors.BuildRepPalette(_df, tag='Replicate', queue=queue)
+        _palette = Colors.noticequeue(_df, tag='Replicate', noticequeue=noticequeue)
 
     print(_palette)
 

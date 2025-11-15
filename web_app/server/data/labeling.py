@@ -11,7 +11,6 @@ def mount_data_labeling(input, output, session, S):
     @render.ui
     def data_labeling_ui():
         if input.run() > 0:
-            # Build UI without reading input.*() on the server side; use client-side panel_conditional
             return [
                 ui.input_switch("write_replicate_colors", "Set replicate colors", False),
                 ui.output_ui("replicate_colors_inputs"),
@@ -27,43 +26,6 @@ def mount_data_labeling(input, output, session, S):
                 ui.output_ui("replicate_labels_inputs"),
             ]
 
-
-            # ui.panel_conditional(
-            #     "if 1 == 1",
-            #     ui.input_switch("write_replicate_colors", "Set replicate colors", False)
-            # ),
-            # ui.panel_conditional(
-            #     "input.write_replicate_colors == true && input.run > 0",
-            #     ui.output_ui("replicate_colors_inputs")
-            # ),
-
-            # ui.panel_conditional(
-            #     "input.run > 0",
-            #     ui.input_switch("write_condition_colors", "Set condition colors", False)
-            # ),
-            # ui.panel_conditional(
-            #     "input.write_condition_colors == true && input.run > 0",
-            #     ui.output_ui("condition_colors_inputs")
-            # ),
-
-            # ui.panel_conditional(
-            #     "input.run > 0",
-            #     ui.input_switch("set_condition_order", "Set condition order", False)
-            # ),
-            # ui.panel_conditional(
-            #     "input.set_condition_order == true",
-            #     ui.tags.style(Customize.Ladder),
-            #     ui.output_ui("condition_order_ladder")
-            # ),
-
-            # ui.panel_conditional(
-            #     "input.run > 0",
-            #     ui.input_switch("write_replicate_labels", "Write replicate labels", False)
-            # ),
-            # ui.panel_conditional(
-            #     "input.write_replicate_labels == true",
-            #     ui.output_ui("replicate_labels_inputs")
-            # )
 
     # _ _ _ _ RAW DATA INPUT (X, Y, T, ID) COLUMNS SPECIFICATION CONTROL _ _ _ _
 
@@ -86,7 +48,7 @@ def mount_data_labeling(input, output, session, S):
                             ui.update_selectize(sel, choices=columns, selected=choice)
                         else:
                             ui.update_selectize(sel, choices=columns, selected=columns[0] if columns else None)
-                    break  # Use the first available slot
+                    break
                 except Exception as e:
                     continue
 

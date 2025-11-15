@@ -14,28 +14,28 @@ embed as:
 
 ## About
 
-Application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
+An application designed for scientists, allowing **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
 
 ### Key Features and Flows
 
 #### Data Input
 
-- Import raw tabular - CSV (recommended) / XLSX / XLS - data files containing information about spots of individual trajectories;
+- Import - CSV (recommended) / XLSX / XLS - tabular data files containing information about spots of individual trajectories;
 - Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
-- Optionally, raw input may also contain other information;
+- Optionally, input may also contain other information;
 - Run Peregrin and compute track statistics;
-- Display computed data and download them in CSV format.
+- Display computed data and download them in a CSV format.
 
 #### Filtering
 
-- Availible thresholding methods include *Literal*, *Normalized 0-1*, *Percentile*, and *Relative to (a selected value)*.
+- Availible (1D) thresholding methods include: *Literal*, *Normalized 0-1*, *Percentile*, *Relative to (a selected value)*.
 
 #### Visualization
 
-- Generate interactive and highly customizable plots covering:
+- Generate interactive and highly customizable plots, covering:
     - Track reconstruction and animation;
-    - Time lag statistics visualizations;
-    - Time charts;
+    - Time lag statistics;
+    - Time series;
     - Superplots.
 - Export figures in SVG format and more.
 
@@ -46,23 +46,23 @@ Application designed for scientists, allowing **exploratory analysis of cell tra
 ## How to Install and Launch
 
 - Use **Docker** for **quick set-up** and **easy configuration**
-- Alternatively, use a source code editor (e.g. VSCode) for development, code modification and editing or debugging options. 
 
 ### Running the App Using Docker
 
 > [!NOTE]
 >
-> [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin docker image!
+> [Docker desktop](https://docs.docker.com/desktop/) must be installed and running to set-up Peregrin.
 
 #### Set-up
 
-1. Create a folder into which the docker image will be pulled and navigate to the created folder:
+1. Create a folder inside of which you would like to store the docker image.
+2. Navigate to the folder:
 
 ```bash
 cd <your_folder>
 ```
 
-2. Pull the docker image:
+3. Pull the docker image:
 
 ```bash
 docker pull branislavmodriansky/peregrin:<version>
@@ -93,9 +93,11 @@ After succesfully pulling the `peregrin:<version>` docker image, it should be re
 
 #### Initialization
 
-3. Run the app: <br>
-&nbsp; a) Open Docker Desktop -> containers and start the container. <br>
+4. Run the app: <br>
+&nbsp; a) Open Docker Desktop -> Containers and start the container. <br>
 &nbsp; b) Alternatively, launch from the image directory:
+
+try:
 
 ```bash
 docker run branislavmodriansky/peregrin:<version>

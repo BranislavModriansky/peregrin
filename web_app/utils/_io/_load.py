@@ -3,42 +3,67 @@ import pandas as pd
 import os.path as op
 from typing import List
 
+from .._handlers._reports import Level
 
-def _try_reading(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15")):
-    for enc in encodings:
-        try:
-            return pd.read_csv(path, encoding=enc, low_memory=False)
-        except UnicodeDecodeError:
-            continue
+
+def _try_reading(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> pd.DataFrame:
+    noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+    try:
+        for enc in encodings:
+            try:
+                return pd.read_csv(path, encoding=enc, low_memory=False)
+            except UnicodeDecodeError:
+                continue
+    except Exception as e:
+        noticequeue.Report(Level.error, f"Failed to read files '{path}'", f"{str(e)}")
 
 
 class DataLoader:
     
     @staticmethod
-    def GetDataFrame(filepath: str) -> pd.DataFrame:
+    def GetDataFrame(filepath: str, **kwargs) -> pd.DataFrame:
         """
         Loads a DataFrame from a file based on its extension.
         Supported formats: CSV, Excel, Feather, Parquet, HDF5, JSON.
         """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
         _, ext = op.splitext(filepath.lower())
 
         try:
             if ext == '.csv':
-                return _try_reading(filepath)
+                return _try_reading(filepath, noticequeue=noticequeue)
             elif ext in ['.xls', '.xlsx']:
                 return pd.read_excel(filepath)
         except ValueError as e:
-            raise e(f"{ext} is not a supported file format.")
+            noticequeue.Report(Level.error, f"Unsupported file format: {ext}", f"{filepath} <- {str(e)}")
         except Exception as e:
-            raise e(f"Failed to load file '{filepath}': {e}")
+            noticequeue.Report(Level.error, f"Failed to load files", f"'{filepath}' <- {str(e)}")
     
 
     @staticmethod
-    def ExtractStripped(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, mirror_y: bool = True) -> pd.DataFrame:
-        # Keep only relevant columns and convert to numeric
-        df = df[[id_col, t_col, x_col, y_col]].apply(pd.to_numeric, errors='coerce').dropna().reset_index(drop=True)
+    def ExtractStripped(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
+        """
+        Prepare tracking data:
+        - Extract only the 4 key columns.
+        - Converts them to numeric, dropping rows with missing values.
+        - Mirrors Y if requested.
+        """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        # Mirror Y if needed
+        try:
+            if not all(col in df.columns for col in [id_col, t_col, x_col, y_col]):
+                missing = [col for col in [id_col, t_col, x_col, y_col] if col not in df.columns]
+                noticequeue.Report(Level.error, f"Specified columns were not found", f"Failed to find: {', '.join(missing)}")
+                return pd.DataFrame()
+
+            df = df[[id_col, t_col, x_col, y_col]].apply(pd.to_numeric, errors='coerce').dropna().reset_index(drop=True)
+
+        except Exception as e:
+            noticequeue.Report(Level.error, f"Error in processing input DataFrame", f"{str(e)}")
+            return pd.DataFrame()
+
         if mirror_y:
             """
             TrackMate may export y-coordinates mirrored.
@@ -53,14 +78,7 @@ class DataLoader:
     
 
     @staticmethod
-    def ExtractFull(
-        df: pd.DataFrame,
-        id_col: str,
-        t_col: str,
-        x_col: str,
-        y_col: str,
-        mirror_y: bool = True
-    ) -> pd.DataFrame:
+    def ExtractFull(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
         """
         Prepare tracking data:
         - Converts chosen coordinate columns to numeric.
@@ -69,14 +87,23 @@ class DataLoader:
         - Keeps all other columns intact.
         - Normalizes column labels (e.g. 'CONTRAST_CH' → 'Contrast ch').
         """
-        df = df.copy()
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        # convert only selected columns to numeric
-        for c in [id_col, t_col, x_col, y_col]:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
+        try: 
+            if not all(col in df.columns for col in [id_col, t_col, x_col, y_col]):
+                missing = [col for col in [id_col, t_col, x_col, y_col] if col not in df.columns]
+                noticequeue.Report(Level.error, f"Specified columns were not found.", f"Missing columns: {missing}")
+                return pd.DataFrame()
+            
+            # convert only selected columns to numeric
+            for c in [id_col, t_col, x_col, y_col]:
+                df[c] = pd.to_numeric(df[c], errors="coerce")
 
-        # drop rows missing key coordinates
-        df = df.dropna(subset=[id_col, t_col, x_col, y_col]).reset_index(drop=True)
+            # drop rows missing key coordinates
+            df = df.dropna(subset=[id_col, t_col, x_col, y_col]).reset_index(drop=True)
+        except Exception as e:
+            noticequeue.Report(Level.error, f"Error in processing input DataFrame", f"{str(e)}")
+            return pd.DataFrame()
 
         # mirror Y if needed
         if mirror_y:
@@ -101,13 +128,11 @@ class DataLoader:
             return name
 
         try:
-            # df = df.rename(columns=lambda c: clean_name(c) if c != 'Track ID' else c)
             df.columns = [clean_name(c) if c != 'Track ID' else c for c in df.columns]
         except Exception as e:
-            print(e)
+            pass
 
         return df
-
 
 
     @staticmethod
@@ -118,8 +143,9 @@ class DataLoader:
         df = DataLoader.GetDataFrame(path)  # or pd.read_excel(path), depending on file type
         return df.columns.tolist()
     
+
     @staticmethod
-    def FindMatchingColumn(columns: List[str], lookfor: List[str]) -> str:
+    def FindMatchingColumn(columns: List[str], lookfor: List[str], **kwargs) -> str:
         """
         Looks for matches with any of the provided strings.
         - First tries exact matches.
@@ -127,6 +153,7 @@ class DataLoader:
         - Finally checks if any term is a substring of the column name.
         If no match is found, returns None.
         """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         # Normalize columns for matching
         normalized_columns = [
@@ -137,11 +164,13 @@ class DataLoader:
             for look in lookfor:
                 if norm_col == look.lower():
                     return col
+                
         # Then try startswith
         for col, norm_col in normalized_columns:
             for look in lookfor:
                 if norm_col.startswith(look.lower()):
                     return col
+                
         # Then try substring
         for col, norm_col in normalized_columns:
             for look in lookfor:
