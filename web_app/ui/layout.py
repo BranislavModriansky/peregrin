@@ -361,7 +361,24 @@ app_ui = ui.page_sidebar(
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
-                    )
+                    ),
+                    ui.accordion(
+                        ui.accordion_panel(
+                            "Categories",
+                            ui.row(
+                                ui.column(4, ui.input_selectize("conditions_msd", "Select Category:", choices=["A", "B", "C"], selected=["A", "B", "C"], multiple=True)),
+                                ui.column(4, ui.input_action_button("reset_conditions_msd", "Clear")),
+                                ui.column(4, ui.input_checkbox("group_replicates_msd", "Group Replicates", value=True)),
+                            ),
+                            ui.panel_conditional(
+                                "input.group_replicates_msd == false",
+                                ui.row(
+                                    ui.column(4, ui.input_selectize("replicates_msd", "Select Replicate:", choices=["1", "2", "3"], selected=[], multiple=True)),
+                                    ui.column(4, ui.input_action_button("reset_replicates_msd", "Clear")),
+                                )
+                            )
+                        ),
+                    ),
                 ),
 
                 # _ _ _ TURNING ANGLES _ _ _

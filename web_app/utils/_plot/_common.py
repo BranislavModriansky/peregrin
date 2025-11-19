@@ -4,11 +4,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from typing import Any, List, Tuple
 
 from .._handlers._reports import Level
 
-# Use the singleton instance directly, don't create a new one
-# buffer = _message_buffer.MessageBuffer()  # REMOVE THIS LINE
 
 class Colors:
     
@@ -151,3 +150,89 @@ class Values:
             return clamped
         
         return value
+    
+
+class Categorizer:
+
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        categories: tuple[list, bool, list[Any]] = ([], True, []),
+        *,
+        cols: list = [],
+        aggregate: bool = False,
+        aggby: list = [],
+        aggdict: dict = {},
+        **kwargs
+    ):
+        """
+        Initialize with a DataFrame containing 'Condition' and 'Replicate' columns.
+        """
+        self.data = data
+        self.conditions, self.groupreps, self.reps = categories
+        self.cols = cols
+        self.aggregate = aggregate
+        self.aggby = aggby
+        self.aggdict = aggdict
+        self.noticequeue = kwargs.get('noticequeue', None)
+
+    def _checkerrors(self) -> bool:
+        """
+        Check for errors in the provided categories and replicates.
+        """
+        if self.conditions == []:
+            self.noticequeue.Report(Level.error, "Missing categories.", "At least one condition (category) must be specified.")
+            return True
+        if self.groupreps is False and self.reps == []:
+            self.noticequeue.Report(Level.error, "Missing categories.", "At least one replicate (category) must be specified.")
+            return True
+        
+        conds_not_found = [cond for cond in self.conditions if cond not in self.data['Condition'].values]
+        reps_not_found = [rep for rep in self.reps if rep not in self.data['Replicate'].values] if not self.groupreps else []
+        if conds_not_found:
+            self.noticequeue.Report(Level.error, "Categories not found.", f"Conditions {', '.join(conds_not_found)} were not found in the data.")
+            return True
+        if reps_not_found:
+            self.noticequeue.Report(Level.error, "Categories not found.", f"Replicates {', '.join(reps_not_found)} were not found in the data.")
+            return True
+        
+        return False
+
+    def _filter(self) -> pd.DataFrame:
+        """
+        Filter DataFrame categories.
+        """
+        if self.groupreps:
+            filtered = self.data[self.data['Condition'].isin(self.conditions)][self.cols]
+        else:
+            filtered = self.data[
+                (self.data['Condition'].isin(self.conditions)) &
+                (self.data['Replicate'].isin(self.reps))
+            ][self.cols]
+        
+        return filtered
+
+    def _aggregate(self) -> pd.DataFrame:
+        """
+        Aggregate the filtered DataFrame.
+        """
+        return self._filter().groupby(self.aggby).agg(self.aggdict).reset_index()
+
+
+    def __call__(self) -> pd.DataFrame:
+        """
+        Making the instance callable.
+        """
+        if self._checkerrors():
+            return pd.DataFrame()
+        if self.aggregate:
+            return self._aggregate()
+        return self._filter()
+
+
+    def _getmethods(self) -> Tuple[Any, Any, Any]:
+        """
+        Get the filter and aggregate methods.
+        """
+        return self._filter, self._aggregate, self._checkerrors
+    
