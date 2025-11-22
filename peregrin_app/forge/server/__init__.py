@@ -18,6 +18,8 @@ from .bg_jobs.bckgrnd_tasks import mount_tasks
 
 from .bg_jobs.notify import mount_notifier
 
+from .bg_jobs.theme import set_theme
+
     
 
 
@@ -32,6 +34,8 @@ def Server(input: Inputs, output: Outputs, session: Session):
     kwargs = {'noticequeue': noticequeue}
     
     mount_notifier(noticequeue)
+
+    set_theme(*args)
 
     mount_data_input(*args)
     mount_data_display(*args)

@@ -24,7 +24,7 @@ __all__ = [
     "VisualizeTracksRealistics", "VisualizeTracksNormalized", "GetLutMap", "Animated",
     "SwarmsAndBeyond", "Superviolins",
     "Metrics", "Styles", "Markers", "Modes",
-    "Customize", "FilenameFormatExample",
+    "FilenameFormatExample",
     "frame_interval_ms",
     "Debounce", "Throttle",
     "Level", "NoticeQueue",

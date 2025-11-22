@@ -1,10 +1,11 @@
+from pathlib import Path
 from shiny import App
 from forge import app_ui
 from forge import Server
 
+ROOT = Path(__file__).resolve().parent
 
-
-app = App(app_ui, Server)
+app = App(app_ui, Server, static_assets=ROOT / "src" / "design")
 
 
 

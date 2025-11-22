@@ -2,7 +2,11 @@ import warnings
 import shiny.ui as ui
 from shiny._deprecated import ShinyDeprecationWarning
 
-from peregrin_app.src.code import Customize, Metrics, Markers, Styles, Modes
+from src.code import Metrics, Markers, Styles, Modes
+
+from pathlib import Path
+
+
 
 
 warnings.filterwarnings(
@@ -12,20 +16,16 @@ warnings.filterwarnings(
 )
 
 
+
+# Add a section for enabling the theme/style selection (brutalistic, solemn, digital, silky)
+
 # _ _ _ _  UI DESIGN DEFINITION  _ _ _ _
 app_ui = ui.page_sidebar(
     
     # _ _ _ SIDEBAR - DATA FILTERING _ _ _
     ui.sidebar(
-
-        ui.tags.style("""
-            body, button, input, select, textarea {
-                font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-            }
-        """),
-
-
-        ui.tags.style(Customize.Accordion01),
+    
+        # ui.tags.style(Customize.Accordion01),
         ui.markdown("""  <p>  """),
         ui.output_ui(id="sidebar_label"),
         ui.input_action_button(id="append_threshold", label="Add threshold", class_="btn-primary", width="100%", disabled=True),
@@ -40,6 +40,7 @@ app_ui = ui.page_sidebar(
 
     # _ _ _ PANEL NAVIGATION BAR _ _ _
     ui.navset_bar(
+        
 
         # _ _ _ _ RAW DATA INPUT PANEL - APP INITIALIZATION _ _ _ _
         ui.nav_panel(
@@ -66,7 +67,7 @@ app_ui = ui.page_sidebar(
                         ),
                         ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
                         ui.div(  
-                            ui.tags.style(Customize.Link1),
+                            # ui.tags.style(Customize.Link1),
                             ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                             ui.input_checkbox("auto_label", "Auto-label", False),
                             
@@ -86,7 +87,7 @@ app_ui = ui.page_sidebar(
                 ),
 
                 # _ Draggable accordion panel - columns selection _
-                ui.tags.style(Customize.AccordionDraggable),
+                # ui.tags.style(Customize.AccordionDraggable),
                 ui.panel_absolute(
                     ui.card(
                         ui.accordion(
@@ -104,7 +105,7 @@ app_ui = ui.page_sidebar(
                                 ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
                                 ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"),
                             ), 
-                            open=False, class_="custom-accordion"
+                            open=False, class_="draggable-accordion"
                         )
                     ), 
                     width="350px", right="450px", top="130px", draggable=True, 
@@ -316,7 +317,7 @@ app_ui = ui.page_sidebar(
                     ui.panel_conditional(
                         "input.track_reconstruction_method == 'Animated'",
                         # ui.input_action_button("calculate_replay_animation", "Calc", class_="btn-secondary", width="100%"),
-                        ui.tags.style(Customize.ReplaySliderButtons),
+                        # ui.tags.style(Customize.ReplaySliderButtons),
                         ui.card(
                             ui.div(
                                 ui.input_action_button("prev", "-"),
@@ -369,11 +370,11 @@ app_ui = ui.page_sidebar(
                             <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
-                        ui.tags.style(Customize.Accordion02),
+                        # ui.tags.style(Customize.Accordion02),
                         ui.accordion(
                             ui.accordion_panel(
                                 "Data Categories",
-                                ui.tags.style(Customize.NoFrameButton),
+                                # ui.tags.style(Customize.NoFrameButton),
                                 ui.row(
                                     ui.column(6, ui.input_selectize(id="conditions_msd", label="Conditions:", choices=["A", "B", "C"], selected=["A", "B", "C"], multiple=True, options={"placeholder": "Select conditions"})),
                                     ui.column(1, ui.input_action_button(id="reset_conditions_msd", label="🗘", class_="btn-noframe")),
@@ -885,8 +886,24 @@ app_ui = ui.page_sidebar(
                 widths = (2, 10)
             ),
         ),
-        # ui.nav_spacer(),
-        # ui.nav_control(ui.input_dark_mode(mode="light")),
-        title="Peregrin"
+        
+        
+        ui.nav_spacer(),
+        
+        ui.nav_control(
+            # ui.tags.style(Customize.ThemeSelection),
+            ui.input_selectize(
+                id="app_theme",
+                label=None,
+                choices=["Sleek", "Brutalistic", "Solemn", "Console"],
+                selected="Console",
+                width="120px",
+                options={"hideSelected": True, },
+            ),
+            ui.output_ui("custom_theme_url"),
+        ),
+        # title=ui.tags.span("Peregrin", class_="peregrin-logo"),
+        title="Peregrin",
+        
     ),
 )

@@ -2,7 +2,7 @@ import shiny.ui as ui
 from shiny import reactive, req, render
 from ...ui_shell import make_sortable_ui
 from peregrin_app.src.code import DataLoader, Metrics, FilenameFormatExample
-from peregrin_app.src.code import Customize
+# from peregrin_app.src.code import Customize
 
 
 def mount_data_labeling(input, output, session, S):
@@ -19,7 +19,7 @@ def mount_data_labeling(input, output, session, S):
                 ui.output_ui("condition_colors_inputs"),
 
                 ui.input_switch("set_condition_order", "Set condition order", False),
-                ui.tags.style(Customize.Ladder),
+                # ui.tags.style(Customize.Ladder),
                 ui.output_ui("condition_order_ladder"),
 
                 ui.input_switch("write_replicate_labels", "Write replicate labels", False),
