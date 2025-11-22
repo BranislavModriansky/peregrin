@@ -1,0 +1,16 @@
+
+@font-face {
+    font-family: 'Web';
+    src: url('./fonts/Barlow-Regular.ttf') format('truetype');
+}
+
+
+/* Apply globally */
+body,
+button,
+input,
+select,
+textarea {
+    font-family: 'Web';
+    text-transform: uppercase;
+}

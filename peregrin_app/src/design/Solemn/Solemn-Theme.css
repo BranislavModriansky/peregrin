@@ -1,0 +1,167 @@
+/* sidebar accordion customization */
+#sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
+#sidebar .accordion .accordion-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-item .accordion-header .accordion-button {
+    font-size: 0.6em !important;
+    padding-left: 10px !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-collapse {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-item {
+    border-left: 0 !important;
+    border-right: 0 !important;
+}
+
+
+/* special accordion02 class */
+.accordion02 .accordion-header .accordion-button {
+    font-weight: 600;
+}
+
+
+/* special draggable-accordion class */
+.draggable-accordion .accordion-item {
+    background-color: #f8f8f8;
+}
+.draggable-accordion .accordion-button {
+    background-color: #f8f8f8;
+}
+
+
+/* plain-link class for markdown links */
+.plain-link {
+    color: #006ea9"";
+    text-decoration: none;
+    cursor: pointer;
+    font-style: italic;
+}
+.plain-link:hover {
+    text-decoration: underline;
+}
+
+
+/* custom order ladder ui element */
+#order {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+#order li { 
+    cursor: grab; 
+    background: white; 
+}
+#order li:active { 
+    cursor: grabbing; 
+}
+
+
+/* image stack scroll through buttons */
+#prev, #next {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 3rem;
+}
+#prev:hover, #next:hover {
+    color: #007bff;
+    cursor: pointer;
+}
+#play, #stop {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 2rem;
+}
+#play:hover, #stop:hover {
+    color: dimgrey;
+    cursor: pointer;
+}
+
+
+/* custom button without frame */
+.btn-noframe {
+    border: none;
+    padding: 0;
+    padding-top: 17px;
+    margin-left: -15px;
+    background: none;
+    box-shadow: none;
+    color: lightgrey;
+    cursor: pointer;
+    font-size: 2.65rem;
+}
+.btn-noframe:hover {
+    color: dimgrey;
+    background: none;
+}
+.btn-noframe:active {
+    color: #58a9d6 !important;
+    background: none !important;
+}
+
+
+
+/* app theme selectize ui */
+#app_theme + .selectize-control.single .selectize-input input {
+    caret-color: transparent !important;
+}
+#app_theme + .selectize-control.single .selectize-input:after {
+    display: none !important;
+}
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+#app_theme + .selectize-dropdown {
+    border: none;
+    box-shadow: 0 8px 16px rgba(0,0,0,.12);
+    border-radius: 6px;
+    padding: 4px 0;
+    background-color: #ffffff;
+}
+#app_theme + .selectize-dropdown .selectize-dropdown-content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+#app_theme + .selectize-dropdown .option {
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: transparent;
+    color: #333;
+}
+#app_theme + .selectize-dropdown .option.active {
+    background-color: dimgrey;
+    color: white;
+}
+#app_theme + .selectize-dropdown .option.selected {
+    font-weight: 300;
+}

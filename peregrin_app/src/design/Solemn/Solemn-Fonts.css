@@ -1,0 +1,15 @@
+
+@font-face {
+    font-family: 'Web';
+    src: url('./fonts/STIXTwoText-Regular.ttf') format('truetype');
+}
+
+/* Apply globally */
+body,
+button,
+input,
+select,
+textarea {
+    font-family: 'Web';
+}
+
