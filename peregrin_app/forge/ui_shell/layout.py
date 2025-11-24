@@ -31,11 +31,11 @@ app_ui = ui.page_sidebar(
         ui.input_action_button(id="append_threshold", label="Add threshold", class_="btn-primary", width="100%", disabled=True),
         ui.input_action_button(id="remove_threshold", label="Remove threshold", class_="btn-primary", width="100%", disabled=True),
         ui.output_ui(id="sidebar_accordion_placeholder"),
-        ui.input_task_button(id="set_threshold", label="Set threshold", label_busy="Applying...", type="secondary", disabled=True),
+        ui.input_task_button(id="set_threshold", label="Set threshold", label_busy="Applying...", class_="task-btn", disabled=True),
         ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
         ui.output_ui(id="threshold_info"),
         ui.download_button(id="download_threshold_info", label="Info SVG", width="100%", _class="space-x-2"),
-        id="sidebar", open="closed", position="right", bg="f8f8f8",
+        id="sidebar", open="closed", position="right"
     ),
 
     # _ _ _ PANEL NAVIGATION BAR _ _ _
@@ -52,7 +52,7 @@ app_ui = ui.page_sidebar(
                 ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
                 ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
                 ui.output_ui("run_btn_ui"),
-                # ui.input_task_button("run", label="Run", class_="btn-secondary", disabled=True),
+                # ui.input_task_button("run", label="Run", class_="task-btn", disabled=True),
                 # TODO - ui.input_action_button("reset", "Reset", class_="btn-danger"),
                 # TODO - ui.input_action_button("input_help", "Show help"),
                 ui.output_ui("initialize_loader1"),
@@ -74,8 +74,9 @@ app_ui = ui.page_sidebar(
                             ui.output_ui("data_labeling_ui"),
 
                         ), 
-                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary", width="100%"), 
-                        bg="#f8f8f8",
+                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="task-btn", width="100%"), 
+                        width="300px",
+                        id="labeling_sidebar",
                     ), 
                     # File inputs
                     ui.div(
@@ -83,11 +84,11 @@ app_ui = ui.page_sidebar(
                         ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
                         ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
                         ui.markdown(""" <hr style="border: none; border-top: 1px dotted" /> """),
-                    ), border=True, border_color="whitesmoke", bg="#fefefe",
+                    ), 
+                    id="labeling_sidebar_n_data_input_layout",
                 ),
 
                 # _ Draggable accordion panel - columns selection _
-                # ui.tags.style(Customize.AccordionDraggable),
                 ui.panel_absolute(
                     ui.card(
                         ui.accordion(
@@ -103,13 +104,12 @@ app_ui = ui.page_sidebar(
                                 ),
                                 ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
                                 ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
-                                ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"),
+                                ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"), #TODO - define this style inside of the css and remove it from here
                             ), 
-                            open=False, class_="draggable-accordion"
-                        )
+                            open=False, class_="draggable-accordion", id="draggable_column_selector_panel"
+                        ),
                     ), 
-                    width="350px", right="450px", top="130px", draggable=True, 
-                    class_="elevated-panel", style_="z-index: 1000;"
+                    width="350px", right="450px", top="130px", draggable=True, class_="elevated-panel"
                 )
             )
         ),
@@ -121,7 +121,7 @@ app_ui = ui.page_sidebar(
             # _ Input for already processed data _
             ui.row(
                 ui.column(6, 
-                    ui.markdown(
+                    ui.markdown( #TODO - define this style inside of the css and remove it from here
                         """ 
                         <p style='line-height:0.1;'> <br> </p>
                         <h4 style='margin: 0.5;'> 
@@ -145,13 +145,15 @@ app_ui = ui.page_sidebar(
                     full_screen=True, 
                 ),
                 ui.card(
-                    ui.card_header("Track stats", class_="bg-light"),
+                    # ui.card_header("Track stats", class_="bg-light"),
+                    ui.card_header("Track stats", class_="bg-secondary-css"),
                     ui.output_data_frame("render_track_stats"),
                     ui.download_button("download_track_stats", "Download CSV"),
                     full_screen=True, 
                 ),
                 ui.card(
-                    ui.card_header("Frame stats", class_="bg-light"),
+                    # ui.card_header("Frame stats", class_="bg-light"),
+                    ui.card_header("Frame stats", class_="bg-secondary-css"),
                     ui.output_data_frame("render_frame_stats"),
                     ui.download_button("download_frame_stats", "Download CSV"),
                     full_screen=True, 
@@ -159,7 +161,8 @@ app_ui = ui.page_sidebar(
             ),
             ui.layout_columns(
                 ui.card(
-                    ui.card_header("Time interval stats", class_="bg-light"),
+                    # ui.card_header("Time interval stats", class_="bg-light"),
+                    ui.card_header("Time interval stats", class_="bg-secondary-css"),
                     ui.output_data_frame("render_time_interval_stats"),
                     ui.download_button("download_time_interval_stats", "Download CSV"),
                     full_screen=True, 
@@ -175,7 +178,7 @@ app_ui = ui.page_sidebar(
                 ui.sidebar(
                     "Gating_sidebar", 
                     ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
-                    bg="#f8f8f8",
+                    # bg="#f8f8f8",
                 ), 
                 ui.markdown(
                     """ 
@@ -199,9 +202,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(   # TODO - annotate which libraries were used
                             """
                             #### **Track reconstruction**
-                            <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
+                        #     <hr style="height: 4px; background-color: black; border: none" />
+                        #     """
+                        # ),
 
                         # _ _ SETTINGS _ _
                         ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated", width="200px"),
@@ -275,11 +280,11 @@ app_ui = ui.page_sidebar(
                         ui.row(ui.input_text(id="tracks_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Realistic'",
-                            ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary", width="100%"),
+                            ui.input_task_button(id="trr_generate", label="Generate", class_="task-btn", width="100%"),
                         ),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Polar'",
-                            ui.input_task_button(id="tnr_generate", label="Generate", class_="btn-secondary", width="100%"),
+                            ui.input_task_button(id="tnr_generate", label="Generate", class_="task-btn", width="100%"),
                         ),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Animated'",
@@ -289,7 +294,7 @@ app_ui = ui.page_sidebar(
                                 style="margin-left: 4px;"
                             ),
                             ui.markdown(""" <p> </p> """),
-                            ui.input_task_button(id="tar_generate", label="Generate", class_="btn-secondary", width="100%"),
+                            ui.input_task_button(id="tar_generate", label="Generate", class_="task-btn", width="100%"),
                         )
                     ),
                     # "#c0c4ca",
@@ -316,8 +321,6 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.panel_conditional(
                         "input.track_reconstruction_method == 'Animated'",
-                        # ui.input_action_button("calculate_replay_animation", "Calc", class_="btn-secondary", width="100%"),
-                        # ui.tags.style(Customize.ReplaySliderButtons),
                         ui.card(
                             ui.div(
                                 ui.input_action_button("prev", "-"),
@@ -354,9 +357,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Directionality distribution**
-                            <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
+                        #     <hr style="height: 4px; background-color: black; border: none" />
+                        #     """
+                        # ),
                     )
                 ),
 
@@ -367,14 +372,14 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Mean Squared Displacement**
-                            <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
-                        # ui.tags.style(Customize.Accordion02),
+                        #     <hr style="height: 4px; background-color: black; border: none" />
+                        #     """
+                        # ),
                         ui.accordion(
                             ui.accordion_panel(
                                 "Data Categories",
-                                # ui.tags.style(Customize.NoFrameButton),
                                 ui.row(
                                     ui.column(6, ui.input_selectize(id="conditions_msd", label="Conditions:", choices=["A", "B", "C"], selected=["A", "B", "C"], multiple=True, options={"placeholder": "Select conditions"})),
                                     ui.column(1, ui.input_action_button(id="reset_conditions_msd", label="🗘", class_="btn-noframe")),
@@ -403,9 +408,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Turning angles**
-                            <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
+                        #     <hr style="height: 4px; background-color: black; border: none" />
+                        #     """
+                        # ),
                     )
                 ),
 
@@ -416,9 +423,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Time series**
-                            <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
+                        #     <hr style="height: 4px; background-color: black; border: none" />
+                        #     """
+                        # ),
                         
                         ui.input_select("tch_plot", "Plot:", choices=["Scatter", "Line", "Error band"]),
 
@@ -660,9 +669,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(
                             """
                             #### **Superplots**
-                            <hr style="height: 4px; background-color: black; border: none" />
                             """
                         ),
+                        #     <hr style="height: 4px; background-color: black; border: none" />
+                        #     """
+                        # ),
 
                         ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms", width="110px"),
                         # _ _ Swarmplot settings _ _
@@ -864,11 +875,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(""" <br> """),
                         ui.panel_conditional(
                             "input.superplot_type == 'Swarms'",
-                            ui.input_task_button(id="sp_generate", label="Generate", class_="btn-secondary", width="100%")
+                            ui.input_task_button(id="sp_generate", label="Generate", class_="task-btn", width="100%")
                         ),
                         ui.panel_conditional(
                             "input.superplot_type == 'Violins'",
-                            ui.input_task_button(id="vp_generate", label="Generate", class_="btn-secondary", width="100%")
+                            ui.input_task_button(id="vp_generate", label="Generate", class_="task-btn", width="100%")
                         )
                     ),
                     ui.markdown(""" <br> """),
@@ -891,12 +902,11 @@ app_ui = ui.page_sidebar(
         ui.nav_spacer(),
         
         ui.nav_control(
-            # ui.tags.style(Customize.ThemeSelection),
             ui.input_selectize(
                 id="app_theme",
                 label=None,
-                choices=["Sleek", "Brutalistic", "Solemn", "Console"],
-                selected="Console",
+                choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1"],
+                selected="Console-0",
                 width="120px",
                 options={"hideSelected": True, },
             ),

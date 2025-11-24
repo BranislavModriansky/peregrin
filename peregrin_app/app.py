@@ -5,7 +5,7 @@ from forge import Server
 
 ROOT = Path(__file__).resolve().parent
 
-app = App(app_ui, Server, static_assets=ROOT / "src" / "design")
+app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
 
 

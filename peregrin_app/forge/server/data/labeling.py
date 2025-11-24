@@ -85,6 +85,7 @@ def mount_data_labeling(input, output, session, S):
             easy_close=True,
             footer=None,
             # background_color="#2b2b2b"
+            class_="auto-labeling-modal"
             )
         )
 

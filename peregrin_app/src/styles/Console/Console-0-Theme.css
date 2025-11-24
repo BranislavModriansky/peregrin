@@ -1,0 +1,685 @@
+:root {
+
+    
+    --bg-color-zerolevel: #11131a;
+    --bg-color-firstlevel: #16181D;
+    --bg-color-secondlevel:#1e1f27;
+    /* --bg-color-secondlevel: #1D1F26; */
+    --bg-color-thirdlevel: #252527;
+
+    /* --color-primary: #3A78B8; */
+    --color-primary: #4d595c;
+    --color-zero: #747d80;
+    --color-zerosecondary: #acbaba;
+    --color-secondary: #c1cec9;
+    /* --color-tertiary: #75AED3; */
+    --color-tertiary: #265e96;
+    --color-quarterary: #a15c5c;
+    --color-hover: #EFD706;
+    /* --color-action-btn-primary: #4c1002; */
+    --color-action-btn-primary: #500100;
+    --color-action-btn-primary-hover: #3f0100;
+    --color-action-btn-primary-border: #803b3b;
+    --color-action-btn-primary-border-right-clicked: #4e1c28;
+    --color-action-btn-primary-border-bottom-clicked: #461f21;
+    --color-task-btn: #026300;
+    --color-task-btn-hover: #014e00;
+    --color-task-btn-border: #3b955f;
+    --color-success: #30d371;
+    --color-task-btn-border-right-clicked: #93910aae;
+    --color-task-btn-border-clicked: #c3c01270;
+    --color-task-btn-border-bottom-clicked: #a59e18a9;
+
+    --color-name: #EFD706;
+
+}
+
+/* cursor */
+body {
+    background-color: var(--bg-color-zerolevel) !important;
+}
+
+
+/* base color for all text */
+* {
+    color: var(--color-secondary) !important;
+}
+
+.main {
+    scrollbar-color: var(--color-zero) var(--bg-color-zerolevel) !important;
+}
+
+.card {
+    border: thin solid var(--color-primary) !important;
+    background-color: var(--bg-color-firstlevel) !important;
+}
+.card-header.bg-secondary-css {
+    border-top: thin solid var(--color-primary) !important;
+    border-left: thin solid var(--color-primary) !important;
+    background-color: var(--bg-color-thirdlevel);
+}
+.card-header.bg-blue {
+    border-top: solid thin var(--color-action-btn-primary-border) !important;
+    border-left: solid thin var(--color-action-btn-primary-border) !important;
+    background-color: var(--color-action-btn-primary-hover);
+}
+
+
+.accordion * {
+    box-shadow: none !important;
+}
+.accordion-item, .accordion-button {
+    border-color: transparent !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}
+.accordion-button:hover * {
+    transition: 0.4s ease-in-out !important;
+    color: var(--color-hover) !important;
+}
+.accordion-button {
+    position: relative;
+    padding-right: 2rem !important; /* space for arrow */
+}
+.accordion-button *{
+    transition: 0.4s ease-in-out !important;
+    font-weight: 800 !important;
+}
+
+
+/* base arrow style (replicates classic Shiny caret) */
+.accordion-button::after {
+    content: "";
+    display: inline-block;
+    width: 0.60rem;
+    height: 0.60rem;
+    border-style: solid;
+    border-width: 0.10rem 0.10rem 0 0;
+    border-color: var(--color-secondary);
+    transform: rotate(-135deg);
+    transition: 0.15s ease-in-out;
+    margin-left: auto;
+    margin-right: 0.25rem;
+}
+.accordion-button:hover::after {
+    border-color: var(--color-hover);
+}
+.accordion-button:not(.collapsed)::after {
+    transform: rotate(-225deg);
+}
+.accordion-button:not(.collapsed):hover::after {
+    border-color: var(--color-hover);
+}
+
+
+.elevated-panel .card-body.bslib-gap-spacing.html-fill-item.html-fill-container {
+    padding: 1rem !important;
+    background-color: var(--bg-color-firstlevel) !important;
+}
+.elevated-panel .card:hover:not(:has(.accordion:hover)) {
+    transition: 0.2s ease-in-out !important;
+    border: thin solid var(--color-zero) !important;
+}
+.elevated-panel .card {
+    transition: 0.2s ease-in-out !important;
+    border: thin solid var(--color-primary) !important;
+}
+
+/* special draggable-accordion class */
+.draggable-accordion .accordion-item {
+    background-color: var(--bg-color-zerolevel) !important;
+    border: none !important;
+}
+.draggable-accordion .accordion-header .accordion-button {
+    background-color: var(--bg-color-zerolevel) !important;
+}
+.draggable-accordion .accordion-body {
+    border-bottom: thin solid var(--bg-color-thirdlevel) !important;
+    border-right: thin solid var(--bg-color-secondlevel) !important;
+}
+.draggable-accordion .accordion-button {
+    border-right: thin solid var(--bg-color-secondlevel) !important;
+}
+.draggable-accordion .accordion-button.collapsed {
+    transition: 0.5s ease-in-out !important;
+    border-bottom: thin solid var(--bg-color-thirdlevel) !important;
+}
+
+
+/* action buttons */
+.action-button.btn-primary:disabled,
+.action-button.btn-primary[disabled] {
+    background-color: #250908 !important;
+    cursor: not-allowed !important;
+    border-color: transparent !important;
+}
+.action-button.btn-primary:disabled *,
+.action-button.btn-primary[disabled] * {
+    color: #434343 !important;
+}
+.action-button.btn-primary {
+    border: thin solid !important;
+    border-color: transparent !important;
+    background-color: var(--color-action-btn-primary) !important;
+    border-top: thin solid var(--color-action-btn-primary-border) !important;
+    border-left: thin solid var(--color-action-btn-primary-border) !important;
+}
+.action-button.btn-primary * {
+    color: lightgrey !important;
+}
+.action-button.btn-primary:hover * {
+    color: white !important;
+}
+.action-button.btn-primary {
+    border: thin solid !important;
+    border-color: transparent !important;
+    background-color: var(--color-action-btn-primary) !important;
+    border-top: thin solid var(--color-action-btn-primary-border) !important;
+    border-left: thin solid var(--color-action-btn-primary-border) !important;
+    transition: none !important;
+}
+.action-button.btn-primary:active {
+    background-color: var(--color-action-btn-primary-hover) !important;
+    border-top-color: transparent !important;
+    border-left-color: transparent !important;
+    border-bottom: thin solid var(--color-action-btn-primary-border-bottom-hover) !important;
+    border-right: thin solid var(--color-action-btn-primary-border-right-hover) !important;
+    /* optional: brief scale for snappier feedback */
+    transform: scale(0.99);
+}
+
+
+
+/* task button colors */
+.task-btn {
+    background-color: var(--color-task-btn) !important;
+    border-color: transparent !important;
+    border-top: thin solid var(--color-task-btn-border) !important;
+    border-left: thin solid var(--color-task-btn-border) !important;
+    color: lightgrey !important;
+}
+.task-btn:hover * {
+    color: whitesmoke !important;
+}
+.task-btn-mask:disabled,
+.task-btn-mask[disabled] {
+    background-color: #012800 !important;
+    cursor: not-allowed !important;
+    border-color: transparent !important;
+}
+.task-btn-mask:disabled *,
+.task-btn-mask[disabled] * {
+    color: #434343 !important;
+}
+.task-btn:disabled,
+.task-btn[disabled] {
+    background-color: transparent !important;
+    border-width: thin !important;
+    border-style: dashed !important;
+    border-bottom: thin solid var(--color-task-btn-border-bottom-clicked) !important;
+    border-right: thin solid var(--color-task-btn-border-right-clicked) !important;
+    border-top-color: var(--color-task-btn-border-clicked) !important;
+    border-left-color: var(--color-task-btn-border-clicked) !important;
+    cursor: progress !important;
+}
+.task-btn:disabled *,
+.task-btn[disabled] * {
+    color: var(--color-name) !important;
+}
+
+
+/* file input colors */
+.input-group * {
+    box-shadow: none !important;
+}
+.input-group .btn {
+    border: thin solid transparent !important;
+    border-top: thin solid lightgrey !important;
+    border-left: thin solid lightgrey !important;
+    color: black !important;
+    font-weight: 500 !important;
+    border-right: none !important;
+    background-color: var(--color-zero) !important;
+}
+.input-group .btn:hover {
+    color: var(--color-hover) !important;
+    background-color: transparent !important;
+    border-left: thin solid var(--color-hover) !important;
+    border-top: thin solid var(--color-hover) !important;
+}
+.form-control {
+    border: 1px dashed var(--color-zero) !important;
+    color: var(--color-zero) !important;
+    background-color: transparent !important;
+}
+.form-control:hover {
+    color: lightgrey !important;
+    cursor: default !important;
+}
+.form-control::placeholder {
+    transition: color 0.2s ease-in-out;
+    color: var(--color-zero) !important;
+}
+.form-control:has(::placeholder):hover {
+    color: var(--color-zero) !important;
+    background-color: transparent !important;
+}
+.form-control:placeholder-shown:hover {
+    border-color: var(--color-hover) !important;
+}
+.form-control:hover::placeholder {
+    color: var(--color-hover) !important;
+}
+.form-control:focus {
+    box-shadow: none !important;
+}
+
+
+/* progress bar */
+.progress-bar {
+    color: lightgrey !important;
+    text-transform: lowercase !important;
+    font-style: italic !important;
+    background-color: var(--color-task-btn-hover) !important
+}
+
+
+/* checkboxes*/
+.checkbox *:checked {
+    background-color: var(--color-quarterary) !important;
+    border-color: var(--color-quarterary) !important;
+    color: black !important;
+    accent-color: var(--color-action-btn-primary) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3e%3cpath d='M3 5 L5 7 L9 3' fill='none' stroke='%23C1CEC9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important;
+}
+.checkbox *:checked:hover {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3e%3cpath d='M3 5 L5 7 L9 3' fill='none' stroke='%23EFD706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important;
+}
+.checkbox *:not(:checked) {
+    background-color: transparent !important;
+    border-color: var(--color-secondary) !important;
+}
+.checkbox *:hover {
+    cursor: pointer !important;
+}
+.checkbox *:not(:checked):hover {
+    border-color: var(--color-hover) !important;
+}
+.checkbox *:focus {
+    box-shadow: none !important;
+}
+
+
+/* switches */
+.form-check-input.shiny-bound-input {
+    background-color: var(--bg-color-secondlevel) !important;
+    border: thin solid var(--color-secondary) !important;
+    box-shadow: none !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23C1CEC9'/%3e%3c/svg%3e") !important;
+}
+.form-check-input.shiny-bound-input:hover {
+    cursor: pointer !important;
+    border-color: var(--color-hover) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23EFD706'/%3e%3c/svg%3e") !important;
+}
+.form-check-input.shiny-bound-input:checked:hover {
+    cursor: pointer !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23EFD706'/%3e%3c/svg%3e") !important;
+}
+.form-check-input.shiny-bound-input:focus {
+    box-shadow: none !important;
+    /* change the thumb ("ball") color of the switch */
+    --bs-form-switch-bg: var(--bg-color-zerolevel);
+}
+.form-check-input.shiny-bound-input:checked {
+    background-color: var(--color-quarterary) !important;
+    border-color: var(--color-quarterary) !important;
+    /* for Bootstrap switches: inner "ball" (thumb) color */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23C1CEC9'/%3e%3c/svg%3e") !important;
+}
+
+
+
+
+/* shiny-data-frame */
+
+/* general selectize colors excluding #app_theme selectize  */
+.selectize-control:not(#app_theme + .selectize-control, .selectize-dropdown, .selectize-input) .selectize-input {
+    border: none !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}   
+
+
+/* navigation bar */
+nav {
+    background-color: var(--bg-color-zerolevel) !important;
+    border-bottom: solid, #504d49ae !important;
+    border-bottom-width: thin !important;
+}
+nav a {
+    color: var(--color-primary) !important;
+}
+nav a.active {
+    color: var(--color-secondary) !important;
+    border-bottom: solid !important;
+    border-color: var(--color-secondary) !important;
+    border-bottom-width: thin !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}
+nav a.hover,
+nav a.nav-link:hover {
+    color: var(--color-hover) !important;
+    border-bottom-width: medium !important;
+    border-bottom: solid !important;
+    border-color: var(--color-hover) !important;
+    cursor: default !important;
+}
+nav span {
+    color: var(--color-secondary) !important;
+    font-weight: 800 !important;
+    font-size: 1.8rem !important;
+}
+
+
+
+/* data input panel and sidebar with labeling controls */
+#labeling_sidebar_n_data_input_layout {
+    border: 1px solid var(--bg-color-secondlevel) !important;
+    border-left: none !important
+}
+#labeling_sidebar {
+    background-color: var(--bg-color-firstlevel) !important;
+}
+
+
+/* main sidebar and its accordion customization */
+#sidebar,
+#sidebar .accordion,
+#sidebar .accordion-item,
+#sidebar .accordion .accordion-header,
+#sidebar .accordion .accordion-button,
+#sidebar .accordion .accordion-collapse {
+    background-color: var(--bg-color-firstlevel) !important;
+}
+#sidebar .accordion .accordion-item {
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+}
+#sidebar .accordion-button.collapsed {
+    transition: 0.4s ease-in-out !important;
+    border-bottom: medium solid var(--color-zerosecondary) !important;
+}
+#sidebar .accordion-button.collapsed:hover {
+    transition: 0.4s ease-in-out !important;
+    border-bottom: medium solid var(--color-hover) !important;
+}
+#sidebar .accordion .accordion-body {
+    transition: 0.4s ease-in-out !important;
+    border-bottom: medium solid var(--color-primary) !important;
+}
+#sidebar .accordion .accordion-item:has(.accordion-button:hover) .accordion-body {
+    transition: 0.4s ease-in-out !important;
+    border-bottom: medium solid var(--color-hover) !important;
+}
+#sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
+#sidebar .accordion .accordion-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-item .accordion-header .accordion-button {
+    font-size: 0.6em !important;
+    padding-left: 10px !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-collapse {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+/* #sidebar .accordion .accordion-item {
+    border-left: none !important;
+    border-right: none !important;
+} */
+
+
+/* special accordion class */
+.accordion02 .accordion-header .accordion-button {
+    font-weight: 600;
+}
+
+
+/* plain-link class for markdown links */
+.plain-link,
+.plain-link * {
+    color: var(--color-primary) !important;
+    text-decoration: underline var(--color-primary) !important; 
+    cursor: pointer !important;
+    font-style: italic !important;
+}
+.plain-link:hover,
+.plain-link:hover * {
+    color: var(--color-hover) !important;
+    text-decoration: none !important;
+}
+
+
+/* custom order ladder ui element */
+#order {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+#order li { 
+    cursor: grab; 
+    background: var(--bg-color-thirdlevel); 
+}
+#order li:active { 
+    cursor: grabbing; 
+}
+
+
+/* image stack scroll through buttons */
+#prev, #next {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 3rem;
+}
+#prev:hover, #next:hover {
+    color: #007bff;
+    cursor: pointer;
+}
+#play, #stop {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 2rem;
+}
+#play:hover, #stop:hover {
+    color: dimgrey;
+    cursor: pointer;
+}
+
+
+/* custom button without frame */
+.btn-noframe {
+    border: none;
+    padding: 0;
+    padding-top: 17px;
+    margin-left: -15px;
+    background: none;
+    box-shadow: none;
+    color: lightgrey;
+    cursor: pointer;
+    font-size: 2.65rem;
+}
+.btn-noframe:hover {
+    color: dimgrey;
+    background: none;
+}
+.btn-noframe:active {
+    color: #58a9d6 !important;
+    background: none !important;
+}
+
+
+
+/* app theme selectize ui */
+#app_theme + .selectize-control .selectize-dropdown * {
+    background-color: var(--bg-color-zerolevel) !important
+}
+#app_theme + .selectize-control .selectize-dropdown {
+    border: thin solid var(--color-primary) !important;
+}
+#app_theme + .selectize-control.single .selectize-input input {
+    caret-color: transparent !important
+}
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+#app_theme + .selectize-control.single .selectize-input * {
+    color: var(--color-quarterary) !important;
+}
+#app_theme + .selectize-control .selectize-dropdown * {
+    color: var(--color-primary) !important;
+}
+#app_theme + .selectize-control.single .selectize-input *:hover {
+    color: var(--color-hover) !important;
+}
+#app_theme + .selectize-control *:hover {
+    color: var(--color-hover) !important;
+}
+
+.shiny-input-text.form-control.shiny-bound-input {
+    border: none !important;
+    background-color: var(--bg-color-secondlevel) !important;
+    color: var(--color-quarterary) !important;
+    caret-color: var(--color-hover) !important;
+}
+
+/* placeholder text color */
+.shiny-input-text.form-control.shiny-bound-input::placeholder {
+    color: var(--color-secondary) !important;
+    opacity: 0.3 !important;
+}
+
+
+.html-fill-container {
+    scrollbar-color: var(--color-zero) var(--bg-color-firstlevel) !important;
+    border: none !important;
+}
+.shiny-data-grid {
+    border: thin solid var(--color-primary) !important;
+}
+
+/* data labeling modal message */
+.modal-backdrop {
+    background-color: black !important;
+    opacity: 0.6 !important;
+}
+.modal-content {
+    background-color: var(--bg-color-secondlevel) !important;
+    border: none !important;
+}
+.modal-content {
+    border: thin solid var(--color-primary) !important;
+}
+.modal {
+    scrollbar-color: var(--color-zero) var(--bg-color-zerolevel) !important;
+}
+
+
+button.bslib-full-screen-enter.badge.rounded-pill {
+    background-color: rgb(50, 50, 50) !important;
+    border-color: rgb(80, 80, 80) !important;
+}
+button.bslib-full-screen-enter.badge.rounded-pill > svg {
+    fill: white !important;
+}
+
+
+* table tbody * {
+    background-color: var(--bg-color-zerolevel) !important;
+    border: none !important;
+}
+* th {
+    background-color: var(--color-zero) !important;
+}
+* th * {
+    color: black !important;
+    font-weight: 500 !important;
+}
+* th {
+    border-bottom: thin solid var(--color-primary) !important;
+}
+* tbody tr td {
+    border-bottom: thin solid var(--color-primary) !important;
+}
+
+
+/* app theme selectize ui */
+.selectize-control .selectize-dropdown * {
+    background-color: var(--bg-color-zerolevel) !important
+}
+.selectize-control .selectize-dropdown {
+    border: thin solid var(--color-primary) !important;
+}
+.selectize-control.single .selectize-input input {
+    caret-color: transparent !important
+}
+.selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+.selectize-control.single .selectize-input * {
+    color: var(--color-quarterary) !important;
+}
+.selectize-control .selectize-dropdown * {
+    color: var(--color-primary) !important;
+}
+.selectize-control.single .selectize-input *:hover {
+    color: var(--color-hover) !important;
+}
+.selectize-control *:hover {
+    color: var(--color-hover) !important;
+}
+
+.selectize-input.items.full.has-options.has-items::after {
+    content: '' !important;
+    color: transparent !important;
+}
+.selectize-input.items.full.has-options.has-items::after {
+    content: '' !important;
+    color: transparent !important;
+}
+.selectize-input.items.full.has-options.has-items::after {
+    content: '◢' !important;
+    rotate: 45deg !important;
+    color: var(--color-quarterary) !important;
+    top: -5px !important;
+
+}

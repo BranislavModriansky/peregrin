@@ -1,0 +1,353 @@
+:root {
+
+    --dark-zero: #08090C;
+    --dark-one: #101218;
+    --dark-two: #181C25;
+    --dark-three: #202531;
+
+    --brandy-zero: #351509;
+    --brandy-one: #461B0C;
+    --brandy-two: #57220F;
+    --brandy-three: #692912;
+    --brandy-four: #7A3015;
+    --brandy-five: #8C3718;
+
+    --mahagony-zero: #470E0B;
+    --mahagony-one: #58120E;
+    --mahagony-two: #6A1611;
+    --mahagony-three: #8D1E16;
+    --mahagony-four: #8D1E16;
+    --mahagony-five: #9F2219;
+    --mahagony-six: #A8231A;
+    --mahagony-seven: #B0231C;
+    --mahagony-eight: #C2261E;
+    --mahagony-nine: #D42A21;
+    --mahagony-ten: #DE342B;
+
+    --huntergreen-zero: #1C361B;
+    --huntergreen-one: #234422;
+    --huntergreen-two: #2A5129;
+    --huntergreen-three: #315F30;
+    --huntergreen-four: #386D37;
+    --huntergreen-five: #3F7A3E;
+    --huntergreen-six: #458844;
+    --huntergreen-seven: #4C954B;
+    --huntergreen-eight: #53A352;
+    --huntergreen-nine: #5EAD5C;
+    --huntergreen-ten: #6BB46A;
+
+    --olive-zero: #2A381A;
+    --olive-one: #344620;
+    --olive-two: #3F5427;
+    --olive-three: #49622D;
+    --olive-four: #547033;
+    --olive-five: #5E7E3A;
+
+    --prussianblue-zero: #021C3B;
+    --prussianblue-one: #03254F;
+    --prussianblue-two: #042E62;
+    --prussianblue-three: #053876;
+    --prussianblue-four: #064189;
+    --prussianblue-five: #074A9D;
+    --prussianblue-six: #0853AF;
+    --prussianblue-seven: #095DC3;
+    --prussianblue-eight: #0A66D6;
+    --prussianblue-nine: #0B6FEA;
+    --prussianblue-ten: #1579F4;
+    --prussianblue-eleven: #2985F5;
+    --prussianblue-twelve: #3C90F6;
+    --prussianblue-thirteen: #509BF7;
+    --prussianblue-fourteen: #63A6F8;
+    --prussianblue-fifteen: #77B1F9;
+    --prussianblue-sixteen: #89BCFA;
+    --prussianblue-seventeen: #9DC7FB;
+    --prussianblue-eighteen: #B1D2FC;
+
+    --charcoalblue-zero: #193D4D;
+    --charcoalblue-one: #1E4A5C;
+    --charcoalblue-two: #23576C;
+    --charcoalblue-three: #28647B;
+    --charcoalblue-four: #2D708B;
+    --charcoalblue-five: #327D9A;
+    --charcoalblue-six: #3789A9;
+    --charcoalblue-seven: #3C95B9;
+    --charcoalblue-eight: #46A0C3;
+    --charcoalblue-nine: #56A8C8;
+    --charcoalblue-ten: #65B0CD;
+    --charcoalblue-eleven: #74B7D2;
+    --charcoalblue-twelve: #84BFD7;
+
+    --pacificblue-zero: #1D3135;
+    --pacificblue-one: #243D42;
+    --pacificblue-two: #2B494F;
+    --pacificblue-three: #32565D;
+    --pacificblue-four: #39626A;
+    --pacificblue-five: #406E77;
+    --pacificblue-six: #477A85;
+    --pacificblue-seven: #4F8692;
+    --pacificblue-eight: #56929F;
+    --pacificblue-nine: #609CA9;
+    --pacificblue-ten: #6DA4B0;
+
+    --mutedteal-zero: #213126;
+    --mutedteal-one: #2A3D39;
+    --mutedteal-two: #334745;
+    --mutedteal-three: #3C5244;
+    --mutedteal-four: #41624C;
+    --mutedteal-five: #486F57;
+    --mutedteal-six: #4E7C62;
+    --mutedteal-seven: #55796D;
+    --mutedteal-eight: #629372;
+    --mutedteal-nine: #6FAD88;
+    --mutedteal-ten: #7CB99E;
+    --mutedteal-eleven: #89C5B4;
+    --mutedteal-twelve: #91B69D;
+    --mutedteal-thirteen: #A3D1C2;
+    --mutedteal-fourteen: #B5EBDF;
+    --mutedteal-fifteen: #C7F5EB;
+    --mutedteal-sixteen: #D9FFF7;
+
+}
+
+/* cursor */
+body {
+    background-color: var(--dark-zero) !important;
+}
+
+* {
+    color: var(--mutedteal-fifteen) !important;
+}
+
+/* #d68eff */
+
+/* #56a0ff */
+
+/* #bdd9fd */
+
+/* #c2b14e */
+
+.action-button.btn-primary {
+    border: thin solid !important;
+    border-color: transparent !important;
+    background-color: var(--brandy-four) !important;
+}
+.action-button.btn-primary * {
+    color: whitesmoke !important;
+}
+.action-button.btn-primary:hover {
+    background-color: var(--mahagony-three) !important;
+}
+.action-button.btn-primary:hover * {
+    color: lightgrey !important;
+}
+
+/* exclude #app_theme selectize from this generic rule */
+.selectize-control:not(#app_theme + .selectize-control, .selectize-dropdown, .selectize-input) .selectize-input {
+    border: none !important;
+    background-color: #242322 !important;
+}
+
+.text-input, .textarea-input {
+    border: none !important;
+    background-color: #12121c !important;
+    color: #d6d0c4 !important;
+}
+
+nav {
+    background-color: var(--dark-zero) !important;
+    border-bottom: solid, #504d49ae !important;
+    border-bottom-width: thin !important;
+}
+
+/* background-color: #0f1221 !important; */
+nav a {
+    color: var(--pacificblue-six) !important;
+}
+nav a.active {
+    color: var(--pacificblue-three) !important;
+    border-bottom: solid !important;
+    border-color: var(--pacificblue-three) !important;
+    border-bottom-width: thin !important;
+    background-color: var(--dark-zero) !important;
+}
+nav a.hover,
+nav a.nav-link:hover {
+    color: var(--mutedteal-twelve) !important;
+    border-bottom-width: medium !important;
+    border-bottom: solid !important;
+    border-color: var(--mutedteal-twelve) !important;
+    cursor: default !important;
+}
+nav span {
+    color: var(--pacificblue-seven) !important;
+    font-weight: 800 !important;
+    font-size: 1.8rem !important;
+}
+
+/* sidebar accordion customization */
+#sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
+#sidebar .accordion .accordion-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-item .accordion-header .accordion-button {
+    font-size: 0.6em !important;
+    padding-left: 10px !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-collapse {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-item {
+    border-left: 0 !important;
+    border-right: 0 !important;
+}
+
+
+/* special accordion02 class */
+.accordion02 .accordion-header .accordion-button {
+    font-weight: 600;
+}
+
+
+/* special draggable-accordion class */
+.draggable-accordion .accordion-item {
+    background-color: #000;
+}
+.draggable-accordion .accordion-button {
+    background-color: #000;
+}
+
+#draggable_column_selector_panel {
+    background-color: #000000 !important;
+}
+
+
+/* plain-link class for markdown links */
+.plain-link {
+    color: #006ea9"";
+    text-decoration: none;
+    cursor: pointer;
+    font-style: italic;
+}
+.plain-link:hover {
+    text-decoration: underline;
+}
+
+
+/* custom order ladder ui element */
+#order {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+#order li { 
+    cursor: grab; 
+    background: white; 
+}
+#order li:active { 
+    cursor: grabbing; 
+}
+
+
+/* image stack scroll through buttons */
+#prev, #next {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 3rem;
+}
+#prev:hover, #next:hover {
+    color: #007bff;
+    cursor: pointer;
+}
+#play, #stop {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 2rem;
+}
+#play:hover, #stop:hover {
+    color: dimgrey;
+    cursor: pointer;
+}
+
+
+/* custom button without frame */
+.btn-noframe {
+    border: none;
+    padding: 0;
+    padding-top: 17px;
+    margin-left: -15px;
+    background: none;
+    box-shadow: none;
+    color: lightgrey;
+    cursor: pointer;
+    font-size: 2.65rem;
+}
+.btn-noframe:hover {
+    color: dimgrey;
+    background: none;
+}
+.btn-noframe:active {
+    color: #58a9d6 !important;
+    background: none !important;
+}
+
+
+
+/* app theme selectize ui */
+#app_theme + .selectize-control .selectize-dropdown * {
+    background-color: #0f1221 !important
+}
+#app_theme + .selectize-control .selectize-dropdown {
+    border: none !important;
+    border-radius: 0px !important;
+    box-shadow:
+        0 0 2px rgba(142, 173, 255, 0.5),
+        0 0 4px rgba(225, 163, 132, 0.4),
+        0 0 6px rgba(0, 123, 255, 0.3) !important;
+}
+#app_theme + .selectize-control.single .selectize-input input {
+    caret-color: transparent !important
+}
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+#app_theme + .selectize-control .selectize-dropdown * {
+    color: #56a0ff !important;
+}
+#app_theme + .selectize-control.single .selectize-input * {
+    color: var(--color-primary) !important;
+}
+#app_theme + .selectize-control.single .selectize-input *:hover {
+    color: var(--color-hover) !important;
+}
+#app_theme + .selectize-control *:hover {
+    color: #c2b14e !important;
+}
+
