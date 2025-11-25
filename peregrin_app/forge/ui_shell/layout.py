@@ -35,7 +35,7 @@ app_ui = ui.page_sidebar(
         ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
         ui.output_ui(id="threshold_info"),
         ui.download_button(id="download_threshold_info", label="Info SVG", width="100%", _class="space-x-2"),
-        id="sidebar", open="closed", position="right"
+        id="sidebar", open="closed", position="right", width="300px"
     ),
 
     # _ _ _ PANEL NAVIGATION BAR _ _ _
@@ -907,7 +907,7 @@ app_ui = ui.page_sidebar(
                 label=None,
                 choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1"],
                 selected="Console-0",
-                width="120px",
+                width="140px",
                 options={"hideSelected": True, },
             ),
             ui.output_ui("custom_theme_url"),

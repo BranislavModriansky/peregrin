@@ -65,6 +65,28 @@ body {
 }
 
 
+
+/* numeric inputs (Bootstrap/Shiny .form-control.shiny-input-number) */
+.form-control.shiny-input-number {
+    transition: 0.1s ease-in-out !important;
+    border: thin solid var(--bg-color-thirdlevel) !important;
+    color: var(--color-zero) !important;
+    background-color: var(--bg-color-secondlevel) !important;
+    caret-color: var(--color-hover) !important;
+}
+.form-control.shiny-input-number:hover {
+    transition: 0.1s ease-in-out !important;
+    color: var(--color-hover) !important;
+    border: thin dashed var(--color-hover) !important;
+}
+.form-control.shiny-input-number:focus {
+    transition: 0.1s ease-in-out !important;
+    border: thin dashed var(--color-hover) !important;
+}
+
+
+
+
 .accordion * {
     box-shadow: none !important;
 }
@@ -342,11 +364,7 @@ body {
 
 /* shiny-data-frame */
 
-/* general selectize colors excluding #app_theme selectize  */
-.selectize-control:not(#app_theme + .selectize-control, .selectize-dropdown, .selectize-input) .selectize-input {
-    border: none !important;
-    background-color: var(--bg-color-zerolevel) !important;
-}   
+
 
 
 /* navigation bar */
@@ -380,11 +398,89 @@ nav span {
 }
 
 
+.col-sm-2:has(.nav-pills) {
+    border: none !important;
+    /* border-left: thin solid var(--bg-color-secondlevel) !important;
+    border-top: thin solid var(--bg-color-firstlevel) !important; */
+}
+.nav-pills .nav-item * {
+    color: var(--color-primary) !important;
+}
+.nav-pills a.active {
+    position: relative;
+    color: var(--color-secondary) !important;
+    background-color: transparent !important;
+}
+
+/* shorter left border for active */
+.nav-pills a.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 12.5%;
+    bottom: 12.5%;
+    border-left: thin solid var(--color-secondary);
+}
+
+/* base state (needed for ::before positioning) */
+.nav-pills a.nav-link {
+    position: relative;
+    background-color: transparent !important;
+}
+
+/* hover state: match active border span */
+.nav-pills a.nav-link:hover::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 12.5%;
+    bottom: 12.5%;
+    border-left: medium solid var(--color-hover);
+}
+
+.nav-pills a.nav-link:hover {
+    color: var(--color-hover) !important;
+    cursor: pointer !important;
+}
+
+
+
+.irs-bar {
+    background-color: var(--color-action-btn-primary-border) !important;
+}
+.irs-handle {
+    background-color: var(--color-quarterary) !important;
+}
+.irs-line {
+    background-color: transparent !important;
+}
+.irs-from, .irs-to, .irs-single {
+    border: thin dotted var(--bg-color-thirdlevel) !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}
+.irs-min, .irs-max {
+    color: var(--color-primary) !important;
+}
+
+
+.action-label {
+    color: var(--color-zero) !important;
+}
+.action-label:hover {
+    color: var(--color-hover) !important;
+}
+
+
+.form-group .radio input {
+    border: thin solid var(--bg-color-primary) !important;
+    background-color: var(--bg-color-thirdlevel) !important;
+}
+
 
 /* data input panel and sidebar with labeling controls */
 #labeling_sidebar_n_data_input_layout {
-    border: 1px solid var(--bg-color-secondlevel) !important;
-    border-left: none !important
+    border: thin solid var(--bg-color-secondlevel) !important;
+    border-left: none !important;
 }
 #labeling_sidebar {
     background-color: var(--bg-color-firstlevel) !important;
@@ -543,34 +639,6 @@ nav span {
 
 
 
-/* app theme selectize ui */
-#app_theme + .selectize-control .selectize-dropdown * {
-    background-color: var(--bg-color-zerolevel) !important
-}
-#app_theme + .selectize-control .selectize-dropdown {
-    border: thin solid var(--color-primary) !important;
-}
-#app_theme + .selectize-control.single .selectize-input input {
-    caret-color: transparent !important
-}
-#app_theme + .selectize-control.single .selectize-input {
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent;
-    border-bottom: none !important;
-}
-#app_theme + .selectize-control.single .selectize-input * {
-    color: var(--color-quarterary) !important;
-}
-#app_theme + .selectize-control .selectize-dropdown * {
-    color: var(--color-primary) !important;
-}
-#app_theme + .selectize-control.single .selectize-input *:hover {
-    color: var(--color-hover) !important;
-}
-#app_theme + .selectize-control *:hover {
-    color: var(--color-hover) !important;
-}
 
 .shiny-input-text.form-control.shiny-bound-input {
     border: none !important;
@@ -639,6 +707,13 @@ button.bslib-full-screen-enter.badge.rounded-pill > svg {
 }
 
 
+/* general selectize colors excluding #app_theme selectize  */
+.selectize-control:not(#app_theme + .selectize-control, .selectize-dropdown, .selectize-input) .selectize-input {
+    border: none !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}   
+
+
 /* app theme selectize ui */
 .selectize-control .selectize-dropdown * {
     background-color: var(--bg-color-zerolevel) !important
@@ -647,39 +722,148 @@ button.bslib-full-screen-enter.badge.rounded-pill > svg {
     border: thin solid var(--color-primary) !important;
 }
 .selectize-control.single .selectize-input input {
-    caret-color: transparent !important
+    caret-color: var(--color-hover) !important;
 }
 .selectize-control.single .selectize-input {
-    border: none !important;
+    /* border: none !important; */
     box-shadow: none !important;
-    background-color: transparent;
     border-bottom: none !important;
 }
 .selectize-control.single .selectize-input * {
-    color: var(--color-quarterary) !important;
+    transition: 0.1s ease-in-out !important;
+    color: var(--color-zero) !important;
 }
 .selectize-control .selectize-dropdown * {
     color: var(--color-primary) !important;
 }
 .selectize-control.single .selectize-input *:hover {
+    transition: 0.1s ease-in-out !important;
     color: var(--color-hover) !important;
 }
 .selectize-control *:hover {
     color: var(--color-hover) !important;
 }
 
-.selectize-input.items.full.has-options.has-items::after {
-    content: '' !important;
-    color: transparent !important;
-}
-.selectize-input.items.full.has-options.has-items::after {
-    content: '' !important;
-    color: transparent !important;
-}
-.selectize-input.items.full.has-options.has-items::after {
-    content: '◢' !important;
-    rotate: 45deg !important;
-    color: var(--color-quarterary) !important;
-    top: -5px !important;
 
+/* generic selectize input, excluded for #app_theme */
+.selectize-input.items.full.has-options.has-items:not(#app_theme + .selectize-control .selectize-input) {
+    position: relative;
+    transition: 0.1s ease-in-out !important;
+    border: thin solid var(--bg-color-thirdlevel) !important;
+}
+
+.selectize-input.items.full.has-options.has-items:not(#app_theme + .selectize-control .selectize-input)::after {
+    content: "";
+    position: absolute;
+    display: inline-block;
+    width: 0.50rem;
+    height: 0.50rem;
+    border-style: solid;
+    border-width: 0.10rem 0.10rem 0 0;
+    border-color: var(--color-primary);
+    transform: rotate(-135deg);
+    transition: 0.05s ease-in-out !important;
+    margin-left: auto;
+    margin-right: 0.25rem;
+    top: calc(50% - 2px);
+}
+
+/* change color of whole selectize window on hover */
+.selectize-input.items.full.has-options.has-items:not(#app_theme + .selectize-control .selectize-input):hover {
+    color: var(--color-hover) !important;
+    transition: 0.1s ease-in-out !important;
+    border: thin dashed var(--color-hover) !important;
+}
+.selectize-input.items.full.has-options.has-items:not(#app_theme + .selectize-control .selectize-input):hover * {
+    color: var(--color-hover) !important;
+}
+.selectize-input.items.full.has-options.has-items.input-active:not(#app_theme + .selectize-control .selectize-input) {
+    border: thin dashed var(--color-hover) !important;
+}
+/* .selectize-input.items.full.has-options.has-items.input-active:not(#app_theme + .selectize-control .selectize-input) * {
+    color: var(--color-hover) !important;
+} */
+
+/* rotate arrow when selectize is open */
+.selectize-input.items.full.has-options.has-items.input-active:not(#app_theme + .selectize-control .selectize-input)::after {
+    transform: rotate(-225deg);
+    border-color: var(--color-hover) !important;
+    color: var(--color-hover) !important;
+}
+
+/* optional: hover color change */
+.selectize-input.items.full.has-options.has-items:not(#app_theme + .selectize-control .selectize-input):hover::after {
+    border-color: var(--color-hover);
+}
+.selectize-input:not(#app_theme + .selectize-control .selectize-input) {
+    /* border: none !important; */
+    background-color: var(--bg-color-secondlevel) !important;
+}
+
+
+
+/* app theme selectize ui */
+#app_theme + .selectize-control .selectize-dropdown * {
+    background-color: var(--bg-color-zerolevel) !important
+}
+#app_theme + .selectize-control .selectize-dropdown {
+    border: thin solid var(--color-primary) !important;
+}
+#app_theme + .selectize-control.single .selectize-input input {
+    caret-color: transparent !important
+}
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+#app_theme + .selectize-control.single .selectize-input * {
+    color: var(--color-quarterary) !important;
+}
+#app_theme + .selectize-control .selectize-dropdown * {
+    color: var(--color-primary) !important;
+}
+#app_theme + .selectize-control.single .selectize-input *:hover {
+    color: var(--color-hover) !important;
+}
+#app_theme + .selectize-control *:hover {
+    color: var(--color-hover) !important;
+}
+
+
+
+/* download button (btn btn-default shiny-download-link) */
+.btn.btn-default.shiny-download-link {
+    border: thin solid transparent !important;
+    background-color: var(--bg-color-thirdlevel) !important;
+    border-top: thin solid var(--color-primary) !important;
+    border-left: thin solid var(--color-primary) !important;
+    color: var(--color-zero) !important;
+    box-shadow: none !important;
+    transition: 0.15s ease-in-out !important;
+}
+
+.btn.btn-default.shiny-download-link:hover {
+    background-color: var(--bg-color-secondlevel) !important;
+    color: var(--color-secondary) !important;
+    cursor: pointer !important;
+}
+
+.btn.btn-default.shiny-download-link:active {
+    background-color: var(--bg-color-zerolevel) !important;
+    border-top-color: transparent !important;
+    border-left-color: transparent !important;
+    border: thin dashed var(--color-hover) !important;
+    color: var(--color-hover) !important;
+    transform: scale(0.99);
+}
+
+.btn.btn-default.shiny-download-link:disabled,
+.btn.btn-default.shiny-download-link[disabled] {
+    background-color: var(--bg-color-zerolevel) !important;
+    border: thin dashed var(--bg-color-thirdlevel) !important;
+    color: var(--color-primary) !important;
+    cursor: not-allowed !important;
+    transform: none !important;
 }
