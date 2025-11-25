@@ -906,7 +906,7 @@ app_ui = ui.page_sidebar(
                 id="app_theme",
                 label=None,
                 choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1"],
-                selected="Console-0",
+                selected="Console-1",
                 width="140px",
                 options={"hideSelected": True, },
             ),

@@ -6,20 +6,13 @@
     --bg-color-thirdlevel: #1a2433;      /* Lighter Navy */
 
     /* Main Accents */
-    /* --color-primary: #3B7BA5;          
-    --color-tertiary: #394d9b;      
-    --color-quarterary: #86D2D5;        
-    --color-hover: #86D2D5;             */
-
-    --color-primary: #e0e6ed;          
-    --color-tertiary: #394d9b;      
-    --color-quarterary: #86D2D5;        
-    --color-hover: #86D2D5;            
-
+    --color-primary: #7dd1e7;            /* Sky Cyan */
+    --color-tertiary: #394d9b;           /* Royal Blue */
+    --color-quarterary: #a8d897;         /* Lime Green */
+    --color-hover: #a8d897;              /* Lime Green Hover */
 
     /* Text Colors */
     --color-secondary: #e0e6ed;          /* Off-white */
-    --color-secondary-transparent: #3b7ba524;      /* Light Blue-grey */
     --color-zero: #546e7a;               /* Muted Blue-grey */
     --color-zerosecondary: #78909c;
     --color-name: #a8d897;
@@ -34,39 +27,26 @@
     --color-task-btn-border: #a8d897;
     
     /* Functional Glows - Enhanced for "More Neon" */
-    /* --glow-text-primary: 0 0 15px rgba(125, 209, 231, 0.7); */
-    --glow-text-primary: none;
+    --glow-text-primary: 0 0 15px rgba(125, 209, 231, 0.7);
     --glow-text-hover: 0 0 18px rgba(168, 216, 151, 0.6);
     --glow-focus: 0 0 18px rgba(125, 209, 231, 0.3);
     --glow-hover: 0 0 25px rgba(168, 216, 151, 0.25);
     --glow-border: 0 0 10px rgba(125, 209, 231, 0.4);
     
     /* Smooth Transition */
-    --transition-smooth: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
-
-    /* Cursor Tracking Variables */
-    --mouse-x: 50vw;
-    --mouse-y: 50vh;
-}
-
-/* base color for all text */
-* {
-    color: var(--color-secondary) !important;
-    box-shadow: none !important;
+    --transition-smooth: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* cursor & body */
 body {
     background-color: var(--bg-color-zerolevel) !important;
-    /* Revert to static gradient, canvas will overlay dots */
-    /* background-image: radial-gradient(circle at top center, #0f1621 0%, #020305 70%) !important; */
-    /* background-attachment: fixed !important; */
+    /* Very subtle deep gradient, not distracting */
+    background-image: radial-gradient(circle at top center, #0f1621 0%, #020305 70%) !important;
 }
 
-/* Ensure content sits above the background canvas */
-.main, .container-fluid, .navbar, .shiny-input-container {
-    position: relative !important;
-    z-index: 1 !important;
+/* base color for all text */
+* {
+    color: var(--color-secondary) !important;
 }
 
 .main {
@@ -209,10 +189,10 @@ body {
 /* action buttons & download buttons - Strict Alignment */
 .action-button.btn-primary, 
 .btn.btn-default.shiny-download-link {
-    /* height: 38px !important;
+    height: 38px !important;
     min-height: 38px !important;
     padding: 0 16px !important;
-    margin: 4px !important; */
+    margin: 4px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -222,11 +202,11 @@ body {
     background-color: var(--bg-color-secondlevel) !important;
     background: none !important;
     color: var(--color-secondary) !important;
-    /* border-radius: 2px !important; */
+    border-radius: 2px !important;
     transition: var(--transition-smooth) !important;
     text-transform: uppercase;
-    /* letter-spacing: 1px; */
-    /* font-size: 0.8rem !important; */
+    letter-spacing: 1px;
+    font-size: 0.8rem !important;
     font-weight: 600 !important;
 }
 
@@ -329,8 +309,8 @@ body {
 
 /* navigation bar */
 nav {
-    background-color: #080b128f !important; /* var(--bg-color-firstlevel) with transparency */
-    border-bottom: 1px solid #3B7BA566 !important;
+    background-color: var(--bg-color-firstlevel) !important;
+    border-bottom: 1px solid rgba(57, 77, 155, 0.4) !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important; /* Subtle depth */
 }
 nav a {
@@ -340,53 +320,16 @@ nav a {
 }
 nav a.active {
     color: var(--color-primary) !important;
-    /* Removed border-bottom to align with hover effect height */
-    background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
+    border-bottom: 2px solid var(--color-primary) !important;
+    background-color: transparent !important;
     text-shadow: var(--glow-text-primary); /* Neon text flow */
 }
 nav a.hover,
 nav a.nav-link:hover {
     color: var(--color-hover) !important;
+    border-bottom: 2px solid var(--color-hover) !important;
     text-shadow: var(--glow-text-hover);
 }
-
-/* animated bottom border */
-nav a {
-    position: relative;
-    overflow: hidden;
-    border-bottom: none !important; /* prevent default bottom border */
-}
-
-nav a::after {
-    content: "";
-    position: absolute;
-    left: 0%;
-    bottom: 0;
-    width: 0;
-    height: 2px;
-    background-color: var(--color-hover);
-    transition: left 0.2s ease-in-out, width 0.2s ease-in-out;
-}
-
-/* Active state now uses the pseudo-element for consistent positioning */
-nav a.active::after {
-    width: 100%;
-    left: 0;
-    background-color: var(--color-primary);
-}
-
-/* Change active border color on hover */
-nav a.active:hover::after {
-    background-color: var(--color-hover);
-}
-
-
-nav a:hover::after,
-nav a.hover::after {
-    width: 100%;
-    left: 0;
-}
-
 nav span {
     color: var(--color-secondary) !important;
     font-weight: 700 !important;
@@ -401,57 +344,16 @@ nav span {
 .nav-pills .nav-item * {
     color: var(--color-zero) !important;
 }
-
-/* Animated Left Border for Nav Pills */
-.nav-pills .nav-link {
-    position: relative;
-    overflow: hidden;
-    border-left: none !important; /* Remove default border */
-    transition: var(--transition-smooth) !important;
-}
-
-.nav-pills .nav-link::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 87.5%;
-    transform: translateY(-100%);
-    width: 2px; /* Matches navbar border thickness */
-    height: 0;
-    background-color: var(--color-hover);
-    transition: height 0.2s ease-in-out;
-}
-
-.nav-pills .nav-link:hover::before {
-    height: 75%; /* Reduced from 100% to prevent touching */
-}
-
 .nav-pills a.active {
     color: var(--color-primary) !important;
-    background: linear-gradient(90deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
-    background-size: 100% 75% !important; /* Match border height */
-    background-repeat: no-repeat !important;
-    background-position: left center !important;
-    /* border-left: medium solid var(--color-secondary) !important; Removed for animated border */
+    background: linear-gradient(90deg, rgba(125, 209, 231, 0.08) 0%, transparent 100%) !important;
+    border-left: 2px solid var(--color-primary);
     text-shadow: var(--glow-text-primary);
 }
-
-/* Active state keeps the border full height */
-.nav-pills a.active::before {
-    height: 75%; /* Reduced from 100% to match hover span */
-    background-color: var(--color-secondary);
-}
-
-/* Active hover changes border color */
-.nav-pills a.active:hover::before {
-    background-color: var(--color-hover);
-}
-
 .nav-pills a.nav-link:hover {
     color: var(--color-hover) !important;
     text-shadow: var(--glow-text-hover);
 }
-
 
 /* sliders */
 .irs-bar {
