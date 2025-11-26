@@ -95,9 +95,9 @@ def mount_data_input(input, output, session, S):
     @render.ui
     def run_btn_ui():
         if S.READYTORUN.get():
-            return ui.input_task_button("run", label="Run", class_="btn-secondary")
+            return ui.input_task_button("run", label="Run", class_="task-btn")
         else:
-            return ui.input_action_button("run0", label="Run", class_="btn-secondary", disabled=True)
+            return ui.input_action_button("run0", label="Run", class_="task-btn-mask", disabled=True)
 
     @reactive.Effect
     @reactive.event(input.run)

@@ -1,3 +1,20 @@
+/* cursor */
+body {
+    cursor: crosshair !important;
+}
+
+
+/* sideba/* data input labeling sidebar */
+#labeling_sidebar {
+    background-color: #f8f8f8 !important;
+}
+
+/* sidebar layout border */
+#labeling_sidebar_n_data_input_layout {
+    border: 1px solid whitesmoke !important;
+    border-left: none !important
+}
+
 /* sidebar accordion customization */
 #sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
 #sidebar .accordion .accordion-header {

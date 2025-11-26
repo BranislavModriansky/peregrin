@@ -1,48 +1,24 @@
-/* cursor */
-body, textarea, area {
-    background-color: #070910 !important;
+/* data input labeling sidebar */
+#labeling_sidebar {
+    background-color: #f8f8f8 !important;
 }
 
-* {
-    color: red !important;
+/* sidebar layout border */
+#labeling_sidebar_n_data_input_layout {
+    border: 1px solid whitesmoke !important;
+    border-left: none !important
 }
 
-
-
-nav {
-    background-color: #070910 !important;
-    border-bottom: solid #333 !important;
-    border-bottom-width: thin !important;
+/* sidebar customization */
+#sidebar,
+#sidebar .accordion,
+#sidebar .accordion-item,
+#sidebar .accordion .accordion-header,
+#sidebar .accordion .accordion-button,
+#sidebar .accordion .accordion-collapse {
+    background-color: #f8f8f8 !important;
 }
 
-nav a,
-nav a.nav-link,
-nav .navbar-brand,
-nav .nav-item {
-    color: #8eadff !important;
-}
-nav a.active {
-    color: #8eadff !important;
-    mask-border-width: 1px !important;
-    border-bottom-width: thin !important;
-    border-bottom: solid, #8eadffc1 !important;
-}
-nav a.hover,
-nav a.nav-link:hover {
-    color: #e1a384 !important;
-    border-bottom-width: 0.5px !important;
-    border-bottom-width: medium !important;
-    border-bottom: solid, #e1a384f5 !important;
-    cursor: default !important;
-}
-nav span {
-    color: #8eadff !important;
-    font-weight: 800 !important;
-    font-size: 1.8rem !important;
-}
-
-
-/* sidebar accordion customization */
 #sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
 #sidebar .accordion .accordion-header {
     width: 100% !important;
@@ -89,10 +65,10 @@ nav span {
 
 /* special draggable-accordion class */
 .draggable-accordion .accordion-item {
-    background-color: #000;
+    background-color: #f8f8f8;
 }
 .draggable-accordion .accordion-button {
-    background-color: #000;
+    background-color: #f8f8f8;
 }
 
 
@@ -175,9 +151,6 @@ nav span {
 #app_theme + .selectize-control.single .selectize-input input {
     caret-color: transparent !important;
 }
-#app_theme + .selectize-control.single .selectize-input:hover {
-    color: #e1a384f5 !important;
-}
 #app_theme + .selectize-control.single .selectize-input:after {
     display: none !important;
 }
@@ -186,13 +159,13 @@ nav span {
     box-shadow: none !important;
     background-color: transparent;
     border-bottom: none !important;
-    color: #8eadff !important;
 }
 #app_theme + .selectize-dropdown {
     border: none;
+    box-shadow: 0 8px 16px rgba(0,0,0,.12);
     border-radius: 6px;
     padding: 4px 0;
-    background-color: #333 !important;
+    background-color: #ffffff;
 }
 #app_theme + .selectize-dropdown .selectize-dropdown-content {
     max-height: 200px;
@@ -201,12 +174,13 @@ nav span {
 #app_theme + .selectize-dropdown .option {
     padding: 8px 14px;
     font-size: 14px;
-    cursor: default;
+    cursor: pointer;
     background-color: transparent;
+    color: #333;
 }
-#app_theme + .selectize-dropdown .option:hover {
-    background-color: #e1a384f5 !important;
-    color: black !important;
+#app_theme + .selectize-dropdown .option.active {
+    background-color: dimgrey;
+    color: white;
 }
 #app_theme + .selectize-dropdown .option.selected {
     font-weight: 300;
