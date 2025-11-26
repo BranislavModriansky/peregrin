@@ -560,12 +560,55 @@ nav span {
 }
 .irs-handle {
     background-color: var(--bg-color-zerolevel) !important;
-    border: 2px solid var(--color-primary) !important;
+    border: 2px solid var(--color-tertiary) !important;
     box-shadow: 0 0 5px var(--color-primary);
 }
 .irs-line {
-    background-color: #1a2433 !important;
+    background-color: transparent !important;
 }
+.irs-from, .irs-to, .irs-single {
+    color: var(--color-primary) !important;
+    background: none !important;
+    text-shadow: 0 0 8px var(--color-primary);
+
+}
+.irs-min, .irs-max {
+    color: var(--color-zerosecondary) !important;
+}
+
+
+/* custom button without frame */
+.btn-noframe {
+    border: none !important;
+    padding: 0;
+    padding-top: 17px;
+    margin-left: -15px;
+    background: none !important;
+    box-shadow: none !important;
+    color: var(--color-zero) !important;
+    cursor: pointer;
+    font-size: 2.65rem;
+}
+.btn-noframe *:hover {
+    background: none !important;
+    box-shadow: 0 0 8px var(--color-hover);
+    color: var(--color-hover) !important;
+}
+.btn-noframe *:active {
+    background: none !important;
+    box-shadow: none !important;
+    color: lightgrey !important;
+}
+
+
+.action-label {
+    color: var(--color-zero) !important;
+}
+.action-label:hover {
+    color: var(--color-hover) !important;
+}
+
+
 
 /* sidebar layout */
 #labeling_sidebar_n_data_input_layout {
