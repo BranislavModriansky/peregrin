@@ -21,16 +21,12 @@ def set_theme(input, output, session, S):
             ]
         )
 
+        styles.append(ui.include_js("peregrin_app/src/js/remove_js.js"))
+
         if selected_theme == "Console-1":
             styles.append(ui.include_js("peregrin_app/src/js/proton_grid.js"))
-        else:
-            styles.append(ui.include_js("peregrin_app/src/js/remove_js.js"))
-
-
-        # return [
-        #     ui.include_css(f"peregrin_app/src/styles/{selected_theme_base}/{selected_theme}-Theme.css"),
-        #     ui.tags.link(rel="stylesheet", href=f"{selected_theme_base}/{selected_theme_base}-Fonts.css") if selected_theme_base != "Sleek" else None
-        # ]
+        elif selected_theme == "Console-2":
+            styles.append(ui.include_js("peregrin_app/src/js/tiles_grid.js"))
         
         return styles
         

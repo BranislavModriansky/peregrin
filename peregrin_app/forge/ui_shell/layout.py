@@ -905,8 +905,8 @@ app_ui = ui.page_sidebar(
             ui.input_selectize(
                 id="app_theme",
                 label=None,
-                choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1"],
-                selected="Console-1",
+                choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1", "Console-2"],
+                selected="Console-2",
                 width="140px",
                 options={"hideSelected": True, },
             ),

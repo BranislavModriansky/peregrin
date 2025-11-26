@@ -41,10 +41,10 @@
     const COLOR_R = 130;
     const COLOR_G = 218;
     const COLOR_B = 240;
-    const BASE_ALPHA = 0.3;     
+    const BASE_ALPHA = 0.35;     
     
     // Glow Logic
-    const GLOW_INTENSITY = 5; 
+    const GLOW_INTENSITY = 5.25; 
     const GLOW_POWER = 3; // Curve of the glow (higher = more rapid rise)
     const GLOW_DISPLACEMENT_NORM = 50; // Distance at which glow normalizes
     const ALPHA_SMOOTHING = 0.5; // 0.0 to 1.0 - Lower is smoother transitions (fixes flashing)
