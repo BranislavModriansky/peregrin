@@ -1,15 +1,13 @@
-// document.addEventListener('mousemove', (e) => {
-//         // Use requestAnimationFrame for smooth performance
-//         requestAnimationFrame(() => {
-//             document.body.style.setProperty('--mouse-x', e.clientX + 'px');
-//             document.body.style.setProperty('--mouse-y', e.clientY + 'px');
-//         });
-//     });
-
-
 (function() {
+    // Cleanup existing canvas if present to prevent duplicates
+    const existingCanvas = document.getElementById('animated-canvas');
+    if (existingCanvas) {
+        existingCanvas.remove();
+    }
+
     // Create and setup canvas
     const canvas = document.createElement('canvas');
+    canvas.id = 'animated-canvas'; // Add ID for easy removal
     const ctx = canvas.getContext('2d');
     canvas.style.position = 'fixed';
     canvas.style.top = '0';
@@ -33,32 +31,34 @@
     // Grid & Physics
     const GRID_SPACING = 12.5;      
     const DOT_RADIUS = 0.5;       
-    const INFLUENCE_RADIUS = 600; 
-    const MOUSE_FORCE = 2.5;     
-    const SPRING_STIFFNESS = 0.1; 
-    const DAMPING = 0.5;
-    const MOUSE_LAG = 0.25; // 0.0 to 1.0 - Lower is more delayed/smoother force
+    const INFLUENCE_RADIUS = 750; 
+    const MOUSE_FORCE = 0.75;     
+    const SPRING_STIFFNESS = 0.035; 
+    const DAMPING = 0.75;
+    const MOUSE_LAG = 0.75; // 0.0 to 1.0 - Lower is more delayed/smoother force
 
     // Visuals
     const COLOR_R = 130;
     const COLOR_G = 218;
     const COLOR_B = 240;
-    const BASE_ALPHA = 0.15;     
+    const BASE_ALPHA = 0.3;     
     
     // Glow Logic
-    const GLOW_INTENSITY = 25; 
+    const GLOW_INTENSITY = 5; 
     const GLOW_POWER = 3; // Curve of the glow (higher = more rapid rise)
-    const GLOW_DISPLACEMENT_NORM = 75; // Distance at which glow normalizes
-    const ALPHA_SMOOTHING = 0.25; // 0.0 to 1.0 - Lower is smoother transitions (fixes flashing)
+    const GLOW_DISPLACEMENT_NORM = 50; // Distance at which glow normalizes
+    const ALPHA_SMOOTHING = 0.5; // 0.0 to 1.0 - Lower is smoother transitions (fixes flashing)
     
     // Tangle/Aggregation Prevention
-    const TANGLE_THRESHOLD = 12; 
-    const FADE_RADIUS_MULT = 6; // Multiplier for the dark center radius
+    const TANGLE_THRESHOLD = 10; 
+    const FADE_RADIUS_MULT = 2; // Multiplier for the dark center radius
 
     function initDots() {
         dots = [];
-        for (let x = 0; x < width + GRID_SPACING; x += GRID_SPACING) {
-            for (let y = 0; y < height + GRID_SPACING; y += GRID_SPACING) {
+        // Extend grid generation beyond screen edges to prevent gaps during pull
+        const extension = 400;
+        for (let x = -extension; x < width + extension; x += GRID_SPACING) {
+            for (let y = -extension; y < height + extension; y += GRID_SPACING) {
                 dots.push({
                     originX: x,
                     originY: y,
@@ -83,12 +83,21 @@
     window.addEventListener('resize', resize);
     resize();
 
-    document.addEventListener('mousemove', (e) => {
+    // Named handler for cleanup
+    const mouseMoveHandler = (e) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
-    });
+    };
+    document.addEventListener('mousemove', mouseMoveHandler);
 
     function animate() {
+        // Stop animation loop and cleanup listeners if canvas is removed
+        if (!document.body.contains(canvas)) {
+            window.removeEventListener('resize', resize);
+            document.removeEventListener('mousemove', mouseMoveHandler);
+            return;
+        }
+
         ctx.clearRect(0, 0, width, height);
         
         // Update lag mouse position (Smooths the force movement)

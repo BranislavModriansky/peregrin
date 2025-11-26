@@ -2,47 +2,48 @@
     /* Warp Speed Palette - Deep & Dark */
     --bg-color-zerolevel: #020305;       /* Almost black */
     --bg-color-firstlevel: #080b12;      /* Very Deep Navy */
+    --bg-color-firstlevel-transparent: #080b128f;
+    --bg-color-firstlevel-less-transparent: #080b12bf;
     --bg-color-secondlevel: #0f1621;     /* Deep Navy */
+    --bg-color-secondlevel-transparent: #0f1621c6;
     --bg-color-thirdlevel: #1a2433;      /* Lighter Navy */
 
     /* Main Accents */
-    /* --color-primary: #3B7BA5;          
-    --color-tertiary: #394d9b;      
-    --color-quarterary: #86D2D5;        
-    --color-hover: #86D2D5;             */
-
     --color-primary: #e0e6ed;          
-    --color-tertiary: #394d9b;      
-    --color-quarterary: #86D2D5;        
+    --color-tertiary: #3B7BA5;      
+    --color-quarterary: #a2c0cf;        
     --color-hover: #86D2D5;            
 
 
     /* Text Colors */
     --color-secondary: #e0e6ed;          /* Off-white */
     --color-secondary-transparent: #3b7ba524;      /* Light Blue-grey */
-    --color-zero: #546e7a;               /* Muted Blue-grey */
+    --color-zero: #546e7a;
+    --color-zero-transparent: #546e7aaa;               /* Muted Blue-grey */
     --color-zerosecondary: #78909c;
     --color-name: #a8d897;
 
     /* Button Specifics */
     --color-action-btn-primary: #0f1621;
     --color-action-btn-primary-hover: #1a2433;
-    --color-action-btn-primary-border: #394d9b; 
+    --color-action-btn-primary-border: #3B7BA588; 
     
-    --color-task-btn: #0a1a12;
+    --color-task-btn: #0f1621;
     --color-task-btn-hover: #142b1f;
-    --color-task-btn-border: #a8d897;
+    --color-task-btn-border: #3B7BA5;
+
+    --color-accordion: #7dd2e76b;
     
     /* Functional Glows - Enhanced for "More Neon" */
     /* --glow-text-primary: 0 0 15px rgba(125, 209, 231, 0.7); */
     --glow-text-primary: none;
     --glow-text-hover: 0 0 18px rgba(168, 216, 151, 0.6);
     --glow-focus: 0 0 18px rgba(125, 209, 231, 0.3);
-    --glow-hover: 0 0 25px rgba(168, 216, 151, 0.25);
+    --glow-hover: 0 0 15px #99d5fd2e;
     --glow-border: 0 0 10px rgba(125, 209, 231, 0.4);
     
     /* Smooth Transition */
-    --transition-smooth: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --transition-smooth: all 0.75s cubic-bezier(0.25, 0.8, 0.25, 1);
 
     /* Cursor Tracking Variables */
     --mouse-x: 50vw;
@@ -55,22 +56,36 @@
     box-shadow: none !important;
 }
 
+.bslib-sidebar-layout {
+    z-index: 1000 !important;
+}
+
 /* cursor & body */
 body {
     background-color: var(--bg-color-zerolevel) !important;
-    /* Revert to static gradient, canvas will overlay dots */
-    /* background-image: radial-gradient(circle at top center, #0f1621 0%, #020305 70%) !important; */
-    /* background-attachment: fixed !important; */
 }
 
 /* Ensure content sits above the background canvas */
-.main, .container-fluid, .navbar, .shiny-input-container {
+.main, .container-fluid, .shiny-input-container {
     position: relative !important;
-    z-index: 1 !important;
+}
+.main {
+    scrollbar-color: var(--color-zero) var(--bg-color-zerolevel) !important;
+}
+
+/* Navbar needs higher z-index so dropdowns don't get covered by main content */
+.navbar {
+    position: relative !important;
 }
 
 .main {
     scrollbar-color: var(--color-zero) var(--bg-color-zerolevel) !important;
+}
+.html-fill-container {
+    scrollbar-color: var(--color-zero) var(--bg-color-firstlevel) !important;
+}
+.modal {
+    scrollbar-color: var(--color-zero) var(--bg-color-firstlevel) !important;
 }
 
 /* Uniform Card Style */
@@ -132,27 +147,27 @@ body {
 }
 .accordion-item {
     border: none !important;
-    background-color: transparent !important;
+    background-color: #151e29b0 !important;
     margin-bottom: 0 !important; /* Remove gaps */
 }
 .accordion-button {
     border: none !important;
     border-bottom: 1px solid rgba(57, 77, 155, 0.3) !important;
-    background-color: transparent !important;
+    background-color: var(--bg-color-firstlevel-less-transparent) !important;
     color: var(--color-zerosecondary) !important;
     font-weight: 600 !important;
     transition: var(--transition-smooth) !important;
 }
 .accordion-button:not(.collapsed) {
     color: var(--color-primary) !important;
-    background: linear-gradient(90deg, rgba(125, 209, 231, 0.08) 0%, transparent 100%) !important;
+    background: linear-gradient(90deg, #7dd1e714 0%, transparent 100%) !important;
     text-shadow: var(--glow-text-primary);
     border-bottom-color: var(--color-primary) !important;
 }
 .accordion-button:hover {
     color: var(--color-hover) !important;
     text-shadow: var(--glow-text-hover);
-    background-color: rgba(255, 255, 255, 0.02) !important;
+    background-color: #ffffff05 !important;
 }
 
 /* Arrow style */
@@ -166,12 +181,16 @@ body {
 }
 
 /* elevated panel - subtle distinction */
+.elevated-panel {
+    z-index: 2000 !important; 
+}
 .elevated-panel .card-body.bslib-gap-spacing.html-fill-item.html-fill-container {
     padding: 1rem !important;
-    background-color: var(--bg-color-firstlevel) !important;
+    
 }
 .elevated-panel .card {
     border: 1px solid #1a2433 !important;
+    background-color: var(--bg-color-firstlevel-less-transparent) !important;
 }
 .elevated-panel .card:hover:not(:has(.accordion:hover)) {
     border-color: var(--color-zero) !important;
@@ -209,31 +228,21 @@ body {
 /* action buttons & download buttons - Strict Alignment */
 .action-button.btn-primary, 
 .btn.btn-default.shiny-download-link {
-    /* height: 38px !important;
-    min-height: 38px !important;
-    padding: 0 16px !important;
-    margin: 4px !important; */
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     box-sizing: border-box !important;
     
     border: 1px solid var(--color-action-btn-primary-border) !important;
-    background-color: var(--bg-color-secondlevel) !important;
-    background: none !important;
+    background-color: var(--bg-color-zerolevel) !important;
     color: var(--color-secondary) !important;
-    /* border-radius: 2px !important; */
     transition: var(--transition-smooth) !important;
-    text-transform: uppercase;
-    /* letter-spacing: 1px; */
-    /* font-size: 0.8rem !important; */
-    font-weight: 600 !important;
 }
 
 .action-button.btn-primary:hover,
 .btn.btn-default.shiny-download-link:hover {
     border-color: var(--color-primary) !important;
-    background-color: rgba(125, 209, 231, 0.08) !important;
+    background-color: var(--bg-color-secondlevel) !important;
     box-shadow: var(--glow-focus), inset 0 0 10px rgba(125, 209, 231, 0.1) !important;
     color: #fff !important;
     text-shadow: var(--glow-text-primary);
@@ -248,36 +257,97 @@ body {
 .action-button.btn-primary:disabled,
 .btn.btn-default.shiny-download-link:disabled {
     border-color: #1a2433 !important;
-    color: var(--color-zero) !important;
     background: none !important;
     box-shadow: none !important;
     cursor: not-allowed !important;
+}
+.action-button.btn-primary:disabled *,
+.btn.btn-default.shiny-download-link:disabled * {
+    color: var(--color-zero-transparent) !important;
 }
 
 /* task button colors */
 .task-btn {
     background-color: var(--color-task-btn) !important;
-    border: 1px solid var(--color-task-btn-border) !important;
-    color: var(--color-hover) !important;
-    border-radius: 2px !important;
+    border: none !important;
+    color: var(--color-zerosecondary) !important;
 }
 .task-btn:hover {
-    background-color: var(--color-task-btn-hover) !important;
+    transition: 0.6s ease-in-out !important;
     box-shadow: var(--glow-hover) !important;
-    color: #fff !important;
+    background-color: var(--color-zero-transparent) !important;
+}
+.task-btn-mask:disabled,
+.task-btn-mask[disabled] {
+    border-color: #1a2433 !important;
+}
+.task-btn-mask:disabled * ,
+.task-btn-mask[disabled] * {
+    color: var(--color-quarterary) !important;
 }
 
 /* input groups */
 .input-group .btn {
+    position: relative;
     border: 1px solid rgba(125, 209, 231, 0.2) !important;
     background-color: rgba(0, 0, 0, 0.2) !important;
     color: var(--color-zero) !important;
 }
 .input-group .btn:hover {
-    border-color: var(--color-hover) !important;
+    border-color: transparent !important;
     color: var(--color-hover) !important;
     box-shadow: var(--glow-hover) !important;
 }
+
+/* Animated border pseudo-elements */
+.input-group .btn::before,
+.input-group .btn::after {
+    content: "";
+    position: absolute;
+    width: 0;
+    height: 0;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: inherit;
+}
+
+/* Bottom & Right segments (Start Bottom-Left -> Right -> Up) */
+.input-group .btn::before {
+    bottom: 0;
+    left: 0;
+    border-top: none;
+    border-left: none;
+    /* Reverse animation sequence */
+    transition: height 0.1s linear 0.2s, width 0.1s linear 0.3s;
+}
+
+/* Top & Left segments (Start Top-Right -> Left -> Down) */
+.input-group .btn::after {
+    top: 0;
+    right: 0;
+    border-bottom: none;
+    border-right: none;
+    /* Reverse animation sequence */
+    transition: height 0.1s linear 0s, width 0.1s linear 0.1s;
+}
+
+/* Hover states - Forward animation sequence */
+.input-group .btn:hover::before {
+    width: 100%;
+    height: 100%;
+    border-bottom-color: var(--color-hover);
+    border-right-color: var(--color-hover);
+    transition: width 0.1s linear, height 0.1s linear 0.1s;
+}
+
+.input-group .btn:hover::after {
+    width: 100%;
+    height: 100%;
+    border-top-color: var(--color-hover);
+    border-left-color: var(--color-hover);
+    transition: width 0.1s linear 0.2s, height 0.1s linear 0.3s;
+}
+
 .form-control {
     border: 1px solid rgba(125, 209, 231, 0.2) !important;
     background-color: rgba(0, 0, 0, 0.2) !important;
@@ -285,7 +355,7 @@ body {
     transition: var(--transition-smooth) !important;
 }
 .form-control:focus {
-    border-color: var(--color-primary) !important;
+    border: thin dashed var(--color-primary) !important;
     box-shadow: var(--glow-focus) !important;
     background-color: rgba(0, 0, 0, 0.3) !important;
 }
@@ -293,24 +363,28 @@ body {
     color: var(--color-zero) !important;
     opacity: 0.5;
 }
+.form-control:hover::placeholder {
+    color: var(--color-primary) !important;
+}
 
 /* progress bar */
 .progress-bar {
-    background-color: var(--color-primary) !important;
+    background-color: var(--color-task-btn-border) !important;
     box-shadow: 0 0 10px var(--color-primary);
-    color: #000 !important;
-    font-weight: bold;
+    color: var(--bg-color-firstlevel) !important;
+    text-transform: lowercase !important;
+    font-style: italic !important;
 }
 
 /* checkboxes */
 .checkbox *:checked {
     background-color: transparent !important;
     border-color: var(--color-primary) !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3e%3cpath d='M3 5 L5 7 L9 3' fill='none' stroke='%237dd1e7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3e%3cpath d='M3 5 L5 7 L9 3' fill='none' stroke='%237BA5E7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important;
     box-shadow: 0 0 5px var(--color-primary);
 }
 .checkbox *:not(:checked) {
-    background-color: var(--bg-color-zerolevel) !important;
+    background-color: transparent !important;
     border-color: var(--color-zero) !important;
 }
 
@@ -318,18 +392,44 @@ body {
 .form-check-input.shiny-bound-input {
     background-color: var(--bg-color-zerolevel) !important;
     border: 1px solid var(--color-zero) !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%236b7d8f'/%3e%3c/svg%3e") !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23546e7a'/%3e%3c/svg%3e") !important;
 }
 .form-check-input.shiny-bound-input:checked {
-    background-color: transparent !important;
+    background-color: var(--color-tertiary) !important;
     border-color: var(--color-primary) !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%237dd1e7'/%3e%3c/svg%3e") !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23e0e6ed'/%3e%3c/svg%3e") !important;
     box-shadow: 0 0 5px var(--color-primary);
 }
+.form-check-input.shiny-bound-input:hover {
+    cursor: pointer !important;
+    border-color: var(--color-primary) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23e0e6ed'/%3e%3c/svg%3e") !important;
+}
+
+
+/* Recalculating state - Neon Blur */
+.recalculating {
+    filter: saturate(260%) hue-rotate(10deg) brightness(10) contrast(92%) drop-shadow(0 0 2px rgba(125, 209, 231, 0.7)) !important;
+}
+
+/* Shiny file input progress */
+.shiny-file-input-progress {
+    color: var(--color-secondary) !important;
+}
+.shiny-file-input-progress .progress {
+    background-color: var(--bg-color-zerolevel) !important;
+    border: 1px solid var(--color-zero) !important;
+    box-shadow: none !important;
+}
+.shiny-file-input-progress .progress-bar {
+    background-color: var(--color-tertiary) !important;
+    box-shadow: 0 0 10px var(--color-tertiary) !important;
+}
+
 
 /* navigation bar */
 nav {
-    background-color: #080b128f !important; /* var(--bg-color-firstlevel) with transparency */
+    background-color: var(--bg-color-firstlevel-transparent) !important;
     border-bottom: 1px solid #3B7BA566 !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important; /* Subtle depth */
 }
@@ -397,6 +497,7 @@ nav span {
 /* Nav Pills (Sidebar) */
 .col-sm-2:has(.nav-pills) {
     border-right: 1px solid rgba(57, 77, 155, 0.3) !important;
+    background-color: var(--bg-color-firstlevel-transparent) !important;
 }
 .nav-pills .nav-item * {
     color: var(--color-zero) !important;
@@ -414,8 +515,7 @@ nav span {
     content: "";
     position: absolute;
     left: 0;
-    top: 87.5%;
-    transform: translateY(-100%);
+    top: 12.5%; /* Start from top to grow downwards */
     width: 2px; /* Matches navbar border thickness */
     height: 0;
     background-color: var(--color-hover);
@@ -490,17 +590,6 @@ nav span {
     text-shadow: var(--glow-text-primary);
 }
 
-/* links */
-.plain-link {
-    color: var(--color-primary) !important;
-    text-decoration: none !important;
-    transition: 0.2s ease;
-}
-.plain-link:hover {
-    color: var(--color-hover) !important;
-    text-decoration: none !important;
-    text-shadow: var(--glow-text-hover);
-}
 
 /* order ladder */
 #order li { 
@@ -559,12 +648,11 @@ nav span {
 /* selectize - uniform dark theme */
 .selectize-input {
     border: 1px solid rgba(125, 209, 231, 0.2) !important;
-    background-color: rgba(0, 0, 0, 0.2) !important;
+    background-color: var(--bg-color-zerolevel) !important;
     border-radius: 2px !important;
-    transition: var(--transition-smooth) !important;
 }
 .selectize-input.full {
-    background-color: rgba(0, 0, 0, 0.2) !important;
+    background-color: var(--bg-color-zerolevel) !important;
 }
 .selectize-dropdown {
     background-color: var(--bg-color-firstlevel) !important;
@@ -582,6 +670,66 @@ nav span {
     border-color: var(--color-primary) !important;
     box-shadow: var(--glow-focus) !important;
 }
+
+/* app theme selectize ui */
+/* Targeted .option instead of * to allow active state override */
+.selectize-control .selectize-dropdown .option {
+    background-color: var(--bg-color-zerolevel) !important
+}
+/* Ensure active/hovered option is visible */
+.selectize-control .selectize-dropdown .option.active {
+    background-color: var(--bg-color-thirdlevel) !important;
+}
+
+.selectize-control .selectize-dropdown {
+    border: thin solid var(--color-primary) !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}
+.selectize-control.single .selectize-input input {
+    caret-color: var(--color-hover) !important
+}
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+.selectize-control.single .selectize-input * {
+    color: var(--color-secondary) !important;
+}
+.selectize-control .selectize-dropdown * {
+    color: var(--color-primary) !important;
+}
+.selectize-control.single .selectize-input *:hover {
+    color: var(--color-hover) !important;
+    text-shadow: 0 0 8px var(--color-quarterary);
+}
+.selectize-control *:hover {
+    color: var(--color-hover) !important;
+}
+
+.form-group .radio input {
+    border: thin solid var(--bg-color-thirdlevel) !important;
+    background-color: var(--bg-color-zerolevel) !important;
+}
+
+
+/* plain-link class for markdown links */
+.plain-link,
+.plain-link * {
+    color: var(--color-primary) !important;
+    text-decoration: underline var(--color-primary) !important; 
+    cursor: pointer !important;
+    font-style: italic !important;
+}
+.plain-link:hover,
+.plain-link:hover * {
+    color: var(--color-hover) !important;
+    text-decoration: none !important;
+    text-shadow: var(--glow-text-hover);
+}
+
+
 
 /* Modal Formatting - Neon Box */
 .modal-content {
@@ -610,7 +758,7 @@ nav span {
     background-color: transparent !important;
 }
 .modal-backdrop {
-    background-color: #020305 !important;
-    opacity: 0.85 !important;
-    backdrop-filter: blur(2px);
+    background-color: #020814 !important;
+    opacity: 0.9 !important;
+    /* backdrop-filter: blur(2px); Removed to prevent lag over animated canvas */
 }

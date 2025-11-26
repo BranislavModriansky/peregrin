@@ -22,7 +22,9 @@ def set_theme(input, output, session, S):
         )
 
         if selected_theme == "Console-1":
-            styles.append(ui.include_js("peregrin_app/src/js/mouse_position.js"))
+            styles.append(ui.include_js("peregrin_app/src/js/proton_grid.js"))
+        else:
+            styles.append(ui.include_js("peregrin_app/src/js/remove_js.js"))
 
 
         # return [
