@@ -1,3 +1,5 @@
+// TODO: Let the user turn off this script while keeping Console-1 the theme
+
 (function() {
     // Cleanup existing canvas if present to prevent duplicates
     const existingCanvas = document.getElementById('animated-canvas');

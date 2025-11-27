@@ -19,15 +19,15 @@
   const ICON_VIEWBOX = "0 0 24 24"; // Changed back to standard 24x24 for better scaling
   
 const COLORS = [
-    "#7dd3fc", // sky-300 
-    "#f9a8d4", // pink-300
-    "#86efac", // green-300
-    "#efd562", // yellow-300
-    "#fca5a5", // red-300
-    "#d8b4fe", // purple-300
-    "#93c5fd", // blue-300
-    "#a5b4fc", // indigo-300
-    "#c4b5fd", // violet-300
+    "#7dd4fcdf", // sky-300 
+    "#f9a8d4df", // pink-300
+    "#86efacdf", // green-300
+    "#efd562df", // yellow-300
+    "#fca5a5df", // red-300
+    "#d8b4fedf", // purple-300
+    "#93c5fddf", // blue-300
+    "#a5b4fcdf", // indigo-300
+    "#c4b5fddf", // violet-300
 ];
 
   function getRandomColor() {

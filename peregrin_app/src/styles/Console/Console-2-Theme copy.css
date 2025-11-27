@@ -13,8 +13,8 @@
     background-color: rgb(15 23 42); /* slate-900 style */
 
     /* Move the radial center towards the top-right */
-    mask-image: radial-gradient(circle at 80% 10%, #ffffff44, white);
-    -webkit-mask-image: radial-gradient(circle at 80% 10%, #ffffff44, white);
+    mask-image: radial-gradient(circle at 80% 10%, transparent, white);
+    -webkit-mask-image: radial-gradient(circle at 80% 10%, transparent, white);
 
     z-index: 20;
 }
@@ -77,10 +77,8 @@
     /* Main Accents - Pastel/Neon from JS */
     --color-primary: #8bcbff;          /* Sky 300 */
     --color-tertiary: #d7a9ff;         /* Violet 300 */
-    --color-tertiary-transparent: #d7a9ffaf;         /* Violet 300 */
     --color-quarterary: #9b8fcc;       /* Red 300 */
     --color-hover: #ffe262;            /* Yellow 300 */
-    --text-glow-hover: rgba(250, 237, 179, 0.2);      /* Yellow Bright */
 
     /* Text Colors */
     --color-secondary: #f1f5f9;          /* Slate 100 */
@@ -105,10 +103,10 @@
     
     /* Functional Glows */
     --glow-text-primary: none;
-    --glow-text-hover: 0 0 10px rgba(253, 224, 71, 0.25);
-    --glow-focus: 0 0 10px rgba(125, 211, 252, 0.1);
-    --glow-hover: 0 0 10px rgba(125, 211, 252, 0.1);
-    --glow-border: 0 0 10px rgba(125, 211, 252, 0.1);
+    --glow-text-hover: 0 0 18px rgba(253, 224, 71, 0.6);
+    --glow-focus: 0 0 18px rgba(125, 211, 252, 0.3);
+    --glow-hover: 0 0 15px rgba(125, 211, 252, 0.2);
+    --glow-border: 0 0 10px rgba(125, 211, 252, 0.4);
     
     /* Smooth Transition */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -166,7 +164,7 @@ body {
 }
 .card:hover {
     border-color: var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: var(--glow-border), 0 10px 30px rgba(0,0,0,0.5) !important;
     transform: translateY(-1px);
 }
 .card-header.bg-secondary-css {
@@ -184,7 +182,7 @@ body {
 }
 .card-header.bg-blue * {
     color: var(--color-primary) !important;
-    text-shadow: none !important;
+    text-shadow: var(--glow-text-primary) !important;
 }
 
 /* numeric inputs */
@@ -198,14 +196,14 @@ body {
 }
 .form-control.shiny-input-number:hover {
     border-color: var(--color-hover) !important;
-    box-shadow: none !important;
+    box-shadow: var(--glow-hover) !important;
     background-color: rgba(0, 0, 0, 0.3) !important;
 }
 .form-control.shiny-input-number:focus {
     border-color: var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: var(--glow-focus) !important;
     color: #fff !important;
-    text-shadow: none;
+    text-shadow: 0 0 8px var(--color-primary);
     background-color: rgba(0, 0, 0, 0.4) !important;
 }
 
@@ -229,12 +227,12 @@ body {
 .accordion-button:not(.collapsed) {
     color: var(--color-primary) !important;
     background: linear-gradient(90deg, rgba(125, 211, 252, 0.1) 0%, transparent 100%) !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-primary);
     border-bottom-color: var(--color-primary) !important;
 }
 .accordion-button:hover {
     color: var(--color-hover) !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-hover);
     background-color: #ffffff05 !important;
 }
 
@@ -281,7 +279,7 @@ body {
 .draggable-accordion .accordion-button:not(.collapsed) {
     background: linear-gradient(90deg, rgba(125, 211, 252, 0.05) 0%, transparent 100%) !important;
     border-left-color: var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: inset 10px 0 20px -10px rgba(125, 211, 252, 0.1) !important;
 }
 .draggable-accordion .accordion-button:hover {
     background-color: rgba(255, 255, 255, 0.02) !important;
@@ -323,8 +321,9 @@ body {
 .btn.btn-default.shiny-download-link::after {
     content: "";
     position: absolute;
-    
-    
+
+    transition: 1s ease-out !important;
+
     /* Cover the transparent border area */
     top: 0px; left: 0px; right: 0px; bottom: 0px;
     z-index: -2;
@@ -350,13 +349,12 @@ body {
     
     border: thin solid var(--color-hover);
     
-    /* Gradient Mask for soft reveal of both background and border, rotated 45deg */
-    -webkit-mask-image: linear-gradient(15deg, black 40%, transparent 60%);
-    mask-image: linear-gradient(15deg, black 40%, transparent 60%);
+    /* Gradient Mask for soft reveal of both background and border */
+    -webkit-mask-image: linear-gradient(to top, black 40%, transparent 60%);
+    mask-image: linear-gradient(to top, black 40%, transparent 60%);
     
-    
-    -webkit-mask-size: 200% 250%;
-    mask-size: 200% 250%;
+    -webkit-mask-size: 100% 250%;
+    mask-size: 100% 250%;
     
     /* Default state (not hovered): Position is reset, but we fade out opacity */
     -webkit-mask-position: 0 0; 
@@ -368,7 +366,7 @@ body {
     opacity: 0; /* Hidden by default */
     
     /* When mouse leaves: mask-position snaps back instantly (or stays), opacity fades out slowly */
-    transition: mask-position 0.1s 0.3s, -webkit-mask-position 0.1s 0.3s, opacity 0.3s, border 0s 0.3s !important;
+    transition: mask-position 0.4s ease-out, -webkit-mask-position 0.4s ease-out, opacity 0.2s ease-out;
     
     box-sizing: border-box;
 }
@@ -381,58 +379,41 @@ body {
     opacity: 1;
     
     /* On hover: animate mask position, keep opacity full */
-    transition: mask-position 0.6s ease-in, -webkit-mask-position 0.6s ease-in, opacity 0.6s !important;
+    transition: mask-position 0.4s ease-out, -webkit-mask-position 0.4s ease-out, opacity 0s;
 }
 
 .action-button.btn-primary:hover,
 .btn.btn-default.shiny-download-link:hover {
     /* Border and background handled by ::before */
-    box-shadow: none !important;
+    box-shadow: var(--glow-focus), inset 0 0 10px rgba(125, 211, 252, 0.1) !important;
     color: #fff !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-primary);
 }
 
 .action-button.btn-primary:active,
 .btn.btn-default.shiny-download-link:active {
     box-shadow: none !important;
 }
-.action-button.btn-primary:enabled::after,
-.btn.btn-default.shiny-download-link:enabled::after {
-
-    transition: 1s ease-out !important;
-
-    background-color: transparent !important;
-    border-color: var(--color-action-btn-primary-border) !important;
-}
 .action-button.btn-primary:disabled,
 .btn.btn-default.shiny-download-link:disabled {
-    /* cursor: default !important; */
-
+    cursor: not-allowed !important;
     box-shadow: none !important;
+    transform: none !important;
+}
+.action-button.btn-primary:disabled::after,
+.btn.btn-default.shiny-download-link:disabled::after {
+
+    transition: 1.5s ease-out !important;
+
+    background-color: transparent !important;
     border-color: #1e293b !important;
 }
 .action-button.btn-primary:disabled::before,
 .btn.btn-default.shiny-download-link:disabled::before {
-
-    /* transition: 5s ease-in !important; */
-
-    background-color: transparent !important;
-    border-color: #1e293b !important;
-
-    
+    -webkit-mask-position: 0 0 !important;
+    mask-position: 0 0 !important;
+    opacity: 0 !important;
 }
-.action-button.btn-primary:disabled::after,
-.btn.btn-default.shiny-download-link:disabled::after {
-    /* Continue animation to full state instead of resetting */
-    
-    -webkit-mask-position: 0 100% !important;
-    mask-position: 0 100% !important;
-    opacity: 1 !important;
-    border-color: var(--color-action-btn-primary-border) !important;
-    border-color: #1e293b !important;
-    transition: mask-position 0ms 0ms, -webkit-mask-position 0ms 0ms, opacity 0ms 0ms, border 1s 0.4s !important;
-}
-
 .action-button.btn-primary:disabled *,
 .btn.btn-default.shiny-download-link:disabled * {
     transition: 0.5s ease-out !important;
@@ -444,209 +425,196 @@ body {
     color: var(--color-hover) !important;
 }
 
+/* --- TASK BUTTON ANIMATION --- */
+.task-btn {
+    /* Base style remains */
+    background-color: var(--color-task-btn) !important;
+    border: none !important;
+    color: var(--color-zerosecondary) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    z-index: 1 !important;
+    transition: color 0.3s, box-shadow 0.3s, background 0.3s !important;
+}
+
+/* Pseudo for bottom-left to top-right border & background */
+.task-btn::before,
+.task-btn::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    transition:
+        opacity 0.5s cubic-bezier(0.4,0,0.2,1),
+        transform 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ::before - grows from bottom-left */
+.task-btn::before {
+    left: 0; bottom: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, var(--color-task-btn-hover) 0%, transparent 100%);
+    border: 2px solid var(--color-task-btn-border);
+    border-top: none; border-right: none;
+    opacity: 0;
+    transform: scaleX(0) scaleY(0);
+    transition:
+        opacity 0.5s cubic-bezier(0.4,0,0.2,1),
+        transform 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ::after - grows from top-right */
+.task-btn::after {
+    right: 0; top: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(315deg, var(--color-task-btn-hover) 0%, transparent 100%);
+    border: 2px solid var(--color-task-btn-border);
+    border-bottom: none; border-left: none;
+    opacity: 0;
+    transform: scaleX(0) scaleY(0);
+    transition:
+        opacity 0.5s cubic-bezier(0.4,0,0.2,1),
+        transform 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* On hover: both corners animate in */
+.task-btn:hover::before,
+.task-btn:focus-visible::before {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+    transition:
+        opacity 0.3s cubic-bezier(0.4,0,0.2,1),
+        transform 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+.task-btn:hover::after,
+.task-btn:focus-visible::after {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+    transition:
+        opacity 0.3s cubic-bezier(0.4,0,0.2,1),
+        transform 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* On hover: text color and shadow */
+.task-btn:hover,
+.task-btn:focus-visible {
+    color: var(--color-hover) !important;
+    box-shadow: var(--glow-hover) !important;
+    text-shadow: 0 0 8px var(--color-hover);
+    background-color: transparent !important; /* Let pseudos show */
+    transition: color 0.3s, box-shadow 0.3s, background 0.3s !important;
+}
+
+/* Ensure content is above pseudos */
+.task-btn > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Disabled state: fade out effect */
+.task-btn:disabled,
+.task-btn[disabled] {
+    border-color: #1e293b !important;
+    background: none !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+}
+.task-btn:disabled::before,
+.task-btn[disabled]::before,
+.task-btn:disabled::after,
+.task-btn[disabled]::after {
+    opacity: 0 !important;
+    transform: scaleX(0) scaleY(0) !important;
+}
+.task-btn:disabled *,
+.task-btn[disabled] * {
+    color: var(--color-quarterary) !important;
+}
+
+/* --- END TASK BUTTON ANIMATION --- */
+
+
 
 
 /* task button colors */
 .task-btn {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box !important;
-
-    /* Make parent transparent so pseudos show through */
-    border: 1px solid transparent !important;
-    background-color: transparent !important;
+    background-color: var(--color-task-btn) !important;
+    border: none !important;
     color: var(--color-zerosecondary) !important;
-    
-    position: relative !important;
-    overflow: hidden !important;
-    z-index: 1 !important;
-    transition: color 0.3s, transform 0.3s, box-shadow 0.3s !important;
-}
-.task-btn::after {
-    content: "";
-    position: absolute;
-
-    /* transition: 2s ease-out !important; */
-
-    /* Cover the transparent border area */
-    top: 0px; left: 0px; right: 0px; bottom: 0px;
-    z-index: -2;
-    background-color: var(--bg-color-zerolevel);
-    /* border: thin solid var(--color-task-btn-border); */
-    border-color: transparent;
-    border-radius: inherit;
-}
-.task-btn::before {
-    content: "";
-    position: absolute;
-
-    /* transition: 2.5s ease-in !important; */
-
-    /* Full coverage initially */
-    top: 0px;
-    bottom: 0px;
-    left: 0px;
-    right: 0px;
-    z-index: -1;
-    
-    border: thin solid var(--color-hover);
-    
-    /* Gradient Mask for soft reveal of both background and border, rotated 45deg */
-    -webkit-mask-image: linear-gradient(15deg, black 45%, transparent 55%);
-    mask-image: linear-gradient(15deg, black 45%, transparent 55%);
-    
-    
-    -webkit-mask-size: 200% 250%;
-    mask-size: 200% 250%;
-    
-    /* Default state (not hovered): Position is reset, but we fade out opacity */
-    -webkit-mask-position: 0 0; 
-    mask-position: 0 0;
-    
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    
-    opacity: 0; /* Hidden by default */
-    
-    /* When mouse leaves: mask-position snaps back instantly (or stays), opacity fades out slowly */
-    transition: mask-position 0.2s 1.5s, -webkit-mask-position 0.2s 1.5s, opacity 1.6s ease-in !important;
-    
-    box-sizing: border-box;
-}
-.task-btn:hover::before {
-    /* Reveal from bottom to top */
-    -webkit-mask-position: 0 100%; 
-    mask-position: 0 100%;
-    opacity: 1;
-    
-    /* On hover: animate mask position, keep opacity full */
-    transition: mask-position 3s ease-in, -webkit-mask-position 3s ease-in, opacity 3s ease-in !important;
 }
 .task-btn:hover {
-    /* Border and background handled by ::before */
-    box-shadow: none !important;
-    color: #fff !important;
-    text-shadow: none;
+    transition: 0.6s ease-in-out !important;
+    box-shadow: var(--glow-hover) !important;
+    background-color: var(--color-zero-transparent) !important;
 }
-.task-btn:active {
-    box-shadow: none !important;
-}
-.task-btn:disabled {
-    cursor: not-allowed !important;
-    box-shadow: none !important;
-    transform: none !important;
-}
-.task-btn:disabled::after {
-    transition: 1.5s ease-out !important;
-    background-color: transparent !important;
-    border-color: #1e293b !important;
-}
-.task-btn:disabled::before {
-    /* Continue animation to full state instead of resetting */
-    -webkit-mask-position: 0 100% !important;
-    mask-position: 0 100% !important;
-    opacity: 1 !important;
-
-    /* Match the hover transition so it flows seamlessly */
-    transition: mask-position 3s ease-in, -webkit-mask-position 3s ease-in, opacity 3s ease-in !important;
-}
-.task-btn:disabled * {
-    transition: 0.5s ease-out !important;
-    color: var(--color-zero-transparent) !important;
-}
-.task-btn:hover * {
-    transition: 3s ease-out !important;
-    color: var(--color-hover) !important;
-}
-
 .task-btn-mask:disabled,
 .task-btn-mask[disabled] {
-    border-color: #1a2433 !important;
+    border-color: #1e293b !important;
 }
 .task-btn-mask:disabled * ,
 .task-btn-mask[disabled] * {
     color: var(--color-quarterary) !important;
 }
 
-/* --- END TASK BUTTON ANIMATION --- */
-
 /* input groups */
 .input-group .btn {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box !important;
-
-    /* Make parent transparent so pseudos show through */
-    border: 1px solid transparent !important;
-    background-color: transparent !important;
+    position: relative;
+    border: 1px solid rgba(125, 211, 252, 0.2) !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
     color: var(--color-zero) !important;
-    
-    position: relative !important;
-    overflow: hidden !important;
-    z-index: 1 !important;
-    transition: color 0.3s, transform 0.3s, box-shadow 0.3s !important;
+}
+.input-group .btn:hover {
+    border-color: transparent !important;
+    color: var(--color-hover) !important;
+    box-shadow: var(--glow-hover) !important;
 }
 
-/* Static background and border */
+/* Animated border pseudo-elements */
+.input-group .btn::before,
 .input-group .btn::after {
     content: "";
     position: absolute;
-    top: 0px; left: 0px; right: 0px; bottom: 0px;
-    z-index: -2;
-    
-    /* Match form-control style */
-    background-color: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(125, 211, 252, 0.2);
+    width: 0;
+    height: 0;
+    box-sizing: border-box;
+    border: 1px solid transparent;
     border-radius: inherit;
 }
 
-/* Hover background and border (rising/uncovering with gradient) */
+/* Bottom & Right segments */
 .input-group .btn::before {
-    content: "";
-    position: absolute;
-    transition: 1s ease-out !important;
-
-    top: 0px; bottom: 0px; left: 0px; right: 0px;
-    z-index: -1;
-    
-    border: 1px solid var(--color-hover);
-    
-    /* Gradient Mask */
-    -webkit-mask-image: linear-gradient(15deg, black 40%, transparent 60%);
-    mask-image: linear-gradient(15deg, black 40%, transparent 60%);
-    -webkit-mask-size: 200% 250%;
-    mask-size: 200% 250%;
-    -webkit-mask-position: 0 0; 
-    mask-position: 0 0;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    
-    opacity: 0;
-    
-    transition: mask-position 0.1s 0.3s, -webkit-mask-position 0.1s 0.3s, opacity 0.3s, border 0s 0.3s !important;
-    box-sizing: border-box;
+    bottom: 0;
+    left: 0;
+    border-top: none;
+    border-left: none;
+    transition: height 0.1s linear 0.2s, width 0.1s linear 0.3s;
 }
 
-.input-group .btn:hover::before,
-.input-group .btn:focus::before,
-.input-group .btn:active::before,
-.input-group .btn.active::before {
-    -webkit-mask-position: 0 100%; 
-    mask-position: 0 100%;
-    opacity: 1;
-    transition: mask-position 0.6s ease-in, -webkit-mask-position 0.6s ease-in, opacity 0.6s !important;
+/* Top & Left segments */
+.input-group .btn::after {
+    top: 0;
+    right: 0;
+    border-bottom: none;
+    border-right: none;
+    transition: height 0.1s linear 0s, width 0.1s linear 0.1s;
 }
 
-.input-group .btn:hover,
-.input-group .btn:focus,
-.input-group .btn:active,
-.input-group .btn.active {
-    box-shadow: none !important;
-    color: var(--color-hover) !important;
-    text-shadow: none;
-    outline: none !important;
+/* Hover states */
+.input-group .btn:hover::before {
+    width: 100%;
+    height: 100%;
+    border-bottom-color: var(--color-hover);
+    border-right-color: var(--color-hover);
+    transition: width 0.1s linear, height 0.1s linear 0.1s;
+}
+
+.input-group .btn:hover::after {
+    width: 100%;
+    height: 100%;
+    border-top-color: var(--color-hover);
+    border-left-color: var(--color-hover);
+    transition: width 0.1s linear 0.2s, height 0.1s linear 0.3s;
 }
 
 .form-control {
@@ -657,7 +625,7 @@ body {
 }
 .form-control:focus {
     border: thin dashed var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: var(--glow-focus) !important;
     background-color: rgba(0, 0, 0, 0.3) !important;
 }
 .form-control::placeholder {
@@ -671,7 +639,7 @@ body {
 /* progress bar */
 .progress-bar {
     background-color: var(--color-task-btn-border) !important;
-    box-shadow: none;
+    box-shadow: 0 0 10px var(--color-primary);
     color: var(--bg-color-firstlevel) !important;
     text-transform: lowercase !important;
     font-style: italic !important;
@@ -680,19 +648,13 @@ body {
 /* checkboxes */
 .checkbox *:checked {
     background-color: transparent !important;
-    border-color: var(--color-zero) !important;
+    border-color: var(--color-primary) !important;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3e%3cpath d='M3 5 L5 7 L9 3' fill='none' stroke='%237dd3fc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e") !important;
-    box-shadow: none !important;
+    box-shadow: 0 0 5px var(--color-primary);
 }
 .checkbox *:not(:checked) {
     background-color: transparent !important;
     border-color: var(--color-zero) !important;
-}
-.checkbox *:hover {
-    cursor: pointer !important;
-    background-color: transparent !important;
-    border-color: var(--color-secondary) !important;
-    box-shadow: none;
 }
 
 /* switches */
@@ -702,22 +664,21 @@ body {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%2394a3b8'/%3e%3c/svg%3e") !important;
 }
 .form-check-input.shiny-bound-input:checked {
-    background-color: var(--color-primary) !important;
-    border-color: var(--color-zero) !important;
+    background-color: var(--color-tertiary) !important;
+    border-color: var(--color-primary) !important;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23f1f5f9'/%3e%3c/svg%3e") !important;
-    box-shadow: none !important;
+    box-shadow: 0 0 5px var(--color-primary);
 }
 .form-check-input.shiny-bound-input:hover {
     cursor: pointer !important;
-    border-color: var(--color-secondary) !important;
+    border-color: var(--color-primary) !important;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23f1f5f9'/%3e%3c/svg%3e") !important;
-    box-shadow: none;
 }
 
 
 /* Recalculating state */
 .recalculating {
-    filter: saturate(200%) hue-rotate(200deg) brightness(1.85) contrast(95%) !important;
+    filter: saturate(200%) hue-rotate(200deg) brightness(2) contrast(95%) drop-shadow(0 0 2px rgba(125, 237, 252, 0.4)) !important;
 }
 
 /* Shiny file input progress */
@@ -730,8 +691,8 @@ body {
     box-shadow: none !important;
 }
 .shiny-file-input-progress .progress-bar {
-    background-color: var(--color-tertiary-transparent) !important;
-    box-shadow: none !important;
+    background-color: var(--color-tertiary) !important;
+    box-shadow: 0 0 10px var(--color-tertiary) !important;
 }
 
 
@@ -739,7 +700,7 @@ body {
 nav {
     background-color: var(--bg-color-firstlevel-transparent) !important;
     border-bottom: 1px solid var(--color-nav-border) !important;
-    box-shadow: none !important; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important; 
 }
 nav a {
     color: var(--color-zero) !important;
@@ -749,12 +710,12 @@ nav a {
 nav a.active {
     color: var(--color-primary) !important;
     background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
-    text-shadow: none; 
+    text-shadow: var(--glow-text-primary); 
 }
 nav a.hover,
 nav a.nav-link:hover {
     color: var(--color-hover) !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-hover);
 }
 
 /* animated bottom border */
@@ -801,7 +762,7 @@ nav span {
     color: var(--color-secondary) !important;
     font-weight: 700 !important;
     letter-spacing: 2px; 
-    text-shadow: none; 
+    text-shadow: 0 0 10px rgba(241, 245, 249, 0.3); 
 }
 
 /* Nav Pills (Sidebar) */
@@ -849,7 +810,7 @@ nav span {
     background-size: 100% 75% !important; 
     background-repeat: no-repeat !important;
     background-position: left center !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-primary);
 }
 
 .nav-pills a.active::before {
@@ -864,19 +825,19 @@ nav span {
 
 .nav-pills a.nav-link:hover {
     color: var(--color-hover) !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-hover);
 }
 
 
 /* sliders */
 .irs-bar {
     background-color: var(--color-primary) !important;
-    box-shadow: none;
+    box-shadow: 0 0 5px var(--color-primary);
 }
 .irs-handle {
     background-color: var(--bg-color-zerolevel) !important;
     border: 2px solid var(--color-tertiary) !important;
-    box-shadow: none;
+    box-shadow: 0 0 5px var(--color-primary);
 }
 .irs-line {
     background-color: transparent !important;
@@ -884,12 +845,13 @@ nav span {
 .irs-from, .irs-to, .irs-single {
     color: var(--color-primary) !important;
     background: none !important;
-    text-shadow: none;
+    text-shadow: 0 0 8px var(--color-primary);
 
 }
 .irs-min, .irs-max {
     color: var(--color-zerosecondary) !important;
 }
+
 
 /* custom button without frame */
 .btn-noframe {
@@ -905,7 +867,7 @@ nav span {
 }
 .btn-noframe *:hover {
     background: none !important;
-    box-shadow: none;
+    box-shadow: 0 0 8px var(--color-hover);
     color: var(--color-hover) !important;
 }
 .btn-noframe *:active {
@@ -926,17 +888,17 @@ nav span {
 
 /* sidebar layout */
 #labeling_sidebar_n_data_input_layout {
-    border: 1px solid rgba(57, 77, 155, 0.4) !important;
+    border: 1px solid rgba(125, 211, 252, 0.3) !important;
     border-left: none !important;
 }
 #labeling_sidebar {
     background-color: var(--bg-color-firstlevel) !important;
 }
 
-/* sidebar accordion - uniformity */
+/* sidebar accordion */
 #sidebar .accordion-item {
     background-color: var(--bg-color-firstlevel) !important;
-    border-bottom: 1px solid rgba(57, 77, 155, 0.3) !important;
+    border-bottom: 1px solid rgba(125, 211, 252, 0.2) !important;
 }
 #sidebar .accordion-button {
     background-color: var(--bg-color-firstlevel) !important;
@@ -944,14 +906,14 @@ nav span {
 }
 #sidebar .accordion-button:hover {
     color: var(--color-primary) !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-primary);
 }
 
 
 /* order ladder */
 #order li { 
     background-color: var(--bg-color-secondlevel);
-    border: 1px solid #394d9b;
+    border: 1px solid #334155;
     color: var(--color-secondary);
     margin-bottom: 2px;
 }
@@ -963,30 +925,30 @@ nav span {
 }
 #prev:hover, #next:hover {
     color: var(--color-primary) !important;
-    text-shadow: none;
+    text-shadow: 0 0 8px var(--color-primary);
 }
 #play:hover, #stop:hover {
     color: var(--color-quarterary) !important;
-    text-shadow: none;
+    text-shadow: 0 0 8px var(--color-quarterary);
 }
 
 /* text inputs */
 .shiny-input-text.form-control.shiny-bound-input {
-    border: 1px solid rgba(125, 209, 231, 0.2) !important;
+    border: 1px solid rgba(125, 211, 252, 0.2) !important;
     background-color: rgba(0, 0, 0, 0.2) !important;
     color: var(--color-secondary) !important;
     transition: var(--transition-smooth) !important;
 }
 .shiny-input-text.form-control.shiny-bound-input:focus {
     border-color: var(--color-primary) !important;
-    box-shadow: none !important;
-    text-shadow: none;
+    box-shadow: var(--glow-focus) !important;
+    text-shadow: 0 0 5px rgba(255,255,255,0.5);
     background-color: rgba(0, 0, 0, 0.3) !important;
 }
 
 /* data grid */
 .shiny-data-grid {
-    border: 1px solid rgba(57, 77, 155, 0.4) !important;
+    border: 1px solid rgba(125, 211, 252, 0.3) !important;
 }
 * table tbody * {
     background-color: var(--bg-color-zerolevel) !important;
@@ -996,15 +958,15 @@ nav span {
     background-color: var(--bg-color-secondlevel) !important;
     color: var(--color-primary) !important;
     border-bottom: 1px solid var(--color-primary) !important;
-    text-shadow: none;
+    text-shadow: 0 0 5px rgba(125, 211, 252, 0.3);
 }
 * tbody tr td {
-    border-bottom: 1px solid rgba(57, 77, 155, 0.2) !important;
+    border-bottom: 1px solid rgba(125, 211, 252, 0.1) !important;
 }
 
-/* selectize - uniform dark theme */
+/* selectize */
 .selectize-input {
-    border: 1px solid rgba(125, 209, 231, 0.2) !important;
+    border: 1px solid rgba(125, 211, 252, 0.2) !important;
     background-color: var(--bg-color-zerolevel) !important;
     border-radius: 2px !important;
 }
@@ -1014,7 +976,7 @@ nav span {
 .selectize-dropdown {
     background-color: var(--bg-color-firstlevel) !important;
     border: 1px solid var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: var(--glow-border) !important;
 }
 .selectize-dropdown-content .option {
     color: var(--color-secondary) !important;
@@ -1025,15 +987,13 @@ nav span {
 }
 .selectize-input.focus {
     border-color: var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: var(--glow-focus) !important;
 }
 
 /* app theme selectize ui */
-/* Targeted .option instead of * to allow active state override */
 .selectize-control .selectize-dropdown .option {
     background-color: var(--bg-color-zerolevel) !important
 }
-/* Ensure active/hovered option is visible */
 .selectize-control .selectize-dropdown .option.active {
     background-color: var(--bg-color-thirdlevel) !important;
 }
@@ -1059,7 +1019,7 @@ nav span {
 }
 .selectize-control.single .selectize-input *:hover {
     color: var(--color-hover) !important;
-    text-shadow: none;
+    text-shadow: 0 0 8px var(--color-quarterary);
 }
 .selectize-control *:hover {
     color: var(--color-hover) !important;
@@ -1083,26 +1043,26 @@ nav span {
 .plain-link:hover * {
     color: var(--color-hover) !important;
     text-decoration: none !important;
-    text-shadow: none;
+    text-shadow: var(--glow-text-hover);
 }
 
 
 
-/* Modal Formatting - Neon Box */
+/* Modal Formatting */
 .modal-content {
     background-color: var(--bg-color-firstlevel) !important;
     border: 1px solid var(--color-primary) !important;
-    box-shadow: none !important;
+    box-shadow: 0 0 30px rgba(125, 211, 252, 0.15), inset 0 0 20px rgba(0,0,0,0.8) !important;
     color: var(--color-secondary) !important;
     border-radius: 4px !important;
 }
 .modal-header {
-    border-bottom: 1px solid rgba(125, 209, 231, 0.3) !important;
-    background: linear-gradient(90deg, rgba(125, 209, 231, 0.1) 0%, transparent 100%) !important;
+    border-bottom: 1px solid rgba(125, 211, 252, 0.3) !important;
+    background: linear-gradient(90deg, rgba(125, 211, 252, 0.1) 0%, transparent 100%) !important;
 }
 .modal-title {
     color: var(--color-primary) !important;
-    text-shadow: none !important;
+    text-shadow: var(--glow-text-primary) !important;
     font-weight: 600 !important;
     letter-spacing: 1px;
 }
@@ -1111,11 +1071,10 @@ nav span {
     color: var(--color-secondary) !important;
 }
 .modal-footer {
-    border-top: 1px solid rgba(125, 209, 231, 0.3) !important;
+    border-top: 1px solid rgba(125, 211, 252, 0.3) !important;
     background-color: transparent !important;
 }
 .modal-backdrop {
-    background-color: #020814 !important;
+    background-color: #020617 !important;
     opacity: 0.9 !important;
-    /* backdrop-filter: blur(2px); Removed to prevent lag over animated canvas */
 }
