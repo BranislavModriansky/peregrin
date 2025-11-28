@@ -20,6 +20,50 @@
     canvas.style.pointerEvents = 'none'; // Let clicks pass through
     document.body.insertBefore(canvas, document.body.firstChild);
 
+    // --- Configuration Object ---
+    // Expose config to window so it can be modified from outside (e.g. Python/Shiny)
+    window.PeregrinGridConfig = window.PeregrinGridConfig || {
+        // Control
+        ENABLED: true,
+        // Grid & Physics
+        GRID_SPACING: 12.5,
+        DOT_RADIUS: 0.5,
+        INFLUENCE_RADIUS: 750,
+        MOUSE_FORCE: 0.75,
+        SPRING_STIFFNESS: 0.035,
+        DAMPING: 0.75,
+        MOUSE_LAG: 0.75,
+        // Visuals
+        COLOR_R: 130,
+        COLOR_G: 218,
+        COLOR_B: 240,
+        BASE_ALPHA: 0.35,
+        // Glow Logic
+        GLOW_INTENSITY: 5.25,
+        GLOW_POWER: 3,          // <- updated from UI
+        GLOW_DISPLACEMENT_NORM: 50,
+        ALPHA_SMOOTHING: 0.5,
+        // Tangle/Aggregation Prevention
+        TANGLE_THRESHOLD: 10,   // <- updated from UI
+        FADE_RADIUS_MULT: 2
+    };
+    const cfg = window.PeregrinGridConfig;
+
+    // --- Global updater called from Shiny-injected <script> ---
+    // Example call (emitted by Python):
+    // window.PeregrinGridUpdateConfig({MOUSE_FORCE: 2.0, ...});
+    window.PeregrinGridUpdateConfig = function(message) {
+        if (!message) return;
+        for (const key in message) {
+            if (Object.prototype.hasOwnProperty.call(cfg, key)) {
+                cfg[key] = message[key];
+            }
+        }
+        if (Object.prototype.hasOwnProperty.call(message, "GRID_SPACING")) {
+            initDots();
+        }
+    };
+
     let width, height;
     let mouseX = -1000;
     let mouseY = -1000;
@@ -28,39 +72,12 @@
     let lagMouseY = -1000;
     let dots = [];
 
-    // --- Configuration Constants ---
-    
-    // Grid & Physics
-    const GRID_SPACING = 12.5;      
-    const DOT_RADIUS = 0.5;       
-    const INFLUENCE_RADIUS = 750; 
-    const MOUSE_FORCE = 0.75;     
-    const SPRING_STIFFNESS = 0.035; 
-    const DAMPING = 0.75;
-    const MOUSE_LAG = 0.75; // 0.0 to 1.0 - Lower is more delayed/smoother force
-
-    // Visuals
-    const COLOR_R = 130;
-    const COLOR_G = 218;
-    const COLOR_B = 240;
-    const BASE_ALPHA = 0.35;     
-    
-    // Glow Logic
-    const GLOW_INTENSITY = 5.25; 
-    const GLOW_POWER = 3; // Curve of the glow (higher = more rapid rise)
-    const GLOW_DISPLACEMENT_NORM = 50; // Distance at which glow normalizes
-    const ALPHA_SMOOTHING = 0.5; // 0.0 to 1.0 - Lower is smoother transitions (fixes flashing)
-    
-    // Tangle/Aggregation Prevention
-    const TANGLE_THRESHOLD = 10; 
-    const FADE_RADIUS_MULT = 2; // Multiplier for the dark center radius
-
     function initDots() {
         dots = [];
         // Extend grid generation beyond screen edges to prevent gaps during pull
         const extension = 400;
-        for (let x = -extension; x < width + extension; x += GRID_SPACING) {
-            for (let y = -extension; y < height + extension; y += GRID_SPACING) {
+        for (let x = -extension; x < width + extension; x += cfg.GRID_SPACING) {
+            for (let y = -extension; y < height + extension; y += cfg.GRID_SPACING) {
                 dots.push({
                     originX: x,
                     originY: y,
@@ -68,7 +85,7 @@
                     y: y,
                     vx: 0,
                     vy: 0,
-                    currentAlpha: BASE_ALPHA // Track alpha for smoothing
+                    currentAlpha: cfg.BASE_ALPHA // Track alpha for smoothing
                 });
             }
         }
@@ -92,11 +109,26 @@
     };
     document.addEventListener('mousemove', mouseMoveHandler);
 
-    function animate() {
+    let debugLastLog = 0;
+
+    function animate(timestamp) {
         // Stop animation loop and cleanup listeners if canvas is removed
         if (!document.body.contains(canvas)) {
             window.removeEventListener('resize', resize);
             document.removeEventListener('mousemove', mouseMoveHandler);
+            return;
+        }
+
+        // Debug: log current cfg once per second
+        if (timestamp !== undefined && timestamp - debugLastLog > 1000) {
+            console.log("[proton_grid] animate tick, cfg:", cfg);
+            debugLastLog = timestamp;
+        }
+
+        // If disabled, just clear and schedule next frame
+        if (!cfg.ENABLED) {
+            ctx.clearRect(0, 0, width, height);
+            requestAnimationFrame(animate);
             return;
         }
 
@@ -107,12 +139,12 @@
             lagMouseX = mouseX;
             lagMouseY = mouseY;
         } else {
-            lagMouseX += (mouseX - lagMouseX) * MOUSE_LAG;
-            lagMouseY += (mouseY - lagMouseY) * MOUSE_LAG;
+            lagMouseX += (mouseX - lagMouseX) * cfg.MOUSE_LAG;
+            lagMouseY += (mouseY - lagMouseY) * cfg.MOUSE_LAG;
         }
 
         // Set base color once
-        ctx.fillStyle = `rgb(${COLOR_R}, ${COLOR_G}, ${COLOR_B})`;
+        ctx.fillStyle = `rgb(${cfg.COLOR_R}, ${cfg.COLOR_G}, ${cfg.COLOR_B})`;
 
         for (let i = 0; i < dots.length; i++) {
             const dot = dots[i];
@@ -123,18 +155,18 @@
             const distSq = dx * dx + dy * dy;
             
             // Mouse interaction (Attraction)
-            if (distSq < INFLUENCE_RADIUS * INFLUENCE_RADIUS && distSq > 1) {
+            if (distSq < cfg.INFLUENCE_RADIUS * cfg.INFLUENCE_RADIUS && distSq > 1) {
                 const dist = Math.sqrt(distSq);
-                const force = (INFLUENCE_RADIUS - dist) / INFLUENCE_RADIUS;
+                const force = (cfg.INFLUENCE_RADIUS - dist) / cfg.INFLUENCE_RADIUS;
                 
                 // Tangle Avoidance
                 let avoidanceFactor = 1;
-                if (dist < TANGLE_THRESHOLD) {
-                    avoidanceFactor = dist / TANGLE_THRESHOLD;
+                if (dist < cfg.TANGLE_THRESHOLD) {
+                    avoidanceFactor = dist / cfg.TANGLE_THRESHOLD;
                 }
 
                 // Physics: Pull towards mouse
-                const effectiveForce = force * avoidanceFactor * MOUSE_FORCE;
+                const effectiveForce = force * avoidanceFactor * cfg.MOUSE_FORCE;
                 
                 dot.vx += (dx / dist) * effectiveForce;
                 dot.vy += (dy / dist) * effectiveForce;
@@ -144,12 +176,12 @@
             const springDx = dot.originX - dot.x;
             const springDy = dot.originY - dot.y;
             
-            dot.vx += springDx * SPRING_STIFFNESS;
-            dot.vy += springDy * SPRING_STIFFNESS;
+            dot.vx += springDx * cfg.SPRING_STIFFNESS;
+            dot.vy += springDy * cfg.SPRING_STIFFNESS;
 
             // Apply physics
-            dot.vx *= DAMPING;
-            dot.vy *= DAMPING;
+            dot.vx *= cfg.DAMPING;
+            dot.vy *= cfg.DAMPING;
             
             dot.x += dot.vx;
             dot.y += dot.vy;
@@ -161,7 +193,7 @@
             const displacement = Math.sqrt(displacementSq);
             
             // 2. Calculate Target Glow (Power curve)
-            let glow = Math.pow(displacement / GLOW_DISPLACEMENT_NORM, GLOW_POWER) * GLOW_INTENSITY;
+            let glow = Math.pow(displacement / cfg.GLOW_DISPLACEMENT_NORM, cfg.GLOW_POWER) * cfg.GLOW_INTENSITY;
 
             // 3. Fade out near the center of force (where dots aggregate)
             // Use lagMouse for the fade out logic (Lagged suppression)
@@ -169,23 +201,23 @@
             const lagDy = lagMouseY - dot.y;
             const lagDistSq = lagDx * lagDx + lagDy * lagDy;
 
-            const fadeRadius = TANGLE_THRESHOLD * FADE_RADIUS_MULT;
+            const fadeRadius = cfg.TANGLE_THRESHOLD * cfg.FADE_RADIUS_MULT;
             if (lagDistSq < fadeRadius * fadeRadius) {
                 const dist = Math.sqrt(lagDistSq);
                 const fade = dist / fadeRadius;
                 glow *= fade;
             }
             
-            let targetAlpha = BASE_ALPHA + glow;
+            let targetAlpha = cfg.BASE_ALPHA + glow;
             if (targetAlpha > 1.0) targetAlpha = 1.0;
 
             // 4. Smooth Alpha Transition (Fixes flashing)
-            dot.currentAlpha += (targetAlpha - dot.currentAlpha) * ALPHA_SMOOTHING;
+            dot.currentAlpha += (targetAlpha - dot.currentAlpha) * cfg.ALPHA_SMOOTHING;
 
             // Draw dot
             ctx.globalAlpha = dot.currentAlpha;
             ctx.beginPath();
-            ctx.arc(dot.x, dot.y, DOT_RADIUS, 0, Math.PI * 2);
+            ctx.arc(dot.x, dot.y, cfg.DOT_RADIUS, 0, Math.PI * 2);
             ctx.fill();
         }
         requestAnimationFrame(animate);
