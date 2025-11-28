@@ -1,3 +1,7 @@
+/* a[data-value="hidden_play_panel"] { 
+    display: none !important; 
+} */
+
 /* data input labeling sidebar */
 #labeling_sidebar {
     background-color: #f8f8f8 !important;

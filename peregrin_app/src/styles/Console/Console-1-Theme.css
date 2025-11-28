@@ -76,6 +76,7 @@ body {
 /* Navbar needs higher z-index so dropdowns don't get covered by main content */
 .navbar {
     position: relative !important;
+    z-index: 1100 !important;
 }
 
 .main {
@@ -702,6 +703,7 @@ nav span {
     background-color: var(--bg-color-firstlevel) !important;
     border: 1px solid var(--color-primary) !important;
     box-shadow: var(--glow-border) !important;
+    z-index: 2000 !important;
 }
 .selectize-dropdown-content .option {
     color: var(--color-secondary) !important;

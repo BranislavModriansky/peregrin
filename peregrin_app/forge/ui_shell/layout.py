@@ -23,9 +23,7 @@ warnings.filterwarnings(
 app_ui = ui.page_sidebar(
     
     # _ _ _ SIDEBAR - DATA FILTERING _ _ _
-    ui.sidebar(
-    
-        # ui.tags.style(Customize.Accordion01),
+    ui.sidebar(    
         ui.markdown("""  <p>  """),
         ui.output_ui(id="sidebar_label"),
         ui.input_action_button(id="append_threshold", label="Add threshold", class_="btn-primary", width="100%", disabled=True),
@@ -38,9 +36,19 @@ app_ui = ui.page_sidebar(
         id="sidebar", open="closed", position="right", width="300px"
     ),
 
-    # _ _ _ PANEL NAVIGATION BAR _ _ _
+    # _ _ _ _ PANEL NAVIGATION BAR _ _ _ _
     ui.navset_bar(
-        
+
+        ui.nav_panel(
+            "About",
+            ui.markdown("#### **About Peregrin**"),
+            ui.markdown(
+                """ 
+                    Copilot (GPT-4) wrote: <br>
+                    Peregrin is a data analysis and visualization tool designed for processing and interpreting tracking data. It offers a user-friendly interface for importing raw data, applying filters, and generating insightful visualizations to aid in data interpretation.
+                """
+            ),
+        ),
 
         # _ _ _ _ RAW DATA INPUT PANEL - APP INITIALIZATION _ _ _ _
         ui.nav_panel(
@@ -897,23 +905,27 @@ app_ui = ui.page_sidebar(
                 widths = (2, 10)
             ),
         ),
-        
-        
+
         ui.nav_spacer(),
-        
+
         ui.nav_control(
             ui.input_selectize(
                 id="app_theme",
                 label=None,
-                choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1", "Console-2"],
-                selected="Console-2",
+                choices=["Shiny", "Console-0", "Console-1", "Console-2"],
+                selected="Shiny",
                 width="140px",
                 options={"hideSelected": True, },
             ),
             ui.output_ui("custom_theme_url"),
         ),
-        # title=ui.tags.span("Peregrin", class_="peregrin-logo"),
         title="Peregrin",
+        # title=ui.tags.span("Peregrin", class_="peregrin-logo"),
+        # title=ui.input_action_link("app_title_link", "Peregrin", style="color: inherit; text-decoration: none;"),
+        # title=ui.nav_panel
+        
+        id="main_nav",
+        selected="Input Menu",
         
     ),
 )

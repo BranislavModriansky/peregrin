@@ -3,6 +3,34 @@ from shiny import reactive, ui, render
 
 def set_theme(input, output, session, S):
 
+    @reactive.Effect
+    def _():
+        selected_theme = input.app_theme()
+        
+        if selected_theme == "Console-1":
+            if not S.PLAY.get():
+                ui.insert_nav_panel(
+                    id="main_nav",
+                    nav_panel=ui.nav_panel(
+                        "Play",
+                        ui.panel_well(
+                            ui.markdown("#### **Playground**"),
+                            ui.markdown("Play with the physics of the background."),
+                            
+                        )
+                    ),
+                    target="Visualisation",
+                    position="after" 
+                )
+                S.PLAY.set(True)
+        else:
+            if S.PLAY.get():
+                ui.remove_nav_panel(
+                    id="main_nav",
+                    target="Play"
+                )
+                S.PLAY.set(False)
+
     @output()
     @render.ui
     def custom_theme_url():
@@ -25,8 +53,9 @@ def set_theme(input, output, session, S):
 
         if selected_theme == "Console-1":
             styles.append(ui.include_js("peregrin_app/src/js/proton_grid.js"))
-        elif selected_theme == "Console-2":
+            
+        if selected_theme == "Console-2":
             styles.append(ui.include_js("peregrin_app/src/js/tiles_grid.js"))
         
         return styles
-        
+

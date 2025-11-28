@@ -1,8 +1,101 @@
+/* a[data-value="hidden_play_panel"] { 
+    display: none !important; 
+} */
+
+:root {
+    /* Shadcn/Slate Palette - Matching tiles_grid.js */
+    --bg-color-zerolevel: #0f172a;
+    --bg-color-zerolevel-transparent: #070d17c5;
+    --bg-color-zerolevel-border: #070d17;
+    --bg-color-firstlevel: #1f2e45dd;      /* Slate 800 */
+    --bg-color-firstlevel-transparent: #1f2e45dd;
+    --bg-color-firstlevel-less-transparent: #1e293be6;
+    --bg-color-secondlevel: #334155de;     /* Slate 700 */
+    --bg-color-secondlevel-transparent: #334155c6;
+    --bg-color-thirdlevel: #475569d6;      /* Slate 600 */
+
+    /* Main Accents - Pastel/Neon from JS */
+    --color-primary: #93d2ff;          /* Sky 300 */
+    --color-tertiary: #d7a9ff;         /* Violet 300 */
+    --color-tertiary-transparent: #e2c1ffaf;         /* Violet 300 */
+    --color-quarternary-1: #b2a7ff;         /* Red 300 */
+    --color-quarterary: #8c80bdce;       /* Red 300 */
+    --color-hover: #ffe262;            /* Yellow 300 */
+    --text-glow-hover: rgba(250, 237, 179, 0.2);      /* Yellow Bright */
+
+    /* Text Colors */
+    --color-secondary: #f1f5f9;          /* Slate 100 */
+    --color-secondary-transparent: #f1f5f924;
+    --color-zero: #94a3b8;               /* Slate 400 */
+    --color-zero-transparent: #94a3b8aa;
+    --color-zerosecondary: #cbd5e1;      /* Slate 300 */
+    --color-browse: #669881;               /* Green 300 */
+
+    /* Button Specifics */
+    --color-action-btn-primary: #170217; /* Slate 950 */
+    --color-action-btn-primary-hover: #1e293b;
+    --color-action-btn-primary-border: #7dd3fc88; 
+    
+    --color-task-btn: #131218;
+    --color-task-btn-hover: #181c1d;
+    --color-task-btn-border: #819bf8;    /* Indigo 400 */
+    --color-task-btn-border-disabled: #2e3150;    /* Indigo 400 */
+
+    --color-disabled-btn-border: #1a2433;
+    --background-button-disabled: #040a18; /* Red 950 */
+
+    --color-accordion: #7dd3fc6b;
+    --color-accordion-item: #2b414a;
+
+    --color-nav-border: #7dd3fc66;
+    
+    /* Functional Glows */
+    --glow-text-primary: none;
+    --glow-text-hover: 0 0 10px rgba(253, 224, 71, 0.25);
+    --glow-focus: 0 0 10px rgba(125, 211, 252, 0.1);
+    --glow-hover: 0 0 10px rgba(125, 211, 252, 0.1);
+    --glow-border: 0 0 10px rgba(125, 211, 252, 0.1);
+    
+    /* Smooth Transition */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Cursor Tracking Variables */
+    --mouse-x: 50vw;
+    --mouse-y: 50vh;
+
+    /* --- NEWLY EXTRACTED VARIABLES --- */
+    --mask-radial-faded: #ffffff44;
+    
+    /* Borders - Primary (Sky based) */
+    --border-primary-20: rgba(125, 211, 252, 0.2);
+    --border-primary-15: rgba(125, 211, 252, 0.15);
+    --border-primary-10: rgba(125, 211, 252, 0.1);
+    --border-primary-05: rgba(125, 211, 252, 0.05);
+    --border-modal: rgba(125, 209, 231, 0.3);
+    
+    /* Borders - Blue (Sidebar/Grid based) */
+    --border-blue-40: rgba(57, 77, 155, 0.4);
+    --border-blue-30: rgba(57, 77, 155, 0.3);
+    --border-blue-20: rgba(57, 77, 155, 0.2);
+    --border-blue-solid: #394d9b;
+
+    /* Input Backgrounds */
+    --bg-input: rgba(0, 0, 0, 0.2);
+    --bg-input-hover: rgba(0, 0, 0, 0.3);
+    --bg-input-focus: rgba(0, 0, 0, 0.4);
+    --bg-accordion-body: rgba(0, 0, 0, 0.15);
+    
+    /* Modal */
+    --bg-modal-backdrop: #020814;
+}
+
+
+
 /* Wrapper around the background; put your content on top with higher z-index */
 .background-boxes-wrapper {
   position: relative;
   overflow: hidden;
-  background-color: rgb(15 23 42); /* slate-900 style - Matches JS */
+  background-color: var(--bg-color-zerolevel); /* slate-900 style - Matches JS */
 }
 
 /* A mask to fade out the grid towards the edges (optional) */
@@ -10,11 +103,11 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background-color: rgb(15 23 42); /* slate-900 style */
+    background-color: var(--bg-color-zerolevel); /* slate-900 style */
 
     /* Move the radial center towards the top-right */
-    mask-image: radial-gradient(circle at 80% 10%, #ffffff44, white);
-    -webkit-mask-image: radial-gradient(circle at 80% 10%, #ffffff44, white);
+    mask-image: radial-gradient(circle at 75% 15%, var(--mask-radial-faded), white);
+    -webkit-mask-image: radial-gradient(circle at 75% 15%, var(--mask-radial-faded), white);
 
     z-index: 20;
 }
@@ -38,15 +131,15 @@
 /* Each "column" */
 .bg-boxes-column {
   width: 64px;   
-  border-left: 1px solid rgb(30 41 59); /* slate-800 */
+  border-left: 1px solid var(--bg-color-firstlevel); /* slate-800 */
 }
 
 /* Individual cells */
 .bg-boxes-cell {
   width: 64px;   
   height: 32px;  
-  border-right: 1px solid rgb(30 41 59); /* slate-800 */
-  border-top: 1px solid rgb(30 41 59);   /* slate-800 */
+  border-right: 1px solid var(--bg-color-firstlevel); /* slate-800 */
+  border-top: 1px solid var(--bg-color-firstlevel);   /* slate-800 */
   position: relative;
   background-color: transparent;
   transition: 0.15s linear;
@@ -64,59 +157,7 @@
 }
 
 
-:root {
-    /* Shadcn/Slate Palette - Matching tiles_grid.js */
-    --bg-color-zerolevel: #0f172a;       /* Slate 900 */
-    --bg-color-firstlevel: #1e293b;      /* Slate 800 */
-    --bg-color-firstlevel-transparent: #1e293bb3;
-    --bg-color-firstlevel-less-transparent: #1e293be6;
-    --bg-color-secondlevel: #334155;     /* Slate 700 */
-    --bg-color-secondlevel-transparent: #334155c6;
-    --bg-color-thirdlevel: #475569;      /* Slate 600 */
 
-    /* Main Accents - Pastel/Neon from JS */
-    --color-primary: #8bcbff;          /* Sky 300 */
-    --color-tertiary: #d7a9ff;         /* Violet 300 */
-    --color-tertiary-transparent: #d7a9ffaf;         /* Violet 300 */
-    --color-quarterary: #9b8fcc;       /* Red 300 */
-    --color-hover: #ffe262;            /* Yellow 300 */
-    --text-glow-hover: rgba(250, 237, 179, 0.2);      /* Yellow Bright */
-
-    /* Text Colors */
-    --color-secondary: #f1f5f9;          /* Slate 100 */
-    --color-secondary-transparent: #f1f5f924;
-    --color-zero: #94a3b8;               /* Slate 400 */
-    --color-zero-transparent: #94a3b8aa;
-    --color-zerosecondary: #cbd5e1;      /* Slate 300 */
-    --color-name: #86efac;               /* Green 300 */
-
-    /* Button Specifics */
-    --color-action-btn-primary: #020617; /* Slate 950 */
-    --color-action-btn-primary-hover: #1e293b;
-    --color-action-btn-primary-border: #7dd3fc88; 
-    
-    --color-task-btn: #020617;
-    --color-task-btn-hover: #1e293b;
-    --color-task-btn-border: #818cf8;    /* Indigo 400 */
-
-    --color-accordion: #7dd3fc6b;
-
-    --color-nav-border: #7dd3fc66;
-    
-    /* Functional Glows */
-    --glow-text-primary: none;
-    --glow-text-hover: 0 0 10px rgba(253, 224, 71, 0.25);
-    --glow-focus: 0 0 10px rgba(125, 211, 252, 0.1);
-    --glow-hover: 0 0 10px rgba(125, 211, 252, 0.1);
-    --glow-border: 0 0 10px rgba(125, 211, 252, 0.1);
-    
-    /* Smooth Transition */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    /* Cursor Tracking Variables */
-    --mouse-x: 50vw;
-    --mouse-y: 50vh;
-}
 
 /* base color for all text */
 * {
@@ -126,6 +167,11 @@
 
 .bslib-sidebar-layout {
     z-index: 1000 !important;
+}
+
+.sidebar:is(#sidebar) {
+    background-color: var(--bg-color-firstlevel-transparent) !important;
+    border-left: 1px solid var(--border-primary-20) !important;
 }
 
 /* cursor & body */
@@ -158,7 +204,7 @@ body {
 
 /* Uniform Card Style */
 .card {
-    border: 1px solid rgba(125, 211, 252, 0.2) !important; /* Sky 300 transparent */
+    border: 1px solid var(--border-primary-20) !important; /* Sky 300 transparent */
     background-color: var(--bg-color-firstlevel) !important;
     border-radius: 4px !important;
     box-shadow: none !important; 
@@ -170,7 +216,7 @@ body {
     transform: translateY(-1px);
 }
 .card-header.bg-secondary-css {
-    border-bottom: 1px solid #1e293b !important;
+    border-bottom: 1px solid var(--bg-color-firstlevel) !important;
     border-top: none !important;
     border-left: none !important;
     background-color: var(--bg-color-secondlevel) !important;
@@ -178,7 +224,7 @@ body {
 .card-header.bg-blue {
     /* Cyan gradient */
     border-bottom: 1px solid var(--color-primary) !important;
-    background: linear-gradient(90deg, rgba(125, 211, 252, 0.15) 0%, transparent 100%) !important;
+    background: linear-gradient(90deg, var(--border-primary-15) 0%, transparent 100%) !important;
     border-top: none !important;
     border-left: none !important;
 }
@@ -187,26 +233,32 @@ body {
     text-shadow: none !important;
 }
 
+.well:not(:has(.nav-pills)) {
+    border-right: 1px solid var(--border-primary-20) !important;
+    background-color: var(--bg-color-firstlevel-transparent) !important;
+}
+
+
 /* numeric inputs */
 .form-control.shiny-input-number {
     transition: var(--transition-smooth) !important;
-    border: 1px solid rgba(125, 211, 252, 0.2) !important;
+    border: 1px solid var(--border-primary-20) !important;
     border-radius: 2px !important;
     color: var(--color-primary) !important;
-    background-color: rgba(0, 0, 0, 0.2) !important; 
+    background-color: var(--bg-input) !important; 
     caret-color: var(--color-hover) !important;
 }
 .form-control.shiny-input-number:hover {
     border-color: var(--color-hover) !important;
     box-shadow: none !important;
-    background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: var(--bg-input-hover) !important;
 }
 .form-control.shiny-input-number:focus {
     border-color: var(--color-primary) !important;
     box-shadow: none !important;
     color: #fff !important;
     text-shadow: none;
-    background-color: rgba(0, 0, 0, 0.4) !important;
+    background-color: var(--bg-input-focus) !important;
 }
 
 /* accordion base */
@@ -215,12 +267,12 @@ body {
 }
 .accordion-item {
     border: none !important;
-    background-color: #1e293bb0 !important;
+    background-color: var(--color-accordion-item) !important;
     margin-bottom: 0 !important; 
 }
 .accordion-button {
     border: none !important;
-    border-bottom: 1px solid rgba(125, 211, 252, 0.2) !important;
+    border-bottom: 1px solid var(--border-primary-20) !important;
     background-color: var(--bg-color-firstlevel-less-transparent) !important;
     color: var(--color-zerosecondary) !important;
     font-weight: 600 !important;
@@ -228,7 +280,7 @@ body {
 }
 .accordion-button:not(.collapsed) {
     color: var(--color-primary) !important;
-    background: linear-gradient(90deg, rgba(125, 211, 252, 0.1) 0%, transparent 100%) !important;
+    background: linear-gradient(90deg, var(--border-primary-10) 0%, transparent 100%) !important;
     text-shadow: none;
     border-bottom-color: var(--color-primary) !important;
 }
@@ -257,7 +309,7 @@ body {
     
 }
 .elevated-panel .card {
-    border: 1px solid #1e293b !important;
+    border: 1px solid var(--bg-color-firstlevel) !important;
     background-color: var(--bg-color-firstlevel-less-transparent) !important;
 }
 .elevated-panel .card:hover:not(:has(.accordion:hover)) {
@@ -268,7 +320,7 @@ body {
 .draggable-accordion .accordion-item {
     background-color: transparent !important;
     margin-bottom: 0 !important;
-    border-bottom: 1px solid rgba(125, 211, 252, 0.2) !important;
+    border-bottom: 1px solid var(--border-primary-20) !important;
 }
 .draggable-accordion .accordion-button {
     background: transparent !important;
@@ -279,7 +331,7 @@ body {
     padding: 0.75rem 1rem !important;
 }
 .draggable-accordion .accordion-button:not(.collapsed) {
-    background: linear-gradient(90deg, rgba(125, 211, 252, 0.05) 0%, transparent 100%) !important;
+    background: linear-gradient(90deg, var(--border-primary-05) 0%, transparent 100%) !important;
     border-left-color: var(--color-primary) !important;
     box-shadow: none !important;
 }
@@ -289,15 +341,12 @@ body {
 }
 .draggable-accordion .accordion-body {
     border: none !important;
-    background-color: rgba(0, 0, 0, 0.15) !important;
+    background-color: var(--bg-accordion-body) !important;
     padding: 1rem !important;
 }
 
 
-.action-button.btn-primary *{
-    transition: 1s ease-out !important;
-    color: var(--color-zerosecondary) !important;
-}
+
 
 /* action buttons & download buttons */
 .action-button.btn-primary, 
@@ -308,9 +357,10 @@ body {
     box-sizing: border-box !important;
 
     /* Make parent transparent so pseudos show through */
-    border: 1px solid transparent !important;
-    background-color: transparent !important;
-    color: var(--color-secondary) !important;
+    /* border: 1px solid var(--color-action-btn-primary-border) !important; */
+    border-color: var(--color-action-btn-primary-border) !important;
+    background-color: var(--color-task-btn) !important;
+    /* color: var(--color-secondary) !important; */
     
     position: relative !important;
     overflow: hidden !important;
@@ -328,8 +378,8 @@ body {
     /* Cover the transparent border area */
     top: 0px; left: 0px; right: 0px; bottom: 0px;
     z-index: -2;
-    background-color: var(--bg-color-zerolevel);
-    border: thin solid var(--color-action-btn-primary-border);
+    /* border: thin solid var(--color-action-btn-primary-border); */
+    /* border: thin solid transparent !important; */
     border-radius: inherit;
 }
 
@@ -349,6 +399,7 @@ body {
     z-index: -1;
     
     border: thin solid var(--color-hover);
+    background-color: var(--color-task-btn-hover);
     
     /* Gradient Mask for soft reveal of both background and border, rotated 45deg */
     -webkit-mask-image: linear-gradient(15deg, black 40%, transparent 60%);
@@ -383,41 +434,29 @@ body {
     /* On hover: animate mask position, keep opacity full */
     transition: mask-position 0.6s ease-in, -webkit-mask-position 0.6s ease-in, opacity 0.6s !important;
 }
-
-.action-button.btn-primary:hover,
-.btn.btn-default.shiny-download-link:hover {
-    /* Border and background handled by ::before */
-    box-shadow: none !important;
-    color: #fff !important;
-    text-shadow: none;
-}
-
-.action-button.btn-primary:active,
-.btn.btn-default.shiny-download-link:active {
-    box-shadow: none !important;
-}
 .action-button.btn-primary:enabled::after,
 .btn.btn-default.shiny-download-link:enabled::after {
 
     transition: 1s ease-out !important;
 
-    background-color: transparent !important;
-    border-color: var(--color-action-btn-primary-border) !important;
+    /* background-color: transparent !important; */
+    border-color: var(--bg-color-firstlevel) !important;
 }
 .action-button.btn-primary:disabled,
 .btn.btn-default.shiny-download-link:disabled {
     /* cursor: default !important; */
 
     box-shadow: none !important;
-    border-color: #1e293b !important;
+    border-color: var(--bg-color-firstlevel) !important;
+    background-color: var(--background-button-disabled) !important;
 }
 .action-button.btn-primary:disabled::before,
 .btn.btn-default.shiny-download-link:disabled::before {
 
     /* transition: 5s ease-in !important; */
 
-    background-color: transparent !important;
-    border-color: #1e293b !important;
+    background-color: var(--background-button-disabled) !important;
+    border-color: var(--bg-color-firstlevel) !important;
 
     
 }
@@ -427,9 +466,10 @@ body {
     
     -webkit-mask-position: 0 100% !important;
     mask-position: 0 100% !important;
-    opacity: 1 !important;
-    border-color: var(--color-action-btn-primary-border) !important;
-    border-color: #1e293b !important;
+    /* opacity: 1 !important; */
+    /* border-color: var(--color-action-btn-primary-border) !important; */
+    border-color: var(--bg-color-firstlevel) !important;
+    background-color: var(--background-button-disabled) !important;
     transition: mask-position 0ms 0ms, -webkit-mask-position 0ms 0ms, opacity 0ms 0ms, border 1s 0.4s !important;
 }
 
@@ -437,6 +477,7 @@ body {
 .btn.btn-default.shiny-download-link:disabled * {
     transition: 0.5s ease-out !important;
     color: var(--color-zero-transparent) !important;
+    
 }
 .action-button.btn-primary:hover *,
 .btn.btn-default.shiny-download-link:hover * {
@@ -454,9 +495,8 @@ body {
     box-sizing: border-box !important;
 
     /* Make parent transparent so pseudos show through */
-    border: 1px solid transparent !important;
+    border: 1px solid var(--color-task-btn-border) !important;
     background-color: transparent !important;
-    color: var(--color-zerosecondary) !important;
     
     position: relative !important;
     overflow: hidden !important;
@@ -472,9 +512,9 @@ body {
     /* Cover the transparent border area */
     top: 0px; left: 0px; right: 0px; bottom: 0px;
     z-index: -2;
-    background-color: var(--bg-color-zerolevel);
+    background-color: var(--color-task-btn);
     /* border: thin solid var(--color-task-btn-border); */
-    border-color: transparent;
+    border-color: var(--color-task-btn-border);
     border-radius: inherit;
 }
 .task-btn::before {
@@ -489,7 +529,7 @@ body {
     left: 0px;
     right: 0px;
     z-index: -1;
-    
+
     border: thin solid var(--color-hover);
     
     /* Gradient Mask for soft reveal of both background and border, rotated 45deg */
@@ -519,15 +559,10 @@ body {
     -webkit-mask-position: 0 100%; 
     mask-position: 0 100%;
     opacity: 1;
+    background-color: var(--color-task-btn-hover);
     
     /* On hover: animate mask position, keep opacity full */
-    transition: mask-position 3s ease-in, -webkit-mask-position 3s ease-in, opacity 3s ease-in !important;
-}
-.task-btn:hover {
-    /* Border and background handled by ::before */
-    box-shadow: none !important;
-    color: #fff !important;
-    text-shadow: none;
+    transition: mask-position 3s ease-in, -webkit-mask-position 3s ease-in, opacity 3s ease-in, background-color 0.6s ease-in !important;
 }
 .task-btn:active {
     box-shadow: none !important;
@@ -536,17 +571,21 @@ body {
     cursor: not-allowed !important;
     box-shadow: none !important;
     transform: none !important;
+    background-color: var(--background-button-disabled) !important;
+    
 }
 .task-btn:disabled::after {
     transition: 1.5s ease-out !important;
     background-color: transparent !important;
-    border-color: #1e293b !important;
+    border-color: var(--color-task-btn-border-disabled) !important;
+    background-color: var(--background-button-disabled) !important;
 }
 .task-btn:disabled::before {
     /* Continue animation to full state instead of resetting */
     -webkit-mask-position: 0 100% !important;
     mask-position: 0 100% !important;
     opacity: 1 !important;
+    
 
     /* Match the hover transition so it flows seamlessly */
     transition: mask-position 3s ease-in, -webkit-mask-position 3s ease-in, opacity 3s ease-in !important;
@@ -554,15 +593,17 @@ body {
 .task-btn:disabled * {
     transition: 0.5s ease-out !important;
     color: var(--color-zero-transparent) !important;
+    
 }
 .task-btn:hover * {
-    transition: 3s ease-out !important;
+    transition: 3s ease-in !important;
     color: var(--color-hover) !important;
 }
 
 .task-btn-mask:disabled,
 .task-btn-mask[disabled] {
-    border-color: #1a2433 !important;
+    border-color: var(--color-task-btn-border-disabled) !important;
+    background-color: var(--background-button-disabled) !important;
 }
 .task-btn-mask:disabled * ,
 .task-btn-mask[disabled] * {
@@ -579,9 +620,9 @@ body {
     box-sizing: border-box !important;
 
     /* Make parent transparent so pseudos show through */
-    border: 1px solid transparent !important;
-    background-color: transparent !important;
-    color: var(--color-zero) !important;
+    border: 1px solid var(--color-browse) !important;
+    background-color: var(--color-action-btn-primary) !important;
+    color: var(--color-secondary) !important;
     
     position: relative !important;
     overflow: hidden !important;
@@ -597,8 +638,8 @@ body {
     z-index: -2;
     
     /* Match form-control style */
-    background-color: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(125, 211, 252, 0.2);
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-primary-20);
     border-radius: inherit;
 }
 
@@ -650,15 +691,15 @@ body {
 }
 
 .form-control {
-    border: 1px solid rgba(125, 211, 252, 0.2) !important;
-    background-color: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid var(--border-primary-20) !important;
+    background-color: var(--bg-input) !important;
     color: var(--color-secondary) !important;
     transition: var(--transition-smooth) !important;
 }
 .form-control:focus {
     border: thin dashed var(--color-primary) !important;
     box-shadow: none !important;
-    background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: var(--bg-input-hover) !important;
 }
 .form-control::placeholder {
     color: var(--color-zero) !important;
@@ -806,7 +847,7 @@ nav span {
 
 /* Nav Pills (Sidebar) */
 .col-sm-2:has(.nav-pills) {
-    border-right: 1px solid rgba(125, 211, 252, 0.2) !important;
+    border-right: 1px solid var(--border-primary-20) !important;
     background-color: var(--bg-color-firstlevel-transparent) !important;
 }
 .nav-pills .nav-item * {
@@ -855,7 +896,7 @@ nav span {
 .nav-pills a.active::before {
     height: 75%; 
     top: 12.5%;
-    background-color: var(--color-secondary);
+    background-color: var(--color-primary);
 }
 
 .nav-pills a.active:hover::before {
@@ -926,7 +967,7 @@ nav span {
 
 /* sidebar layout */
 #labeling_sidebar_n_data_input_layout {
-    border: 1px solid rgba(57, 77, 155, 0.4) !important;
+    border: 1px solid var(--border-blue-40) !important;
     border-left: none !important;
 }
 #labeling_sidebar {
@@ -936,7 +977,7 @@ nav span {
 /* sidebar accordion - uniformity */
 #sidebar .accordion-item {
     background-color: var(--bg-color-firstlevel) !important;
-    border-bottom: 1px solid rgba(57, 77, 155, 0.3) !important;
+    border-bottom: 1px solid var(--border-blue-30) !important;
 }
 #sidebar .accordion-button {
     background-color: var(--bg-color-firstlevel) !important;
@@ -951,7 +992,7 @@ nav span {
 /* order ladder */
 #order li { 
     background-color: var(--bg-color-secondlevel);
-    border: 1px solid #394d9b;
+    border: 1px solid var(--border-blue-solid);
     color: var(--color-secondary);
     margin-bottom: 2px;
 }
@@ -972,8 +1013,8 @@ nav span {
 
 /* text inputs */
 .shiny-input-text.form-control.shiny-bound-input {
-    border: 1px solid rgba(125, 209, 231, 0.2) !important;
-    background-color: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid var(--border-primary-20) !important;
+    background-color: var(--bg-input) !important;
     color: var(--color-secondary) !important;
     transition: var(--transition-smooth) !important;
 }
@@ -981,12 +1022,12 @@ nav span {
     border-color: var(--color-primary) !important;
     box-shadow: none !important;
     text-shadow: none;
-    background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: var(--bg-input-hover) !important;
 }
 
 /* data grid */
 .shiny-data-grid {
-    border: 1px solid rgba(57, 77, 155, 0.4) !important;
+    border: 1px solid var(--border-blue-40) !important;
 }
 * table tbody * {
     background-color: var(--bg-color-zerolevel) !important;
@@ -999,12 +1040,12 @@ nav span {
     text-shadow: none;
 }
 * tbody tr td {
-    border-bottom: 1px solid rgba(57, 77, 155, 0.2) !important;
+    border-bottom: 1px solid var(--border-blue-20) !important;
 }
 
 /* selectize - uniform dark theme */
 .selectize-input {
-    border: 1px solid rgba(125, 209, 231, 0.2) !important;
+    border: 1px solid var(--border-primary-20) !important;
     background-color: var(--bg-color-zerolevel) !important;
     border-radius: 2px !important;
 }
@@ -1015,6 +1056,7 @@ nav span {
     background-color: var(--bg-color-firstlevel) !important;
     border: 1px solid var(--color-primary) !important;
     box-shadow: none !important;
+    z-index: 2000 !important;
 }
 .selectize-dropdown-content .option {
     color: var(--color-secondary) !important;
@@ -1065,6 +1107,15 @@ nav span {
     color: var(--color-hover) !important;
 }
 
+/* Remove dropdown arrow */
+#app_theme + .selectize-control.single .selectize-input .item {
+    color: var(--color-primary) !important;
+}
+#app_theme + .selectize-control.single .selectize-input:after {
+    content: none !important;
+    display: none !important;
+}
+
 .form-group .radio input {
     border: thin solid var(--bg-color-thirdlevel) !important;
     background-color: var(--bg-color-zerolevel) !important;
@@ -1087,6 +1138,14 @@ nav span {
 }
 
 
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    border-bottom: none !important;
+}
+
+
 
 /* Modal Formatting - Neon Box */
 .modal-content {
@@ -1097,8 +1156,8 @@ nav span {
     border-radius: 4px !important;
 }
 .modal-header {
-    border-bottom: 1px solid rgba(125, 209, 231, 0.3) !important;
-    background: linear-gradient(90deg, rgba(125, 209, 231, 0.1) 0%, transparent 100%) !important;
+    border-bottom: 1px solid var(--border-modal) !important;
+    background: linear-gradient(90deg, var(--border-primary-10) 0%, transparent 100%) !important;
 }
 .modal-title {
     color: var(--color-primary) !important;
@@ -1111,11 +1170,21 @@ nav span {
     color: var(--color-secondary) !important;
 }
 .modal-footer {
-    border-top: 1px solid rgba(125, 209, 231, 0.3) !important;
+    border-top: 1px solid var(--border-modal) !important;
     background-color: transparent !important;
 }
 .modal-backdrop {
-    background-color: #020814 !important;
+    background-color: var(--bg-modal-backdrop) !important;
     opacity: 0.9 !important;
     /* backdrop-filter: blur(2px); Removed to prevent lag over animated canvas */
+}
+
+
+
+
+
+.btn * {
+    box-shadow: none !important;
+    color: var(--color-secondary) !important;
+    transition: color 0.5s ease-in-out !important;
 }

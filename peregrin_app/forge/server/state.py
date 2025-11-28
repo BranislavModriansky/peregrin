@@ -4,6 +4,7 @@ import pandas as pd
 def build_state():
     return type("State", (object,), {
         "NOTICES": reactive.Value([]),
+        "PLAY": reactive.Value(False),
         "READYTORUN": reactive.Value(False),
         "INPUTS": reactive.Value(1),
         "THRESHOLDS": reactive.Value(None),
