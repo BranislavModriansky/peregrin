@@ -165,6 +165,7 @@
     box-shadow: none !important;
 }
 
+
 .bslib-sidebar-layout {
     z-index: 1000 !important;
 }
@@ -838,12 +839,6 @@ nav a:not(.active).hover::after {
     100% { left: 100%; width: 0; }
 }
 
-nav span {
-    color: var(--color-secondary) !important;
-    font-weight: 700 !important;
-    letter-spacing: 2px; 
-    text-shadow: none; 
-}
 
 /* Nav Pills (Sidebar) */
 .col-sm-2:has(.nav-pills) {
@@ -1187,4 +1182,28 @@ nav span {
     box-shadow: none !important;
     color: var(--color-secondary) !important;
     transition: color 0.5s ease-in-out !important;
+}
+
+
+
+
+.peregrin-logo,
+.peregrin-logo:hover,
+.peregrin-logo:focus,
+.peregrin-logo:active,
+.peregrin-logo:visited {
+    font-weight: 700 !important;
+    font-size: 1.8rem !important;
+    color: var(--color-secondary) !important;
+    text-decoration: none !important;
+    border: transparent !important;
+    background: none !important;
+}
+
+.peregrin-logo:hover {
+    cursor: pointer !important;
+}
+
+.peregrin-logo::after {
+    display: none !important;
 }

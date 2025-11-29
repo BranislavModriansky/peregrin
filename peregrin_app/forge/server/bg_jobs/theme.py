@@ -131,6 +131,8 @@ def set_theme(input, output, session, S):
         except Exception:
             selected_theme_base = selected_theme
 
+        styles.append(ui.include_js("peregrin_app/src/js/remove_js.js"))
+
         styles.append(
             [
                 ui.include_css(
@@ -140,12 +142,10 @@ def set_theme(input, output, session, S):
                     rel="stylesheet",
                     href=f"{selected_theme_base}/{selected_theme_base}-Fonts.css",
                 )
-                if selected_theme_base != "Sleek"
+                if selected_theme_base != "Shiny"
                 else None,
             ]
         )
-
-        styles.append(ui.include_js("peregrin_app/src/js/remove_js.js"))
 
         # Only pure includes + output_ui here; no insert_ui/remove_ui side-effects.
         if selected_theme == "Console-1":

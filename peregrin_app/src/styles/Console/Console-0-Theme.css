@@ -875,3 +875,12 @@ button.bslib-full-screen-enter.badge.rounded-pill > svg {
     cursor: not-allowed !important;
     transform: none !important;
 }
+
+
+
+.peregrin-logo {
+    font-weight: 700 !important;
+    font-size: 1.8rem !important;
+    color: var(--color-secondary) !important;
+    text-decoration: none !important;
+}

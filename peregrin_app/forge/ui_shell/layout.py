@@ -919,9 +919,15 @@ app_ui = ui.page_sidebar(
             ),
             ui.output_ui("custom_theme_url"),
         ),
-        title="Peregrin",
-        # title=ui.tags.span("Peregrin", class_="peregrin-logo"),
-        # title=ui.input_action_link("app_title_link", "Peregrin", style="color: inherit; text-decoration: none;"),
+        # title="Peregrin",
+        title=ui.tags.span(
+            ui.a(
+            "Peregrin",
+            href="https://github.com/BranislavModriansky/Peregrin/tree/main",
+            class_="peregrin-logo",
+            ),
+            
+        ),
         # title=ui.nav_panel
         
         id="main_nav",

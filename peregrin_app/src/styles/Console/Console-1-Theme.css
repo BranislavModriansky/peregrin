@@ -56,6 +56,8 @@
     box-shadow: none !important;
 }
 
+
+
 .bslib-sidebar-layout {
     z-index: 1000 !important;
 }
@@ -488,12 +490,7 @@ nav a.hover::after {
     left: 0;
 }
 
-nav span {
-    color: var(--color-secondary) !important;
-    font-weight: 700 !important;
-    letter-spacing: 2px; /* Wider spacing for title */
-    text-shadow: 0 0 10px rgba(224, 230, 237, 0.3); /* Subtle title glow */
-}
+
 
 /* Nav Pills (Sidebar) */
 .col-sm-2:has(.nav-pills) {
@@ -807,4 +804,30 @@ nav span {
     background-color: #020814 !important;
     opacity: 0.9 !important;
     /* backdrop-filter: blur(2px); Removed to prevent lag over animated canvas */
+}
+
+
+
+.peregrin-logo,
+.peregrin-logo:hover,
+.peregrin-logo:focus,
+.peregrin-logo:active,
+.peregrin-logo:visited {
+    font-weight: 700 !important;
+    font-size: 1.8rem !important;
+    color: var(--color-secondary) !important;
+    text-decoration: none !important;
+    text-shadow: 0 0 10px rgba(224, 230, 237, 0.3) !important; /* Subtle title glow */
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.peregrin-logo:hover {
+    cursor: pointer !important;
+}
+
+/* Disable the nav link underline animation for the logo */
+.peregrin-logo::after {
+    display: none !important;
 }
