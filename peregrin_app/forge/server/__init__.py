@@ -39,9 +39,9 @@ def Server(input: Inputs, output: Outputs, session: Session):
 
     set_theme(*args)
 
-    mount_data_input(*args)
+    mount_data_input(*args, **kwargs)
     mount_data_display(*args)
-    mount_data_labeling(*args)
+    mount_data_labeling(*args, **kwargs)
     mount_thresholds_build(*args)
     mount_thresholds_calc(*args)
     mount_thresholds_info_export(*args)

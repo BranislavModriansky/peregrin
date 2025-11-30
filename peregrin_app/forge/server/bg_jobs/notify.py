@@ -86,4 +86,5 @@ def mount_notifier(noticequeue):
     def read_queue():
         """Reads data from the noticequeue"""
         print("Polling noticequeue for notifications...")
-        # return show_notifications()
+        show_notifications()
+        return noticequeue.Emit()

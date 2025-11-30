@@ -25,11 +25,18 @@ class DataLoader:
     def GetDataFrame(filepath: str, **kwargs) -> pd.DataFrame:
         """
         Loads a DataFrame from a file based on its extension.
-        Supported formats: CSV, Excel, Feather, Parquet, HDF5, JSON.
+        Supported formats: CSV, Excel.
         """
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         _, ext = op.splitext(filepath.lower())
+
+        print(ext)
+        print(filepath)
+
+        if ext not in ['.csv', '.xls', '.xlsx']:
+            noticequeue.Report(Level.error, f"Unsupported file format: {ext}", f"Only .csv, .xls, .xlsx are supported.")
+            return None
 
         try:
             if ext == '.csv':
@@ -38,8 +45,10 @@ class DataLoader:
                 return pd.read_excel(filepath)
         except ValueError as e:
             noticequeue.Report(Level.error, f"Unsupported file format: {ext}", f"{filepath} <- {str(e)}")
+            return None
         except Exception as e:
             noticequeue.Report(Level.error, f"Failed to load files", f"'{filepath}' <- {str(e)}")
+            return None
     
 
     @staticmethod
@@ -73,7 +82,6 @@ class DataLoader:
             y_mid = (df[y_col].min() + df[y_col].max()) / 2
             df[y_col] = 2 * y_mid - df[y_col]
 
-        # Standardize column names
         return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
     
 
@@ -119,7 +127,7 @@ class DataLoader:
         }
         df = df.rename(columns=rename_map)
 
-        # normalize column names for readability
+        # normalize other column names
         def clean_name(name: str) -> str:
             name = str(name)
             name = name.replace("_", " ")
@@ -136,11 +144,13 @@ class DataLoader:
 
 
     @staticmethod
-    def GetColumns(path: str) -> List[str]:
+    def GetColumns(path: str, **kwargs) -> List[str]:
         """
         Returns a list of column names from the DataFrame.
         """
-        df = DataLoader.GetDataFrame(path)  # or pd.read_excel(path), depending on file type
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        df = DataLoader.GetDataFrame(path, noticequeue=noticequeue)  # or pd.read_excel(path), depending on file type
         return df.columns.tolist()
     
 
@@ -177,6 +187,6 @@ class DataLoader:
                 if look.lower() in norm_col:
                     return col
         return None
-        
+
 
 

@@ -8,8 +8,9 @@ from peregrin_app.src.code import DataLoader, Spots, Tracks, Frames, TimeInterva
 
 
 
-def mount_data_input(input, output, session, S):
+def mount_data_input(input, output, session, S, noticequeue):
 
+    
 
     # _ _ _ _ RAW DATA INPUT CONTAINERS CONTROL _ _ _ _
 
@@ -118,7 +119,7 @@ def mount_data_input(input, output, session, S):
 
             for file_idx, fileinfo in enumerate(files, start=1):
                 try:
-                    df = DataLoader.GetDataFrame(fileinfo["datapath"])
+                    df = DataLoader.GetDataFrame(fileinfo["datapath"], noticequeue)
                     # print(df.head())
                     if input.strip_data():
                         extracted = DataLoader.ExtractStripped(
