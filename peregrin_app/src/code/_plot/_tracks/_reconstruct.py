@@ -13,9 +13,9 @@ from io import BytesIO
 def VisualizeTracksRealistics(
     Spots_df: pd.DataFrame,
     Tracks_df: pd.DataFrame,
-    condition: str,
+    conditions: list,
+    replicates: list,
     *args,
-    replicate: str = 'all',
     c_mode: str = 'differentiate replicates',
     only_one_color: str = 'blue',
     lut_scaling_metric: str = 'Track displacement',
@@ -27,8 +27,10 @@ def VisualizeTracksRealistics(
     marker: dict = {"symbol": "o", "fill": True},
     markersize: float = 5.0,
     title: str = 'Track Visualization',
+    **kwargs
 ):
-    # --- Early outs / guards -------------------------------------------------
+    
+    noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
     Spots = Spots_df.copy()
     Tracks = Tracks_df.copy()
@@ -37,13 +39,16 @@ def VisualizeTracksRealistics(
     required = ['Condition', 'Replicate', 'Track ID', 'Time point', 'X coordinate', 'Y coordinate']
     if any(col not in Spots.columns for col in required):
         return plt.gcf()
+    
+    if not conditions:
+        noticequeue.Report("warning", "No conditions selected! At at least one condition must be selected.")
+        return plt.gcf()
+    if not replicates:
+        noticequeue.Report("warning", "No replicates selected! At at least one replicate must be selected.")
+        return plt.gcf()
 
-    if replicate == 'all':
-        Spots = Spots.loc[Spots['Condition'] == condition]
-        Tracks = Tracks.loc[Tracks['Condition'] == condition]
-    elif replicate != 'all':
-        Spots = Spots.loc[Spots['Replicate'] == replicate]
-        Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+    Spots = Spots.loc[Spots['Condition'].isin(conditions)].loc[Spots['Replicate'].isin(replicates)]
+    Tracks = Tracks.loc[Tracks['Condition'].isin(conditions)].loc[Tracks['Replicate'].isin(replicates)]
 
     Spots = Spots.sort_values(['Condition', 'Replicate', 'Track ID', 'Time point'])
     Tracks = Tracks.sort_values(['Condition', 'Replicate', 'Track ID'])

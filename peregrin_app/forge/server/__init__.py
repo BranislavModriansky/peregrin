@@ -47,10 +47,10 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_thresholds_info_export(*args)
 
 
-    MountTracks.realistic_reconstruction(*args)
-    MountTracks.polar_reconstruction(*args)
-    MountTracks.animated_reconstruction(*args)
-    MountTracks.lut_map(*args)
+    MountTracks.realistic_reconstruction(*args, **kwargs)
+    # MountTracks.polar_reconstruction(*args)
+    # MountTracks.animated_reconstruction(*args)
+    # MountTracks.lut_map(*args)
     mount_superplots(*args, **kwargs)
 
 

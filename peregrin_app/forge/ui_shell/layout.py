@@ -82,7 +82,7 @@ app_ui = ui.page_sidebar(
                             ui.output_ui("data_labeling_ui"),
 
                         ), 
-                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="task-btn", width="100%"), 
+                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="secondary task-btn", width="100%"), 
                         width="300px",
                         id="labeling_sidebar",
                     ), 
@@ -221,14 +221,14 @@ app_ui = ui.page_sidebar(
 
                         ui.accordion(
                             ui.accordion_panel(
-                                "Desired group variables",
+                                "Desired Data Categories",
                                 ui.row(
-                                    ui.column(6,
-                                        ui.input_selectize("tracks_conditions", "Condition:", [])
-                                    ),
-                                    ui.column(6,
-                                        ui.input_selectize("tracks_replicates", "Replicate:", ["all"]),
-                                    )
+                                    ui.column(6, ui.input_selectize(id="conditions_tr", label="Conditions:", choices=["A", "B", "C"], selected=["A", "B", "C"], multiple=True, options={"placeholder": "Select conditions"})),
+                                    ui.column(1, ui.input_action_button(id="conditions_reset_tr", label="🗘", class_="btn-noframe")),
+                                ),
+                                ui.row(
+                                    ui.column(4, ui.input_selectize(id="replicates_tr", label="Replicates:", choices=["1", "2", "3"], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
+                                    ui.column(1, ui.input_action_button(id="replicates_reset_tr", label="🗘", class_="btn-noframe")),
                                 )
                             ),
                             ui.accordion_panel(
