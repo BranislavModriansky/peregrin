@@ -36,6 +36,8 @@ class DataLoader:
 
         if ext not in ['.csv', '.xls', '.xlsx']:
             noticequeue.Report(Level.error, f"Unsupported file format: {ext}", f"Only .csv, .xls, .xlsx are supported.")
+            noticequeue.Report(Level.warning, f"Failed to load files", f"'{filepath}' <- Unsupported file format.")
+            noticequeue.Report(Level.info, f"Please refer to the documentation for supported file formats.", f"https://peregrin-app.readthedocs.io/en/latest/user_guide/data_input.html")
             return None
 
         try:

@@ -1,4 +1,19 @@
 :root {
+
+    --notification-border-radius: 0px;
+    --notification-box-shadow: 0 0 15px rgba(115, 127, 148, 0.419);
+
+    --notification-error-bg: #e90000;
+    --notification-error-text: rgb(0, 0, 0);
+
+    --notification-warning-bg: #ffc228;
+    --notification-warning-text: rgb(55, 55, 55);
+
+    --notification-info-bg: #080b12;
+    --notification-info-border: 2px solid #2388cbd7;
+    --notification-info-text: white;
+
+
     /* Warp Speed Palette - Deep & Dark */
     --bg-color-zerolevel: #020305;       /* Almost black */
     --bg-color-firstlevel: #080b12;      /* Very Deep Navy */
@@ -830,4 +845,33 @@ nav a.hover::after {
 /* Disable the nav link underline animation for the logo */
 .peregrin-logo::after {
     display: none !important;
+}
+
+
+.shiny-notification {
+    border-radius: var(--notification-border-radius) !important;
+    box-shadow: var(--notification-box-shadow) !important;
+}
+
+.shiny-notification:not(.shiny-notification-error):not(.shiny-notification-warning) {
+    background-color: var(--notification-info-bg) !important;
+    border: var(--notification-info-border) !important;
+}
+
+.shiny-notification:not(.shiny-notification-error):not(.shiny-notification-warning) * {
+    color: var(--notification-info-text) !important;
+}
+
+.shiny-notification-warning {
+    background-color: var(--notification-warning-bg) !important;
+}
+.shiny-notification-warning * {
+    color: var(--notification-warning-text) !important;
+}
+
+.shiny-notification-error {
+    background-color: var(--notification-error-bg) !important;
+}
+.shiny-notification-error * {
+    color: var(--notification-error-text) !important;
 }
