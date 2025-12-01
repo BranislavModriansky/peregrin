@@ -37,7 +37,7 @@ def mount_data_input(input, output, session, S, noticequeue):
             ui.input_text(
                 id=f"condition_label{id}",
                 label="Label:",
-                placeholder=f"Condition {id}",
+                placeholder=f"Condition {id}"
             ),
             ui.input_file(
                 id=f"input_file{id}",
@@ -96,9 +96,9 @@ def mount_data_input(input, output, session, S, noticequeue):
     @render.ui
     def run_btn_ui():
         if S.READYTORUN.get():
-            return ui.input_task_button("run", label="Run", class_="task-btn")
+            return ui.input_task_button("run", label="Run", class_="btn-secondary task-btn")
         else:
-            return ui.input_action_button("run0", label="Run", class_="task-btn-mask", disabled=True)
+            return ui.input_action_button("run0", label="Run", class_="btn-secondary task-btn-mask", disabled=True)
 
     @reactive.Effect
     @reactive.event(input.run)

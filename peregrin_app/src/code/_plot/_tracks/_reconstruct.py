@@ -237,9 +237,9 @@ def VisualizeTracksRealistics(
 def VisualizeTracksNormalized(
     Spots_df: pd.DataFrame,
     Tracks_df: pd.DataFrame,
-    condition: str,
+    conditions: list,
+    replicates: list,
     *args,
-    replicate: str = 'all',
     c_mode: str = 'differentiate replicates',
     only_one_color: str = 'blue',
     lut_scaling_metric: str = 'Track displacement',
@@ -252,23 +252,25 @@ def VisualizeTracksNormalized(
     marker: dict = {"symbol": "o", "fill": True},
     markersize: int = 5,
     title: str = 'Normalized Track Visualization',
+    **kwargs
 ):
+    
+    noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+    
     # ----------------- copies / guards -----------------
     Spots_all = Spots_df.copy()
     Spots = Spots_df.copy()
     Tracks = Tracks_df.copy()
 
-    required_spots = ['Condition','Replicate','Track ID','Time point','X coordinate','Y coordinate']
-    if any(col not in Spots.columns for col in required_spots):
+    if not conditions:
+        noticequeue.Report("warning", "No conditions selected! At at least one condition must be selected.")
+        return plt.gcf()
+    if not replicates:
+        noticequeue.Report("warning", "No replicates selected! At at least one replicate must be selected.")
         return plt.gcf()
 
-    # ----------------- filter subset to draw -----------------
-    if replicate == 'all':
-        Spots = Spots.loc[Spots['Condition'] == condition]
-        Tracks = Tracks.loc[Tracks['Condition'] == condition]
-    elif replicate != 'all':
-        Spots = Spots.loc[Spots['Replicate'] == replicate]
-        Tracks = Tracks.loc[Tracks['Replicate'] == replicate]
+    Spots = Spots.loc[Spots['Condition'].isin(conditions)].loc[Spots['Replicate'].isin(replicates)]
+    Tracks = Tracks.loc[Tracks['Condition'].isin(conditions)].loc[Tracks['Replicate'].isin(replicates)]
 
     sort_cols = ['Condition','Replicate','Track ID','Time point']
     key_cols = ['Condition','Replicate','Track ID']
@@ -557,11 +559,11 @@ def _rgba_over_background(rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndar
 class Animated:
 
     def create_image_stack(
-        Spots_df: pd.DataFrame | None = None,
-        Tracks_df: pd.DataFrame | None = None,
-        condition: str | None = None,
+        Spots_df: pd.DataFrame,
+        Tracks_df: pd.DataFrame,
+        conditions: list,
+        replicates: list,
         *args,
-        replicate: str = "all",
         c_mode: str = "differentiate replicates",
         only_one_color: str = "blue",
         lut_scaling_metric: str = "Track displacement",
@@ -578,11 +580,14 @@ class Animated:
         dpi: int = 100,
         units: str = "μm",
         size: tuple[int, int] = (975, 750),
+        **kwargs
     ) -> np.ndarray:
         """
         Build a stack of frames from tracks, returning uint8 RGBA of shape (N, H, W, 4).
         If Spots_df/Tracks_df are not provided, falls back to a simple demo sine path.
         """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
         W, H = size
 
         # ---- Real data path (modified ImageStackTracksRealistics) ----
@@ -593,14 +598,16 @@ class Animated:
         if any(col not in Spots.columns for col in required):
             # Shape-safe empty
             return
+        
+        if not conditions:
+            noticequeue.Report("warning", "No conditions selected! At at least one condition must be selected.")
+            return
+        if not replicates:
+            noticequeue.Report("warning", "No replicates selected! At at least one replicate must be selected.")
+            return
 
-        # Filter by condition/replicate
-        if replicate == "all":
-            Spots = Spots.loc[Spots["Condition"] == condition]
-            Tracks = Tracks.loc[Tracks["Condition"] == condition]
-        else:
-            Spots = Spots.loc[(Spots["Condition"] == condition) & (Spots["Replicate"] == replicate)]
-            Tracks = Tracks.loc[(Tracks["Condition"] == condition) & (Tracks["Replicate"] == replicate)]
+        Spots = Spots.loc[Spots["Condition"].isin(conditions)].loc[Spots["Replicate"].isin(replicates)]
+        Tracks = Tracks.loc[Tracks["Condition"].isin(conditions)].loc[Tracks["Replicate"].isin(replicates)]
 
         if Spots.empty:
             return
@@ -861,13 +868,4 @@ class Animated:
 
         return rgb, out_params
 
-        # Write
-        # iio.imwrite(
-        #     path,
-        #     rgb,                       # shape (N,H,W,3)
-        #     # plugin="ffmpeg",
-        #     fps=fps,
-        #     codec=codec,
-        #     output_params=out_params,
-        # )
 
