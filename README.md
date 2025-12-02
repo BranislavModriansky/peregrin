@@ -39,6 +39,14 @@ Peregrin is a an application designed for researchers studying cell migration. I
     - Superplots.
 - Export figures in SVG format and more.
 
+
+> [!TIP]
+> 
+> See the [User's Guide](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#users-guide) for a walk-through of the app's features!
+> 
+> See a more detailed documentation of what's [Under the Hood: Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#under-the-hood:-computation-&-visualization)
+
+
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
@@ -77,20 +85,6 @@ docker pull branislavmodriansky/peregrin:<version>
 After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
 
 
-
-<!-- Custom auto lettering indentation -->
-<!-- <style>
-    ol.lower-alpha-paren {
-        list-style-type: lower-alpha;
-    }
-    ol.lower-alpha-paren li::marker {
-        content: counter(list-item, lower-alpha) ") ";
-    }
-</style> -->
-<!-- Custom auto lettering indentation -->
-
-
-
 #### Initialization
 
 4. Run the app: <br>
@@ -111,8 +105,4 @@ docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --h
 
 <!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
-
-<!-- ## User's guide
-
-## Examples -->
 
