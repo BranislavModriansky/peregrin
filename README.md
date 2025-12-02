@@ -14,13 +14,13 @@ embed as:
 
 ## Contents
 
-- [About](#about)
-    - [Key Features and Flows](#key-features-and-flows)
-        - [Data Input](#data-input)
-        - [Filtering](#filtering)
-        - [Visualization](#visualization)
-- [Documentation](#useful-links)
-- [How to Install and Launch](#how-to-install-and-launch)
+[**About**](#about)
+    &nbsp;&nbsp; [**Key Features and Flows**](#key-features-and-flows)
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [**Data Input**](#data-input)
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [**Filtering**](#filtering)
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [**Visualization**](#visualization)
+- [**Documentation**](#documentation)
+- [**How to Install and Launch**](#how-to-install-and-launch)
     - [Running the App Using Docker](#running-the-app-using-docker)
         - [Set-up](#set-up)
         - [Initialization](#initialization)
