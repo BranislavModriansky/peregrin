@@ -16,14 +16,14 @@ embed as:
 
 1. [About](#about)
     1. [Key Features and Flows](#key-features-and-flows)
-        - [Data Input](#data-input)
-        - [Filtering](#filtering)
-        - [Visualization](#visualization)
+        1. [Data Input](#data-input)
+        2. [Filtering](#filtering)
+        3. [Visualization](#visualization)
     2. [Documentation](#documentation)
 3. [How to Install and Launch](#how-to-install-and-launch)
     1. [Running the App Using Docker](#running-the-app-using-docker)
-        - [Set-up](#set-up)
-        - [Initialization](#initialization)
+        1. [Set-up](#set-up)
+        2. [Initialization](#initialization)
 
 ## About
 
