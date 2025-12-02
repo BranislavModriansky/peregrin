@@ -15,14 +15,14 @@ class NoticeQueue:
                 "messages": [],
                 "details": [],
                 "count": 0,
-                "duration": [2, 8]
+                "duration": [6, 10]
             },
             "warning": {
                 "note": "Warning",
                 "messages": [],
                 "details": [],
                 "count": 0,
-                "duration": [4, 10]
+                "duration": [8, 15]
             },
             "error": {
                 "note": "Error",

@@ -20,15 +20,22 @@ import base64
 
 class MountTracks:
 
-    def realistic_reconstruction(input, output, session, S):
+    def realistic_reconstruction(input, output, session, S, noticequeue):
+        @reactive.Effect
+        @reactive.event(S.TRACKSTATS)
+        def update_choices():
+            if S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty:
+                return
+            ui.update_selectize(id="conditions_tr", choices=S.TRACKSTATS.get()["Condition"].unique().tolist(), selected=S.TRACKSTATS.get()["Condition"].unique().tolist()[0] if S.TRACKSTATS.get()["Condition"].unique().tolist() else None)
+            ui.update_selectize(id="replicates_tr", choices=S.TRACKSTATS.get()["Replicate"].unique().tolist(), selected=S.TRACKSTATS.get()["Replicate"].unique().tolist() if S.TRACKSTATS.get()["Replicate"].unique().tolist() else None)
 
         @ui.bind_task_button(button_id="trr_generate")
         @reactive.extended_task
         async def output_track_reconstruction_realistic(
             Spots_df,
             Tracks_df,
-            condition,
-            replicate,
+            conditions,
+            replicates,
             c_mode,
             only_one_color,
             lut_scaling_metric,
@@ -54,8 +61,8 @@ class MountTracks:
                     return VisualizeTracksRealistics(
                         Spots_df=Spots_df,
                         Tracks_df=Tracks_df,
-                        condition=condition,
-                        replicate=replicate,
+                        conditions=conditions,
+                        replicates=replicates,
                         c_mode=c_mode,
                         only_one_color=only_one_color,
                         lut_scaling_metric=lut_scaling_metric,
@@ -66,7 +73,8 @@ class MountTracks:
                         mark_heads=mark_heads,
                         marker=marker,
                         markersize=markersize,
-                        title=title
+                        title=title,
+                        noticequeue=noticequeue
                     )
 
             # Either form is fine; pick one:
@@ -79,17 +87,17 @@ class MountTracks:
                 
             output_track_reconstruction_realistic.cancel()
 
-            req(
-                S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty 
-                and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-                and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-            )
+            # req(
+            #     S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty 
+            #     and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+            #     and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
+            # )
 
             output_track_reconstruction_realistic(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
-                condition=input.tracks_conditions(),
-                replicate=input.tracks_replicates(),
+                conditions=input.conditions_tr(),
+                replicates=input.replicates_tr(),
                 c_mode=input.tracks_color_mode(),
                 only_one_color=input.tracks_only_one_color(),
                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
@@ -100,7 +108,7 @@ class MountTracks:
                 mark_heads=input.tracks_mark_heads(),
                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
                 markersize=input.tracks_marks_size()*10,
-                title=input.tracks_title()
+                title=input.tracks_title(),
             )
 
         @render.plot
@@ -118,8 +126,8 @@ class MountTracks:
             fig = VisualizeTracksRealistics(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
-                condition=input.tracks_conditions(),
-                replicate=input.tracks_replicates(),
+                conditions=input.conditions_tr(),
+                replicates=input.replicates_tr(),
                 c_mode=input.tracks_color_mode(),
                 only_one_color=input.tracks_only_one_color(),
                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
@@ -138,15 +146,15 @@ class MountTracks:
                     yield buffer.getvalue()
 
 
-    def polar_reconstruction(input, output, session, S):
+    def polar_reconstruction(input, output, session, S, noticequeue):
 
         @ui.bind_task_button(button_id="tnr_generate")
         @reactive.extended_task
         async def output_track_reconstruction_normalized(
             Spots_df,
             Tracks_df,
-            condition,
-            replicate,
+            conditions,
+            replicates,
             c_mode,
             only_one_color,
             lut_scaling_metric,
@@ -173,8 +181,8 @@ class MountTracks:
                     return VisualizeTracksNormalized(
                         Spots_df=Spots_df,
                         Tracks_df=Tracks_df,
-                        condition=condition,
-                        replicate=replicate,
+                        conditions=conditions,
+                        replicates=replicates,
                         c_mode=c_mode,
                         only_one_color=only_one_color,
                         lut_scaling_metric=lut_scaling_metric,
@@ -186,7 +194,8 @@ class MountTracks:
                         mark_heads=mark_heads,
                         marker=marker,
                         markersize=markersize,
-                        title=title
+                        title=title,
+                        noticequeue=noticequeue
                     )
 
             # Either form is fine; pick one:
@@ -208,8 +217,8 @@ class MountTracks:
             output_track_reconstruction_normalized(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
-                condition=input.tracks_conditions(),
-                replicate=input.tracks_replicates(),
+                conditions=input.conditions_tr(),
+                replicates=input.tracks_replicates(),
                 c_mode=input.tracks_color_mode(),
                 only_one_color=input.tracks_only_one_color(),
                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
@@ -239,8 +248,8 @@ class MountTracks:
             fig = VisualizeTracksNormalized(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
-                condition=input.tracks_conditions(),
-                replicate=input.tracks_replicates(),
+                conditions=input.conditions_tr(),
+                replicates=input.replicates_tr(),
                 c_mode=input.tracks_color_mode(),
                 only_one_color=input.tracks_only_one_color(),
                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
@@ -285,7 +294,7 @@ class MountTracks:
         
         
 
-    def animated_reconstruction(input, output, session, S):
+    def animated_reconstruction(input, output, session, S, noticequeue):
 
         @output(id="replay_slider")
         @render.ui
@@ -336,8 +345,8 @@ class MountTracks:
         async def output_track_animated_reconstruction(
             Spots_df,
             Tracks_df,
-            condition,
-            replicate,
+            conditions,
+            replicates,
             c_mode,
             only_one_color,
             lut_scaling_metric,
@@ -362,8 +371,8 @@ class MountTracks:
                     return Animated.create_image_stack(
                         Spots_df=Spots_df,
                         Tracks_df=Tracks_df,
-                        condition=condition,
-                        replicate=replicate,
+                        conditions=conditions,
+                        replicates=replicates,
                         c_mode=c_mode,
                         only_one_color=only_one_color,
                         lut_scaling_metric=lut_scaling_metric,
@@ -377,6 +386,7 @@ class MountTracks:
                         title=title,
                         dpi=dpi,
                         units_time=units_time,
+                        noticequeue=noticequeue
                     )
             return await asyncio.get_running_loop().run_in_executor(None, _build)
 
@@ -388,8 +398,8 @@ class MountTracks:
             output_track_animated_reconstruction(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
-                condition=input.tracks_conditions(),
-                replicate=input.tracks_replicates(),
+                conditions=input.conditions_tr(),
+                replicates=input.replicates_tr(),
                 c_mode=input.tracks_color_mode(),
                 only_one_color=input.tracks_only_one_color(),
                 lut_scaling_metric=input.tracks_lut_scaling_metric(),

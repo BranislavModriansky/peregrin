@@ -5,7 +5,9 @@ from peregrin_app.src.code import DataLoader, Metrics, FilenameFormatExample
 # from peregrin_app.src.code import Customize
 
 
-def mount_data_labeling(input, output, session, S):
+def mount_data_labeling(input, output, session, S, noticequeue):
+
+
 
     @output()
     @render.ui
@@ -40,7 +42,7 @@ def mount_data_labeling(input, output, session, S):
             files = input[f"input_file{idx}"]()
             if files and isinstance(files, list) and len(files) > 0:
                 try:
-                    columns = DataLoader.GetColumns(files[0]["datapath"])
+                    columns = DataLoader.GetColumns(files[0]["datapath"], noticequeue=noticequeue)
 
                     for sel in Metrics.LookFor.keys():
                         choice = DataLoader.FindMatchingColumn(columns, Metrics.LookFor[sel])

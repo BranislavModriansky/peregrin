@@ -8,6 +8,7 @@ from peregrin_app.src.code import SwarmsAndBeyond, Superviolins, Debounce
 
 
 def mount_superplots(input, output, session, S, noticequeue):
+    
 
     # Don't create a new instance - use the imported singleton
     # buffer = _message_buffer.MessageBuffer()  # REMOVE THIS LINE

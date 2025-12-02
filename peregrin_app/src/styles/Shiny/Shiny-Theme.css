@@ -1,3 +1,10 @@
+.peregrin-logo {
+    font-weight: 600 !important;
+    font-size: 1.8rem !important;
+    color: var(--color-secondary) !important;
+    text-decoration: none !important;
+}
+
 /* data input labeling sidebar */
 #labeling_sidebar {
     background-color: #f8f8f8 !important;

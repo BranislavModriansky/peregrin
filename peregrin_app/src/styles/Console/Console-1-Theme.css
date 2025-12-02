@@ -1,4 +1,19 @@
 :root {
+
+    --notification-border-radius: 0px;
+    --notification-box-shadow: 0 0 15px rgba(115, 127, 148, 0.419);
+
+    --notification-error-bg: #e90000;
+    --notification-error-text: rgb(0, 0, 0);
+
+    --notification-warning-bg: #ffc228;
+    --notification-warning-text: rgb(55, 55, 55);
+
+    --notification-info-bg: #080b12;
+    --notification-info-border: 2px solid #2388cbd7;
+    --notification-info-text: white;
+
+
     /* Warp Speed Palette - Deep & Dark */
     --bg-color-zerolevel: #020305;       /* Almost black */
     --bg-color-firstlevel: #080b12;      /* Very Deep Navy */
@@ -56,6 +71,8 @@
     box-shadow: none !important;
 }
 
+
+
 .bslib-sidebar-layout {
     z-index: 1000 !important;
 }
@@ -76,6 +93,7 @@ body {
 /* Navbar needs higher z-index so dropdowns don't get covered by main content */
 .navbar {
     position: relative !important;
+    z-index: 1100 !important;
 }
 
 .main {
@@ -318,7 +336,7 @@ body {
     border-top: none;
     border-left: none;
     /* Reverse animation sequence */
-    transition: height 0.1s linear 0.2s, width 0.1s linear 0.3s;
+    transition: height 0.1s linear 0.2s, width 0.1s linear 0.3s, border-color 0s linear 0.4s;
 }
 
 /* Top & Left segments (Start Top-Right -> Left -> Down) */
@@ -328,7 +346,7 @@ body {
     border-bottom: none;
     border-right: none;
     /* Reverse animation sequence */
-    transition: height 0.1s linear 0s, width 0.1s linear 0.1s;
+    transition: height 0.1s linear 0s, width 0.1s linear 0.1s, border-color 0s linear 0.2s;
 }
 
 /* Hover states - Forward animation sequence */
@@ -487,12 +505,7 @@ nav a.hover::after {
     left: 0;
 }
 
-nav span {
-    color: var(--color-secondary) !important;
-    font-weight: 700 !important;
-    letter-spacing: 2px; /* Wider spacing for title */
-    text-shadow: 0 0 10px rgba(224, 230, 237, 0.3); /* Subtle title glow */
-}
+
 
 /* Nav Pills (Sidebar) */
 .col-sm-2:has(.nav-pills) {
@@ -515,8 +528,9 @@ nav span {
     content: "";
     position: absolute;
     left: 0;
-    top: 12.5%; /* Start from top to grow downwards */
+    top: 87.5%; /* Start from top to grow downwards */
     width: 2px; /* Matches navbar border thickness */
+    transform: translateY(-100%);
     height: 0;
     background-color: var(--color-hover);
     transition: height 0.2s ease-in-out;
@@ -701,6 +715,7 @@ nav span {
     background-color: var(--bg-color-firstlevel) !important;
     border: 1px solid var(--color-primary) !important;
     box-shadow: var(--glow-border) !important;
+    z-index: 2000 !important;
 }
 .selectize-dropdown-content .option {
     color: var(--color-secondary) !important;
@@ -804,4 +819,59 @@ nav span {
     background-color: #020814 !important;
     opacity: 0.9 !important;
     /* backdrop-filter: blur(2px); Removed to prevent lag over animated canvas */
+}
+
+
+
+.peregrin-logo,
+.peregrin-logo:hover,
+.peregrin-logo:focus,
+.peregrin-logo:active,
+.peregrin-logo:visited {
+    font-weight: 700 !important;
+    font-size: 1.8rem !important;
+    color: var(--color-secondary) !important;
+    text-decoration: none !important;
+    text-shadow: 0 0 10px rgba(224, 230, 237, 0.3) !important; /* Subtle title glow */
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.peregrin-logo:hover {
+    cursor: pointer !important;
+}
+
+/* Disable the nav link underline animation for the logo */
+.peregrin-logo::after {
+    display: none !important;
+}
+
+
+.shiny-notification {
+    border-radius: var(--notification-border-radius) !important;
+    box-shadow: var(--notification-box-shadow) !important;
+}
+
+.shiny-notification:not(.shiny-notification-error):not(.shiny-notification-warning) {
+    background-color: var(--notification-info-bg) !important;
+    border: var(--notification-info-border) !important;
+}
+
+.shiny-notification:not(.shiny-notification-error):not(.shiny-notification-warning) * {
+    color: var(--notification-info-text) !important;
+}
+
+.shiny-notification-warning {
+    background-color: var(--notification-warning-bg) !important;
+}
+.shiny-notification-warning * {
+    color: var(--notification-warning-text) !important;
+}
+
+.shiny-notification-error {
+    background-color: var(--notification-error-bg) !important;
+}
+.shiny-notification-error * {
+    color: var(--notification-error-text) !important;
 }

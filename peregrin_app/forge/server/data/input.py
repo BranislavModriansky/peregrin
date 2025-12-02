@@ -8,8 +8,9 @@ from peregrin_app.src.code import DataLoader, Spots, Tracks, Frames, TimeInterva
 
 
 
-def mount_data_input(input, output, session, S):
+def mount_data_input(input, output, session, S, noticequeue):
 
+    
 
     # _ _ _ _ RAW DATA INPUT CONTAINERS CONTROL _ _ _ _
 
@@ -36,7 +37,7 @@ def mount_data_input(input, output, session, S):
             ui.input_text(
                 id=f"condition_label{id}",
                 label="Label:",
-                placeholder=f"Condition {id}",
+                placeholder=f"Condition {id}"
             ),
             ui.input_file(
                 id=f"input_file{id}",
@@ -95,14 +96,16 @@ def mount_data_input(input, output, session, S):
     @render.ui
     def run_btn_ui():
         if S.READYTORUN.get():
-            return ui.input_task_button("run", label="Run", class_="task-btn")
+            return ui.input_task_button("run", label="Run", class_="btn-secondary task-btn")
         else:
-            return ui.input_action_button("run0", label="Run", class_="task-btn-mask", disabled=True)
+            return ui.input_action_button("run0", label="Run", class_="btn-secondary task-btn-mask", disabled=True)
 
     @reactive.Effect
     @reactive.event(input.run)
     def parsed_files():
         all_data = []
+
+        
 
         for idx in range(1, S.INPUTS.get()+1):
 
@@ -118,7 +121,9 @@ def mount_data_input(input, output, session, S):
 
             for file_idx, fileinfo in enumerate(files, start=1):
                 try:
-                    df = DataLoader.GetDataFrame(fileinfo["datapath"])
+                    df = DataLoader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
+
+                    print("We got here!")
                     # print(df.head())
                     if input.strip_data():
                         extracted = DataLoader.ExtractStripped(
@@ -140,6 +145,8 @@ def mount_data_input(input, output, session, S):
                         )
 
                 except: continue
+
+                print("We got here!")
 
                 extracted["Condition"] = cond_label if cond_label else str(idx)
                 extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)

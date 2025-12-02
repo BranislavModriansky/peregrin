@@ -23,24 +23,32 @@ warnings.filterwarnings(
 app_ui = ui.page_sidebar(
     
     # _ _ _ SIDEBAR - DATA FILTERING _ _ _
-    ui.sidebar(
-    
-        # ui.tags.style(Customize.Accordion01),
+    ui.sidebar(    
         ui.markdown("""  <p>  """),
         ui.output_ui(id="sidebar_label"),
         ui.input_action_button(id="append_threshold", label="Add threshold", class_="btn-primary", width="100%", disabled=True),
         ui.input_action_button(id="remove_threshold", label="Remove threshold", class_="btn-primary", width="100%", disabled=True),
         ui.output_ui(id="sidebar_accordion_placeholder"),
-        ui.input_task_button(id="set_threshold", label="Set threshold", label_busy="Applying...", class_="task-btn", disabled=True),
+        ui.input_task_button(id="set_threshold", label="Set threshold", label_busy="Applying...", class_="btn-secondary task-btn", disabled=True),
         ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
         ui.output_ui(id="threshold_info"),
         ui.download_button(id="download_threshold_info", label="Info SVG", width="100%", _class="space-x-2"),
         id="sidebar", open="closed", position="right", width="300px"
     ),
 
-    # _ _ _ PANEL NAVIGATION BAR _ _ _
+    # _ _ _ _ PANEL NAVIGATION BAR _ _ _ _
     ui.navset_bar(
-        
+
+        ui.nav_panel(
+            "About",
+            ui.markdown("#### **About Peregrin**"),
+            ui.markdown(
+                """ 
+                    Copilot (GPT-4) wrote: <br>
+                    Peregrin is a data analysis and visualization tool designed for processing and interpreting tracking data. It offers a user-friendly interface for importing raw data, applying filters, and generating insightful visualizations to aid in data interpretation.
+                """
+            ),
+        ),
 
         # _ _ _ _ RAW DATA INPUT PANEL - APP INITIALIZATION _ _ _ _
         ui.nav_panel(
@@ -52,7 +60,6 @@ app_ui = ui.page_sidebar(
                 ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
                 ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
                 ui.output_ui("run_btn_ui"),
-                # ui.input_task_button("run", label="Run", class_="task-btn", disabled=True),
                 # TODO - ui.input_action_button("reset", "Reset", class_="btn-danger"),
                 # TODO - ui.input_action_button("input_help", "Show help"),
                 ui.output_ui("initialize_loader1"),
@@ -74,7 +81,7 @@ app_ui = ui.page_sidebar(
                             ui.output_ui("data_labeling_ui"),
 
                         ), 
-                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="task-btn", width="100%"), 
+                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary task-btn", width="100%"), 
                         width="300px",
                         id="labeling_sidebar",
                     ), 
@@ -201,26 +208,24 @@ app_ui = ui.page_sidebar(
                     ui.panel_well( 
                         ui.markdown(   # TODO - annotate which libraries were used
                             """
-                            #### **Track reconstruction**
+                            ### **Track reconstruction**
+                            ___
                             """
                         ),
-                        #     <hr style="height: 4px; background-color: black; border: none" />
-                        #     """
-                        # ),
 
                         # _ _ SETTINGS _ _
                         ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated", width="200px"),
 
                         ui.accordion(
                             ui.accordion_panel(
-                                "Desired group variables",
+                                "Data Categories",
                                 ui.row(
-                                    ui.column(6,
-                                        ui.input_selectize("tracks_conditions", "Condition:", [])
-                                    ),
-                                    ui.column(6,
-                                        ui.input_selectize("tracks_replicates", "Replicate:", ["all"]),
-                                    )
+                                    ui.column(6, ui.input_selectize(id="conditions_tr", label="Conditions:", choices=[], multiple=True, options={"placeholder": "Select conditions"})),
+                                    ui.column(1, ui.input_action_button(id="conditions_reset_tr", label="🗘", class_="btn-noframe")),
+                                ),
+                                ui.row(
+                                    ui.column(4, ui.input_selectize(id="replicates_tr", label="Replicates:", choices=[], multiple=True, options={"placeholder": "Select replicates"})),
+                                    ui.column(1, ui.input_action_button(id="replicates_reset_tr", label="🗘", class_="btn-noframe")),
                                 )
                             ),
                             ui.accordion_panel(
@@ -273,6 +278,7 @@ app_ui = ui.page_sidebar(
                                     ui.input_checkbox(id="tracks_lutmap_extend_edges", label="Sharp edged LUT scale", value=True)
                                 ),
                             ),
+                            class_="accordion02"
                         ),
 
                         # _ Title and generate plot _
@@ -280,11 +286,11 @@ app_ui = ui.page_sidebar(
                         ui.row(ui.input_text(id="tracks_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Realistic'",
-                            ui.input_task_button(id="trr_generate", label="Generate", class_="task-btn", width="100%"),
+                            ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary task-btn", width="100%"),
                         ),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Polar'",
-                            ui.input_task_button(id="tnr_generate", label="Generate", class_="task-btn", width="100%"),
+                            ui.input_task_button(id="tnr_generate", label="Generate", class_="btn-secondary task-btn", width="100%"),
                         ),
                         ui.panel_conditional(
                             "input.track_reconstruction_method == 'Animated'",
@@ -294,7 +300,7 @@ app_ui = ui.page_sidebar(
                                 style="margin-left: 4px;"
                             ),
                             ui.markdown(""" <p> </p> """),
-                            ui.input_task_button(id="tar_generate", label="Generate", class_="task-btn", width="100%"),
+                            ui.input_task_button(id="tar_generate", label="Generate", class_="btn-secondary task-btn", width="100%"),
                         )
                     ),
                     # "#c0c4ca",
@@ -356,12 +362,24 @@ app_ui = ui.page_sidebar(
                     ui.panel_well(
                         ui.markdown(
                             """
-                            #### **Directionality distribution**
+                            ### **Directionality distribution**
+                            ___
                             """
                         ),
-                        #     <hr style="height: 4px; background-color: black; border: none" />
-                        #     """
-                        # ),
+                        ui.accordion(
+                            ui.accordion_panel(
+                                "Data Categories",
+                                ui.row(
+                                    ui.column(6, ui.input_selectize(id="conditions_dd", label="Conditions:", choices=[], selected=[], multiple=True, options={"placeholder": "Select conditions"})),
+                                    ui.column(1, ui.input_action_button(id="conditions_reset_dd", label="🗘", class_="btn-noframe")),
+                                ),
+                                ui.row(
+                                    ui.column(4, ui.input_selectize(id="replicates_dd", label="Replicates:", choices=[], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
+                                    ui.column(1, ui.input_action_button(id="replicates_reset_dd", label="🗘", class_="btn-noframe")),
+                                )
+                            ),
+                            class_="accordion02"
+                        )
                     )
                 ),
 
@@ -371,33 +389,28 @@ app_ui = ui.page_sidebar(
                     ui.panel_well(
                         ui.markdown(
                             """
-                            #### **Mean Squared Displacement**
+                            ### **Mean Squared Displacement**
+                            ___
                             """
                         ),
-                        #     <hr style="height: 4px; background-color: black; border: none" />
-                        #     """
-                        # ),
                         ui.accordion(
                             ui.accordion_panel(
                                 "Data Categories",
                                 ui.row(
-                                    ui.column(6, ui.input_selectize(id="conditions_msd", label="Conditions:", choices=["A", "B", "C"], selected=["A", "B", "C"], multiple=True, options={"placeholder": "Select conditions"})),
-                                    ui.column(1, ui.input_action_button(id="reset_conditions_msd", label="🗘", class_="btn-noframe")),
-                                    ui.column(4, ui.div(
-                                        ui.input_checkbox(id="group_replicates_msd", label="Group Replicates", value=True)),
-                                        style="margin-top: 38px; margin-left: -40px;"
-                                    )
+                                    ui.column(6, ui.input_selectize(id="conditions_msd", label="Conditions:", choices=[], selected=[], multiple=True, options={"placeholder": "Select conditions"})),
+                                    ui.column(1, ui.input_action_button(id="conditions_reset_msd", label="🗘", class_="btn-noframe")),
                                 ),
-                                ui.panel_conditional(
-                                    "input.group_replicates_msd == false",
-                                    ui.row(
-                                        ui.column(4, ui.input_selectize(id="replicates_msd", label="Replicates:", choices=["1", "2", "3"], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
-                                        ui.column(1, ui.input_action_button(id="reset_replicates_msd", label="🗘", class_="btn-noframe")),
+                                ui.row(
+                                    ui.column(4, ui.input_selectize(id="replicates_msd", label="Replicates:", choices=[], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
+                                    ui.column(1, ui.input_action_button(id="replicates_reset_msd", label="🗘", class_="btn-noframe")),
+                                    ui.column(4, ui.div(
+                                        ui.input_checkbox(id="replicates_group_msd", label="Group Replicates", value=True)),
+                                        style="margin-top: 38px; margin-left: -40px;"
                                     )
                                 )
                             ),
                             class_="accordion02"
-                        ),
+                        )
                     )
                 ),
 
@@ -410,9 +423,20 @@ app_ui = ui.page_sidebar(
                             #### **Turning angles**
                             """
                         ),
-                        #     <hr style="height: 4px; background-color: black; border: none" />
-                        #     """
-                        # ),
+                        ui.accordion(
+                            ui.accordion_panel(
+                                "Data Categories",
+                                ui.row(
+                                    ui.column(6, ui.input_selectize(id="conditions_ta", label="Conditions:", choices=[], selected=[], multiple=True, options={"placeholder": "Select conditions"})),
+                                    ui.column(1, ui.input_action_button(id="conditions_reset_ta", label="🗘", class_="btn-noframe")),
+                                ),
+                                ui.row(
+                                    ui.column(4, ui.input_selectize(id="replicates_ta", label="Replicates:", choices=[], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
+                                    ui.column(1, ui.input_action_button(id="replicates_reset_ta", label="🗘", class_="btn-noframe")),
+                                )
+                            ),
+                            class_="accordion02"
+                        )
                     )
                 ),
 
@@ -422,12 +446,10 @@ app_ui = ui.page_sidebar(
                     ui.panel_well(
                         ui.markdown(
                             """
-                            #### **Time series**
+                            ### **Time series**
+                            ___
                             """
                         ),
-                        #     <hr style="height: 4px; background-color: black; border: none" />
-                        #     """
-                        # ),
                         
                         ui.input_select("tch_plot", "Plot:", choices=["Scatter", "Line", "Error band"]),
 
@@ -633,7 +655,7 @@ app_ui = ui.page_sidebar(
                                                         ui.input_selectize("tch_errorband_min_line_color", "Line color:", Styles.Color + ["match"], selected="match"),
                                                         ui.input_selectize("tch_errorband_min_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_min_line_width", "Line width:", 1, min=0, step=0.1),
-                                                    ),
+                                                    )
                                                 ),
                                                 ui.accordion_panel(
                                                     "Max",
@@ -643,14 +665,15 @@ app_ui = ui.page_sidebar(
                                                         ui.input_selectize("tch_errorband_max_line_color", "Line color:", Styles.Color + ["match"], selected="match"),
                                                         ui.input_selectize("tch_errorband_max_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_max_line_width", "Line width:", 1, min=0, step=0.1),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
                             ),
-                        ),
+                            class_="accordion02"
+                        )
                     ),
                     ui.markdown(""" <p> """),
                     ui.card(
@@ -668,12 +691,10 @@ app_ui = ui.page_sidebar(
                     ui.panel_well(
                         ui.markdown(
                             """
-                            #### **Superplots**
+                            ### **Superplots**
+                            ___
                             """
                         ),
-                        #     <hr style="height: 4px; background-color: black; border: none" />
-                        #     """
-                        # ),
 
                         ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms", width="110px"),
                         # _ _ Swarmplot settings _ _
@@ -813,7 +834,8 @@ app_ui = ui.page_sidebar(
                                         "input.sp_use_stock_palette == true",
                                         ui.input_selectize(id="sp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn + Styles.PaletteQualitativeMatplotlib, selected=2),
                                     )
-                                )
+                                ),
+                                class_="accordion02"
                             ),
                             ui.markdown(""" <br> """),
                             ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;")
@@ -866,7 +888,8 @@ app_ui = ui.page_sidebar(
                                             ui.input_numeric(id="vp_errorbar_linewidth", label="Line width:", value=1, min=0, step=0.1),
                                         )
                                     )
-                                )
+                                ),
+                                class_="accordion02"
                             ),
                             ui.markdown(""" <br> """),
                             ui.row(ui.input_text(id="vp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
@@ -875,11 +898,11 @@ app_ui = ui.page_sidebar(
                         ui.markdown(""" <br> """),
                         ui.panel_conditional(
                             "input.superplot_type == 'Swarms'",
-                            ui.input_task_button(id="sp_generate", label="Generate", class_="task-btn", width="100%")
+                            ui.input_task_button(id="sp_generate", label="Generate", class_="btn-secondary task-btn", width="100%")
                         ),
                         ui.panel_conditional(
                             "input.superplot_type == 'Violins'",
-                            ui.input_task_button(id="vp_generate", label="Generate", class_="task-btn", width="100%")
+                            ui.input_task_button(id="vp_generate", label="Generate", class_="btn-secondary task-btn", width="100%")
                         )
                     ),
                     ui.markdown(""" <br> """),
@@ -897,23 +920,33 @@ app_ui = ui.page_sidebar(
                 widths = (2, 10)
             ),
         ),
-        
-        
+
         ui.nav_spacer(),
-        
+
         ui.nav_control(
             ui.input_selectize(
                 id="app_theme",
                 label=None,
-                choices=["Sleek", "Brutalistic", "Solemn", "Console-0", "Console-1"],
-                selected="Console-1",
+                choices=["Shiny", "Console-0", "Console-1", "Console-2"],
+                selected="Shiny",
                 width="140px",
                 options={"hideSelected": True, },
             ),
             ui.output_ui("custom_theme_url"),
         ),
-        # title=ui.tags.span("Peregrin", class_="peregrin-logo"),
-        title="Peregrin",
+        # title="Peregrin",
+        title=ui.tags.span(
+            ui.a(
+            "Peregrin",
+            href="https://github.com/BranislavModriansky/Peregrin/tree/main",
+            class_="peregrin-logo",
+            ),
+            
+        ),
+        # title=ui.nav_panel
+        
+        id="main_nav",
+        selected="Input Menu",
         
     ),
 )

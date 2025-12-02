@@ -39,17 +39,17 @@ def Server(input: Inputs, output: Outputs, session: Session):
 
     set_theme(*args)
 
-    mount_data_input(*args)
+    mount_data_input(*args, **kwargs)
     mount_data_display(*args)
-    mount_data_labeling(*args)
+    mount_data_labeling(*args, **kwargs)
     mount_thresholds_build(*args)
     mount_thresholds_calc(*args)
     mount_thresholds_info_export(*args)
 
 
-    MountTracks.realistic_reconstruction(*args)
-    MountTracks.polar_reconstruction(*args)
-    MountTracks.animated_reconstruction(*args)
+    MountTracks.realistic_reconstruction(*args, **kwargs)
+    MountTracks.polar_reconstruction(*args, **kwargs)
+    MountTracks.animated_reconstruction(*args, **kwargs)
     MountTracks.lut_map(*args)
     mount_superplots(*args, **kwargs)
 

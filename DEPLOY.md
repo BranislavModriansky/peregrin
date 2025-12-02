@@ -4,6 +4,12 @@
 
 ## Navigate
 
+1. Navigate to the repository
+
+```bash
+cd "repository_path"
+```
+
 > [!NOTE] 
 >
 > **Verify whether the desired branch is selected** before building the docker image:
@@ -18,11 +24,6 @@
 > git switch <branch-name>
 > ```
 
-1. Navigate to the repository
-
-```bash
-cd "repository_path"
-```
 
 2. To check whether Dockerfile is accessible run
 
@@ -52,4 +53,4 @@ docker push <username>/peregrin:<version>
 
 ## References
 > * **[Docker's Python guide](https://docs.docker.com/language/python/)**
-> * **[Getting started](https://docs.docker.com/go/get-started-sharing/)**
+> * **[Getting started with Docker](https://docs.docker.com/go/get-started-sharing/)**
