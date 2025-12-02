@@ -12,7 +12,7 @@ embed as:
 
 -->
 
-## Contents:
+<!-- ## Contents:
 
 1. [About](#about)
     i. [Key Features and Flows](#key-features-and-flows)
@@ -23,8 +23,9 @@ embed as:
 3. [How to Install and Launch](#how-to-install-and-launch)
     i. [Running the App Using Docker](#running-the-app-using-docker)
         - [Set-up](#set-up)
-        - [Initialization](#initialization)
+        - [Initialization](#initialization) -->
 
+[TOC]
 
 ## About
 
