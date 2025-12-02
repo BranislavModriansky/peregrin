@@ -16,6 +16,9 @@ embed as:
 
 Peregrin is a an application designed for researchers studying cell migration. It allows **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
 
+> Click here to see the [User's Guide]() describing all of the app's features!
+> Click here to see an  documentation of the app'
+
 ### Key Features and Flows
 
 #### Data Input
@@ -77,20 +80,6 @@ docker pull branislavmodriansky/peregrin:<version>
 After succesfully pulling the `peregrin:<version>` docker image, it should be ready to be launched.
 
 
-
-<!-- Custom auto lettering indentation -->
-<!-- <style>
-    ol.lower-alpha-paren {
-        list-style-type: lower-alpha;
-    }
-    ol.lower-alpha-paren li::marker {
-        content: counter(list-item, lower-alpha) ") ";
-    }
-</style> -->
-<!-- Custom auto lettering indentation -->
-
-
-
 #### Initialization
 
 4. Run the app: <br>
@@ -111,8 +100,4 @@ docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --h
 
 <!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
-
-<!-- ## User's guide
-
-## Examples -->
 
