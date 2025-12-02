@@ -41,11 +41,13 @@ app_ui = ui.page_sidebar(
 
         ui.nav_panel(
             "About",
-            ui.markdown("#### **About Peregrin**"),
+            ui.br(),
             ui.markdown(
                 """ 
-                    Copilot (GPT-4) wrote: <br>
-                    Peregrin is a data analysis and visualization tool designed for processing and interpreting tracking data. It offers a user-friendly interface for importing raw data, applying filters, and generating insightful visualizations to aid in data interpretation.
+                    ##### A tool designed for processing and interpreting tracking data, offering a user-friendly interface built with [Py-Shiny](https://shiny.posit.co/py/).
+                    *Import raw or processed data.* <br>
+                    *Explore them by applying filters and generating insightful visualizations.* <br>
+                    *Export results.* <br>
                 """
             ),
         ),
