@@ -21,7 +21,7 @@ Peregrin is a an application designed for researchers studying cell migration. I
 > 
 > See the [User's Guide](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#users-guide) for a walk-through of the app's features!
 > 
-> See a more detailed documentation: [Under the Hood: Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#under-the-hood:-computation-&-visualization)
+> See a more detailed documentation of what's [Under the Hood: Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#under-the-hood:-computation-&-visualization)
 
 
 ### Key Features and Flows
