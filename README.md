@@ -12,20 +12,18 @@ embed as:
 
 -->
 
-<!-- ## Contents:
+## Contents:
 
 1. [About](#about)
-    i. [Key Features and Flows](#key-features-and-flows)
+    1. [Key Features and Flows](#key-features-and-flows)
         - [Data Input](#data-input)
         - [Filtering](#filtering)
         - [Visualization](#visualization)
-    ii. [Documentation](#documentation)
+    2. [Documentation](#documentation)
 3. [How to Install and Launch](#how-to-install-and-launch)
-    i. [Running the App Using Docker](#running-the-app-using-docker)
+    1. [Running the App Using Docker](#running-the-app-using-docker)
         - [Set-up](#set-up)
-        - [Initialization](#initialization) -->
-
-[TOC]
+        - [Initialization](#initialization)
 
 ## About
 
@@ -120,7 +118,6 @@ or
 docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --host 0.0.0.0 --port <port>
 ```
 
-[TOC]
 
 <!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->
 
