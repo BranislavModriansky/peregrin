@@ -16,14 +16,6 @@ embed as:
 
 Peregrin is a an application designed for researchers studying cell migration. It allows **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
 
-
-> [!TIP]
-> 
-> See the [User's Guide](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#users-guide) for a walk-through of the app's features!
-> 
-> See a more detailed documentation of what's [Under the Hood: Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#under-the-hood:-computation-&-visualization)
-
-
 ### Key Features and Flows
 
 #### Data Input
@@ -46,6 +38,14 @@ Peregrin is a an application designed for researchers studying cell migration. I
     - Time series;
     - Superplots.
 - Export figures in SVG format and more.
+
+
+> [!TIP]
+> 
+> See the [User's Guide](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#users-guide) for a walk-through of the app's features!
+> 
+> See a more detailed documentation of what's [Under the Hood: Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#under-the-hood:-computation-&-visualization)
+
 
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
