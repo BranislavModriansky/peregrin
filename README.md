@@ -60,7 +60,7 @@ Peregrin is a an application designed for researchers studying cell migration. I
 
 > [!TIP]
 >
-> See the [Current status Roadmap](https://github.com/BranislavModriansky/peregrin/wiki/Current-Status-%E2%80%90-Road-Map)
+> See the [Current State - Road Map](https://github.com/BranislavModriansky/peregrin/wiki/Current-State-%E2%80%90-Road-Map)
 
 <!--
 
