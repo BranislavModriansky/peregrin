@@ -222,92 +222,247 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     return time_stats
 
 
+# @staticmethod
+# def TimeIntervals(df: pd.DataFrame) -> pd.DataFrame:
+#     """
+#     Compute mean displacement (your current 'MSD') for each Condition, Replicate, and time interval.
+#     Exact outcome preserved:
+#       - lag==1 uses mean of 'Distance'
+#       - lag>1 uses mean of np.hypot(dx, dy)
+#       - 'Tracks contributing' is the global count per lag (not per group)
+#     Expects columns:
+#       'Condition','Replicate','Track UID','Frame','Time point','X coordinate','Y coordinate','Distance' (for lag==1).
+#     """
+#     cols = [
+#         'Condition', 'Replicate', 'Tracks contributing', 'Time lag',
+#         'MSD mean', 'MSD sem', 'MSD sd', 'MSD median', 'Frame lag'
+#     ]
+#     if df.empty:
+#         return pd.DataFrame(columns=cols)
+
+#     df = df.copy()
+#     # Ensure track-ordering by frame
+#     df.set_index('Track UID', inplace=True, drop=False, verify_integrity=False)
+#     df.sort_index(inplace=True)
+#     # Time step from unique time points
+#     t_unique = np.sort(df['Time point'].unique())
+#     if t_unique.size < 2:
+#         return pd.DataFrame(columns=cols)
+#     t_step = (t_unique[-1] - t_unique[0]) / (t_unique.size - 1)
+
+#     # Accumulators
+#     values_by_key = defaultdict(list)   # key = (Condition, Replicate, lag)
+#     contrib_global = defaultdict(int)   # key = lag -> number of tracks with length > lag
+
+#     # Iterate tracks once
+#     for track_uid, g in df.groupby(level='Track UID'):
+#         n = len(g)
+#         if n < 2:
+#             continue
+
+#         x = g['X coordinate'].to_numpy()
+#         y = g['Y coordinate'].to_numpy()
+#         cond = g['Condition'].iloc[0]
+#         rep  = g['Replicate'].iloc[0]
+
+#         # Precompute for lag==1 from provided Distance to match your output exactly
+#         dist_col = g['Distance'].to_numpy() if 'Distance' in g else None
+
+#         # For each lag, vectorized slice diffs; no inner per-step Python loop
+#         for lag in range(1, n):
+#             # track contributes at this lag
+#             contrib_global[lag] += 1
+
+#             # if lag == 1 and dist_col is not None:
+#             #     msd_track = dist_col.mean()
+#             # else:
+#             dx = x[:-lag] - x[lag:]
+#             dy = y[:-lag] - y[lag:]
+#             # mean of Euclidean displacement, matching your code
+#             msd_track = np.hypot(dx, dy).mean()
+
+#             values_by_key[(cond, rep, lag)].append(msd_track)
+
+#     # Build result once
+#     out_rows = []
+#     for (cond, rep, lag), vals in values_by_key.items():
+#         arr = np.asarray(vals, dtype=float)
+#         mean = arr.mean()
+#         sd = arr.std(ddof=0)
+#         sem = stats.sem(arr) if arr.size > 1 else np.nan
+#         median = np.median(arr)
+#         out_rows.append({
+#             'Condition': cond,
+#             'Replicate': rep,
+#             'Tracks contributing': contrib_global.get(lag, 0),  # global count per lag to mirror original
+#             'Time lag': lag * t_step,
+#             'MSD mean': mean,
+#             'MSD sem': sem,
+#             'MSD sd': sd,
+#             'MSD median': median,
+#             'Frame lag': lag,
+#         })
+
+#     if not out_rows:
+#         return pd.DataFrame(columns=cols)
+
+#     out = pd.DataFrame(out_rows)
+#     # Optional stable sort
+#     out.sort_values(['Condition', 'Replicate', 'Frame lag'], inplace=True, ignore_index=True)
+#     return out
+
+
+
+from collections import defaultdict
+import numpy as np
+import pandas as pd
+
+def _wrap_pi(a: np.ndarray) -> np.ndarray:
+    # Wrap to (-pi, pi]
+    return (a + np.pi) % (2*np.pi) - np.pi
+
+def _circ_mean(a: np.ndarray) -> float:
+    a = np.asarray(a, dtype=float)
+    if a.size == 0:
+        return np.nan
+    s = np.nanmean(np.sin(a))
+    c = np.nanmean(np.cos(a))
+    if np.isnan(s) or np.isnan(c):
+        return np.nan
+    return float(np.arctan2(s, c))
+
+def _circ_median(a: np.ndarray) -> float:
+    # Approximate circular median by unwrapping around the circular mean
+    a = np.asarray(a, dtype=float)
+    if a.size == 0:
+        return np.nan
+    mu = _circ_mean(a)
+    if np.isnan(mu):
+        return np.nan
+    shifted = _wrap_pi(a - mu)
+    med = np.median(shifted)
+    return float(_wrap_pi(mu + med))
+
 @staticmethod
 def TimeIntervals(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute mean displacement (your current 'MSD') for each Condition, Replicate, and time interval.
-    Exact outcome preserved:
-      - lag==1 uses mean of 'Distance'
-      - lag>1 uses mean of np.hypot(dx, dy)
-      - 'Tracks contributing' is the global count per lag (not per group)
-    Expects columns:
-      'Condition','Replicate','Track UID','Frame','Time point','X coordinate','Y coordinate','Distance' (for lag==1).
+    MSD across lags for each Condition×Replicate.
+    Unit of analysis = track. Each track contributes one MSD value per lag.
+    Statistics across tracks:
+      - MSD mean, MSD sd (ddof=1), MSD sem = sd/sqrt(N), MSD median
+      - Turn angle mean (rad), Turn angle median (rad) using circular statistics
+      - Tracks contributing = number of tracks with at least one pair for that lag
+
+    Turning-angle definition for lag L:
+      - Compute step headings from consecutive frames: theta[t] = atan2(y[t+1]-y[t], x[t+1]-x[t]).
+      - Turning angles at lag L are wrapped differences: wrap(theta[t+L] - theta[t]).
+      - Per-track circular mean/median are computed from those differences, then aggregated across tracks
+        with circular mean/median so each track has equal weight.
     """
+
     cols = [
-        'Condition', 'Replicate', 'Tracks contributing', 'Time lag',
-        'MSD mean', 'MSD sem', 'MSD sd', 'MSD median', 'Frame lag'
+        'Condition', 'Replicate', 'Frame lag', 'Time lag', 'Tracks contributing',
+        'MSD mean', 'MSD sem', 'MSD sd', 'MSD median',
+        'Turn mean (rad)', 'Turn median (rad)'
     ]
+
     if df.empty:
         return pd.DataFrame(columns=cols)
 
     df = df.copy()
-    # Ensure track-ordering by frame
-    df.set_index('Track UID', inplace=True, drop=False, verify_integrity=False)
-    df.sort_index(inplace=True)
-    # Time step from unique time points
+
+    # Ensure numeric coords
+    df['X coordinate'] = pd.to_numeric(df['X coordinate'], errors='coerce')
+    df['Y coordinate'] = pd.to_numeric(df['Y coordinate'], errors='coerce')
+
+    # Time step from unique diffs; use median to resist irregular sampling
     t_unique = np.sort(df['Time point'].unique())
     if t_unique.size < 2:
         return pd.DataFrame(columns=cols)
-    t_step = (t_unique[-1] - t_unique[0]) / (t_unique.size - 1)
+    t_step = float(np.median(np.diff(t_unique)))
 
-    # Accumulators
-    values_by_key = defaultdict(list)   # key = (Condition, Replicate, lag)
-    contrib_global = defaultdict(int)   # key = lag -> number of tracks with length > lag
+    # Collect per-track metrics at each lag
+    per_track_msd = defaultdict(list)       # (cond, rep, lag) -> [msd_track, ...]
+    per_track_turn_mean = defaultdict(list) # (cond, rep, lag) -> [circ_mean_track, ...]
+    per_track_turn_med  = defaultdict(list) # (cond, rep, lag) -> [circ_median_track, ...]
 
-    # Iterate tracks once
-    for track_uid, g in df.groupby(level='Track UID'):
-        n = len(g)
-        if n < 2:
+    # Iterate tracks
+    # Accept either ordinary column or index; group by column to avoid index requirements
+    # if 'Track UID' not in df.columns:
+    #     raise KeyError("Lags expects a 'Track UID' column.")
+    for track_uid, g in df.groupby(level='Track UID', sort=False):
+        if len(g) < 2:
             continue
+
+        # Sort frames within track
+        g = g.sort_values('Time point')
 
         x = g['X coordinate'].to_numpy()
         y = g['Y coordinate'].to_numpy()
         cond = g['Condition'].iloc[0]
         rep  = g['Replicate'].iloc[0]
 
-        # Precompute for lag==1 from provided Distance to match your output exactly
-        dist_col = g['Distance'].to_numpy() if 'Distance' in g else None
+        n = len(g)
 
-        # For each lag, vectorized slice diffs; no inner per-step Python loop
+        # Headings from lag-1 steps for turning angles
+        dx1 = x[1:] - x[:-1]
+        dy1 = y[1:] - y[:-1]
+        theta = np.arctan2(dy1, dx1)  # length n-1
+
         for lag in range(1, n):
-            # track contributes at this lag
-            contrib_global[lag] += 1
+            # MSD per-track at this lag
+            dx = x[lag:] - x[:-lag]
+            dy = y[lag:] - y[:-lag]
+            if dx.size > 0:
+                msd_track = float((dx*dx + dy*dy).mean())
+                per_track_msd[(cond, rep, lag)].append(msd_track)
 
-            # if lag == 1 and dist_col is not None:
-            #     msd_track = dist_col.mean()
-            # else:
-            dx = x[:-lag] - x[lag:]
-            dy = y[:-lag] - y[lag:]
-            # mean of Euclidean displacement, matching your code
-            msd_track = np.hypot(dx, dy).mean()
+            # Turning angles for this lag, using headings separated by 'lag'
+            if theta.size > lag:
+                dtheta = _wrap_pi(theta[lag:] - theta[:-lag])  # length (n-1 - lag)
+                if dtheta.size > 0:
+                    per_track_turn_mean[(cond, rep, lag)].append(_circ_mean(dtheta))
+                    per_track_turn_med[(cond, rep, lag)].append(_circ_median(dtheta))
 
-            values_by_key[(cond, rep, lag)].append(msd_track)
+    if not per_track_msd and not per_track_turn_mean and not per_track_turn_med:
+        return pd.DataFrame(columns=cols)
 
-    # Build result once
-    out_rows = []
-    for (cond, rep, lag), vals in values_by_key.items():
-        arr = np.asarray(vals, dtype=float)
-        mean = arr.mean()
-        sd = arr.std(ddof=0)
-        sem = stats.sem(arr) if arr.size > 1 else np.nan
-        median = np.median(arr)
-        out_rows.append({
+    # Summarize across tracks
+    keys = set(per_track_msd.keys()) | set(per_track_turn_mean.keys()) | set(per_track_turn_med.keys())
+
+    rows = []
+    for (cond, rep, lag) in sorted(keys, key=lambda k: (k[0], k[1], k[2])):
+        # MSD across tracks (linear)
+        arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
+        n_tracks = arr.size
+        mean = float(arr.mean()) if n_tracks else np.nan
+        sd = float(arr.std(ddof=1)) if n_tracks > 1 else np.nan
+        sem = float(sd / np.sqrt(n_tracks)) if n_tracks > 1 else np.nan
+        median = float(np.median(arr)) if n_tracks else np.nan
+
+        # Turning angle across tracks (circular)
+        turn_means = np.asarray(per_track_turn_mean.get((cond, rep, lag), []), dtype=float)
+        turn_meds  = np.asarray(per_track_turn_med.get((cond, rep, lag), []), dtype=float)
+        turn_mean_agg = _circ_mean(turn_means) if turn_means.size else np.nan
+        turn_med_agg  = _circ_median(turn_meds) if turn_meds.size else np.nan
+
+        rows.append({
             'Condition': cond,
             'Replicate': rep,
-            'Tracks contributing': contrib_global.get(lag, 0),  # global count per lag to mirror original
+            'Frame lag': lag,
             'Time lag': lag * t_step,
+            'Tracks contributing': int(max(n_tracks, turn_means.size, turn_meds.size)),
+
             'MSD mean': mean,
             'MSD sem': sem,
             'MSD sd': sd,
             'MSD median': median,
-            'Frame lag': lag,
+
+            'Turn mean (degrees)': np.rad2deg(np.abs(turn_mean_agg)),
+            'Turn median (degrees)': np.rad2deg(np.abs(turn_med_agg)),
         })
 
-    if not out_rows:
-        return pd.DataFrame(columns=cols)
-
-    out = pd.DataFrame(out_rows)
-    # Optional stable sort
-    out.sort_values(['Condition', 'Replicate', 'Frame lag'], inplace=True, ignore_index=True)
+    out = pd.DataFrame(rows).sort_values(
+        ['Condition', 'Replicate', 'Frame lag'], ignore_index=True
+    )
     return out
-

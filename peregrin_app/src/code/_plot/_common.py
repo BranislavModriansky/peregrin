@@ -185,19 +185,19 @@ class Categorizer:
         Check for errors in the provided categories and replicates.
         """
         if self.conditions == []:
-            self.noticequeue.Report(Level.error, "Missing categories.", "At least one condition (category) must be specified.")
+            self.noticequeue.Report(Level.error, "Missing conditions.", "At least one condition (category) must be specified.")
             return True
-        if self.groupreps is False and self.reps == []:
-            self.noticequeue.Report(Level.error, "Missing categories.", "At least one replicate (category) must be specified.")
+        if self.replicates == []:
+            self.noticequeue.Report(Level.error, "Missing replicates.", "At least one replicate (category) must be specified.")
             return True
         
         conds_not_found = [cond for cond in self.conditions if cond not in self.data['Condition'].values]
-        reps_not_found = [rep for rep in self.reps if rep not in self.data['Replicate'].values] if not self.groupreps else []
+        reps_not_found = [rep for rep in self.replicates if rep not in self.data['Replicate'].values]
         if conds_not_found:
-            self.noticequeue.Report(Level.error, "Categories not found.", f"Conditions {', '.join(conds_not_found)} were not found in the data.")
+            self.noticequeue.Report(Level.error, "Conditions not found.", f"Conditions {', '.join(conds_not_found)} were not found in the data.")
             return True
         if reps_not_found:
-            self.noticequeue.Report(Level.error, "Categories not found.", f"Replicates {', '.join(reps_not_found)} were not found in the data.")
+            self.noticequeue.Report(Level.error, "Replicates not found.", f"Replicates {', '.join(reps_not_found)} were not found in the data.")
             return True
         
         return False

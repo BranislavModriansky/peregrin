@@ -427,7 +427,7 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.accordion_panel(
                                         'Scatter',
-                                        ui.input_checkbox("scatter_show_msd", "Show scatter", True),
+                                        ui.input_checkbox("scatter_show_msd", "Show scatter", False),
                                     ),
                                     ui.accordion_panel(
                                         'Linear fit',
@@ -450,19 +450,35 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             ui.accordion_panel(
+                                'Coloring',
+                                ui.row(
+                                    ui.column(2, 
+                                        ui.input_selectize("c_mode_msd", "Color mode:", choices=['differentiate conditions', 'differentiate replicates', 'only-one-color'], selected='differentiate conditions'),
+                                    ),
+                                    ui.column(2,
+                                        ui.panel_conditional(
+                                            "input.c_mode_msd == 'only-one-color'",
+                                            ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
+                                        )
+                                    )
+                                )
+                            ),
+                            ui.accordion_panel(
                                 'Decorative',
                                 ui.input_checkbox("grid_show_msd", "Show grid", True),
                             ),
                             class_="accordion02",
                         ),
                         ui.br(),
+                        # TODO: create a class for text inputs for plot titling which makes it so thaat the inputed text as well as the placeholder are in the center of the window
                         ui.row(ui.input_text(id="title_msd", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
                         ui.input_task_button(id="generate_msd", label="Generate", class_="btn-secondary task-btn", width="100%"),
                     ),
-
+                    ui.br(),
                     ui.card(
                         ui.output_plot("plot_msd"),
-                        full_screen=False,
+                        full_screen=True,
+                        height="800px",
                     ),
                     ui.download_button("download_msd", "Download", width="100%"),
                 ),
