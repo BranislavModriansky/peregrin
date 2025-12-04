@@ -152,15 +152,15 @@ class Values:
         return value
     
 
+
 class Categorizer:
 
     def __init__(
         self,
         data: pd.DataFrame,
-        categories: tuple[list, bool, list[Any]] = ([], True, []),
+        conditions: list,
         *,
-        cols: list = [],
-        aggregate: bool = False,
+        replicates: list = [],
         aggby: list = [],
         aggdict: dict = {},
         **kwargs
@@ -169,9 +169,8 @@ class Categorizer:
         Initialize with a DataFrame containing 'Condition' and 'Replicate' columns.
         """
         self.data = data
-        self.conditions, self.groupreps, self.reps = categories
-        self.cols = cols
-        self.aggregate = aggregate
+        self.conditions = conditions
+        self.replicates = replicates
         self.aggby = aggby
         self.aggdict = aggdict
         self.noticequeue = kwargs.get('noticequeue', None)
@@ -202,13 +201,13 @@ class Categorizer:
         """
         Filter DataFrame categories.
         """
-        if self.groupreps:
-            filtered = self.data[self.data['Condition'].isin(self.conditions)][self.cols]
-        else:
+        if self.replicates:
             filtered = self.data[
                 (self.data['Condition'].isin(self.conditions)) &
-                (self.data['Replicate'].isin(self.reps))
-            ][self.cols]
+                (self.data['Replicate'].isin(self.replicates))
+            ]
+        else:
+            filtered = self.data[self.data['Condition'].isin(self.conditions)]
         
         return filtered
 
@@ -225,7 +224,7 @@ class Categorizer:
         """
         if self._checkerrors():
             return pd.DataFrame()
-        if self.aggregate:
+        if self.aggdict and self.aggby:
             return self._aggregate()
         return self._filter()
 
