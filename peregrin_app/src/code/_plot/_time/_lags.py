@@ -46,6 +46,13 @@ class MSD:
 
         self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
+        self._check_errors()
+
+    def _check_errors(self) -> None:
+        if self.aggregate and self.c_mode == 'differentiate replicates':
+            self.noticequeue.Report(Level.error, "Cannot color-differentiate replicates when replicate grouping is enabled.")
+            self.aggregate = False £TODO swithc to a warning
+
     def _arrange_data(self) -> pd.DataFrame:
         return Categorizer(
             data=self.data,
@@ -57,20 +64,32 @@ class MSD:
         )()
     
     def _get_colors(self) -> dict:
-        if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
-            tag = 'Condition' if self.c_mode == 'differentiate conditions' else 'Replicate'
-            tags = self.conditions if self.c_mode == 'differentiate conditions' else self.replicates
 
-            mp = Colors.BuildQualPalette(
-                df=self.data,
-                tag=tag,
-                which=tags,
-                noticequeue=self.noticequeue
-            )
+        tag = 'Condition' if self.c_mode == 'differentiate conditions' else 'Replicate'
+        tags = self.conditions if self.c_mode == 'differentiate conditions' else self.replicates
+        
+        if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
+            if self.palette:
+                try:
+                    colors_list = Colors.MakeCmap(tags, self.palette)
+                    if colors_list:
+                        return dict(zip(tags, colors_list))
+                except Exception as e:
+                    print(f"Error generating colormap: {str(e)}")
+
+            else:
+                mp = Colors.BuildQualPalette(
+                    df=self.data,
+                    tag=tag,
+                    which=tags,
+                    noticequeue=self.noticequeue
+                )
+
             return mp
 
         elif self.c_mode == 'only-one-color':
-            return {cond: self.color for cond in self.conditions}
+            keys = list(self.conditions) + list(self.replicates) + [None]
+            return {k: self.color for k in keys}
             
 
     def _compute_fit_color(self, base_color: str) -> str:
