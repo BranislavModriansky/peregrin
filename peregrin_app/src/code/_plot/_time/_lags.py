@@ -50,8 +50,8 @@ class MSD:
 
     def _check_errors(self) -> None:
         if self.aggregate and self.c_mode == 'differentiate replicates':
-            self.noticequeue.Report(Level.error, "Cannot color-differentiate replicates when replicate grouping is enabled.")
-            self.aggregate = False £TODO swithc to a warning
+            self.noticequeue.Report(Level.warning, "Cannot color-differentiate replicates when replicate grouping is enabled.")
+            self.aggregate = False #TODO swithc to a warning
 
     def _arrange_data(self) -> pd.DataFrame:
         return Categorizer(

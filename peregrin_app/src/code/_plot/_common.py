@@ -11,10 +11,6 @@ from .._handlers._reports import Level
 
 class Colors:
 
-    def __init__(self,
-                  **kwargs):
-        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
-    
     @staticmethod
     def GenerateRandomColor() -> str:
         """
