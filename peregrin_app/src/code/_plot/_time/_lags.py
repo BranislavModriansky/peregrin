@@ -27,7 +27,6 @@ class MSD:
         'MSD mean': 'mean',
         'MSD sem': 'sem',
         'MSD sd': 'mean',
-        'MSD median': 'median'
     }
     
     def __init__(
@@ -40,6 +39,7 @@ class MSD:
         self.aggregate = group_replicates
         self.c_mode = c_mode
 
+        self.color = kwargs.get('color', None) if 'color' in kwargs else None
         self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
     def _arrange_data(self) -> pd.DataFrame:
@@ -51,8 +51,26 @@ class MSD:
             aggdict=self.AGG_DICT,
             noticequeue=self.noticequeue
         )()
+    
+    def _get_colors(self) -> dict:
+        if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
+            tag = 'Condition' if self.c_mode == 'differentiate conditions' else 'Replicate'
+            tags = self.conditions if self.c_mode == 'differentiate conditions' else self.replicates
+
+            mp = Colors.BuildQualPalette(
+                df=self.data,
+                tag=tag,
+                which=tags,
+                noticequeue=self.noticequeue
+            )
+            return mp
+
+        elif self.c_mode == 'single-color':
+            return {cond: self.color for cond in self.conditions}
+            
 
     def _compute_fit_color(self, base_color: str) -> str:
+        
         base_rgb = mcolors.to_rgb(base_color)
         hsv = mcolors.rgb_to_hsv(np.array(base_rgb))
         
@@ -63,36 +81,17 @@ class MSD:
         
         return mcolors.to_hex(mcolors.hsv_to_rgb(hsv))
     
-    def _set_axis_labels(self, ax: plt.Axes, scale: str):
-        if scale == 'log':
-            ax.set_xlabel('log Time lag [frame]')
-            ax.set_ylabel('log MSD [μm²]')
-        elif scale == 'sqrt':
-            ax.set_xlabel('√ Time lag [frame]')
-            ax.set_ylabel('√ MSD [μm²]')
-        else:
-            ax.set_xlabel('Time lag [frame]')
-            ax.set_ylabel('MSD [μm²]')
+    def _set_axis_labels(self, ax: plt.Axes):
+        ax.set_xlabel('Time lag [frame]')
+        ax.set_ylabel('MSD [μm²]')
     
-    def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray, scale: str):
-        if scale == 'log':
-            y_pos = y_vals[y_vals > 0]
-            if y_pos.size:
-                y_plot_all = np.log10(y_pos)
-                margin = max(1e-3, 0.05 * (y_plot_all.max() - y_plot_all.min()))
-                ax.set_ylim(y_plot_all.min() - margin, y_plot_all.max() + margin * 2)
-        elif scale == 'sqrt':
-            y_plot_all = np.sqrt(y_vals)
-            margin = 0.1 * (y_plot_all.max() - y_plot_all.min())
-            ax.set_ylim(max(0.0, y_plot_all.min() - margin), y_plot_all.max() + margin)
-        else:
-            miny, maxy = np.nanmin(y_vals), np.nanmax(y_vals)
-            lower = miny - 0.5 * abs(miny)
-            upper = maxy + 0.05 * abs(maxy) if maxy != 0 else 1.0
-            ax.set_ylim(lower, upper)
+    def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray):
+        miny, maxy = np.nanmin(y_vals), np.nanmax(y_vals)
+        lower = miny - 0.5 * abs(miny)
+        upper = maxy + 0.05 * abs(maxy) if maxy != 0 else 1.0
+        ax.set_ylim(lower, upper)
     
-    def plot(self, 
-             x_scale: Literal['linear', 'log', 'sqrt'] = 'linear',
+    def plot(self,
              line: bool = True,
              scatter: bool = True,
              linear_fit: bool = False,
@@ -112,16 +111,22 @@ class MSD:
 
         data = self._arrange_data()
         
-        self._set_axis_labels(ax, x_scale)
+        self._set_axis_labels(ax)
         
         conditions = data['Condition'].unique()
-        colors = {cond: self.c_mode.get(cond, '#000000') for cond in conditions}
+
+        # Determine which tags we need colors for
+        if self.c_mode == 'differentiate conditions':
+            tags = self.conditions
+        else:
+            tags = self.replicates
+            
+        color_map = self._get_colors()
         
         # Plot each condition
         for idx, condition in enumerate(conditions):
             cond_data = data[data['Condition'] == condition]
 
-            # --- NEW: decide grouping level based on self.aggregate ---
             if self.aggregate:
                 # one line per condition (replicates already aggregated)
                 groups = [(condition, None, cond_data)]
@@ -145,6 +150,9 @@ class MSD:
                 band_bottom_y = np.maximum(y_data - err_data, 0.0)
                 band_top_y = y_data + err_data
                 
+                
+                color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
+
                 # label: show replicate name only once in legend when not grouped
                 if self.aggregate:
                     label = cond_name
@@ -160,7 +168,7 @@ class MSD:
                             x_data[mask],
                             band_bottom_y[mask],
                             band_top_y[mask],
-                            color=colors[condition],
+                            color=color,
                             alpha=0.08 if self.aggregate else 0.05,
                             linewidth=0,
                             zorder=0
@@ -174,7 +182,7 @@ class MSD:
                         marker='none',
                         label=label,
                         linestyle='-',
-                        color=colors[condition],
+                        color=color,
                         alpha=1 if self.aggregate else 0.8,
                         zorder=6
                     )
@@ -201,13 +209,13 @@ class MSD:
                         x_data,
                         y_data,
                         fit_key,
-                        colors[condition],
+                        color,
                         idx if self.aggregate else g_idx,
                         len(conditions) if self.aggregate else len(groups)
                     )
         
         # Set y-limits
-        self._set_ylim(ax, data['MSD mean'].values, x_scale)
+        self._set_ylim(ax, data['MSD mean'].values)
         
         # Grid and legend
         if grid:
@@ -217,7 +225,8 @@ class MSD:
         return plt.gcf()
     
     def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray,
-                       condition: str, color: str, idx: int, n_conditions: int):
+                       tag: str, color: str, idx: int, n_tags: int):
+        
         valid = ~np.isnan(x_data) & ~np.isnan(y_data)
         xv = x_data[valid]
         yv = y_data[valid]
@@ -248,7 +257,7 @@ class MSD:
             
             y_text = intercept + slope * xv.max()
             yrange = np.nanmax(yv) - np.nanmin(yv) if np.nanmax(yv) != np.nanmin(yv) else 1.0
-            v_offset = ((idx - (n_conditions - 1) / 2.0) * 0.02 * yrange)
+            v_offset = ((idx - (n_tags - 1) / 2.0) * 0.02 * yrange)
             y_text += v_offset
             
             slope_text = f"D = {round(slope, 2)} [μm²·s⁻¹]"
@@ -267,18 +276,3 @@ class MSD:
 
     def __call__(self):
         return self.plot()
-
-
-
-# # example usage
-
-# MSD(
-#     data=LAGS_STATS,
-#     conditions=['naive-ctr', 'naive-cxcl12'],
-#     replicates=LAGS_STATS['Replicate'].unique().tolist(),
-#     group_replicates=False,  # will now plot one line per replicate per condition
-#     c_mode={
-#         'naive-ctr': "#093AFF",
-#         'naive-cxcl12': "#FF0000",
-#     }
-# )()

@@ -10,6 +10,10 @@ from .._handlers._reports import Level
 
 
 class Colors:
+
+    def __init__(self,
+                  **kwargs):
+        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
     
     @staticmethod
     def GenerateRandomColor() -> str:
@@ -106,10 +110,10 @@ class Colors:
             return plt.cm.jet
         
     @staticmethod
-    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', **kwargs) -> dict:
+    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        tags = df[tag].unique().tolist()
+        tags = df[tag].unique().tolist() if not which else which
         mp = {}
         if f'{tag} color' in df.columns:
             mp = (df[[tag, f'{tag} color']]
@@ -127,6 +131,7 @@ class Colors:
                 mp[t] = Colors.GenerateRandomColor()
 
         return mp
+    
 
 class Values:
 
