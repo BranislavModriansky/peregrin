@@ -40,6 +40,9 @@ class MSD:
         self.c_mode = c_mode
 
         self.color = kwargs.get('color', None) if 'color' in kwargs else None
+        self.palette = kwargs.get('palette', None) if 'palette' in kwargs else None
+        # TODO: create a possibility to use predefined color maps
+        
         self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
     def _arrange_data(self) -> pd.DataFrame:
