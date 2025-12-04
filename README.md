@@ -53,17 +53,26 @@ Peregrin is a an application designed for researchers studying cell migration. I
 - Export figures in SVG format and more.
 
 
+
+
+
 ## Documentation
 
 > [!TIP]
+>
+> See the [Current State - Road Map](https://github.com/BranislavModriansky/peregrin/wiki/Current-State-%E2%80%90-Road-Map)
+
+<!--
+
 > 
-> See the [User's Guide](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#users-guide) for a walk-through of the app's features!
+> See the [User's Guide](https://github.com/BranislavModriansky/peregrin/wiki/User's-Guide) page at Peregrin Wiki for a **walk-through of the app's features**!
 > 
-> See a more detailed documentation of what's [Under the Hood: Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Peregrin#under-the-hood:-computation-&-visualization)
+> See the [Under the Hood: Data Processing, Computation & Visualization](https://github.com/BranislavModriansky/peregrin/wiki/Under-the-Hood:-Data-Processing,-Computation-&-Visualization)
+
+-->
 
 
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
-<!-- TODO: List key features and a brief overview of the architecture/tech stack if helpful. -->
 <!-- TODO: Current status/roadmap (optional). -->
 
 ## How to Install and Launch
