@@ -40,9 +40,10 @@ class MSD:
         self.c_mode = c_mode
 
         self.color = kwargs.get('color', None) if 'color' in kwargs else None
-        self.palette = kwargs.get('palette', None) if 'palette' in kwargs else None
-        # TODO: create a possibility to use predefined color maps
         
+        self.palette = kwargs.get('palette', None) if 'palette' in kwargs else None
+        # TODO: create a possibility to use predefined qualitative color maps ["Set1","Set2","Set3","tab10","Accent","Dark2","Pastel1","Pastel2"] when selecting differentiate conditions / replicates
+
         self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
     def _arrange_data(self) -> pd.DataFrame:
