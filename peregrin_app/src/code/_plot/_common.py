@@ -10,6 +10,10 @@ from .._handlers._reports import Level
 
 
 class Colors:
+
+    def __init__(self,
+                  **kwargs):
+        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
     
     @staticmethod
     def GenerateRandomColor() -> str:
@@ -106,10 +110,10 @@ class Colors:
             return plt.cm.jet
         
     @staticmethod
-    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', **kwargs) -> dict:
+    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        tags = df[tag].unique().tolist()
+        tags = df[tag].unique().tolist() if not which else which
         mp = {}
         if f'{tag} color' in df.columns:
             mp = (df[[tag, f'{tag} color']]
@@ -127,6 +131,7 @@ class Colors:
                 mp[t] = Colors.GenerateRandomColor()
 
         return mp
+    
 
 class Values:
 
@@ -152,15 +157,15 @@ class Values:
         return value
     
 
+
 class Categorizer:
 
     def __init__(
         self,
         data: pd.DataFrame,
-        categories: tuple[list, bool, list[Any]] = ([], True, []),
+        conditions: list,
         *,
-        cols: list = [],
-        aggregate: bool = False,
+        replicates: list = [],
         aggby: list = [],
         aggdict: dict = {},
         **kwargs
@@ -169,9 +174,8 @@ class Categorizer:
         Initialize with a DataFrame containing 'Condition' and 'Replicate' columns.
         """
         self.data = data
-        self.conditions, self.groupreps, self.reps = categories
-        self.cols = cols
-        self.aggregate = aggregate
+        self.conditions = conditions
+        self.replicates = replicates
         self.aggby = aggby
         self.aggdict = aggdict
         self.noticequeue = kwargs.get('noticequeue', None)
@@ -181,19 +185,19 @@ class Categorizer:
         Check for errors in the provided categories and replicates.
         """
         if self.conditions == []:
-            self.noticequeue.Report(Level.error, "Missing categories.", "At least one condition (category) must be specified.")
+            self.noticequeue.Report(Level.error, "Missing conditions.", "At least one condition (category) must be specified.")
             return True
-        if self.groupreps is False and self.reps == []:
-            self.noticequeue.Report(Level.error, "Missing categories.", "At least one replicate (category) must be specified.")
+        if self.replicates == []:
+            self.noticequeue.Report(Level.error, "Missing replicates.", "At least one replicate (category) must be specified.")
             return True
         
         conds_not_found = [cond for cond in self.conditions if cond not in self.data['Condition'].values]
-        reps_not_found = [rep for rep in self.reps if rep not in self.data['Replicate'].values] if not self.groupreps else []
+        reps_not_found = [rep for rep in self.replicates if rep not in self.data['Replicate'].values]
         if conds_not_found:
-            self.noticequeue.Report(Level.error, "Categories not found.", f"Conditions {', '.join(conds_not_found)} were not found in the data.")
+            self.noticequeue.Report(Level.error, "Conditions not found.", f"Conditions {', '.join(conds_not_found)} were not found in the data.")
             return True
         if reps_not_found:
-            self.noticequeue.Report(Level.error, "Categories not found.", f"Replicates {', '.join(reps_not_found)} were not found in the data.")
+            self.noticequeue.Report(Level.error, "Replicates not found.", f"Replicates {', '.join(reps_not_found)} were not found in the data.")
             return True
         
         return False
@@ -202,13 +206,13 @@ class Categorizer:
         """
         Filter DataFrame categories.
         """
-        if self.groupreps:
-            filtered = self.data[self.data['Condition'].isin(self.conditions)][self.cols]
-        else:
+        if self.replicates:
             filtered = self.data[
                 (self.data['Condition'].isin(self.conditions)) &
-                (self.data['Replicate'].isin(self.reps))
-            ][self.cols]
+                (self.data['Replicate'].isin(self.replicates))
+            ]
+        else:
+            filtered = self.data[self.data['Condition'].isin(self.conditions)]
         
         return filtered
 
@@ -225,7 +229,7 @@ class Categorizer:
         """
         if self._checkerrors():
             return pd.DataFrame()
-        if self.aggregate:
+        if self.aggdict and self.aggby:
             return self._aggregate()
         return self._filter()
 

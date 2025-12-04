@@ -12,6 +12,7 @@ from ._plot._tracks._reconstruct import (
 from ._plot._tracks._subs import frame_interval_ms
 from ._plot._collate._SwarmsAndBeyond import SwarmsAndBeyond
 from ._plot._collate._Superviolins import Superviolins
+from ._plot._time._lags import MSD
 from ._handlers._scheduling import Debounce, Throttle
 from ._handlers._reports import Level, NoticeQueue
 
@@ -28,4 +29,5 @@ __all__ = [
     "frame_interval_ms",
     "Debounce", "Throttle",
     "Level", "NoticeQueue",
+    'MSD'
 ]

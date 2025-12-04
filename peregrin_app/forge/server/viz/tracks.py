@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from peregrin_app.src.code import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms, Animated
+from src.code import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms, Animated
 
 
 import numpy as np

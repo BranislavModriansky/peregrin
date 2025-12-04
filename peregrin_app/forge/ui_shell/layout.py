@@ -231,7 +231,7 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             ui.accordion_panel(
-                                "Elements & Specs",
+                                "Chart Components",
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Tracks",
@@ -380,6 +380,13 @@ app_ui = ui.page_sidebar(
                                     ui.column(1, ui.input_action_button(id="replicates_reset_dd", label="🗘", class_="btn-noframe")),
                                 )
                             ),
+                            # ui.accordion_panel(
+                            #     "Graph Components",
+                            #     ui.accordion(
+                            #         ui.accordion_panel(
+                            #             'Line specs',
+                            #     )
+                            # ),
                             class_="accordion02"
                         )
                     )
@@ -411,9 +418,69 @@ app_ui = ui.page_sidebar(
                                     )
                                 )
                             ),
-                            class_="accordion02"
-                        )
-                    )
+                            ui.accordion_panel(
+                                "Compose",
+                                ui.accordion(
+                                    ui.accordion_panel(
+                                        'Line',
+                                        ui.input_checkbox("line_show_msd", "Show line", True),
+                                    ),
+                                    ui.accordion_panel(
+                                        'Scatter',
+                                        ui.input_checkbox("scatter_show_msd", "Show scatter", False),
+                                    ),
+                                    ui.accordion_panel(
+                                        'Linear fit',
+                                        ui.input_checkbox("fit_show_msd", "Show linear fit", True),
+                                    ),
+                                    ui.accordion_panel(
+                                        'Error band',
+                                        ui.row(
+                                            ui.column(3, 
+                                                ui.input_checkbox("error_band_show_msd", "Show error band", True)
+                                            ),
+                                            ui.column(3, 
+                                                ui.panel_conditional(
+                                                    "input.error_band_show_msd == true",
+                                                    ui.input_selectize("error_band_type_msd", None, choices=['sem', 'sd'], selected='sem'),
+                                                )
+                                            )
+                                        )
+                                    ),
+                                )
+                            ),
+                            ui.accordion_panel(
+                                'Coloring',
+                                ui.row(
+                                    ui.column(2, 
+                                        ui.input_selectize("c_mode_msd", "Color mode:", choices=['differentiate conditions', 'differentiate replicates', 'only-one-color'], selected='differentiate conditions'),
+                                    ),
+                                    ui.column(2,
+                                        ui.panel_conditional(
+                                            "input.c_mode_msd == 'only-one-color'",
+                                            ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
+                                        )
+                                    )
+                                )
+                            ),
+                            ui.accordion_panel(
+                                'Decorative',
+                                ui.input_checkbox("grid_show_msd", "Show grid", True),
+                            ),
+                            class_="accordion02",
+                        ),
+                        ui.br(),
+                        # TODO: create a class for text inputs for plot titling which makes it so thaat the inputed text as well as the placeholder are in the center of the window
+                        ui.row(ui.input_text(id="title_msd", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
+                        ui.input_task_button(id="generate_msd", label="Generate", class_="btn-secondary task-btn", width="100%"),
+                    ),
+                    ui.br(),
+                    ui.card(
+                        ui.output_plot("plot_msd"),
+                        full_screen=True,
+                        height="800px",
+                    ),
+                    ui.download_button("download_msd", "Download", width="100%"),
                 ),
 
                 # _ _ _ TURNING ANGLES _ _ _

@@ -123,8 +123,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                 try:
                     df = DataLoader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
 
-                    print("We got here!")
-                    # print(df.head())
                     if input.strip_data():
                         extracted = DataLoader.ExtractStripped(
                             df,
@@ -145,8 +143,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                         )
 
                 except: continue
-
-                print("We got here!")
 
                 extracted["Condition"] = cond_label if cond_label else str(idx)
                 extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
