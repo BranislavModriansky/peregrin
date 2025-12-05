@@ -46,7 +46,7 @@ COPY ./peregrin_app .
 
 
 # Expose the port that the application listens on.
-EXPOSE 56691
+EXPOSE 56892
 
 # Run the application.
-CMD ["shiny", "run", "--port", "56691", "app.py"]
+CMD ["shiny", "run", "--port", "56892", "app.py"]
