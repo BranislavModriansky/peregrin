@@ -42,11 +42,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 USER appuser
 
 # Copy the source code into the container.
-COPY ./web_app .
+COPY ./peregrin_app .
 
 
 # Expose the port that the application listens on.
-EXPOSE 53018
+EXPOSE 56691
 
 # Run the application.
-CMD ["shiny", "run", "--port", "53018", "app.py"]
+CMD ["shiny", "run", "--port", "56691", "app.py"]

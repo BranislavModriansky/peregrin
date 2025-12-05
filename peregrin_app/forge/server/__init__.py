@@ -1,6 +1,6 @@
 from shiny import Inputs, Outputs, Session
 
-from peregrin_app.src.code import NoticeQueue
+from src.code import NoticeQueue
 
 from .state import build_state
 from .data.input import mount_data_input

@@ -4,7 +4,7 @@ import warnings
 import pandas as pd
 from datetime import date
 from shiny import ui, reactive, req, render
-from peregrin_app.src.code import SwarmsAndBeyond, Superviolins, Debounce
+from src.code import SwarmsAndBeyond, Superviolins, Debounce
 
 
 def mount_superplots(input, output, session, S, noticequeue):

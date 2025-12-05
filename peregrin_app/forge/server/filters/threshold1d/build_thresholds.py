@@ -1,6 +1,6 @@
 import shiny.ui as ui
 from shiny import reactive, render
-from peregrin_app.src.code import Metrics, Modes
+from src.code import Metrics, Modes
 
 
     
