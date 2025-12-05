@@ -7,7 +7,11 @@ from peregrin_app.src.code import DataLoader, Metrics, FilenameFormatExample
 
 def mount_data_labeling(input, output, session, S, noticequeue):
 
-
+    @output()
+    @render.ui
+    def task_btn_labeling_sidebar():
+        if input.run() > 0:
+            return ui.input_task_button("write_values", label="Set labels", label_busy="Labeling...", class_="btn-secondary task-btn", width="100%"), 
 
     @output()
     @render.ui
@@ -24,7 +28,7 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                 # ui.tags.style(Customize.Ladder),
                 ui.output_ui("condition_order_ladder"),
 
-                ui.input_switch("write_replicate_labels", "Write replicate labels", False),
+                ui.input_switch("write_replicate_labels", "Re-write replicate labels", False),
                 ui.output_ui("replicate_labels_inputs"),
             ]
 
@@ -80,7 +84,7 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                 ui.output_data_frame("FilenameFormatExampleTable"),
                 ui.markdown(
                     """ <br><br>
-                    <span style='color: dimgrey;'><i>If you want to use this feature, make sure it is enabled before running the analysis.</i></span> <br>
+                    <span style='color: dimgrey;'><i>If you want to use this feature, make sure it is enabled <b>before</b> hitting run.</i></span> <br>
                     """
                 ),
             title="What's Auto-label?",

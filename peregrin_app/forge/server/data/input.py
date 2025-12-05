@@ -96,8 +96,10 @@ def mount_data_input(input, output, session, S, noticequeue):
     @render.ui
     def run_btn_ui():
         if S.READYTORUN.get():
+            ui.update_accordion(id="draggable_column_selector_panel", show=True)
             return ui.input_task_button("run", label="Run", class_="btn-secondary task-btn")
         else:
+            ui.update_accordion(id="draggable_column_selector_panel", show=False)
             return ui.input_action_button("run0", label="Run", class_="btn-secondary task-btn-mask", disabled=True)
 
     @reactive.Effect
