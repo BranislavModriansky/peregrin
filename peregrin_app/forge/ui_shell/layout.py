@@ -380,13 +380,6 @@ app_ui = ui.page_sidebar(
                                     ui.column(1, ui.input_action_button(id="replicates_reset_dd", label="🗘", class_="btn-noframe")),
                                 )
                             ),
-                            # ui.accordion_panel(
-                            #     "Graph Components",
-                            #     ui.accordion(
-                            #         ui.accordion_panel(
-                            #             'Line specs',
-                            #     )
-                            # ),
                             class_="accordion02"
                         )
                     )
@@ -452,15 +445,34 @@ app_ui = ui.page_sidebar(
                             ui.accordion_panel(
                                 'Coloring',
                                 ui.row(
-                                    ui.column(2, 
+                                    ui.column(3, 
                                         ui.input_selectize("c_mode_msd", "Color mode:", choices=['differentiate conditions', 'differentiate replicates', 'only-one-color'], selected='differentiate conditions'),
                                     ),
                                     ui.column(2,
                                         ui.panel_conditional(
                                             "input.c_mode_msd == 'only-one-color'",
-                                            ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
+                                            ui.div(
+                                                ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
+                                                style="margin-left: 15px;"
+                                            )
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.c_mode_msd != 'only-one-color'",
+                                            ui.div(
+                                                ui.input_checkbox("palette_stock_msd", "Use stock palette", False),
+                                                style="margin-top: 38px; margin-left: 15px;"
+                                            ),
                                         )
-                                    )
+                                    ),
+                                    ui.column(2, 
+                                        ui.panel_conditional(
+                                            "input.c_mode_msd != 'only-one-color' && input.palette_stock_msd == true",
+                                            ui.div(
+                                                ui.input_selectize("palette_stock_type_msd", "Palette:", Styles.PaletteQualitativeMatplotlib),    
+                                                style="margin-left: -30px;"
+                                            )
+                                        )
+                                    ),
                                 )
                             ),
                             ui.accordion_panel(

@@ -36,6 +36,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         group_replicates,
         c_mode,
         color,
+        palette,
         line,
         scatter,
         linear_fit,
@@ -58,6 +59,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
                     group_replicates=group_replicates,
                     c_mode=c_mode,
                     color=color,
+                    palette=palette,
                     noticequeue=noticequeue
                 ).plot(
                     line=line,
@@ -89,6 +91,11 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         else:
             color = None
 
+        if input.palette_stock_msd():
+            palette = input.palette_stock_type_msd()
+        else:
+            palette = None
+
         output_plot_msd(
             data=S.UNFILTERED_TINTERVALSTATS(), #TODO: implement filtering for timelags stats
             conditions=input.conditions_msd(),
@@ -96,6 +103,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             group_replicates=input.replicates_group_msd(),
             c_mode=input.c_mode_msd(),
             color=color,
+            palette=palette,
             line=input.line_show_msd(),
             scatter=input.scatter_show_msd(),
             linear_fit=input.fit_show_msd(),

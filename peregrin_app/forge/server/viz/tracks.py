@@ -87,11 +87,11 @@ class MountTracks:
                 
             output_track_reconstruction_realistic.cancel()
 
-            # req(
-            #     S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty 
-            #     and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            #     and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-            # )
+            req(
+                S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty 
+                and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+                and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
+            )
 
             output_track_reconstruction_realistic(
                 Spots_df=S.SPOTSTATS.get(),
@@ -218,7 +218,7 @@ class MountTracks:
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
                 conditions=input.conditions_tr(),
-                replicates=input.tracks_replicates(),
+                replicates=input.replicates_tr(),
                 c_mode=input.tracks_color_mode(),
                 only_one_color=input.tracks_only_one_color(),
                 lut_scaling_metric=input.tracks_lut_scaling_metric(),

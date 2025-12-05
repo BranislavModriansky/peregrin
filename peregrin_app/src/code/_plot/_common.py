@@ -11,10 +11,6 @@ from .._handlers._reports import Level
 
 class Colors:
 
-    def __init__(self,
-                  **kwargs):
-        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
-    
     @staticmethod
     def GenerateRandomColor() -> str:
         """
@@ -125,7 +121,7 @@ class Colors:
         missing = [t for t in tags if t not in mp]
 
         if missing:
-            noticequeue.Report(Level.warning, f"Missing colors in {tag} values. Generating random colors instead.")
+            noticequeue.Report(Level.warning, f"Missing colors for {tag} values. Generating random colors instead.", f"Assign colors for missing {tag} values: {', '.join(missing)} or use a stock color palette instead.")
             
             for t in missing:
                 mp[t] = Colors.GenerateRandomColor()
