@@ -36,7 +36,10 @@ class MSD:
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
+
+        
         self.aggregate = group_replicates
+        self.disaggregate = False
         self.c_mode = c_mode
 
         self.color = kwargs.get('color', None) if 'color' in kwargs else None
@@ -50,8 +53,10 @@ class MSD:
 
     def _check_errors(self) -> None:
         if self.aggregate and self.c_mode == 'differentiate replicates':
-            self.noticequeue.Report(Level.warning, "Cannot color-differentiate replicates when replicate grouping is enabled.")
-            self.aggregate = False #TODO swithc to a warning
+            self.aggregate = False
+            self.disaggregate = True
+        if self.disaggregate:
+            self.noticequeue.Report(Level.warning, "Cannot differentiate replicates when replicate grouping is enabled. Disabling replicate grouping.")
 
     def _arrange_data(self) -> pd.DataFrame:
         return Categorizer(
@@ -243,6 +248,8 @@ class MSD:
         # Grid and legend
         if grid:
             ax.grid(grid, color='whitesmoke', zorder=0)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         ax.legend(frameon=False)
         
         return plt.gcf()

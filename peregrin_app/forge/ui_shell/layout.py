@@ -83,7 +83,7 @@ app_ui = ui.page_sidebar(
                             ui.output_ui("data_labeling_ui"),
 
                         ), 
-                        ui.input_task_button("write_values", label="Write", label_busy="Writing...", class_="btn-secondary task-btn", width="100%"), 
+                        ui.output_ui('task_btn_labeling_sidebar'),
                         width="300px",
                         id="labeling_sidebar",
                     ), 
@@ -231,7 +231,7 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             ui.accordion_panel(
-                                "Chart Components",
+                                "Compose",
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Tracks",
@@ -252,7 +252,7 @@ app_ui = ui.page_sidebar(
                                         ),
                                     ),
                                     ui.accordion_panel(
-                                        "Plot specs",
+                                        "Decoratives",
                                         ui.input_checkbox("tracks_show_grid", "Show grid", True),
                                         ui.panel_conditional(
                                             "input.tracks_show_grid && input.track_reconstruction_method == 'Polar'",
@@ -262,7 +262,7 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             ui.accordion_panel(
-                                "Coloring",
+                                "Color",
                                 ui.row(
                                     ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode, width="250px"),
                                     ui.panel_conditional(
@@ -440,10 +440,14 @@ app_ui = ui.page_sidebar(
                                             )
                                         )
                                     ),
+                                    ui.accordion_panel(
+                                        'Decoratives',
+                                        ui.input_checkbox("grid_show_msd", "Show grid", True),
+                                    ),
                                 )
                             ),
                             ui.accordion_panel(
-                                'Coloring',
+                                'Color',
                                 ui.row(
                                     ui.column(3, 
                                         ui.input_selectize("c_mode_msd", "Color mode:", choices=['differentiate conditions', 'differentiate replicates', 'only-one-color'], selected='differentiate conditions'),
@@ -475,10 +479,6 @@ app_ui = ui.page_sidebar(
                                     ),
                                 )
                             ),
-                            ui.accordion_panel(
-                                'Decorative',
-                                ui.input_checkbox("grid_show_msd", "Show grid", True),
-                            ),
                             class_="accordion02",
                         ),
                         ui.br(),
@@ -492,7 +492,7 @@ app_ui = ui.page_sidebar(
                         full_screen=True,
                         height="800px",
                     ),
-                    ui.download_button("download_msd", "Download", width="100%"),
+                    ui.download_button("download_plot_msd", "Download", width="100%"),
                 ),
 
                 # _ _ _ TURNING ANGLES _ _ _
@@ -501,7 +501,8 @@ app_ui = ui.page_sidebar(
                     ui.panel_well(
                         ui.markdown(
                             """
-                            #### **Turning angles**
+                            ### **Turning angles**
+                            ___
                             """
                         ),
                         ui.accordion(
@@ -909,7 +910,7 @@ app_ui = ui.page_sidebar(
                                     
                                 ),
                                 ui.accordion_panel(
-                                    "Coloring",
+                                    "Color",
                                     ui.input_checkbox(id="sp_use_stock_palette", label="Use stock color palette", value=False),
                                     ui.panel_conditional(
                                         "input.sp_use_stock_palette == true",
