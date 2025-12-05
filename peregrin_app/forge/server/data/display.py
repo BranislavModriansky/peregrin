@@ -33,7 +33,7 @@ def mount_data_display(input, output, session, S):
 
     @render.data_frame
     def render_time_interval_stats():
-        time_interval_stats = S.UNFILTERED_TINTERVALSTATS.get()
+        time_interval_stats = S.TINTERVALSTATS.get()
         if time_interval_stats is not None and not time_interval_stats.empty:
             return time_interval_stats
         else:

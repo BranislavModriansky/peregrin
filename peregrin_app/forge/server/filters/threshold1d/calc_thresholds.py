@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 import shiny.ui as ui
 from shiny import render, reactive, req, ui
-from peregrin_app.src.code import Frames, Metrics, Threshold, Debounce, Throttle
+from src.code import Frames, TimeIntervals, Metrics, Threshold, Debounce, Throttle
+
 
 
 # one shared instance (tune eps if needed)
@@ -470,4 +471,5 @@ def mount_thresholds_calc(input, output, session, S):
         S.SPOTSTATS.set(spots_filtered)
         S.TRACKSTATS.set(tracks_filtered)
         S.FRAMESTATS.set(Frames(spots_filtered) if spots_filtered is not None and not spots_filtered.empty else S.UNFILTERED_FRAMESTATS.get())
+        S.TINTERVALSTATS.set(TimeIntervals(spots_filtered) if spots_filtered is not None and not spots_filtered.empty else S.UNFILTERED_TINTERVALSTATS.get())
 

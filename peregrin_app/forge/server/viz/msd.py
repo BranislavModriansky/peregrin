@@ -18,23 +18,23 @@ def mount_plot_msd(input, output, session, S, noticequeue):
     def update_choices_msd():
 
         @reactive.Effect
-        @reactive.event(S.UNFILTERED_TINTERVALSTATS)
+        @reactive.event(S.TINTERVALSTATS)
         def _():
-            if S.UNFILTERED_TINTERVALSTATS.get() is None or S.UNFILTERED_TINTERVALSTATS.get().empty:
+            if S.TINTERVALSTATS.get() is None or S.TINTERVALSTATS.get().empty:
                 return [
                     ui.update_selectize(id="conditions_msd", choices=[]),
                     ui.update_selectize(id="replicates_msd", choices=[])
                 ]
             return [
-                ui.update_selectize(id="conditions_msd", choices=S.UNFILTERED_TINTERVALSTATS.get()["Condition"].unique().tolist(), selected=S.UNFILTERED_TINTERVALSTATS.get()["Condition"].unique().tolist()),
-                ui.update_selectize(id="replicates_msd", choices=S.UNFILTERED_TINTERVALSTATS.get()["Replicate"].unique().tolist(), selected=S.UNFILTERED_TINTERVALSTATS.get()["Replicate"].unique().tolist())
+                ui.update_selectize(id="conditions_msd", choices=S.TINTERVALSTATS.get()["Condition"].unique().tolist(), selected=S.TINTERVALSTATS.get()["Condition"].unique().tolist()),
+                ui.update_selectize(id="replicates_msd", choices=S.TINTERVALSTATS.get()["Replicate"].unique().tolist(), selected=S.TINTERVALSTATS.get()["Replicate"].unique().tolist())
             ]
         
         @reactive.Effect
         @reactive.event(input.conditions_reset_msd)
         def _():
 
-            req(S.UNFILTERED_TINTERVALSTATS.get() is not None and not S.UNFILTERED_TINTERVALSTATS.get().empty)
+            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
 
             ui.update_selectize(
                 id="conditions_msd",
@@ -42,14 +42,14 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             ) if input.conditions_msd() else \
             ui.update_selectize(
                 id="conditions_msd",
-                selected=S.UNFILTERED_TINTERVALSTATS.get()["Condition"].unique().tolist()
+                selected=S.TINTERVALSTATS.get()["Condition"].unique().tolist()
             )
         
         @reactive.Effect
         @reactive.event(input.replicates_reset_msd)
         def _():
 
-            req(S.UNFILTERED_TINTERVALSTATS.get() is not None and not S.UNFILTERED_TINTERVALSTATS.get().empty)
+            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
 
             ui.update_selectize(
                 id="replicates_msd",
@@ -57,7 +57,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             ) if input.replicates_msd() else \
             ui.update_selectize(
                 id="replicates_msd",
-                selected=S.UNFILTERED_TINTERVALSTATS.get()["Replicate"].unique().tolist()
+                selected=S.TINTERVALSTATS.get()["Replicate"].unique().tolist()
             )
 
 
@@ -113,7 +113,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
 
         output_plot_msd.cancel()
 
-        req(S.UNFILTERED_TINTERVALSTATS() is not None and not S.UNFILTERED_TINTERVALSTATS().empty)
+        req(S.TINTERVALSTATS() is not None and not S.TINTERVALSTATS().empty)
 
         if input.error_band_show_msd():
             errorband = input.error_band_type_msd()
@@ -131,7 +131,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             palette = None
 
         output_plot_msd(
-            data=S.UNFILTERED_TINTERVALSTATS(), #TODO: implement filtering for timelags stats
+            data=S.TINTERVALSTATS(), #TODO: implement filtering for timelags stats
             conditions=input.conditions_msd(),
             replicates=input.replicates_msd(),
             group_replicates=input.replicates_group_msd(),
