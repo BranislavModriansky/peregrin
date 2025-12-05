@@ -1,7 +1,7 @@
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render   
-from peregrin_app.src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals
+from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals
 
 # from utils import emit_warning
 

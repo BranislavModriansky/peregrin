@@ -1,8 +1,7 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
 from ...ui_shell import make_sortable_ui
-from peregrin_app.src.code import DataLoader, Metrics, FilenameFormatExample
-# from peregrin_app.src.code import Customize
+from src.code import DataLoader, Metrics, FilenameFormatExample
 
 
 def mount_data_labeling(input, output, session, S, noticequeue):

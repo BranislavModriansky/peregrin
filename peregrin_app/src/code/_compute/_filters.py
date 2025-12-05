@@ -4,7 +4,7 @@ from typing import Any
 from pandas.api.types import is_object_dtype
 from math import floor, ceil
 
-from peregrin_app.src.code import Metrics
+from src.code import Metrics
 
 
 
