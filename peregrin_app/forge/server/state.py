@@ -18,6 +18,7 @@ def build_state():
         "SPOTSTATS": reactive.Value(pd.DataFrame()),
         "TRACKSTATS": reactive.Value(pd.DataFrame()),
         "FRAMESTATS": reactive.Value(pd.DataFrame()),
+        "TINTERVALSTATS": reactive.Value(pd.DataFrame()),
         "UNITS": reactive.Value(),
         "REPLAY_ANIMATION": reactive.Value(None),
     })
