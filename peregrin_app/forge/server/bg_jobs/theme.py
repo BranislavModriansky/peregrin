@@ -149,7 +149,7 @@ def set_theme(input, output, session, S):
                 ),
                 ui.tags.link(
                     rel="stylesheet",
-                    href=f"{root}/src/styles/{selected_theme_base}/{selected_theme_base}-Fonts.css",
+                    href=f"{selected_theme_base}/{selected_theme_base}-Fonts.css",
                 )
                 if selected_theme_base != "Shiny"
                 else None,
