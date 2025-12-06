@@ -128,11 +128,11 @@ def set_theme(input, output, session, S):
 
         # Go from this file up to project root by name instead of fixed parents
         # Current file: peregrin_app/forge/server/bg_jobs/theme.py
-        root = Path(__file__).resolve()
-        for ancestor in root.parents:
-            if (ancestor / "src").is_dir():
-                root = ancestor
-                break
+        # root = Path(__file__).resolve()
+        # for ancestor in root.parents:
+        #     if (ancestor / "src").is_dir():
+        #         root = ancestor
+        #         break
 
         selected_theme = input.app_theme()
         try:
@@ -140,12 +140,12 @@ def set_theme(input, output, session, S):
         except Exception:
             selected_theme_base = selected_theme
 
-        styles.append(ui.include_js(f"{root}/src/js/remove_js.js"))
+        styles.append(ui.include_js(f"peregrin_app/src/js/remove_js.js"))
 
         styles.append(
             [
                 ui.include_css(
-                    f"{root}/src/styles/{selected_theme_base}/{selected_theme}-Theme.css"
+                    f"peregrin_app/src/styles/{selected_theme_base}/{selected_theme}-Theme.css"
                 ),
                 ui.tags.link(
                     rel="stylesheet",
@@ -160,12 +160,12 @@ def set_theme(input, output, session, S):
         if selected_theme == "Console-1":
             # Removed ui.output_ui("proton_grid_config") from here as it's now in the Play panel
             if S.BG_ENABLED.get():
-                styles.append(ui.include_js(f"{root}/src/js/proton_grid.js"))
+                styles.append(ui.include_js(f"peregrin_app/src/js/proton_grid.js"))
             
 
         if selected_theme == "Console-2":
             if S.BG_ENABLED.get():
-                styles.append(ui.include_js(f"{root}/src/js/tiles_grid.js"))
+                styles.append(ui.include_js(f"peregrin_app/src/js/tiles_grid.js"))
 
         return styles
 
