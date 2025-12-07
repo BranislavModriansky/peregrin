@@ -9,7 +9,6 @@ app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
 
 
-
 # TODO - Finalize the Time interval implementation everywhere - filtering!!!
 
 # TODO - make an option to convert the time units (e.g. user inputs a df in seconds but wants to see minutes/hours in the graphs and calculations)

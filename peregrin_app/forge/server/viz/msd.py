@@ -154,4 +154,44 @@ def mount_plot_msd(input, output, session, S, noticequeue):
     
     @render.download(filename=f"MSD {date.today()}.svg")
     def download_plot_msd():
-        pass
+
+        req(S.TINTERVALSTATS() is not None and not S.TINTERVALSTATS().empty)
+
+        if input.error_band_show_msd():
+            errorband = input.error_band_type_msd()
+        else:
+            errorband = None
+
+        if input.c_mode_msd() == "only-one-color":
+            color = input.only_one_color_msd()
+        else:
+            color = None
+
+        if input.palette_stock_msd():
+            palette = input.palette_stock_type_msd()
+        else:
+            palette = None
+
+        fig = MSD(
+            data=S.TINTERVALSTATS(),
+            conditions=input.conditions_msd(),
+            replicates=input.replicates_msd(),
+            group_replicates=input.replicates_group_msd(),
+            c_mode=input.c_mode_msd(),
+            color=color,
+            palette=palette,
+            noticequeue=noticequeue
+        ).plot(
+            line=input.line_show_msd(),
+            scatter=input.scatter_show_msd(),
+            errorband=errorband,
+            linear_fit=input.fit_show_msd(),
+            grid=input.grid_show_msd(),
+            title=input.title_msd()
+        )
+
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()

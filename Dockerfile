@@ -16,7 +16,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV MPLCONFIGDIR=/tmp/matplotlib
 
-WORKDIR /app
+WORKDIR /peregrin_app
 
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/go/dockerfile-user-best-practices/
@@ -46,7 +46,7 @@ COPY ./peregrin_app .
 
 
 # Expose the port that the application listens on.
-EXPOSE 56691
+EXPOSE 55157
 
 # Run the application.
-CMD ["shiny", "run", "--port", "56691", "app.py"]
+CMD ["shiny", "run", "--port", "55157", "app.py"]
