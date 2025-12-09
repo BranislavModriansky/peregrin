@@ -1,4 +1,5 @@
-from shiny import reactive
+
+# TODO: make the Level class have subclasses with often used messages
 
 class Level:
     info = "default"

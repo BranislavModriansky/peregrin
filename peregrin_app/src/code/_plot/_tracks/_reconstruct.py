@@ -7,6 +7,13 @@ from matplotlib.collections import LineCollection
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from .._common import Colors
 from io import BytesIO
+from ..._handlers._reports import Level
+
+
+# FIXME: 'differentiate conditions' has no color mapping in most places
+# FIXME: 'differentiate replicates' if column 'Replicate color' does not exist colors all tracks red
+#        add random colors per replicate as a fallback and insert warnings
+# FIXME: turning functions into classes and making data flow smoother would be way better
 
 
 @staticmethod
@@ -93,8 +100,9 @@ def VisualizeTracksRealistics(
         Tracks['Track color'] = [track_to_color[idx] for idx in Tracks.index]
 
     elif c_mode == 'differentiate replicates':
-        # Color by replicate if available, else fall back
         Tracks['Track color'] = Tracks['Replicate color'] if 'Replicate color' in Tracks.columns else "red"
+    elif c_mode == 'differentiate conditions':
+        Tracks['Track color'] = Tracks['Condition color'] if 'Condition color' in Tracks.columns else "red"
 
     else:
         # interpret c_mode as a matplotlib cmap name
@@ -134,10 +142,9 @@ def VisualizeTracksRealistics(
                 for v in speed_end.to_numpy()
             ]
 
-        # else: no-op; colors may have been assigned above
 
     # Map per-track color down to Spots only if not using instantaneous coloring
-    if not (lut_scaling_metric == 'Speed instantaneous'):
+    if c_mode in ['random colors', 'random greys', 'only-one-color'] or not (lut_scaling_metric == 'Speed instantaneous'): 
         Spots = Spots.join(
             Tracks[['Track color']],
             on=['Condition', 'Replicate', 'Track ID'],
@@ -149,7 +156,7 @@ def VisualizeTracksRealistics(
     segments = []
     seg_colors = []
 
-    if lut_scaling_metric == 'Speed instantaneous':
+    if c_mode not in ['random colors', 'random greys', 'only-one-color'] and lut_scaling_metric == 'Speed instantaneous':
         # One segment per consecutive pair, colored by the ending spot's color
         for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
             xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
@@ -160,7 +167,6 @@ def VisualizeTracksRealistics(
                     segments.append(xy[i-1:i+1])
                     seg_colors.append(cols[i])
     else:
-        # One polyline per track, colored by its track color
         for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
             xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
             if xy.shape[0] >= 2:
@@ -213,7 +219,7 @@ def VisualizeTracksRealistics(
         if len(ends):
             xe = ends['X coordinate'].to_numpy(dtype=float, copy=False)
             ye = ends['Y coordinate'].to_numpy(dtype=float, copy=False)
-            if lut_scaling_metric == 'Speed instantaneous':
+            if c_mode not in ['random colors', 'random greys', 'only-one-color'] and lut_scaling_metric == 'Speed instantaneous':
                 cols = ends['Spot color'].astype(str).to_numpy()
             else:
                 cols = ends['Track color'].astype(str).to_numpy()
