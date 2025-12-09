@@ -23,6 +23,8 @@
 **/bin
 **/sketches
 **/charts
+**/exemplary
+**/tests
 **/docker-compose*
 **/compose.y*ml
 **/Dockerfile*
