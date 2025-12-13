@@ -49,6 +49,7 @@ class DataLoader:
         except Exception as e:
             noticequeue.Report(Level.error, f"Failed to load files", f"'{filepath}' <- {str(e)}")
             return None
+        
     
 
     @staticmethod
