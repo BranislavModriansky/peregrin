@@ -361,6 +361,14 @@ app_ui = ui.page_sidebar(
                 # _ _ _ DIRECTIONALITY DISTRIBUTION _ _ _
                 ui.nav_panel(
                     "Directionality distribution",
+                    
+                    # MAKE A POLAR CHART of data distribution, with options for different bin sizes, and different ways to aggregate data (per condition, per replicate). 
+                    # make it possible to color by condition or replicate as well.
+                    # color of the bins can be set to a single color, or a gradient based on count/frequency, or gradient based reach outwards from center - the top-most part of the bin is the most intense color, fading to center.
+                    # possibility to add kde/gde line - add fill or remove fill below the line.
+                    # visualize the mean value for directionality (e.g. as a line)
+                    
+
                     ui.panel_well(
                         ui.markdown(
                             """
@@ -368,6 +376,9 @@ app_ui = ui.page_sidebar(
                             ___
                             """
                         ),
+
+                        ui.input_selectize(id="", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated", width="200px"),
+
                         ui.accordion(
                             ui.accordion_panel(
                                 "Data Categories",
