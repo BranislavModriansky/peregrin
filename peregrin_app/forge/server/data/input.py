@@ -160,7 +160,7 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
             S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
             S.UNFILTERED_FRAMESTATS.set(Frames(all_data))
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(all_data))
+            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(all_data)())
             S.SPOTSTATS.set(S.UNFILTERED_SPOTSTATS.get())
             S.TRACKSTATS.set(S.UNFILTERED_TRACKSTATS.get())
             S.FRAMESTATS.set(S.UNFILTERED_FRAMESTATS.get())
@@ -188,12 +188,11 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.UNFILTERED_SPOTSTATS.set(df)
             S.UNFILTERED_TRACKSTATS.set(Tracks(df))
             S.UNFILTERED_FRAMESTATS.set(Frames(df))
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(df))
+            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(df)())
             S.SPOTSTATS.set(df)
             S.TRACKSTATS.set(Tracks(df))
             S.FRAMESTATS.set(Frames(df))
-            S.TINTERVALSTATS.set(TimeIntervals(df))
-
+            S.TINTERVALSTATS.set(TimeIntervals(df)())
             S.THRESHOLDS.set({1: {"spots": S.UNFILTERED_SPOTSTATS.get(), "tracks": S.UNFILTERED_TRACKSTATS.get()}})
 
             ui.update_action_button(id="append_threshold", disabled=False)

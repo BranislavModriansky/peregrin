@@ -461,15 +461,40 @@ def mount_thresholds_calc(input, output, session, S):
             thresholds = S.THRESHOLDS.get()
             latest = thresholds.get(list(thresholds.keys())[-1])
             req(latest is not None and latest.get("spots") is not None and latest.get("tracks") is not None)
-
         except Exception:
             return
+
+        spots_filtered = pd.DataFrame(
+            latest.get("spots") if latest is not None and isinstance(latest, dict) else S.UNFILTERED_SPOTSTATS.get()
+        )
+        tracks_filtered = pd.DataFrame(
+            latest.get("tracks") if latest is not None and isinstance(latest, dict) else S.UNFILTERED_TRACKSTATS.get()
+        )
+        frames_filtered = Frames(spots_filtered)
+        tintervals_filtered = TimeIntervals(spots_filtered)()
+
+        # --- keep labeling-derived columns (e.g., colors) even if threshold snapshots were created before labeling ---
+        color_cols = ("Replicate color", "Condition color")
         
-        spots_filtered = pd.DataFrame(latest.get("spots") if latest is not None and isinstance(latest, dict) else S.UNFILTERED_SPOTSTATS.get())
-        tracks_filtered = pd.DataFrame(latest.get("tracks") if latest is not None and isinstance(latest, dict) else S.UNFILTERED_TRACKSTATS.get())
+        base_spots = S.UNFILTERED_SPOTSTATS.get()
+        base_tracks = S.UNFILTERED_TRACKSTATS.get()
+        base_frames = S.UNFILTERED_FRAMESTATS.get()
+        base_tintervals = S.UNFILTERED_TINTERVALSTATS.get()
+
+        req(df.empty and df is None for df in [base_spots, base_tracks, base_frames, base_tintervals])
+        for c in color_cols:
+            try: spots_filtered[c] = base_spots.reindex(spots_filtered.index)[c].to_numpy()
+            except Exception: pass
+            try: tracks_filtered[c] = base_tracks.reindex(tracks_filtered.index)[c].to_numpy()
+            except Exception: pass
+            try: frames_filtered[c] = base_frames.reindex(frames_filtered.index)[c].to_numpy()
+            except Exception: pass
+            try: tintervals_filtered[c] = base_tintervals.reindex(tintervals_filtered.index)[c].to_numpy()
+            except Exception: pass
         
+
         S.SPOTSTATS.set(spots_filtered)
         S.TRACKSTATS.set(tracks_filtered)
-        S.FRAMESTATS.set(Frames(spots_filtered) if spots_filtered is not None and not spots_filtered.empty else S.UNFILTERED_FRAMESTATS.get())
-        S.TINTERVALSTATS.set(TimeIntervals(spots_filtered) if spots_filtered is not None and not spots_filtered.empty else S.UNFILTERED_TINTERVALSTATS.get())
+        S.FRAMESTATS.set(frames_filtered)
+        S.TINTERVALSTATS.set(tintervals_filtered)
 

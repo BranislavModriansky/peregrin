@@ -19,6 +19,8 @@ app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 #      - Switch the "metric" annotations to "parameter" or "value" as that is correct
 #      - Make sure all parameter names are consistent and the logic is global: not Speed mean, Direction mean (rad), but Speed mean, Direction (rad) mean
 
+# BUG - Setting a threshold removes assigned colors from the data
+
 # TODO - Add a button to reset all thresholding settings to default
 
 # TODO - Keep all the raw data (columns) - rather format them (stripping of _ and have them not all caps)
