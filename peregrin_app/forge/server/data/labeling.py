@@ -255,10 +255,12 @@ def mount_data_labeling(input, output, session, S, noticequeue):
         df_unfiltered_spots = S.UNFILTERED_SPOTSTATS.get().copy()
         df_unfiltered_tracks = S.UNFILTERED_TRACKSTATS.get().copy()
         df_unfiltered_frames = S.UNFILTERED_FRAMESTATS.get().copy()
+        df_unfiltered_tintervals = S.UNFILTERED_TINTERVALSTATS.get().copy()
         df_spots = S.SPOTSTATS.get().copy()
         df_tracks = S.TRACKSTATS.get().copy()
         df_frames = S.FRAMESTATS.get().copy()
-        req(df is not None and not df.empty for df in [df_unfiltered_spots, df_unfiltered_tracks, df_unfiltered_frames, df_spots, df_tracks, df_frames])
+        df_tintervals = S.TINTERVALSTATS.get().copy()
+        req(df is not None and not df.empty for df in [df_unfiltered_spots, df_unfiltered_tracks, df_unfiltered_frames, df_unfiltered_tintervals, df_spots, df_tracks, df_frames, df_tintervals])
         
 
         # _ Replicate Labels and Colors _
@@ -284,31 +286,40 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                                 df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate color"] = color
                                 df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate color"] = color
                                 df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate color"] = color
+                                df_unfiltered_tintervals.loc[df_unfiltered_tintervals["Replicate"] == rep, "Replicate color"] = color
                                 df_spots.loc[df_spots["Replicate"] == rep, "Replicate color"] = color
                                 df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate color"] = color
                                 df_frames.loc[df_frames["Replicate"] == rep, "Replicate color"] = color
+                                df_tintervals.loc[df_tintervals["Replicate"] == rep, "Replicate color"] = color
 
                     elif not input.write_replicate_colors():
-                        # print("Removing replicate colors...")
                         if "Replicate color" in df_unfiltered_spots.columns:
                             df_unfiltered_spots.drop(columns=["Replicate color"], inplace=True)
                         if "Replicate color" in df_unfiltered_tracks.columns:
                             df_unfiltered_tracks.drop(columns=["Replicate color"], inplace=True)
                         if "Replicate color" in df_unfiltered_frames.columns:
                             df_unfiltered_frames.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_unfiltered_tintervals.columns:
+                            df_unfiltered_tintervals.drop(columns=["Replicate color"], inplace=True)
                         if "Replicate color" in df_spots.columns:
                             df_spots.drop(columns=["Replicate color"], inplace=True)
                         if "Replicate color" in df_tracks.columns:
                             df_tracks.drop(columns=["Replicate color"], inplace=True)
                         if "Replicate color" in df_frames.columns:
                             df_frames.drop(columns=["Replicate color"], inplace=True)
+                        if "Replicate color" in df_tintervals.columns:
+                            df_tintervals.drop(columns=["Replicate color"], inplace=True)
 
                     if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
                     if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
                     if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_unfiltered_tintervals.equals(S.UNFILTERED_TINTERVALSTATS.get()): S.UNFILTERED_TINTERVALSTATS.set(df_unfiltered_tintervals)
                     if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
+                    if not df_tintervals.equals(S.TINTERVALSTATS.get()): S.TINTERVALSTATS.set(df_tintervals)
+                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
+                    #         and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
 
 
             @reactive.Effect
@@ -326,16 +337,22 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                             df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate"] = label
                             df_unfiltered_tracks.loc[df_unfiltered_tracks["Replicate"] == rep, "Replicate"] = label
                             df_unfiltered_frames.loc[df_unfiltered_frames["Replicate"] == rep, "Replicate"] = label
+                            df_unfiltered_tintervals.loc[df_unfiltered_tintervals["Replicate"] == rep, "Replicate"] = label
                             df_spots.loc[df_spots["Replicate"] == rep, "Replicate"] = label
                             df_tracks.loc[df_tracks["Replicate"] == rep, "Replicate"] = label
                             df_frames.loc[df_frames["Replicate"] == rep, "Replicate"] = label
+                            df_tintervals.loc[df_tintervals["Replicate"] == rep, "Replicate"] = label
 
                     if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
                     if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
                     if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_unfiltered_tintervals.equals(S.UNFILTERED_TINTERVALSTATS.get()): S.UNFILTERED_TINTERVALSTATS.set(df_unfiltered_tintervals)
                     if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
+                    if not df_tintervals.equals(S.TINTERVALSTATS.get()): S.TINTERVALSTATS.set(df_tintervals)
+                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
+                    #         and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
 
 
 
@@ -361,31 +378,40 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                                 df_unfiltered_spots.loc[df_unfiltered_spots["Condition"] == cond, "Condition color"] = color
                                 df_unfiltered_tracks.loc[df_unfiltered_tracks["Condition"] == cond, "Condition color"] = color
                                 df_unfiltered_frames.loc[df_unfiltered_frames["Condition"] == cond, "Condition color"] = color
+                                df_unfiltered_tintervals.loc[df_unfiltered_tintervals["Condition"] == cond, "Condition color"] = color
                                 df_spots.loc[df_spots["Condition"] == cond, "Condition color"] = color
                                 df_tracks.loc[df_tracks["Condition"] == cond, "Condition color"] = color
                                 df_frames.loc[df_frames["Condition"] == cond, "Condition color"] = color
+                                df_tintervals.loc[df_tintervals["Condition"] == cond, "Condition color"] = color
 
                     elif not input.write_condition_colors():
-                        # print("Removing condition colors...")
                         if "Condition color" in df_unfiltered_spots.columns:
                             df_unfiltered_spots.drop(columns=["Condition color"], inplace=True)
                         if "Condition color" in df_unfiltered_tracks.columns:
                             df_unfiltered_tracks.drop(columns=["Condition color"], inplace=True)
                         if "Condition color" in df_unfiltered_frames.columns:
                             df_unfiltered_frames.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_unfiltered_tintervals.columns:
+                            df_unfiltered_tintervals.drop(columns=["Condition color"], inplace=True)
                         if "Condition color" in df_spots.columns:
                             df_spots.drop(columns=["Condition color"], inplace=True)
                         if "Condition color" in df_tracks.columns:
                             df_tracks.drop(columns=["Condition color"], inplace=True)
                         if "Condition color" in df_frames.columns:
                             df_frames.drop(columns=["Condition color"], inplace=True)
+                        if "Condition color" in df_tintervals.columns:
+                            df_tintervals.drop(columns=["Condition color"], inplace=True)
 
                     if not df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()): S.UNFILTERED_SPOTSTATS.set(df_unfiltered_spots)
                     if not df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get()): S.UNFILTERED_TRACKSTATS.set(df_unfiltered_tracks)
                     if not df_unfiltered_frames.equals(S.UNFILTERED_FRAMESTATS.get()): S.UNFILTERED_FRAMESTATS.set(df_unfiltered_frames)
+                    if not df_unfiltered_tintervals.equals(S.UNFILTERED_TINTERVALSTATS.get()): S.UNFILTERED_TINTERVALSTATS.set(df_unfiltered_tintervals)
                     if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
+                    if not df_tintervals.equals(S.TINTERVALSTATS.get()): S.TINTERVALSTATS.set(df_tintervals)
+                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
+                    #         and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
 
 
             @reactive.Effect
@@ -410,5 +436,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
-
+                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
+                            # and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
             
