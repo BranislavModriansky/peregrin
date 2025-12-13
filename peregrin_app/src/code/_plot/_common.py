@@ -109,6 +109,8 @@ class Colors:
     def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
+        print(df.columns)
+
         tags = df[tag].unique().tolist() if not which else which
         mp = {}
         if f'{tag} color' in df.columns:
@@ -116,7 +118,9 @@ class Colors:
                     .dropna()
                     .drop_duplicates(tag)
             )
+            
             mp = mp.set_index(tag)[f'{tag} color'].to_dict()
+            print(f"Color map: {mp}")
         
         missing = [t for t in tags if t not in mp]
 
