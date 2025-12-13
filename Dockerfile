@@ -36,8 +36,4 @@ COPY ./peregrin_app .
 
 EXPOSE 59935
 
-<<<<<<< HEAD
 CMD ["shiny", "run", "--port", "59935", "app.py"]
-=======
-CMD ["shiny", "run", "--port", "56269", "app.py"]
->>>>>>> 879a3089c9d5fdf31ec53dd516592dc6cf32ebf4
