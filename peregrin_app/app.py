@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parent
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
 
-
+# BUG - Setting a threshold removes assigned colors from the data
+# BUG - Violinplots show inappropriate y-axis labels
 # TODO - Finalize the Time interval implementation everywhere - filtering!!!
 
 # TODO - make an option to convert the time units (e.g. user inputs a df in seconds but wants to see minutes/hours in the graphs and calculations)
@@ -18,8 +19,6 @@ app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 # TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.
 #      - Switch the "metric" annotations to "parameter" or "value" as that is correct
 #      - Make sure all parameter names are consistent and the logic is global: not Speed mean, Direction mean (rad), but Speed mean, Direction (rad) mean
-
-# BUG - Setting a threshold removes assigned colors from the data
 
 # TODO - Add a button to reset all thresholding settings to default
 

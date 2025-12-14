@@ -453,6 +453,7 @@ class SuperViolins:
         self.errors = []
         self.df = dataframe
         self.x = "Condition"
+        self.metric = metric
         self.y = metric
         self.rep = "Replicate"
         self.units = units
@@ -523,7 +524,7 @@ class SuperViolins:
                 else: 
                     try:
                         try:
-                            cmap = Colors.noticequeue(self.df, tag='Replicate')
+                            cmap = Colors.BuildQualPalette(self.df, tag='Replicate')
                             self.cmap = cmap
                             self.colours = [cmap[rep] for rep in self.unique_reps]
                         except Exception:
@@ -974,7 +975,7 @@ class SuperViolins:
         plt.title(self.title)
         
         plt.xticks(ticks, lbls, rotation=345)
-        plt.ylabel(f"{self.y} {self.units}")
+        plt.ylabel(self.metric + ' ' + self.units)
         plt.xlabel("Condition")
 
         return plt.gcf()
