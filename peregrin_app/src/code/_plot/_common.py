@@ -222,7 +222,6 @@ class Categorizer:
         """
         return self._filter().groupby(self.aggby).agg(self.aggdict).reset_index()
 
-
     def __call__(self) -> pd.DataFrame:
         """
         Making the instance callable.
@@ -240,3 +239,16 @@ class Categorizer:
         """
         return self._filter, self._aggregate, self._checkerrors
     
+
+
+class LutScale:
+
+    def __init__(self, min_val: float, max_val: float, cmap: str, **kwargs):
+        """
+        Initialize the LUT scale with min and max values and a colormap.
+        """
+        self.min_val = min_val
+        self.max_val = max_val
+        self.cmap = cmap
+        self.noticequeue = kwargs.get('noticequeue', None)
+        

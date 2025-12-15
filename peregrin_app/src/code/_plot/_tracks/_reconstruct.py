@@ -16,6 +16,38 @@ from ..._handlers._reports import Level
 # FIXME: turning functions into classes and making data flow smoother would be way better
 
 
+class ReconstructTracks:
+    
+    def __init__(self, Spots_df: pd.DataFrame, Tracks_df: pd.DataFrame, *args,
+                 conditions: list, replicates: list, 
+                 c_mode: str, lut_scaling_metric: str, only_one_color: str,
+                 smoothing_index: float, lw: float,
+                 mark_heads: bool, marker: dict, markersize: float,
+                 background: str, grid: bool,
+                 title: str, **kwargs):
+        
+        self.Spots_df = Spots_df
+        self.Tracks_df = Tracks_df
+        self.conditions = conditions
+        self.replicates = replicates
+        self.c_mode = c_mode
+        self.lut_scaling_metric = lut_scaling_metric
+        self.only_one_color = only_one_color
+        self.smoothing_index = smoothing_index
+        self.lw = lw
+        self.mark_heads = mark_heads
+        self.marker = marker
+        self.markersize = markersize
+        self.background = background
+        self.grid = grid
+        self.title = title
+        self.noticequeue = kwargs.get('noticequeue', None)
+        
+        
+    def Realistic():
+
+
+
 @staticmethod
 def VisualizeTracksRealistics(
     Spots_df: pd.DataFrame,
