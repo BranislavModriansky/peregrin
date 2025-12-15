@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from .._common import Colors
+from .._common import Colors, Categorizer
 from io import BytesIO
 from ..._handlers._reports import Level
+from ..._infra._selections import Metrics
 
 
 # FIXME: 'differentiate conditions' has no color mapping in most places
@@ -21,7 +22,7 @@ class ReconstructTracks:
     def __init__(self, Spots_df: pd.DataFrame, Tracks_df: pd.DataFrame, *args,
                  conditions: list, replicates: list, 
                  c_mode: str, lut_scaling_metric: str, only_one_color: str,
-                 smoothing_index: float, lw: float,
+                 smoothing_index: int, lw: float,
                  mark_heads: bool, marker: dict, markersize: float,
                  background: str, grid: bool,
                  title: str, **kwargs):
@@ -42,9 +43,102 @@ class ReconstructTracks:
         self.grid = grid
         self.title = title
         self.noticequeue = kwargs.get('noticequeue', None)
+
+        self.Spots = None
+        self.Tracks = None
+
+    def _arrange_data(self):
+        Spots =  Categorizer(
+            data=self.Spots_df,
+            conditions=self.conditions,
+            replicates=self.replicates,
+            noticequeue=self.noticequeue
+        )()
+        Tracks = Categorizer(
+            data=self.Tracks_df,
+            conditions=self.conditions,
+            replicates=self.replicates,
+            noticequeue=self.noticequeue
+        )()
+
+        Spots = Spots.sort_values(['Condition', 'Replicate', 'Track ID', 'Time point'])
+        Tracks = Tracks.sort_values(['Condition', 'Replicate', 'Track ID'])
+
+    def _smooth(self):
+        if isinstance(self.smoothing_index, (int, float)) and self.smoothing_index >= 1:
+            _smoothing_window = self.smoothing_index
+            if isinstance(_smoothing_window, float):
+                _smoothing_window = round(self.smoothing_index)
+                self.noticequeue.Report(Level.warning, f"Smoothing index rounded to nearest integer: {_smoothing_window}.", f"Invalid smoothing index type: float ({self.smoothing_index}).")
+
+            key_cols = ['Condition', 'Replicate', 'Track ID']
+            
+            self.Spots['X coordinate'] = (
+                self.Spots.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
+            )
+            self.Spots['Y coordinate'] = (
+                self.Spots.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
+            )
+        else:
+            self.noticequeue.Report(Level.info, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1, got {type(self.smoothing_index)}: {self.smoothing_index}.")
         
+    def _color(self):
+        rng = np.random.default_rng(42)
+        track_index = self.Tracks.index.unique()
+
+        if self.c_mode == 'only-one-color':
+            self.Tracks['Track color'] = mcolors.to_hex(self.only_one_color)
+
+        elif self.c_mode in ['random colors', 'random greys']:
+            if self.c_mode == 'random colors':
+                cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(track_index))]
+            elif self.c_mode == 'random greys':
+                cols = [mcolors.to_hex((float(g), float(g), float(g))) for g in rng.random(len(track_index))]
+            self.Tracks['Track color'] = [dict(zip(track_index, cols))[idx] for idx in self.Tracks.index]
+
+        elif self.c_mode == 'differentiate replicates':
+            if 'Replicate color' in self.Tracks.columns:
+                self.Tracks['Track color'] = self.Tracks['Replicate color'].astype(str)
+            else:
+                reps = self.Tracks.reset_index()['Replicate'].unique().tolist()
+                rep_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(reps))]
+                rep2col = dict(zip(reps, rep_cols))
+                self.Tracks = self.Tracks.reset_index()
+                self.Tracks['Track color'] = self.Tracks['Replicate'].map(rep2col)
+                self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
         
-    def Realistic():
+        elif self.c_mode == 'differentiate conditions':
+            if 'Condition color' in self.Tracks.columns:
+                self.Tracks['Track color'] = self.Tracks['Condition color'].astype(str)
+            else:
+                conds = self.Tracks.reset_index()['Condition'].unique().tolist()
+                cond_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(conds))]
+                cond2col = dict(zip(conds, cond_cols))
+                self.Tracks = self.Tracks.reset_index()
+                self.Tracks['Track color'] = self.Tracks['Condition'].map(cond2col)
+                self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
+
+        else: 
+            if self.lut_scaling_metric not in Metrics.Lut:
+                self.noticequeue.Report(Level.warning, f"Invalid LUT scaling metric: {self.lut_scaling_metric}. No LUT coloring applied.", f"LUT scaling metric must be one of: {', '.join(Metrics.Lut)}.")
+                self.Tracks['Track color'] = mcolors.to_hex('black')
+        -------------------------------------------------------------------------------------
+            elif self.lut_scaling_metric in self.Tracks.columns:
+
+                cmap = Colors.GetCmap(self.c_mode)
+                vmin = float(self.Tracks[self.lut_scaling_metric].min()) if self.lut_scaling_metric in self.Tracks.columns else 0.0
+                vmax = float(self.Tracks[self.lut_scaling_metric].max()) if self.lut_scaling_metric in self.Tracks.columns else 1.0
+                # guard against degenerate range
+                if not np.isfinite(vmin): vmin = 0.0
+                if not np.isfinite(vmax) or vmax <= vmin: vmax = vmin + 1.0
+                norm = plt.Normalize(vmin, vmax)
+                vals = self.Tracks[self.lut_scaling_metric].to_numpy() if self.lut_scaling_metric in self.Tracks.columns else np.zeros(len(self.Tracks))
+                self.Tracks['Track color'] = [mcolors.to_hex(cmap(norm(v))) for v in vals]
+        -------------------------------------------------------------------------------------
+        
+    def Realistic(self):
+        pass
+        
 
 
 
@@ -100,7 +194,7 @@ def VisualizeTracksRealistics(
     Tracks = Tracks.set_index(key_cols, drop=True)
 
     # --- Optional smoothing (vectorized) --------------------------------------
-    if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
+    if isinstance(smoothing_index, (int, float)) and smoothing_index >= 0:
         win = int(smoothing_index)
         Spots['X coordinate'] = (
             Spots.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
@@ -119,6 +213,7 @@ def VisualizeTracksRealistics(
         return mcolors.to_hex((g, g, g))
 
     colormap = None
+
     if c_mode in ['random colors', 'random greys', 'only-one-color']:
         # one color per *track*
         unique_tracks = Tracks.index.unique()
