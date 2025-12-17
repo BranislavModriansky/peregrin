@@ -76,7 +76,7 @@ class MSD:
         if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
             if self.palette:
                 try:
-                    colors_list = Colors.MakeCmap(tags, self.palette)
+                    colors_list = Colors.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
                     if colors_list:
                         return dict(zip(tags, colors_list))
                 except Exception as e:

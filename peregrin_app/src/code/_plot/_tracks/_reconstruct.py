@@ -21,19 +21,24 @@ class ReconstructTracks:
     
     def __init__(self, Spots_df: pd.DataFrame, Tracks_df: pd.DataFrame, *args,
                  conditions: list, replicates: list, 
-                 c_mode: str, lut_scaling_metric: str, only_one_color: str,
+                 c_mode: str, lut_scaling_stat: str, only_one_color: str,
+                 use_stock_palette: bool, stock_palette: None |str,
+                 lut_vmin: None | float, lut_vmax: None | float,
                  smoothing_index: int, lw: float,
                  mark_heads: bool, marker: dict, markersize: float,
                  background: str, grid: bool,
-                 title: str, **kwargs):
+                 title: None | str, **kwargs):
         
         self.Spots_df = Spots_df
         self.Tracks_df = Tracks_df
         self.conditions = conditions
         self.replicates = replicates
         self.c_mode = c_mode
-        self.lut_scaling_metric = lut_scaling_metric
+        self.lut_scaling_stat = lut_scaling_stat
         self.only_one_color = only_one_color
+        self.stock_palette = stock_palette if use_stock_palette else None
+        self.lut_vmin = lut_vmin
+        self.lut_vmax = lut_vmax
         self.smoothing_index = smoothing_index
         self.lw = lw
         self.mark_heads = mark_heads
@@ -82,7 +87,46 @@ class ReconstructTracks:
         else:
             self.noticequeue.Report(Level.info, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1, got {type(self.smoothing_index)}: {self.smoothing_index}.")
         
-    def _color(self):
+    def _lut_map(self, data: pd.DataFrame, stat: str):
+
+        try:
+
+            if self.lut_vmin is None: 
+                self.lut_vmin = float(data[stat].min())
+            if self.lut_vmax is None: 
+                self.lut_vmax = float(data[stat].max())
+
+            if not (np.isfinite(self.lut_vmax) or np.isfinite(self.lut_vmin)):
+                self.noticequeue.Report(
+                    Level.warning, 
+                    f"Invalid LUT range. Minimum and maximum values must be finite numbers. Using default range (0.0, 1.0).", 
+                    f"min is finite: {np.isfinite(self.lut_vmin)}; max is finite: {np.isfinite(self.lut_vmax)}. \
+                    min: {self.lut_vmin} {'-> 0.0' if not np.isfinite(self.lut_vmin) else ''}; max: {self.lut_vmax} {'-> 1.0' if not np.isfinite(self.lut_vmax) else ''}."
+                )
+                if not np.isfinite(self.lut_vmin):
+                    self.lut_vmin = 0.0
+                if not np.isfinite(self.lut_vmax):
+                    self.lut_vmax = 1.0
+                
+            
+            if self.lut_vmin > self.lut_vmax:
+                self.noticequeue.Report(
+                    Level.warning, 
+                    f"Invalid LUT range. Minimum value must not be greater than maximum value. Values will be swapped.", 
+                    f"min: {self.lut_vmin}; max: {self.lut_vmax} -> min: {self.lut_vmax}; max: {self.lut_vmin}."
+                )
+                self.lut_vmin, self.lut_vmax = self.lut_vmax, self.lut_vmin
+            
+            norm = plt.Normalize(self.lut_vmin, self.lut_vmax)
+            vals = data[self.lut_scaling_stat].to_numpy()
+
+            return norm, vals
+        
+        except Exception as e:
+            self.noticequeue.Report(Level.warning, f"Error computing LUT map. No LUT applied.", f"LUT map error: {str(e)}.")
+            return None, None
+
+    def _assign_colors(self):
         rng = np.random.default_rng(42)
         track_index = self.Tracks.index.unique()
 
@@ -96,45 +140,74 @@ class ReconstructTracks:
                 cols = [mcolors.to_hex((float(g), float(g), float(g))) for g in rng.random(len(track_index))]
             self.Tracks['Track color'] = [dict(zip(track_index, cols))[idx] for idx in self.Tracks.index]
 
-        elif self.c_mode == 'differentiate replicates':
-            if 'Replicate color' in self.Tracks.columns:
-                self.Tracks['Track color'] = self.Tracks['Replicate color'].astype(str)
-            else:
-                reps = self.Tracks.reset_index()['Replicate'].unique().tolist()
-                rep_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(reps))]
-                rep2col = dict(zip(reps, rep_cols))
+        elif self.c_mode in ['differentiate conditions', 'differentiate replicates']:
+            if self.c_mode == 'differentiate replicates':
+                category = 'replicate'
+            if self.c_mode == 'differentiate conditions':
+                category = 'condition'
+
+            if self.stock_palette is None:
+                mp = Colors.BuildQualPalette(self.Tracks, tag=category.capitalize(), noticequeue=self.noticequeue)
                 self.Tracks = self.Tracks.reset_index()
-                self.Tracks['Track color'] = self.Tracks['Replicate'].map(rep2col)
+                self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(mp)
                 self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
+            
+
+            if self.stock_palette is not None:
+                categories = self.Tracks.reset_index()[category.capitalize()].unique().tolist()
+                palette = Colors.StockQualPalette(categories, self.stock_palette, noticequeue=self.noticequeue)
+                compiled = dict(zip(categories, palette))
+
+                self.Tracks = self.Tracks.reset_index()
+                self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(compiled)
+                self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
+
+        # elif self.c_mode == 'differentiate replicates':
+        #     if 'Replicate color' in self.Tracks.columns:
+        #         self.Tracks['Track color'] = self.Tracks['Replicate color'].astype(str)
+        #     else:
+        #         reps = self.Tracks.reset_index()['Replicate'].unique().tolist()
+        #         rep_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(reps))]
+        #         rep2col = dict(zip(reps, rep_cols))
+        #         self.Tracks = self.Tracks.reset_index()
+        #         self.Tracks['Track color'] = self.Tracks['Replicate'].map(rep2col)
+        #         self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
         
-        elif self.c_mode == 'differentiate conditions':
-            if 'Condition color' in self.Tracks.columns:
-                self.Tracks['Track color'] = self.Tracks['Condition color'].astype(str)
+        # elif self.c_mode == 'differentiate conditions':
+        #     if 'Condition color' in self.Tracks.columns:
+        #         self.Tracks['Track color'] = self.Tracks['Condition color'].astype(str)
+        #     else:
+        #         conds = self.Tracks.reset_index()['Condition'].unique().tolist()
+        #         cond_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(conds))]
+        #         cond2col = dict(zip(conds, cond_cols))
+        #         self.Tracks = self.Tracks.reset_index()
+        #         self.Tracks['Track color'] = self.Tracks['Condition'].map(cond2col)
+        #         self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
+
+        else:
+            self.cmap = Colors.GetCmap(self.c_mode)
+            norm, vals = self._lut_map(self.Tracks, self.lut_scaling_stat)
+
+            if not (norm is None or vals is None):
+
+                if self.lut_scaling_stat in self.Tracks.columns:
+                    self.Tracks['Track color'] = [mcolors.to_hex(self.cmap(norm(v))) for v in vals]
+
+                if self.lut_scaling_stat in self.Spots.columns:
+                    self.Spots['Spot color'] = [mcolors.to_hex(self.cmap(norm(v))) for v in vals]
+
             else:
-                conds = self.Tracks.reset_index()['Condition'].unique().tolist()
-                cond_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(conds))]
-                cond2col = dict(zip(conds, cond_cols))
-                self.Tracks = self.Tracks.reset_index()
-                self.Tracks['Track color'] = self.Tracks['Condition'].map(cond2col)
-                self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
-
-        else: 
-            if self.lut_scaling_metric not in Metrics.Lut:
-                self.noticequeue.Report(Level.warning, f"Invalid LUT scaling metric: {self.lut_scaling_metric}. No LUT coloring applied.", f"LUT scaling metric must be one of: {', '.join(Metrics.Lut)}.")
                 self.Tracks['Track color'] = mcolors.to_hex('black')
-        -------------------------------------------------------------------------------------
-            elif self.lut_scaling_metric in self.Tracks.columns:
-
-                cmap = Colors.GetCmap(self.c_mode)
-                vmin = float(self.Tracks[self.lut_scaling_metric].min()) if self.lut_scaling_metric in self.Tracks.columns else 0.0
-                vmax = float(self.Tracks[self.lut_scaling_metric].max()) if self.lut_scaling_metric in self.Tracks.columns else 1.0
-                # guard against degenerate range
-                if not np.isfinite(vmin): vmin = 0.0
-                if not np.isfinite(vmax) or vmax <= vmin: vmax = vmin + 1.0
-                norm = plt.Normalize(vmin, vmax)
-                vals = self.Tracks[self.lut_scaling_metric].to_numpy() if self.lut_scaling_metric in self.Tracks.columns else np.zeros(len(self.Tracks))
-                self.Tracks['Track color'] = [mcolors.to_hex(cmap(norm(v))) for v in vals]
-        -------------------------------------------------------------------------------------
+    
+    def _color(self):
+        if self.c_mode in ['random colors', 'random greys', 'only-one-color', 'differentiate replicates', 'differentiate conditions']:
+            # one color per *track*
+            self.Spots = self.Spots.join(
+                self.Tracks[['Track color']],
+                on=['Condition', 'Replicate', 'Track ID'],
+                how='left',
+                validate='many_to_one',
+            )
         
     def Realistic(self):
         pass

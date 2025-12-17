@@ -34,7 +34,7 @@ class Colors:
         return '#{:02x}{:02x}{:02x}'.format(n, n, n)
 
     @staticmethod
-    def MakeCmap(elements: list, cmap: str, **kwargs) -> list:
+    def StockQualPalette(elements: list, cmap: str, **kwargs) -> list:
         """
         Generates a qualitative colormap for a given list of elements.
         """
@@ -101,6 +101,10 @@ class Colors:
             return plt.cm.twilight
         elif c_mode == 'seismic LUT':
             return plt.cm.seismic
+        
+        elif c_mode == None:
+            noticequeue.Report(Level.warning, "No color mode specified. Using 'jet LUT' instead.")
+            return plt.cm.jet
         else:
             noticequeue.Report(Level.warning, f"Unsupported color mode: {c_mode}. Using 'jet LUT' instead.")
             return plt.cm.jet
