@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms, Animated
+from src.code import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms, Animated, ReconstructTracks
 
 
 import numpy as np
@@ -58,14 +58,33 @@ class MountTracks:
                         category=UserWarning,
                     )
 
-                    return VisualizeTracksRealistics(
+                    # return VisualizeTracksRealistics(
+                    #     Spots_df=Spots_df,
+                    #     Tracks_df=Tracks_df,
+                    #     conditions=conditions,
+                    #     replicates=replicates,
+                    #     c_mode=c_mode,
+                    #     only_one_color=only_one_color,
+                    #     lut_scaling_metric=lut_scaling_metric,
+                    #     background=background,
+                    #     smoothing_index=smoothing_index,
+                    #     lw=lw,
+                    #     grid=grid,
+                    #     mark_heads=mark_heads,
+                    #     marker=marker,
+                    #     markersize=markersize,
+                    #     title=title,
+                    #     noticequeue=noticequeue
+                    # )
+
+                    return ReconstructTracks(
                         Spots_df=Spots_df,
                         Tracks_df=Tracks_df,
                         conditions=conditions,
                         replicates=replicates,
                         c_mode=c_mode,
                         only_one_color=only_one_color,
-                        lut_scaling_metric=lut_scaling_metric,
+                        lut_scaling_stat=lut_scaling_metric,
                         background=background,
                         smoothing_index=smoothing_index,
                         lw=lw,
@@ -74,8 +93,12 @@ class MountTracks:
                         marker=marker,
                         markersize=markersize,
                         title=title,
-                        noticequeue=noticequeue
-                    )
+                        noticequeue=noticequeue,
+                        lut_vmin=None,
+                        lut_vmax=None,
+                        use_stock_palette=True,
+                        stock_palette="Set2"
+                    ).Realistic()
 
             # Either form is fine; pick one:
             return await asyncio.get_running_loop().run_in_executor(None, _build)

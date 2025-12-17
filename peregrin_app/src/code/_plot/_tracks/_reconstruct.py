@@ -34,7 +34,14 @@ class ReconstructTracks:
         self.conditions = conditions
         self.replicates = replicates
         self.c_mode = c_mode
-        self.lut_scaling_stat = lut_scaling_stat
+
+        if lut_scaling_stat == 'Speed instantaneous':
+            self.lut_scaling_stat = 'Distance'
+        else:
+            self.lut_scaling_stat = lut_scaling_stat
+
+        # self.lut_scaling_stat = lut_scaling_stat
+
         self.only_one_color = only_one_color
         self.stock_palette = stock_palette if use_stock_palette else None
         self.lut_vmin = lut_vmin
@@ -49,8 +56,13 @@ class ReconstructTracks:
         self.title = title
         self.noticequeue = kwargs.get('noticequeue', None)
 
-        self.Spots = None
-        self.Tracks = None
+        self.Spots, self.Tracks = None, None
+
+        self.segments, self.segment_colors = [], []
+
+        self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = None, None, None, None
+
+    KEY_COLS = ['Condition', 'Replicate', 'Track ID']
 
     def _arrange_data(self):
         Spots =  Categorizer(
@@ -66,8 +78,17 @@ class ReconstructTracks:
             noticequeue=self.noticequeue
         )()
 
-        Spots = Spots.sort_values(['Condition', 'Replicate', 'Track ID', 'Time point'])
-        Tracks = Tracks.sort_values(['Condition', 'Replicate', 'Track ID'])
+        self.Spots = Spots.sort_values(['Condition', 'Replicate', 'Track ID', 'Time point'])
+        self.Tracks = Tracks.sort_values(['Condition', 'Replicate', 'Track ID'])
+
+
+        if list(Spots.index.names) != self.KEY_COLS:
+            Spots = Spots.set_index(self.KEY_COLS)
+        if list(Tracks.index.names) != self.KEY_COLS:
+            Tracks = Tracks.set_index(self.KEY_COLS)
+
+        self.Spots = Spots
+        self.Tracks = Tracks
 
     def _smooth(self):
         if isinstance(self.smoothing_index, (int, float)) and self.smoothing_index >= 1:
@@ -75,49 +96,53 @@ class ReconstructTracks:
             if isinstance(_smoothing_window, float):
                 _smoothing_window = round(self.smoothing_index)
                 self.noticequeue.Report(Level.warning, f"Smoothing index rounded to nearest integer: {_smoothing_window}.", f"Invalid smoothing index type: float ({self.smoothing_index}).")
-
-            key_cols = ['Condition', 'Replicate', 'Track ID']
             
             self.Spots['X coordinate'] = (
-                self.Spots.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
+                self.Spots.groupby(level=self.KEY_COLS)['X coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
             )
             self.Spots['Y coordinate'] = (
-                self.Spots.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
+                self.Spots.groupby(level=self.KEY_COLS)['Y coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
             )
         else:
-            self.noticequeue.Report(Level.info, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1, got {type(self.smoothing_index)}: {self.smoothing_index}.")
+            self.noticequeue.Report(Level.warning, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1. {type(self.smoothing_index)}: {self.smoothing_index}.")
         
-    def _lut_map(self, data: pd.DataFrame, stat: str):
+    def _lut_map(self, stat: str):
+
+        data = self.Tracks if stat in self.Tracks.columns else self.Spots
 
         try:
 
             if self.lut_vmin is None: 
-                self.lut_vmin = float(data[stat].min())
+                lut_vmin = float(data[stat].min())
+            else:
+                lut_vmin = self.lut_vmin
             if self.lut_vmax is None: 
-                self.lut_vmax = float(data[stat].max())
+                lut_vmax = float(data[stat].max())
+            else:
+                lut_vmax = self.lut_vmax
 
-            if not (np.isfinite(self.lut_vmax) or np.isfinite(self.lut_vmin)):
+            if not (np.isfinite(lut_vmax) or np.isfinite(lut_vmin)):
                 self.noticequeue.Report(
                     Level.warning, 
                     f"Invalid LUT range. Minimum and maximum values must be finite numbers. Using default range (0.0, 1.0).", 
                     f"min is finite: {np.isfinite(self.lut_vmin)}; max is finite: {np.isfinite(self.lut_vmax)}. \
                     min: {self.lut_vmin} {'-> 0.0' if not np.isfinite(self.lut_vmin) else ''}; max: {self.lut_vmax} {'-> 1.0' if not np.isfinite(self.lut_vmax) else ''}."
                 )
-                if not np.isfinite(self.lut_vmin):
-                    self.lut_vmin = 0.0
-                if not np.isfinite(self.lut_vmax):
-                    self.lut_vmax = 1.0
+                if not np.isfinite(lut_vmin):
+                    lut_vmin = 0.0
+                if not np.isfinite(lut_vmax):
+                    lut_vmax = 1.0
                 
             
-            if self.lut_vmin > self.lut_vmax:
+            if lut_vmin > lut_vmax:
                 self.noticequeue.Report(
                     Level.warning, 
                     f"Invalid LUT range. Minimum value must not be greater than maximum value. Values will be swapped.", 
-                    f"min: {self.lut_vmin}; max: {self.lut_vmax} -> min: {self.lut_vmax}; max: {self.lut_vmin}."
+                    f"min: {lut_vmin}; max: {lut_vmax} -> min: {lut_vmax}; max: {lut_vmin}."
                 )
-                self.lut_vmin, self.lut_vmax = self.lut_vmax, self.lut_vmin
+                lut_vmin, lut_vmax = lut_vmax, lut_vmin
             
-            norm = plt.Normalize(self.lut_vmin, self.lut_vmax)
+            norm = plt.Normalize(lut_vmin, lut_vmax)
             vals = data[self.lut_scaling_stat].to_numpy()
 
             return norm, vals
@@ -162,31 +187,9 @@ class ReconstructTracks:
                 self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(compiled)
                 self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
 
-        # elif self.c_mode == 'differentiate replicates':
-        #     if 'Replicate color' in self.Tracks.columns:
-        #         self.Tracks['Track color'] = self.Tracks['Replicate color'].astype(str)
-        #     else:
-        #         reps = self.Tracks.reset_index()['Replicate'].unique().tolist()
-        #         rep_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(reps))]
-        #         rep2col = dict(zip(reps, rep_cols))
-        #         self.Tracks = self.Tracks.reset_index()
-        #         self.Tracks['Track color'] = self.Tracks['Replicate'].map(rep2col)
-        #         self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
-        
-        # elif self.c_mode == 'differentiate conditions':
-        #     if 'Condition color' in self.Tracks.columns:
-        #         self.Tracks['Track color'] = self.Tracks['Condition color'].astype(str)
-        #     else:
-        #         conds = self.Tracks.reset_index()['Condition'].unique().tolist()
-        #         cond_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(conds))]
-        #         cond2col = dict(zip(conds, cond_cols))
-        #         self.Tracks = self.Tracks.reset_index()
-        #         self.Tracks['Track color'] = self.Tracks['Condition'].map(cond2col)
-        #         self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
-
         else:
             self.cmap = Colors.GetCmap(self.c_mode)
-            norm, vals = self._lut_map(self.Tracks, self.lut_scaling_stat)
+            norm, vals = self._lut_map(self.lut_scaling_stat)
 
             if not (norm is None or vals is None):
 
@@ -197,20 +200,138 @@ class ReconstructTracks:
                     self.Spots['Spot color'] = [mcolors.to_hex(self.cmap(norm(v))) for v in vals]
 
             else:
+                # No need for a warning here -> already reported in _lut_map()
                 self.Tracks['Track color'] = mcolors.to_hex('black')
     
-    def _color(self):
-        if self.c_mode in ['random colors', 'random greys', 'only-one-color', 'differentiate replicates', 'differentiate conditions']:
-            # one color per *track*
+    def _color_tracks(self):
+        """
+        Build self.segments and self.segment_colors from self.Spots/self.Tracks.
+
+        Logic:
+        - If Tracks has 'Track color' but Spots doesn't, join that column down to Spots on the MultiIndex.
+        - If Spots has 'Spot color', color segments per-spot (e.g. instantaneous LUT).
+        - Else if Spots has 'Track color', color each whole track with a single color.
+        - Else, draw all tracks in black as a fallback.
+        """
+
+        # Ensure per-track colors are available on Spots when defined on Tracks
+        if 'Track color' in self.Tracks.columns and 'Track color' not in self.Spots.columns:
             self.Spots = self.Spots.join(
                 self.Tracks[['Track color']],
-                on=['Condition', 'Replicate', 'Track ID'],
                 how='left',
                 validate='many_to_one',
             )
+
+        # Per-spot coloring (e.g. instantaneous speed LUT -> 'Spot color' on Spots)
+        if 'Spot color' in self.Spots.columns:
+            for (cond, repl, tid), g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                if xy.shape[0] >= 2:
+                    cols = g['Spot color'].astype(str).to_numpy()
+                    for i in range(1, xy.shape[0]):
+                        self.segments.append(xy[i - 1:i + 1])
+                        self.segment_colors.append(cols[i])
+
+        # Per-track coloring using 'Track color' on Spots
+        elif 'Track color' in self.Spots.columns:
+            for (cond, repl, tid), g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                if xy.shape[0] >= 2:
+                    self.segments.append(xy)
+                    self.segment_colors.append(g['Track color'].iloc[0])
+
+        # Fallback: no color info; draw black tracks
+        else:
+            default_col = mcolors.to_hex('black')
+            for (cond, repl, tid), g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
+                if xy.shape[0] >= 2:
+                    self.segments.append(xy)
+                    self.segment_colors.append(default_col)
+
+    def _background(self):
+        if self.background == 'white':
+            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'gainsboro', 'white', 0.5, '-.' if self.grid else 'None'
+        elif self.background == 'light':
+            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'silver', 'lightgrey', 0.5, '-.' if self.grid else 'None'
+        elif self.background == 'mid':
+            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'silver', 'darkgrey', 0.5, '-.' if self.grid else 'None'
+        elif self.background == 'dark':
+            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'grey', 'dimgrey', 0.5, '-.' if self.grid else 'None'
+        elif self.background == 'black':
+            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'dimgrey', 'black', 0.5, '-.' if self.grid else 'None'
+    
+    def _head_markers(self, ax):
+        ends = self.Spots.groupby(level=self.KEY_COLS, sort=False).tail(1)
+        if len(ends):
+            xe = ends['X coordinate'].to_numpy(dtype=float, copy=False)
+            ye = ends['Y coordinate'].to_numpy(dtype=float, copy=False)
+
+            # Prefer per-spot colors if present, else per-track, else fallback to black
+            if 'Spot color' in self.Spots.columns:
+                cols = ends['Spot color'].astype(str).to_numpy()
+            elif 'Track color' in self.Spots.columns:
+                cols = ends['Track color'].astype(str).to_numpy()
+            else:
+                default_col = mcolors.to_hex('black')
+                cols = np.array([default_col] * len(ends), dtype=object)
+
+            m = np.isfinite(xe) & np.isfinite(ye)
+            if m.any():
+                ax.scatter(
+                    xe[m],
+                    ye[m],
+                    marker=self.marker["symbol"],
+                    s=self.markersize,
+                    edgecolor=cols[m],
+                    facecolor=cols[m] if self.marker["fill"] else "none",
+                    linewidths=self.lw,
+                    zorder=12,
+                )
+
+    def _color_segments(self, ax):
+        lc = LineCollection(self.segments, colors=self.segment_colors, linewidths=self.lw, zorder=10)
+        ax.add_collection(lc)
+
+
+    def Realistic(self) -> plt.Figure:
+
+        self._arrange_data()    
+        if self.smoothing_index is not None and self.smoothing_index > 0:
+            self._smooth()
+        self._assign_colors()
+        self._color_tracks()
+        self._background()
+
+        fig, ax = plt.subplots(figsize=(13, 10))
+        if len(self.Spots):
+            x = self.Spots['X coordinate'].to_numpy()
+            y = self.Spots['Y coordinate'].to_numpy()
+            ax.set_xlim(np.nanmin(x), np.nanmax(x))
+            ax.set_ylim(np.nanmin(y), np.nanmax(y))
+
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlabel('X coordinate [microns]')
+        ax.set_ylabel('Y coordinate [microns]')
+        ax.set_title(self.title, fontsize=12)
+        ax.set_facecolor(self.face_color)
+        ax.grid(self.grid, which='both', axis='both', color=self.grid_color, linestyle=self.grid_ls, linewidth=1, alpha=self.grid_alpha) if self.grid else ax.grid(False)
+
+        # Ticks
+        ax.xaxis.set_major_locator(MultipleLocator(200))
+        ax.yaxis.set_major_locator(MultipleLocator(200))
+        ax.xaxis.set_minor_locator(MultipleLocator(50))
+        ax.yaxis.set_minor_locator(MultipleLocator(50))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.tick_params(axis='both', which='major', labelsize=8)
         
-    def Realistic(self):
-        pass
+        self._color_segments(ax)
+        
+        if self.mark_heads:
+            self._head_markers(ax)
+
+        return plt.gcf()
         
 
 

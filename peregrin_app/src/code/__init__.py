@@ -8,6 +8,7 @@ from ._plot._tracks._reconstruct import (
     VisualizeTracksNormalized,
     GetLutMap,
     Animated,
+    ReconstructTracks
 )
 from ._plot._tracks._subs import frame_interval_ms
 from ._plot._collate._SwarmsAndBeyond import SwarmsAndBeyond
@@ -22,7 +23,7 @@ __all__ = [
     "DataLoader",
     "Spots", "Tracks", "Frames", "TimeIntervals",
     "Threshold",
-    "VisualizeTracksRealistics", "VisualizeTracksNormalized", "GetLutMap", "Animated",
+    "VisualizeTracksRealistics", "VisualizeTracksNormalized", "GetLutMap", "Animated", "ReconstructTracks",
     "SwarmsAndBeyond", "Superviolins",
     "Metrics", "Styles", "Markers", "Modes",
     "FilenameFormatExample",
