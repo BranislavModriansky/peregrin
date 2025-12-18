@@ -500,7 +500,7 @@ class ReconstructTracks:
 
         return plt.gcf()
 
-
+# TODO: integrate Lut Map generator and animated track viz into ReconstructTracks class
 
 @staticmethod
 def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):

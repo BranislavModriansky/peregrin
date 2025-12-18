@@ -19,7 +19,7 @@ import base64
 # TODO: reduce code duplication
 # TODO: enable the refresh button for categorical selections
 # TODO: create uis for custom min/max lut scaling
-
+# TODO: implement stock palettes selection
 
 
 class MountTracks:
