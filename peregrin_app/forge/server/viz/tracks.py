@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import VisualizeTracksRealistics, VisualizeTracksNormalized, GetLutMap, Markers, frame_interval_ms, Animated, ReconstructTracks
+from src.code import GetLutMap, Markers, frame_interval_ms, Animated, ReconstructTracks
 
 
 import numpy as np
@@ -15,6 +15,10 @@ from PIL import Image
 import imageio.v3 as iio
 import base64
 
+
+# TODO: reduce code duplication
+# TODO: enable the refresh button for categorical selections
+# TODO: create uis for custom min/max lut scaling
 
 
 
@@ -57,25 +61,6 @@ class MountTracks:
                         message="Starting a Matplotlib GUI outside of the main thread will likely fail",
                         category=UserWarning,
                     )
-
-                    # return VisualizeTracksRealistics(
-                    #     Spots_df=Spots_df,
-                    #     Tracks_df=Tracks_df,
-                    #     conditions=conditions,
-                    #     replicates=replicates,
-                    #     c_mode=c_mode,
-                    #     only_one_color=only_one_color,
-                    #     lut_scaling_metric=lut_scaling_metric,
-                    #     background=background,
-                    #     smoothing_index=smoothing_index,
-                    #     lw=lw,
-                    #     grid=grid,
-                    #     mark_heads=mark_heads,
-                    #     marker=marker,
-                    #     markersize=markersize,
-                    #     title=title,
-                    #     noticequeue=noticequeue
-                    # )
 
                     return ReconstructTracks(
                         Spots_df=Spots_df,
@@ -146,7 +131,7 @@ class MountTracks:
                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
             )
 
-            fig = VisualizeTracksRealistics(
+            fig = ReconstructTracks(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
                 conditions=input.conditions_tr(),
@@ -161,8 +146,13 @@ class MountTracks:
                 mark_heads=input.tracks_mark_heads(),
                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
                 markersize=input.tracks_marks_size()*10,
-                title=input.tracks_title()
-            )
+                title=input.tracks_title(),
+                lut_vmin=None,
+                lut_vmax=None,
+                use_stock_palette=True,
+                stock_palette="Set2"
+            ).Realistic()
+
             if fig is not None:
                 with io.BytesIO() as buffer:
                     fig.savefig(buffer, format="svg", bbox_inches="tight")
@@ -201,25 +191,29 @@ class MountTracks:
                         category=UserWarning,
                     )
 
-                    return VisualizeTracksNormalized(
+                    return ReconstructTracks(
                         Spots_df=Spots_df,
                         Tracks_df=Tracks_df,
                         conditions=conditions,
                         replicates=replicates,
                         c_mode=c_mode,
                         only_one_color=only_one_color,
-                        lut_scaling_metric=lut_scaling_metric,
+                        lut_scaling_stat=lut_scaling_metric,
+                        background=background,
                         smoothing_index=smoothing_index,
                         lw=lw,
-                        background=background,
                         grid=grid,
-                        grid_style=grid_style,
                         mark_heads=mark_heads,
                         marker=marker,
                         markersize=markersize,
                         title=title,
-                        noticequeue=noticequeue
-                    )
+                        noticequeue=noticequeue,
+                        lut_vmin=None,
+                        lut_vmax=None,
+                        use_stock_palette=True,
+                        stock_palette="Set2",
+                        gridstyle=grid_style
+                    ).Normalized(all_data=Spots_df)
 
             # Either form is fine; pick one:
             return await asyncio.get_running_loop().run_in_executor(None, _build)
@@ -268,7 +262,7 @@ class MountTracks:
                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
             )
 
-            fig = VisualizeTracksNormalized(
+            fig = ReconstructTracks(
                 Spots_df=S.SPOTSTATS.get(),
                 Tracks_df=S.TRACKSTATS.get(),
                 conditions=input.conditions_tr(),
@@ -280,12 +274,17 @@ class MountTracks:
                 lw=input.tracks_line_width(),
                 background=input.tracks_background(),
                 grid=input.tracks_show_grid(),
-                grid_style=input.tracks_grid_style(),
+                gridstyle=input.tracks_grid_style(),
                 mark_heads=input.tracks_mark_heads(),
                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
                 markersize=input.tracks_marks_size()*10,
-                title=input.tracks_title()
-            )
+                title=input.tracks_title(),
+                lut_vmin=None,
+                lut_vmax=None,
+                use_stock_palette=True,
+                stock_palette="Set2"
+            ).Normalized(all_data=S.SPOTSTATS.get())
+
             if fig is not None:
                 with io.BytesIO() as buffer:
                     fig.savefig(buffer, format="svg", bbox_inches="tight")

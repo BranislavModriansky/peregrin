@@ -1010,7 +1010,7 @@ app_ui = ui.page_sidebar(
                 id="app_theme",
                 label=None,
                 choices=["Shiny", "Console-0", "Console-1", "Console-2"],
-                selected="Shiny",
+                selected="Console-0",
                 width="140px",
                 options={"hideSelected": True, },
             ),

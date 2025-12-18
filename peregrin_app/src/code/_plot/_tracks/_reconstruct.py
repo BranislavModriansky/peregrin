@@ -48,8 +48,8 @@ class ReconstructTracks:
         self.grid = grid
         self.title = title
         self.noticequeue = kwargs.get('noticequeue', None)
-        self.gridstyle = kwargs.get('gridstyle', 'alternating 1')
-        self.y_max_global = kwargs.get('y_max_global', 1.0)
+        self.gridstyle = kwargs.get('gridstyle', 'simple-1')
+        # self.y_max_global = kwargs.get('y_max_global', 1.0)
 
         self.Spots, self.Tracks = None, None
 
@@ -87,16 +87,67 @@ class ReconstructTracks:
         self.Tracks = Tracks
 
     def _convert_polar(self):
-        self.Spots['Xn'] = self.Spots['X coordinate'] - self.Spots.groupby(level=self.KEY_COLS)['X coordinate'].transform('first')
-        self.Spots['Yn'] = self.Spots['Y coordinate'] - self.Spots.groupby(level=self.KEY_COLS)['Y coordinate'].transform('first')
+        self.Spots['X coordinate'] = self.Spots['X coordinate'] - self.Spots.groupby(level=self.KEY_COLS)['X coordinate'].transform('first')
+        self.Spots['Y coordinate'] = self.Spots['Y coordinate'] - self.Spots.groupby(level=self.KEY_COLS)['Y coordinate'].transform('first')
 
-        self.Spots['r'] = np.sqrt(self.Spots['Xn']**2 + self.Spots['Yn']**2)
-        self.Spots['theta'] = np.arctan2(self.Spots['Yn'], self.Spots['Xn'])
+        self.Spots['r'] = np.sqrt(self.Spots['X coordinate']**2 + self.Spots['Y coordinate']**2)
+        self.Spots['theta'] = np.arctan2(self.Spots['Y coordinate'], self.Spots['X coordinate'])
 
-    def _get_radius(self):
-        self.y_max_global = float(np.nanmax(self.Spots['theta'].to_numpy())) if len(self.Spots['theta']) else 1.0
+    def _get_radius(self, alldata: pd.DataFrame):
+        """
+        Compute global maximum radius from (X, Y) positions.
+
+        Works with both:
+        - MultiIndex with levels ['Condition', 'Replicate', 'Track ID']
+        - Regular Index with those columns present.
+        """
+        if alldata.empty:
+            self.y_max_global = 100.0
+            self.y_max_label_global = "100 μm"
+            return
+
+        # Choose grouping mode based on index type
+        if isinstance(alldata.index, pd.MultiIndex) and list(alldata.index.names) == self.KEY_COLS:
+            group = alldata.groupby(level=self.KEY_COLS)
+        else:
+            # Fall back to grouping by columns
+            missing = [c for c in self.KEY_COLS if c not in alldata.columns]
+            if missing:
+                self.noticequeue.Report(
+                    Level.warning,
+                    'Invalid chart radius. Using default "100 μm".',
+                    f"Missing grouping columns for radius computation: {missing}.",
+                )
+                self.y_max_global = 100.0
+                self.y_max_label_global = "100 μm"
+                return
+            group = alldata.groupby(self.KEY_COLS)
+
+        x = alldata['X coordinate']
+        y = alldata['Y coordinate']
+        x0 = group['X coordinate'].transform('first')
+        y0 = group['Y coordinate'].transform('first')
+        r = np.sqrt((x - x0) ** 2 + (y - y0) ** 2)
+
+        self.y_max_global = r.max() + 10.0
+        self.y_max_label_global = f"{round(r.max()) + 10} μm"
+
+        if not np.isfinite(self.y_max_global):
+            self.noticequeue.Report(
+                Level.warning,
+                'Invalid chart radius. Setting to "100 μm."',
+                f"Maximum radius was not finite: {self.y_max_global}.",
+            )
+            self.y_max_global = 100.0
+        if not (self.y_max_global > 0):
+            self.noticequeue.Report(
+                Level.warning,
+                'Negative maximum radius. Setting to default "100 μm".',
+                f"Maximum radius was a negative value: {self.y_max_global}.",
+            )
+            self.y_max_global = 100.0
+            self.y_max_label_global = "100 μm"
         
-
     def _smooth(self):
         if isinstance(self.smoothing_index, (int, float)) and self.smoothing_index >= 1:
             _smoothing_window = self.smoothing_index
@@ -210,15 +261,22 @@ class ReconstructTracks:
                 # No need for a warning here -> already reported in _lut_map()
                 self.Tracks['Track color'] = mcolors.to_hex('black')
     
-    def _color_tracks(self):
+    def _color_tracks(self, polar: bool = False):
         """
         Build self.segments and self.segment_colors from self.Spots/self.Tracks.
 
+        Parameters
+        ----------
+        polar : bool
+            If False (default), use Cartesian coordinates (X/Y).
+            If True, use polar coordinates (theta/r), suitable for normalized
+            trajectory reconstruction plots.
+
         Logic:
-        - If Tracks has 'Track color' but Spots doesn't, join that column down to Spots on the MultiIndex.
-        - If Spots has 'Spot color', color segments per-spot (e.g. instantaneous LUT).
-        - Else if Spots has 'Track color', color each whole track with a single color.
-        - Else, draw all tracks in black as a fallback.
+        - If Tracks has 'Track color' but Spots doesn't, join it down.
+        - If Spots has 'Spot color', color per segment (ending spot).
+        - Else if Spots has 'Track color', color per whole track.
+        - Else, fall back to black.
         """
 
         # Ensure per-track colors are available on Spots when defined on Tracks
@@ -229,34 +287,47 @@ class ReconstructTracks:
                 validate='many_to_one',
             )
 
-        # Per-spot coloring (e.g. instantaneous speed LUT -> 'Spot color' on Spots)
+        # Select coordinate columns based on mode
+        if polar:
+            coord_cols = ('theta', 'r')
+        else:
+            coord_cols = ('X coordinate', 'Y coordinate')
+
+        # Convenience alias
+        segments = self.segments
+        seg_colors = self.segment_colors
+
+        # Per-spot coloring (instantaneous LUTs, e.g. speed)
         if 'Spot color' in self.Spots.columns:
-            for (cond, repl, tid), g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
-                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
-                if xy.shape[0] >= 2:
-                    cols = g['Spot color'].astype(str).to_numpy()
-                    for i in range(1, xy.shape[0]):
-                        self.segments.append(xy[i - 1:i + 1])
-                        self.segment_colors.append(cols[i])
+            for _, g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+                coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
+                cols = g['Spot color'].astype(str).to_numpy()
+                n = coords.shape[0]
 
-        # Per-track coloring using 'Track color' on Spots
+                if n >= 2:
+                    # Always build one segment per consecutive pair
+                    for i in range(1, n):
+                        segments.append(coords[i - 1:i + 1])
+                        # Color by ending spot
+                        seg_colors.append(cols[i])
+
         elif 'Track color' in self.Spots.columns:
-            for (cond, repl, tid), g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
-                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
-                if xy.shape[0] >= 2:
-                    self.segments.append(xy)
-                    self.segment_colors.append(g['Track color'].iloc[0])
+            for _, g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+                coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
+                if coords.shape[0] >= 2:
+                    segments.append(coords)
+                    seg_colors.append(g['Track color'].iloc[0])
 
-        # Fallback: no color info; draw black tracks
         else:
             default_col = mcolors.to_hex('black')
-            for (cond, repl, tid), g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
-                xy = g[['X coordinate', 'Y coordinate']].to_numpy(dtype=float, copy=False)
-                if xy.shape[0] >= 2:
-                    self.segments.append(xy)
-                    self.segment_colors.append(default_col)
+            for _, g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+                coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
+                if coords.shape[0] >= 2:
+                    segments.append(coords)
+                    seg_colors.append(default_col)
 
-    def _background(self):
+    # TODO: merge _cartesian_background func with _polar_background
+    def _cartesian_background(self):
         if self.background == 'white':
             self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'gainsboro', 'white', 0.5, '-.' if self.grid else 'None'
         elif self.background == 'light':
@@ -267,12 +338,32 @@ class ReconstructTracks:
             self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'grey', 'dimgrey', 0.5, '-.' if self.grid else 'None'
         elif self.background == 'black':
             self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'dimgrey', 'black', 0.5, '-.' if self.grid else 'None'
+
+    def _polar_background(self):
+        if self.background == 'white':
+            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'white', 'lightgrey', 0.7, 0.8
+        elif self.background == 'light':
+            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'lightgrey', 'darkgrey', 0.7, 0.6
+        elif self.background == 'mid':
+            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'darkgrey', 'dimgrey', 0.7, 0.5
+        elif self.background == 'dark':
+            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'dimgrey', 'grey', 0.7, 0.6
+        elif self.background == 'black':
+            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'black', 'dimgrey', 0.5, 0.4
     
-    def _head_markers(self, ax):
+    def _head_markers(self, ax, polar: bool = False):
+        """
+        Draw markers at track ends.
+
+        polar=False -> use Cartesian coordinates (X/Y).
+        polar=True  -> use polar coordinates (theta/r).
+        """
+        x_coord, y_coord = ('theta', 'r') if polar else ('X coordinate', 'Y coordinate')
+
         ends = self.Spots.groupby(level=self.KEY_COLS, sort=False).tail(1)
         if len(ends):
-            xe = ends['X coordinate'].to_numpy(dtype=float, copy=False)
-            ye = ends['Y coordinate'].to_numpy(dtype=float, copy=False)
+            xe = ends[x_coord].to_numpy(dtype=float, copy=False)
+            ye = ends[y_coord].to_numpy(dtype=float, copy=False)
 
             # Prefer per-spot colors if present, else per-track, else fallback to black
             if 'Spot color' in self.Spots.columns:
@@ -300,6 +391,41 @@ class ReconstructTracks:
         lc = LineCollection(self.segments, colors=self.segment_colors, linewidths=self.lw, zorder=10)
         ax.add_collection(lc)
 
+    def _polar_grid(self, ax):
+        if self.gridstyle in ['simple-1', 'simple-2']:
+            ax.xaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
+            ax.yaxis.grid(False)
+
+            if self.gridstyle == 'simple-1':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 != 0:
+                        line.set_color('none')
+            if self.gridstyle == 'simple-2':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 == 0:
+                        line.set_color('none')
+
+        if self.gridstyle in ['dartboard-1', 'dartboard-2']:
+            ax.grid(True, lw=0.75, color=self.grid_color, alpha=self.grid_a_alpha)
+            if self.gridstyle == 'dartboard-1':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 == 0:
+                        line.set_linestyle('-.'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+                for line in ax.get_ygridlines():
+                    line.set_linestyle('--'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+
+            if self.gridstyle == 'dartboard-2':
+                for i, line in enumerate(ax.get_xgridlines()):
+                    if i % 2 != 0:
+                        line.set_linestyle('-.'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+                for line in ax.get_ygridlines():
+                    line.set_linestyle('--'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+        elif self.gridstyle == 'spindle':
+            ax.xaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
+            ax.yaxis.grid(False)
+        elif self.gridstyle == 'radial':
+            ax.xaxis.grid(False)
+            ax.yaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
 
     def Realistic(self) -> plt.Figure:
 
@@ -307,8 +433,8 @@ class ReconstructTracks:
         if self.smoothing_index is not None and self.smoothing_index > 0:
             self._smooth()
         self._assign_colors()
-        self._color_tracks()
-        self._background()
+        self._color_tracks(polar=False)
+        self._cartesian_background()
 
         fig, ax = plt.subplots(figsize=(13, 10))
         if len(self.Spots):
@@ -322,7 +448,7 @@ class ReconstructTracks:
         ax.set_ylabel('Y coordinate [microns]')
         ax.set_title(self.title, fontsize=12)
         ax.set_facecolor(self.face_color)
-        ax.grid(self.grid, which='both', axis='both', color=self.grid_color, linestyle=self.grid_ls, linewidth=1, alpha=self.grid_alpha) if self.grid else ax.grid(False)
+        ax.grid(True, which='both', axis='both', color=self.grid_color, linestyle=self.grid_ls, linewidth=1, alpha=self.grid_alpha) if self.grid else ax.grid(False)
 
         # Ticks
         ax.xaxis.set_major_locator(MultipleLocator(200))
@@ -336,294 +462,45 @@ class ReconstructTracks:
         self._color_segments(ax)
         
         if self.mark_heads:
-            self._head_markers(ax)
+            self._head_markers(ax, polar=False)
 
         return plt.gcf()
     
-    def Normalized(self) -> plt.Figure:
+    def Normalized(self, all_data: pd.DataFrame) -> plt.Figure:
 
         self._arrange_data()
-        self._smooth()
+        if self.smoothing_index is not None and self.smoothing_index > 0:
+            self._smooth()
         self._assign_colors()
-        self._normalize_start()
-        self._color_tracks()
+        self._convert_polar()
+        self._get_radius(all_data)
+        self._color_tracks(polar=True)
+        self._polar_background()
 
+        fig, ax = plt.subplots(figsize=(12.5, 9.5), subplot_kw={'projection': 'polar'})
+        ax.set_title(self.title, fontsize=12)
+        ax.set_ylim(0, self.y_max_global)        # <- global, consistent across subsets
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.spines['polar'].set_visible(False)
 
+        if self.grid:
+            self._polar_grid(ax)
+        self._color_segments(ax)
+        if self.mark_heads:
+            self._head_markers(ax, polar=True)
 
-@staticmethod
-def VisualizeTracksNormalized(
-    Spots_df: pd.DataFrame,
-    Tracks_df: pd.DataFrame,
-    conditions: list,
-    replicates: list,
-    *args,
-    c_mode: str = 'differentiate replicates',
-    only_one_color: str = 'blue',
-    lut_scaling_metric: str = 'Track displacement',
-    smoothing_index: float = 0,
-    lw: float = 1.0,
-    background: str = 'white',
-    grid: bool = True,
-    grid_style: str = 'alternating 1',
-    mark_heads: bool = False,
-    marker: dict = {"symbol": "o", "fill": True},
-    markersize: int = 5,
-    title: str = 'Normalized Track Visualization',
-    **kwargs
-):
-    
-    noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
-    
-    # ----------------- copies / guards -----------------
-    # Spots_all = Spots_df.copy()
-    Spots = Spots_df.copy()
-    Tracks = Tracks_df.copy()
+        # ax.plot(0, self.y_max_global,
+        #         color='dimgray', marker='.', markersize=8)
 
-    if not conditions:
-        noticequeue.Report("warning", "No conditions selected! At at least one condition must be selected.")
-        return plt.gcf()
-    if not replicates:
-        noticequeue.Report("warning", "No replicates selected! At at least one replicate must be selected.")
+        # simply draw a dot
+        ax.scatter(0, self.y_max_global + 35, color='dimgray', marker='.', s=5, clip_on=False)
+        ax.text(0, self.y_max_global + 50, self.y_max_label_global, va='center',
+                fontsize=10, color='dimgray', clip_on=False)
+
         return plt.gcf()
 
-    Spots = Spots.loc[Spots['Condition'].isin(conditions)].loc[Spots['Replicate'].isin(replicates)]
-    Tracks = Tracks.loc[Tracks['Condition'].isin(conditions)].loc[Tracks['Replicate'].isin(replicates)]
 
-    sort_cols = ['Condition','Replicate','Track ID','Time point']
-    key_cols = ['Condition','Replicate','Track ID']
-    Spots = Spots.sort_values(sort_cols).set_index(key_cols, drop=True)
-    Tracks = Tracks.sort_values(['Condition','Replicate','Track ID']).set_index(key_cols, drop=True)
-
-    # ----------------- smoothing (subset) -----------------
-    if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
-        win = int(smoothing_index)
-        Spots['X coordinate'] = Spots.groupby(level=key_cols)['X coordinate'] \
-            .transform(lambda s: s.rolling(win, min_periods=1).mean())
-        Spots['Y coordinate'] = Spots.groupby(level=key_cols)['Y coordinate'] \
-            .transform(lambda s: s.rolling(win, min_periods=1).mean())
-
-    # ----------------- normalize (subset) -----------------
-    x0 = Spots.groupby(level=key_cols)['X coordinate'].transform('first')
-    y0 = Spots.groupby(level=key_cols)['Y coordinate'].transform('first')
-    Spots['Xn'] = Spots['X coordinate'] - x0
-    Spots['Yn'] = Spots['Y coordinate'] - y0
-
-    # ----------------- colors on Tracks, join to Spots -----------------
-    rng = np.random.default_rng(42)
-    track_index = Tracks.index.unique()
-
-    if c_mode in ['random colors', 'random greys', 'only-one-color']:
-        if c_mode == 'random colors':
-            cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(track_index))]
-        elif c_mode == 'random greys':
-            cols = [mcolors.to_hex((float(g), float(g), float(g))) for g in rng.random(len(track_index))]
-        else:
-            cols = [mcolors.to_hex(only_one_color)] * len(track_index)
-        Tracks['Track color'] = [dict(zip(track_index, cols))[idx] for idx in Tracks.index]
-
-    elif c_mode == 'differentiate replicates':
-        if 'Replicate color' in Tracks.columns:
-            Tracks['Track color'] = Tracks['Replicate color'].astype(str)
-        else:
-            reps = Tracks.reset_index()['Replicate'].unique().tolist()
-            rep_cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(reps))]
-            rep2col = dict(zip(reps, rep_cols))
-            Tracks = Tracks.reset_index()
-            Tracks['Track color'] = Tracks['Replicate'].map(rep2col)
-            Tracks = Tracks.set_index(key_cols)
-
-    else:
-        # interpret c_mode as a matplotlib cmap name
-        use_instantaneous = (lut_scaling_metric == 'Speed instantaneous')
-
-        if lut_scaling_metric in Tracks.columns and not use_instantaneous:
-            cmap = Colors.GetCmap(c_mode)
-            vmin = float(Tracks[lut_scaling_metric].min()) if lut_scaling_metric in Tracks.columns else 0.0
-            vmax = float(Tracks[lut_scaling_metric].max()) if lut_scaling_metric in Tracks.columns else 1.0
-            # guard against degenerate range
-            if not np.isfinite(vmin): vmin = 0.0
-            if not np.isfinite(vmax) or vmax <= vmin: vmax = vmin + 1.0
-            norm = plt.Normalize(vmin, vmax)
-            vals = Tracks[lut_scaling_metric].to_numpy() if lut_scaling_metric in Tracks.columns else np.zeros(len(Tracks))
-            Tracks['Track color'] = [mcolors.to_hex(cmap(norm(v))) for v in vals]
-
-        elif use_instantaneous:
-            # Color by instantaneous speed at each spot (ending segment)
-            colormap = Colors.GetCmap(c_mode)
-            if 'Distance' not in Spots.columns:
-                # Fallback: compute instantaneous distances if missing
-                g = Spots.groupby(level=key_cols)
-                d = np.sqrt(
-                    (g['X coordinate'].diff())**2 +
-                    (g['Y coordinate'].diff())**2
-                )
-                speed_end = d
-            else:
-                # Distance in Calc.Spots is from current -> next; shift to align with segment end
-                speed_end = Spots.groupby(level=key_cols)['Distance'].shift(1)
-
-            vmax = float(np.nanmax(speed_end.to_numpy())) if np.isfinite(speed_end.to_numpy()).any() else 1.0
-            vmin = 0.0
-            vmax = vmax if vmax > 0 else 1.0
-            norm = plt.Normalize(vmin, vmax)
-
-            # Color each spot by the speed of the segment that ends at this spot
-            Spots['Spot color'] = [
-                mcolors.to_hex(colormap(norm(v))) if np.isfinite(v) else mcolors.to_hex(colormap(0.0))
-                for v in speed_end.to_numpy()
-            ]
-
-    # Only join per-track colors when not using instantaneous LUT
-    if lut_scaling_metric != 'Speed instantaneous':
-        Spots = Spots.join(Tracks[['Track color']], on=key_cols, how='left', validate='many_to_one')
-
-    # ----------------- polar conversion (subset) -----------------
-    Spots['r'] = np.sqrt(Spots['Xn']**2 + Spots['Yn']**2)
-    Spots['theta'] = np.arctan2(Spots['Yn'], Spots['Xn'])
-
-    # ----------------- GLOBAL y_max from full dataset -----------------
-    All = Spots_all.sort_values(sort_cols).set_index(key_cols, drop=True)
-    if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
-        win = int(smoothing_index)
-        AllX = All.groupby(level=key_cols)['X coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
-        AllY = All.groupby(level=key_cols)['Y coordinate'].transform(lambda s: s.rolling(win, min_periods=1).mean())
-    else:
-        AllX, AllY = All['X coordinate'], All['Y coordinate']
-    AllX0 = AllX.groupby(level=key_cols).transform('first')
-    AllY0 = AllY.groupby(level=key_cols).transform('first')
-    All_r = np.sqrt((AllX - AllX0)**2 + (AllY - AllY0)**2)
-
-    y_max_global = float(np.nanmax(All_r.to_numpy())) if len(All_r) else 1.0
-    if not np.isfinite(y_max_global) or y_max_global <= 0:
-        y_max_global = 1.0
-    y_max = y_max_global * 1.1  # headroom
-
-    # ----------------- segments (subset) -----------------
-    segments, seg_colors = [], []
-    if lut_scaling_metric == 'Speed instantaneous':
-        # One segment per consecutive pair in polar coords, colored by ending spot color
-        for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
-            th = g['theta'].to_numpy(dtype=float, copy=False)
-            rr = g['r'].to_numpy(dtype=float, copy=False)
-            cols = g.get('Spot color', pd.Series(index=g.index, dtype=object)).astype(str).to_numpy()
-            n = th.size
-            if n >= 2:
-                for i in range(1, n):
-                    # segment from i-1 -> i
-                    segments.append(np.array([[th[i-1], rr[i-1]], [th[i], rr[i]]], dtype=float))
-                    # color by ending spot
-                    seg_colors.append(cols[i] if i < len(cols) else cols[-1] if len(cols) else 'black')
-    else:
-        # One polyline per track in polar coords, colored by track color
-        for (cond, repl, tid), g in Spots.groupby(level=key_cols, sort=False):
-            th = g['theta'].to_numpy(dtype=float, copy=False)
-            rr = g['r'].to_numpy(dtype=float, copy=False)
-            if th.size >= 2:
-                segments.append(np.column_stack([th, rr]))
-                seg_colors.append(g['Track color'].iloc[0])
-
-    # ----------------- figure / axes -----------------
-    fig, ax = plt.subplots(figsize=(12.5, 9.5), subplot_kw={'projection': 'polar'})
-    ax.set_title(title, fontsize=12)
-    ax.set_ylim(0, y_max)        # <- global, consistent across subsets
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
-    ax.spines['polar'].set_visible(False)
-    # ax.grid(grid)
-
-    # ----------------- draw tracks -----------------
-    if segments:
-        lc = LineCollection(segments, colors=seg_colors, linewidths=lw, zorder=10)
-        lc.set_transform(ax.transData)
-        ax.add_collection(lc)
-
-    # ----------------- arrows (optional) -----------------
-    if mark_heads:
-        ends = Spots.groupby(level=key_cols, sort=False).tail(1)
-        if len(ends):
-            th_e = ends['theta'].to_numpy(dtype=float, copy=False)
-            r_e = ends['r'].to_numpy(dtype=float, copy=False)
-            if lut_scaling_metric == 'Speed instantaneous':
-                cols = ends['Spot color'].astype(str).to_numpy()
-            else:
-                cols = ends['Track color'].astype(str).to_numpy()
-            m = np.isfinite(th_e) & np.isfinite(r_e)
-            if m.any():
-                ax.scatter(
-                    th_e[m],
-                    r_e[m],
-                    marker=marker["symbol"],
-                    s=markersize,
-                    edgecolor=cols[m],
-                    facecolor=cols[m] if marker["fill"] else "none",
-                    linewidths=lw,
-                    zorder=12,
-                )
-
-    # ----------------- subtle grid cosmetics -----------------
-    if background == 'white':
-        ax.set_facecolor('white')
-        _color, _alpha1, _alpha2 = 'lightgrey', 0.7, 0.8
-    elif background == 'light':
-        ax.set_facecolor('lightgrey')
-        _color, _alpha1, _alpha2 = 'darkgrey', 0.7, 0.6
-    elif background == 'mid':
-        ax.set_facecolor('darkgrey')
-        _color, _alpha1, _alpha2 = 'dimgrey', 0.7, 0.5
-    elif background == 'dark':
-        ax.set_facecolor('dimgrey')
-        _color, _alpha1, _alpha2 = 'grey', 0.7, 0.6
-    elif background == 'black':
-        ax.set_facecolor('black')
-        _color, _alpha1, _alpha2 = 'dimgrey', 0.5, 0.4
-
-    if grid:
-        if grid_style in ['simple-1', 'simple-2']:
-            ax.xaxis.grid(True, color=_color, linestyle='-', linewidth=1, alpha=_alpha1)
-            ax.yaxis.grid(False)
-
-            if grid_style == 'simple-1':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 != 0:
-                        line.set_color('none')
-            if grid_style == 'simple-2':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 == 0:
-                        line.set_color('none')
-
-        if grid_style in ['dartboard-1', 'dartboard-2']:
-            ax.grid(True, lw=0.75, color=_color, alpha=_alpha1)
-            if grid_style == 'dartboard-1':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 == 0:
-                        line.set_linestyle('-.'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha1)
-                for line in ax.get_ygridlines():
-                    line.set_linestyle('--'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha2)
-
-            if grid_style == 'dartboard-2':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 != 0:
-                        line.set_linestyle('-.'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha1)
-                for line in ax.get_ygridlines():
-                    line.set_linestyle('--'); line.set_color(_color); line.set_linewidth(0.75), line.set_alpha(_alpha2)
-        elif grid_style == 'spindle':
-            ax.xaxis.grid(True, color=_color, linestyle='-', linewidth=1, alpha=_alpha1)
-            ax.yaxis.grid(False)
-        elif grid_style == 'radial':
-            ax.xaxis.grid(False)
-            ax.yaxis.grid(True, color=_color, linestyle='-', linewidth=1, alpha=_alpha1)
-
-    elif not grid:
-        ax.grid(False)
-
-    # ----------------- μm label on the side (no line) -----------------
-    # Show the global radius (rounded) just outside the right edge, centered vertically.
-    label_um = f"{int(np.round(y_max_global))} μm"
-    ax.text(1.03, 0.5, label_um,
-            transform=ax.transAxes, ha='left', va='center',
-            fontsize=10, color='dimgray', clip_on=False)
-
-    return plt.gcf()
 
 @staticmethod
 def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):
