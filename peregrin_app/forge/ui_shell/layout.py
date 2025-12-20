@@ -266,7 +266,7 @@ app_ui = ui.page_sidebar(
                                 ui.row(
                                     ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode, width="250px"),
                                     ui.panel_conditional(
-                                        "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
+                                        "!['random greys', 'random colors', 'only-one-color', 'differentiate conditions', 'differentiate replicates'].includes(input.tracks_color_mode)",
                                         ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut, width="230px"),
                                     ),
                                     ui.panel_conditional(
@@ -275,10 +275,35 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.input_selectize("tracks_background", "Background:", Styles.Background, width="120px"),
                                 ),
-                                ui.panel_conditional(
-                                    "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
-                                    ui.input_checkbox(id="tracks_lutmap_extend_edges", label="Sharp edged LUT scale", value=True)
-                                ),
+                                ui.br(),
+                                ui.row(
+                                    ui.panel_conditional(
+                                        "['differentiate conditionas', 'differentiate replicates'].includes(input.tracks_color_mode)",
+                                        ui.div(ui.input_checkbox("tracks_use_stock_palette", "Use stock palette", True), style="margin-left: 20px; margin-right: 10px; margin-top: 5px;"),
+                                    ),
+                                    ui.panel_conditional(
+                                        "['differentiate conditionas', 'differentiate replicates'].includes(input.tracks_color_mode) && input.tracks_use_stock_palette == true",
+                                        ui.div(ui.input_selectize("tracks_stock_palette", None, Styles.PaletteQualitativeMatplotlib, width="200px"), style="margin-left: 10px; margin-right: 30px;"),
+                                    ),
+                                    ui.panel_conditional(
+                                        "!['random greys', 'random colors', 'only-one-color', 'differentiate conditionas', 'differentiate replicates'].includes(input.tracks_color_mode)",
+                                        ui.div(ui.input_checkbox("tracks_lutmap_scale_auto", "Auto scale LUT", True), style="margin-left: 20px; margin-right: 30px; margin-top: 5px;"),
+                                    ),
+                                    ui.panel_conditional(
+                                        "!['random greys', 'random colors', 'only-one-color', 'differentiate conditionas', 'differentiate replicates'].includes(input.tracks_color_mode) && input.tracks_lutmap_scale_auto == true",
+                                        ui.div(ui.output_text_verbatim(id="tracks_lutmap_auto_scale_info", placeholder=True), style="margin-left: 30px; margin-right: 30px;"),
+                                    ),
+                                    ui.panel_conditional(
+                                        "!['random greys', 'random colors', 'only-one-color', 'differentiate conditionas', 'differentiate replicates'].includes(input.tracks_color_mode) && input.tracks_lutmap_scale_auto == false",
+                                        ui.div(ui.markdown("LUT map scale range:"), style="margin-left: 30px; margin-right: 10px; margin-top: 5px;"),
+                                        ui.div(ui.input_numeric("tracks_lutmap_scale_min", None, 0, width="100px"), style="margin-left: 10px; margin-right: 10px;"),
+                                        ui.div(ui.input_numeric("tracks_lutmap_scale_max", None, 100, width="100px"), style="margin-left: 10px; margin-right: 30px;"),
+                                    ),
+                                    ui.panel_conditional(
+                                        "!['random greys', 'random colors', 'only-one-color', 'differentiate conditionas', 'differentiate replicates'].includes(input.tracks_color_mode)",
+                                        ui.div(ui.input_checkbox(id="tracks_lutmap_extend_edges", label="Sharp edged LUT scale", value=True), style="margin-left: 60px; margin-right: 20px; margin-top: 5px;")
+                                    )
+                                )
                             ),
                             class_="accordion02"
                         ),

@@ -1,3 +1,4 @@
+import math
 from os import path
 import seaborn as sns
 import numpy as np
@@ -159,6 +160,50 @@ class Values:
             return clamped
         
         return value
+    
+
+    @staticmethod
+    def RoundSigFigs(x, sigfigs: int = 5, **kwargs) -> float:
+        """
+        Round a number to a given number of significant figures.
+
+        Parameters
+        ----------
+        x : any
+            The value to round.
+        sig : int
+            Number of significant figures (default = 5).
+
+        Returns
+        -------
+        int, float, or None
+            Rounded value, or None if input is None.
+        """
+
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        if x is None:
+            return None
+
+        try:
+            x = float(x)
+
+        except (TypeError, ValueError) as e:
+            if noticequeue: noticequeue.Report(Level.Error, f"Cannot convert {type(x)}: {x} to float.", str(e))
+            return None
+        
+        except Exception as e:
+            if noticequeue: noticequeue.Report(Level.Error, f"Error converting {type(x)}: {x} to float.", str(e))
+            return None
+
+        if math.isnan(x) or math.isinf(x):
+            return x
+
+        if x == 0.0:
+            return 0.0
+
+        return round(x, sigfigs - int(math.floor(math.log10(abs(x)))) - 1)
+    
     
 
 

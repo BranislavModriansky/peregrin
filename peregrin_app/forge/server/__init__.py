@@ -35,6 +35,8 @@ def Server(input: Inputs, output: Outputs, session: Session):
     
     args = (input, output, session, S)
     kwargs = {'noticequeue': noticequeue}
+
+    args1 = args + (noticequeue,)
     
     mount_notifier(noticequeue)
 
@@ -48,10 +50,12 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_thresholds_info_export(*args)
 
 
-    MountTracks.realistic_reconstruction(*args, **kwargs)
-    MountTracks.polar_reconstruction(*args, **kwargs)
-    MountTracks.animated_reconstruction(*args, **kwargs)
-    MountTracks.lut_map(*args)
+    # MountTracks.realistic_reconstruction(*args, **kwargs)
+    # MountTracks.polar_reconstruction(*args, **kwargs)
+    # MountTracks.animated_reconstruction(*args, **kwargs)
+    # MountTracks.lut_map(*args)
+    # MountTracks()(*args1)
+    MountTracks(*args1)
     mount_superplots(*args, **kwargs)
     mount_plot_msd(*args, **kwargs)
 

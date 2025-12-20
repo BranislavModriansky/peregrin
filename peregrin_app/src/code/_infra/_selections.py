@@ -53,10 +53,8 @@ class Metrics:
         "Speed max",
         "Speed min",
         "Speed std",
-        "Direction mean (deg)",
-        "Direction mean (rad)",
-        "Direction std (deg)",
-        "Direction std (rad)",
+        "Direction mean",
+        "Direction sd",
     ]
 
     class Units:
@@ -87,10 +85,8 @@ class Metrics:
                 "Speed min": f"(µm·{t}⁻¹)",
                 "Speed std": f"(µm·{t}⁻¹)",
                 "Speed instantaneous": f"(µm·{t}⁻¹)",
-                "Direction mean (deg)": "",
-                "Direction mean (rad)": "",
-                "Direction std (deg)": "",
-                "Direction std (rad)": "",
+                "Direction mean": "",
+                "Direction sd": "",
             }
     
 
@@ -109,8 +105,7 @@ class Metrics:
             "Track points",
             "Speed mean",
             "Speed std",
-            "Direction mean (deg)",
-            "Direction mean (rad)",
+            "Direction mean",
         ]
 
         Properties = TrackProperties + SpotProperties
@@ -126,6 +121,7 @@ class Styles:
     ColorMode = [
         "random colors",
         "random greys",
+        "differentiate conditionas",
         "differentiate replicates",
         "only-one-color",
         "greyscale LUT",

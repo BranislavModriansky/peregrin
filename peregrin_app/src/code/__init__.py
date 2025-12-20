@@ -3,6 +3,7 @@ from ._infra._selections import *
 from ._infra._formats import *
 from ._compute._params import *
 from ._compute._filters import Threshold
+from ._plot._common import *
 from ._plot._tracks._reconstruct import (
     GetLutMap,
     Animated,
@@ -23,7 +24,7 @@ __all__ = [
     "Threshold",
     "GetLutMap", "Animated", "ReconstructTracks",
     "SwarmsAndBeyond", "Superviolins",
-    "Metrics", "Styles", "Markers", "Modes",
+    "Metrics", "Styles", "Markers", "Modes", "Values",
     "FilenameFormatExample",
     "frame_interval_ms",
     "Debounce", "Throttle",

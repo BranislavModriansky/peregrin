@@ -16,8 +16,9 @@ class ReconstructTracks:
     
     def __init__(self, Spots_df: pd.DataFrame, Tracks_df: pd.DataFrame, *args,
                  conditions: list, replicates: list, 
-                 c_mode: str, lut_scaling_stat: str, only_one_color: str,
-                 use_stock_palette: bool, stock_palette: None |str,
+                 c_mode: str, only_one_color: str,
+                 use_stock_palette: None | bool, stock_palette: None | str,
+                 lut_scaling_stat: str, custom_lut_scaling: bool,
                  lut_vmin: None | float, lut_vmax: None | float,
                  smoothing_index: int, lw: float,
                  mark_heads: bool, marker: dict, markersize: float,
@@ -37,8 +38,8 @@ class ReconstructTracks:
 
         self.only_one_color = only_one_color
         self.stock_palette = stock_palette if use_stock_palette else None
-        self.lut_vmin = lut_vmin
-        self.lut_vmax = lut_vmax
+        self.lut_vmin = lut_vmin if custom_lut_scaling else None
+        self.lut_vmax = lut_vmax if custom_lut_scaling else None
         self.smoothing_index = smoothing_index
         self.lw = lw
         self.mark_heads = mark_heads
@@ -500,12 +501,116 @@ class ReconstructTracks:
 
         return plt.gcf()
 
+    def GetLutMap(self, units: dict | None = None, _extend: bool = True) -> plt.Figure | None:
+        """
+        Create a color guide for the current color mode:
+
+        - For continuous LUT modes: a scalar colorbar (same scaling as tracks).
+        - For 'differentiate replicates' / 'differentiate conditions':
+          a qualitative legend mapping category -> color.
+
+        Parameters
+        ----------
+        units : dict, optional
+            Mapping from metric name (e.g. 'Net distance') to unit string
+            (e.g. 'μm'). For 'Speed instantaneous', the key should be the
+            original name (e.g. 'Speed instantaneous'), not 'Distance'.
+        _extend : bool, optional
+            Whether to extend the colorbar at both ends (continuous modes).
+
+        Returns
+        -------
+        matplotlib.figure.Figure or None
+            The created figure, or None if no guide is appropriate.
+        """
+        units = units or {}
+
+        # Ensure data and colors are ready
+        if self.Spots is None or self.Tracks is None:
+            self._arrange_data()
+        if 'Track color' not in self.Tracks.columns and 'Spot color' not in self.Spots.columns:
+            self._assign_colors()
+
+        # Modes where a LUT / legend is not meaningful
+        if self.c_mode in ['random colors', 'random greys', 'only-one-color']:
+            return None
+
+        # Qualitative legend for categorical modes
+        if self.c_mode in ['differentiate replicates', 'differentiate conditions']:
+            if self.c_mode == 'differentiate replicates':
+                category_col = 'Replicate'
+            else:
+                category_col = 'Condition'
+
+            df = self.Tracks.reset_index()
+
+            if category_col not in df.columns or 'Track color' not in df.columns:
+                return None
+
+            # Preserve first-seen order of categories
+            seen: dict = {}
+            for _, row in df[[category_col, 'Track color']].dropna().iterrows():
+                key = row[category_col]
+                if key not in seen:
+                    seen[key] = row['Track color']
+
+            if not seen:
+                return None
+
+            labels = list(seen.keys())
+            colors = list(seen.values())
+
+            fig, ax = plt.subplots(figsize=(2.5, 0.4 * len(labels) + 0.6))
+            ax.axis('off')
+
+            handles = [
+                plt.Line2D([0], [0], color=c, lw=4)
+                for c in colors
+            ]
+            ax.legend(
+                handles,
+                labels,
+                loc='center left',
+                frameon=False,
+            )
+            fig.tight_layout()
+            return fig
+
+        # Continuous LUT colorbar for other colormap modes
+        norm, _vals = self._lut_map(self.lut_scaling_stat)
+        if norm is None:
+            return None
+
+        colormap = Colors.GetCmap(self.c_mode)
+
+        sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
+        sm.set_array([])
+
+        fig_lut, ax_lut = plt.subplots(figsize=(2, 6))
+        ax_lut.axis('off')
+        cbar = fig_lut.colorbar(
+            sm,
+            ax=ax_lut,
+            orientation='vertical',
+            extend='both' if _extend else 'neither',
+        )
+
+        # Use the user-visible metric name for labeling (e.g. 'Speed instantaneous')
+        label_metric = self.lut_scaling_original
+        unit = units.get(label_metric, "")
+        if unit:
+            cbar.set_label(f"{label_metric} {unit}", fontsize=10)
+        else:
+            cbar.set_label(f"{label_metric}", fontsize=10)
+
+        return fig_lut
+
 # TODO: integrate Lut Map generator and animated track viz into ReconstructTracks class
 
 @staticmethod
 def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):
 
-    if c_mode not in ['random colors', 'random greys', 'only-one-color', 'diferentiate replicates']:
+    if c_mode not in ['random colors', 'random greys', 'only-one-color', 'diferentiate replicates', 'differentiate conditions']:
 
         if lut_scaling_metric != 'Speed instantaneous':
             lut_norm_df = Tracks_df[[lut_scaling_metric]].drop_duplicates()
@@ -863,3 +968,9 @@ class Animated:
         return rgb, out_params
 
 
+    def GetLutMap(
+        self,
+        units: dict | None = None,
+        _extend: bool = True
+    ) -> plt.Figure | None:
+        pass
