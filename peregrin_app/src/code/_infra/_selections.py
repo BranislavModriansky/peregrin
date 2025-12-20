@@ -121,7 +121,7 @@ class Styles:
     ColorMode = [
         "random colors",
         "random greys",
-        "differentiate conditionas",
+        "differentiate conditions",
         "differentiate replicates",
         "only-one-color",
         "greyscale LUT",
