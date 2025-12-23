@@ -5,7 +5,6 @@ from ._compute._params import *
 from ._compute._filters import Threshold
 from ._plot._common import *
 from ._plot._tracks._reconstruct import (
-    GetLutMap,
     Animated,
     ReconstructTracks
 )

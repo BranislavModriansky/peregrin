@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import GetLutMap, Markers, frame_interval_ms, Animated, ReconstructTracks, Values
+from src.code import Markers, frame_interval_ms, Animated, ReconstructTracks, Values
 
 import numpy as np
 from io import BytesIO
@@ -100,11 +100,12 @@ def MountTracks(input, output, session, S, noticequeue):
             smoothing_index=input.tracks_smoothing_index(),
             lw=input.tracks_line_width(),
             grid=input.tracks_show_grid(),
+            gridstyle=input.tracks_grid_style(),
             mark_heads=input.tracks_mark_heads(),
             marker=Markers.TrackHeads.get(input.tracks_marker_type()),
             markersize=input.tracks_marks_size() * 10,
             title=input.tracks_title(),
-            custom_lut_scaling=input.tracks_lutmap_scale_auto(), # TODO: not pass this arg and work with it as in the lut min max value setting, only in the forge (front-end of the app)
+            auto_lut_scaling=input.tracks_lutmap_scale_auto(), # TODO: not pass this arg and work with it as in the lut min max value setting, only in the forge (front-end of the app)
             lut_vmin=input.tracks_lutmap_scale_min(),
             lut_vmax=input.tracks_lutmap_scale_max(),
             use_stock_palette=input.tracks_use_stock_palette(), # TODO: not pass this arg and work with it as in the lut min max value setting, only in the forge (front-end of the app)
@@ -180,7 +181,7 @@ def MountTracks(input, output, session, S, noticequeue):
                     message="Starting a Matplotlib GUI outside of the main thread will likely fail",
                     category=UserWarning,
                 )
-                return ReconstructTracks(**_kwargs).Normalized(all_data=S.SPOTSTATS.get())
+                return ReconstructTracks(**_kwargs).Normalized(_kwargs.get("Spots_df", None))
 
         return await asyncio.get_running_loop().run_in_executor(None, _build)
 
@@ -228,306 +229,21 @@ def MountTracks(input, output, session, S, noticequeue):
                 yield buffer.getvalue()
 
 
+    @render.download(filename=f"Lut Map {date.today()}.svg")
+    def download_lut_map_svg():
+        req(
+            S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
+            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+            and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
+        )
 
+        kwargs = _reconstruct_tracks_kwargs()
+        fig = ReconstructTracks(**kwargs).GetLutMap(units=S.UNITS.get(), _extend=input.tracks_lutmap_extend_edges())
 
-# class MountTracks:
-
-
-#     def LutMap(input, output, session, S, noticequeue):
-
-#         @output)
-#         @render.text
-#         def tracks_lutmap_auto_scale_info():
-#             req(
-#                 S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-#                 and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-#                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-#             )
-
-#             lut_scaling_metric = input.tracks_lut_scaling_metric()
-#             conditions = input.conditions_tr()
-#             replicates = input.replicates_tr()
-
-#             filtered_spots = S.SPOTSTATS.get()[
-#                 S.SPOTSTATS.get()["Condition"].isin(conditions) &
-#                 S.SPOTSTATS.get()["Replicate"].isin(replicates)
-#             ]
-
-#             if filtered_spots.empty or lut_scaling_metric not in filtered_spots.columns:
-#                 return "No data available for the selected conditions/replicates."
-
-#             min_val = filtered_spots[lut_scaling_metric].min()
-#             max_val = filtered_spots[lut_scaling_metric].max()
-
-#             return f"Auto-scaled LUT range: {min_val:.3f} to {max_val:.3f}"
-
-
-
-#     def realistic_reconstruction(input, output, session, S, noticequeue):
-#         @reactive.Effect
-#         @reactive.event(S.TRACKSTATS)
-#         def update_choices():
-#             if S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty:
-#                 return
-#             ui.update_selectize(id="conditions_tr", choices=S.TRACKSTATS.get()["Condition"].unique().tolist(), selected=S.TRACKSTATS.get()["Condition"].unique().tolist()[0] if S.TRACKSTATS.get()["Condition"].unique().tolist() else None)
-#             ui.update_selectize(id="replicates_tr", choices=S.TRACKSTATS.get()["Replicate"].unique().tolist(), selected=S.TRACKSTATS.get()["Replicate"].unique().tolist() if S.TRACKSTATS.get()["Replicate"].unique().tolist() else None)
-
-#         @ui.bind_task_button(button_id="trr_generate")
-#         @reactive.extended_task
-#         async def output_track_reconstruction_realistic(
-#             Spots_df,
-#             Tracks_df,
-#             conditions,
-#             replicates,
-#             c_mode,
-#             only_one_color,
-#             lut_scaling_metric,
-#             background,
-#             smoothing_index,
-#             lw,
-#             grid,
-#             mark_heads,
-#             marker,
-#             markersize,
-#             title
-#         ):
-            
-#             # run sync plotting off the event loop
-#             def _build():
-#                 with warnings.catch_warnings():
-#                     warnings.filterwarnings(
-#                         "ignore",
-#                         message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-#                         category=UserWarning,
-#                     )
-
-#                     return ReconstructTracks(
-#                         Spots_df=Spots_df,
-#                         Tracks_df=Tracks_df,
-#                         conditions=conditions,
-#                         replicates=replicates,
-#                         c_mode=c_mode,
-#                         only_one_color=only_one_color,
-#                         lut_scaling_stat=lut_scaling_metric,
-#                         background=background,
-#                         smoothing_index=smoothing_index,
-#                         lw=lw,
-#                         grid=grid,
-#                         mark_heads=mark_heads,
-#                         marker=marker,
-#                         markersize=markersize,
-#                         title=title,
-#                         noticequeue=noticequeue,
-#                         lut_vmin=None,
-#                         lut_vmax=None,
-#                         use_stock_palette=True,
-#                         stock_palette="Set2"
-#                     ).Realistic()
-
-#             # Either form is fine; pick one:
-#             return await asyncio.get_running_loop().run_in_executor(None, _build)
-#             # return await asyncio.to_thread(_build)
-        
-#         @reactive.Effect
-#         @reactive.event(input.trr_generate, ignore_none=False)
-#         def _():
-                
-#             output_track_reconstruction_realistic.cancel()
-
-#             req(
-#                 S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty 
-#                 and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-#                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-#             )
-
-#             output_track_reconstruction_realistic(
-#                 Spots_df=S.SPOTSTATS.get(),
-#                 Tracks_df=S.TRACKSTATS.get(),
-#                 conditions=input.conditions_tr(),
-#                 replicates=input.replicates_tr(),
-#                 c_mode=input.tracks_color_mode(),
-#                 only_one_color=input.tracks_only_one_color(),
-#                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
-#                 background=input.tracks_background(),
-#                 smoothing_index=input.tracks_smoothing_index(),
-#                 lw=input.tracks_line_width(),
-#                 grid=input.tracks_show_grid(),
-#                 mark_heads=input.tracks_mark_heads(),
-#                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
-#                 markersize=input.tracks_marks_size()*10,
-#                 title=input.tracks_title(),
-#             )
-
-#         @render.plot
-#         def track_reconstruction_realistic():
-#             return output_track_reconstruction_realistic.result()
-
-#         @render.download(filename=f"Realistic Track Reconstruction {date.today()}.svg")
-#         def trr_download():
-#             req(
-#                 S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-#                 and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-#                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-#             )
-
-#             fig = ReconstructTracks(
-#                 Spots_df=S.SPOTSTATS.get(),
-#                 Tracks_df=S.TRACKSTATS.get(),
-#                 conditions=input.conditions_tr(),
-#                 replicates=input.replicates_tr(),
-#                 c_mode=input.tracks_color_mode(),
-#                 only_one_color=input.tracks_only_one_color(),
-#                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
-#                 background=input.tracks_background(),
-#                 smoothing_index=input.tracks_smoothing_index(),
-#                 lw=input.tracks_line_width(),
-#                 grid=input.tracks_show_grid(),
-#                 mark_heads=input.tracks_mark_heads(),
-#                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
-#                 markersize=input.tracks_marks_size()*10,
-#                 title=input.tracks_title(),
-#                 lut_vmin=None,
-#                 lut_vmax=None,
-#                 use_stock_palette=True,
-#                 stock_palette="Set2"
-#             ).Realistic()
-
-#             if fig is not None:
-#                 with io.BytesIO() as buffer:
-#                     fig.savefig(buffer, format="svg", bbox_inches="tight")
-#                     yield buffer.getvalue()
-
-
-#     def polar_reconstruction(input, output, session, S, noticequeue):
-
-#         @ui.bind_task_button(button_id="tnr_generate")
-#         @reactive.extended_task
-#         async def output_track_reconstruction_normalized(
-#             Spots_df,
-#             Tracks_df,
-#             conditions,
-#             replicates,
-#             c_mode,
-#             only_one_color,
-#             lut_scaling_metric,
-#             smoothing_index,
-#             lw,
-#             background,
-#             grid,
-#             grid_style,
-#             mark_heads,
-#             marker,
-#             markersize,
-#             title
-#         ):
-            
-#             # run sync plotting off the event loop
-#             def _build():
-#                 with warnings.catch_warnings():
-#                     warnings.filterwarnings(
-#                         "ignore",
-#                         message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-#                         category=UserWarning,
-#                     )
-
-#                     return ReconstructTracks(
-#                         Spots_df=Spots_df,
-#                         Tracks_df=Tracks_df,
-#                         conditions=conditions,
-#                         replicates=replicates,
-#                         c_mode=c_mode,
-#                         only_one_color=only_one_color,
-#                         lut_scaling_stat=lut_scaling_metric,
-#                         background=background,
-#                         smoothing_index=smoothing_index,
-#                         lw=lw,
-#                         grid=grid,
-#                         mark_heads=mark_heads,
-#                         marker=marker,
-#                         markersize=markersize,
-#                         title=title,
-#                         noticequeue=noticequeue,
-#                         lut_vmin=None,
-#                         lut_vmax=None,
-#                         use_stock_palette=True,
-#                         stock_palette="Set2",
-#                         gridstyle=grid_style
-#                     ).Normalized(all_data=Spots_df)
-
-#             # Either form is fine; pick one:
-#             return await asyncio.get_running_loop().run_in_executor(None, _build)
-#             # return await asyncio.to_thread(build)
-
-#         @reactive.Effect
-#         @reactive.event(input.tnr_generate, ignore_none=False)
-#         def _():
-                
-#             output_track_reconstruction_normalized.cancel()
-
-#             req(
-#                 S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-#                 and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-#                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-#             )
-
-#             output_track_reconstruction_normalized(
-#                 Spots_df=S.SPOTSTATS.get(),
-#                 Tracks_df=S.TRACKSTATS.get(),
-#                 conditions=input.conditions_tr(),
-#                 replicates=input.replicates_tr(),
-#                 c_mode=input.tracks_color_mode(),
-#                 only_one_color=input.tracks_only_one_color(),
-#                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
-#                 smoothing_index=input.tracks_smoothing_index(),
-#                 lw=input.tracks_line_width(),
-#                 background=input.tracks_background(),
-#                 grid=input.tracks_show_grid(),
-#                 grid_style=input.tracks_grid_style(),
-#                 mark_heads=input.tracks_mark_heads(),
-#                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
-#                 markersize=input.tracks_marks_size()*10,
-#                 title=input.tracks_title()
-#             )
-
-#         @render.plot
-#         def track_reconstruction_normalized():
-#             return output_track_reconstruction_normalized.result()
-
-#         @render.download(filename=f"Normalized Track Reconstruction {date.today()}.svg")
-#         def tnr_download():
-#             req(
-#                 S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-#                 and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-#                 and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-#             )
-
-#             fig = ReconstructTracks(
-#                 Spots_df=S.SPOTSTATS.get(),
-#                 Tracks_df=S.TRACKSTATS.get(),
-#                 conditions=input.conditions_tr(),
-#                 replicates=input.replicates_tr(),
-#                 c_mode=input.tracks_color_mode(),
-#                 only_one_color=input.tracks_only_one_color(),
-#                 lut_scaling_metric=input.tracks_lut_scaling_metric(),
-#                 smoothing_index=input.tracks_smoothing_index(),
-#                 lw=input.tracks_line_width(),
-#                 background=input.tracks_background(),
-#                 grid=input.tracks_show_grid(),
-#                 gridstyle=input.tracks_grid_style(),
-#                 mark_heads=input.tracks_mark_heads(),
-#                 marker=Markers.TrackHeads.get(input.tracks_marker_type()),
-#                 markersize=input.tracks_marks_size()*10,
-#                 title=input.tracks_title(),
-#                 lut_vmin=None,
-#                 lut_vmax=None,
-#                 use_stock_palette=True,
-#                 stock_palette="Set2"
-#             ).Normalized(all_data=S.SPOTSTATS.get())
-
-#             if fig is not None:
-#                 with io.BytesIO() as buffer:
-#                     fig.savefig(buffer, format="svg", bbox_inches="tight")
-#                     yield buffer.getvalue()
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
 
     
 #     def lut_map(input, output, session, S):

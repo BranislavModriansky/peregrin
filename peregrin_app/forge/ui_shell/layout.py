@@ -377,7 +377,7 @@ app_ui = ui.page_sidebar(
                         )
                     ),
                     ui.panel_conditional(
-                        "input.tracks_color_mode != 'random greys' && input.tracks_color_mode != 'random colors' && input.tracks_color_mode != 'only-one-color' && input.tracks_color_mode != 'differentiate replicates'",
+                        "!['random greys', 'random colors', 'only-one-color'].includes(input.tracks_color_mode)",
                         ui.markdown(""" <p></p> """),
                         ui.download_button(id="download_lut_map_svg", label="Download LUT Map SVG", width="100%"),
                     ),

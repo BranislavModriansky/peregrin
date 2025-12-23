@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from .._common import Colors, Categorizer
+from .._common import Colors, Categorizer, Values
 from io import BytesIO
 from ..._handlers._reports import Level
 from ..._infra._selections import Metrics
@@ -15,16 +15,16 @@ from ..._infra._selections import Metrics
 class ReconstructTracks:
     
     def __init__(self, Spots_df: pd.DataFrame, Tracks_df: pd.DataFrame, *args,
-                 conditions: list, replicates: list, 
+                 conditions: list, replicates: list,
                  c_mode: str, only_one_color: str,
                  use_stock_palette: None | bool, stock_palette: None | str,
-                 lut_scaling_stat: str, custom_lut_scaling: bool,
+                 lut_scaling_stat: str, auto_lut_scaling: bool,
                  lut_vmin: None | float, lut_vmax: None | float,
                  smoothing_index: int, lw: float,
                  mark_heads: bool, marker: dict, markersize: float,
                  background: str, grid: bool,
                  title: None | str, **kwargs):
-        
+
         self.Spots_df = Spots_df
         self.Tracks_df = Tracks_df
         self.conditions = conditions
@@ -38,8 +38,8 @@ class ReconstructTracks:
 
         self.only_one_color = only_one_color
         self.stock_palette = stock_palette if use_stock_palette else None
-        self.lut_vmin = lut_vmin if custom_lut_scaling else None
-        self.lut_vmax = lut_vmax if custom_lut_scaling else None
+        self.lut_vmin = lut_vmin if not auto_lut_scaling else None
+        self.lut_vmax = lut_vmax if not auto_lut_scaling else None
         self.smoothing_index = smoothing_index
         self.lw = lw
         self.mark_heads = mark_heads
@@ -50,12 +50,8 @@ class ReconstructTracks:
         self.title = title
         self.noticequeue = kwargs.get('noticequeue', None)
         self.gridstyle = kwargs.get('gridstyle', 'simple-1')
-        # self.y_max_global = kwargs.get('y_max_global', 1.0)
-
         self.Spots, self.Tracks = None, None
-
         self.segments, self.segment_colors = [], []
-
         self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = None, None, None, None
 
     KEY_COLS = ['Condition', 'Replicate', 'Track ID']
@@ -164,51 +160,6 @@ class ReconstructTracks:
             )
         else:
             self.noticequeue.Report(Level.warning, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1. {type(self.smoothing_index)}: {self.smoothing_index}.")
-        
-    def _lut_map(self, stat: str):
-
-        data = self.Tracks if stat in self.Tracks.columns else self.Spots
-
-        try:
-
-            if self.lut_vmin is None: 
-                lut_vmin = float(data[stat].min())
-            else:
-                lut_vmin = self.lut_vmin
-            if self.lut_vmax is None: 
-                lut_vmax = float(data[stat].max())
-            else:
-                lut_vmax = self.lut_vmax
-
-            if not (np.isfinite(lut_vmax) or np.isfinite(lut_vmin)):
-                self.noticequeue.Report(
-                    Level.warning, 
-                    f"Invalid LUT range. Minimum and maximum values must be finite numbers. Using default range (0.0, 1.0).", 
-                    f"min is finite: {np.isfinite(self.lut_vmin)}; max is finite: {np.isfinite(self.lut_vmax)}. \
-                    min: {self.lut_vmin} {'-> 0.0' if not np.isfinite(self.lut_vmin) else ''}; max: {self.lut_vmax} {'-> 1.0' if not np.isfinite(self.lut_vmax) else ''}."
-                )
-                if not np.isfinite(lut_vmin):
-                    lut_vmin = 0.0
-                if not np.isfinite(lut_vmax):
-                    lut_vmax = 1.0
-                
-            
-            if lut_vmin > lut_vmax:
-                self.noticequeue.Report(
-                    Level.warning, 
-                    f"Invalid LUT range. Minimum value must not be greater than maximum value. Values will be swapped.", 
-                    f"min: {lut_vmin}; max: {lut_vmax} -> min: {lut_vmax}; max: {lut_vmin}."
-                )
-                lut_vmin, lut_vmax = lut_vmax, lut_vmin
-            
-            norm = plt.Normalize(lut_vmin, lut_vmax)
-            vals = data[self.lut_scaling_stat].to_numpy()
-
-            return norm, vals
-        
-        except Exception as e:
-            self.noticequeue.Report(Level.warning, f"Error computing LUT map. No LUT applied.", f"LUT map error: {str(e)}.")
-            return None, None
 
     def _assign_colors(self):
         rng = np.random.default_rng(42)
@@ -248,7 +199,7 @@ class ReconstructTracks:
 
         else:
             self.cmap = Colors.GetCmap(self.c_mode)
-            norm, vals = self._lut_map(self.lut_scaling_stat)
+            norm, vals = Values.LutMapper(self.Tracks if self.lut_scaling_stat in self.Tracks.columns else self.Spots, self.lut_scaling_stat, min=self.lut_vmin, max=self.lut_vmax, noticequeue=self.noticequeue)
 
             if not (norm is None or vals is None):
 
@@ -259,7 +210,6 @@ class ReconstructTracks:
                     self.Spots['Spot color'] = [mcolors.to_hex(self.cmap(norm(v))) for v in vals]
 
             else:
-                # No need for a warning here -> already reported in _lut_map()
                 self.Tracks['Track color'] = mcolors.to_hex('black')
     
     def _color_tracks(self, polar: bool = False):
@@ -327,31 +277,72 @@ class ReconstructTracks:
                     segments.append(coords)
                     seg_colors.append(default_col)
 
-    # TODO: merge _cartesian_background func with _polar_background
-    def _cartesian_background(self):
-        if self.background == 'white':
-            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'gainsboro', 'white', 0.5, '-.' if self.grid else 'None'
-        elif self.background == 'light':
-            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'silver', 'lightgrey', 0.5, '-.' if self.grid else 'None'
-        elif self.background == 'mid':
-            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'silver', 'darkgrey', 0.5, '-.' if self.grid else 'None'
-        elif self.background == 'dark':
-            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'grey', 'dimgrey', 0.5, '-.' if self.grid else 'None'
-        elif self.background == 'black':
-            self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = 'dimgrey', 'black', 0.5, '-.' if self.grid else 'None'
+    def _background_color(self):
+        if self.background == 'white':    self.face_color = 'white'
+        elif self.background == 'light':  self.face_color = 'lightgrey'
+        elif self.background == 'mid':    self.face_color = 'darkgrey'
+        elif self.background == 'dark':   self.face_color = 'dimgrey'
+        elif self.background == 'black':  self.face_color = 'black'
 
-    def _polar_background(self):
-        if self.background == 'white':
-            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'white', 'lightgrey', 0.7, 0.8
-        elif self.background == 'light':
-            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'lightgrey', 'darkgrey', 0.7, 0.6
-        elif self.background == 'mid':
-            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'darkgrey', 'dimgrey', 0.7, 0.5
-        elif self.background == 'dark':
-            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'dimgrey', 'grey', 0.7, 0.6
-        elif self.background == 'black':
-            self.face_color, self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'black', 'dimgrey', 0.5, 0.4
-    
+    def _grid_color(self, coord_system: str = 'cartesian'):
+
+        if coord_system == 'cartesian':
+            if self.background == 'white':    self.grid_color, self.grid_alpha = 'gainsboro', 0.5
+            elif self.background == 'light':  self.grid_color, self.grid_alpha = 'silver', 0.5
+            elif self.background == 'mid':    self.grid_color, self.grid_alpha = 'silver', 0.5
+            elif self.background == 'dark':   self.grid_color, self.grid_alpha = 'grey', 0.5
+            elif self.background == 'black':  self.grid_color, self.grid_alpha = 'dimgrey', 0.5
+
+        elif coord_system == 'polar':
+            if self.background == 'white':    self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'lightgrey', 0.7, 0.8
+            elif self.background == 'light':  self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'darkgrey', 0.7, 0.6
+            elif self.background == 'mid':    self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'dimgrey', 0.7, 0.5
+            elif self.background == 'dark':   self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'grey', 0.7, 0.6
+            elif self.background == 'black':  self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'dimgrey', 0.5, 0.4
+
+    def _grid_style(self, ax: plt.Axes, coord_system: str = 'cartesian'):
+
+        if coord_system == 'cartesian':
+            self.grid_ls = '-.'
+            ax.grid(True, which='both', axis='both', color=self.grid_color, linestyle=self.grid_ls, linewidth=1, alpha=self.grid_alpha)
+        
+        elif coord_system == 'polar':
+            if self.gridstyle in ['simple-1', 'simple-2']:
+                ax.xaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
+                ax.yaxis.grid(False)
+
+                if self.gridstyle == 'simple-1':
+                    for i, line in enumerate(ax.get_xgridlines()):
+                        if i % 2 != 0:
+                            line.set_color('none')
+                if self.gridstyle == 'simple-2':
+                    for i, line in enumerate(ax.get_xgridlines()):
+                        if i % 2 == 0:
+                            line.set_color('none')
+
+            if self.gridstyle in ['dartboard-1', 'dartboard-2']:
+                ax.grid(True, lw=0.75, color=self.grid_color, alpha=self.grid_a_alpha)
+                if self.gridstyle == 'dartboard-1':
+                    for i, line in enumerate(ax.get_xgridlines()):
+                        if i % 2 == 0:
+                            line.set_linestyle('-.'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+                    for line in ax.get_ygridlines():
+                        line.set_linestyle('--'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+
+                if self.gridstyle == 'dartboard-2':
+                    for i, line in enumerate(ax.get_xgridlines()):
+                        if i % 2 != 0:
+                            line.set_linestyle('-.'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+                    for line in ax.get_ygridlines():
+                        line.set_linestyle('--'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
+            elif self.gridstyle == 'spindle':
+                ax.xaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
+                ax.yaxis.grid(False)
+            elif self.gridstyle == 'radial':
+                ax.xaxis.grid(False)
+                ax.yaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
+
+
     def _head_markers(self, ax, polar: bool = False):
         """
         Draw markers at track ends.
@@ -392,42 +383,6 @@ class ReconstructTracks:
         lc = LineCollection(self.segments, colors=self.segment_colors, linewidths=self.lw, zorder=10)
         ax.add_collection(lc)
 
-    def _polar_grid(self, ax):
-        if self.gridstyle in ['simple-1', 'simple-2']:
-            ax.xaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
-            ax.yaxis.grid(False)
-
-            if self.gridstyle == 'simple-1':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 != 0:
-                        line.set_color('none')
-            if self.gridstyle == 'simple-2':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 == 0:
-                        line.set_color('none')
-
-        if self.gridstyle in ['dartboard-1', 'dartboard-2']:
-            ax.grid(True, lw=0.75, color=self.grid_color, alpha=self.grid_a_alpha)
-            if self.gridstyle == 'dartboard-1':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 == 0:
-                        line.set_linestyle('-.'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
-                for line in ax.get_ygridlines():
-                    line.set_linestyle('--'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
-
-            if self.gridstyle == 'dartboard-2':
-                for i, line in enumerate(ax.get_xgridlines()):
-                    if i % 2 != 0:
-                        line.set_linestyle('-.'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
-                for line in ax.get_ygridlines():
-                    line.set_linestyle('--'); line.set_color(self.grid_color); line.set_linewidth(0.75), line.set_alpha(self.grid_a_alpha)
-        elif self.gridstyle == 'spindle':
-            ax.xaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
-            ax.yaxis.grid(False)
-        elif self.gridstyle == 'radial':
-            ax.xaxis.grid(False)
-            ax.yaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
-
     def Realistic(self) -> plt.Figure:
 
         self._arrange_data()    
@@ -435,7 +390,6 @@ class ReconstructTracks:
             self._smooth()
         self._assign_colors()
         self._color_tracks(polar=False)
-        self._cartesian_background()
 
         fig, ax = plt.subplots(figsize=(13, 10))
         if len(self.Spots):
@@ -448,8 +402,7 @@ class ReconstructTracks:
         ax.set_xlabel('X coordinate [microns]')
         ax.set_ylabel('Y coordinate [microns]')
         ax.set_title(self.title, fontsize=12)
-        ax.set_facecolor(self.face_color)
-        ax.grid(True, which='both', axis='both', color=self.grid_color, linestyle=self.grid_ls, linewidth=1, alpha=self.grid_alpha) if self.grid else ax.grid(False)
+        self._background_color(); ax.set_facecolor(self.face_color)
 
         # Ticks
         ax.xaxis.set_major_locator(MultipleLocator(200))
@@ -459,6 +412,12 @@ class ReconstructTracks:
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.tick_params(axis='both', which='major', labelsize=8)
+
+        if self.grid:
+            self._grid_color(coord_system='cartesian')
+            self._grid_style(coord_system='cartesian', ax=ax)
+        else:
+            ax.grid(False)
         
         self._color_segments(ax)
         
@@ -476,7 +435,6 @@ class ReconstructTracks:
         self._convert_polar()
         self._get_radius(all_data)
         self._color_tracks(polar=True)
-        self._polar_background()
 
         fig, ax = plt.subplots(figsize=(12.5, 9.5), subplot_kw={'projection': 'polar'})
         ax.set_title(self.title, fontsize=12)
@@ -485,16 +443,19 @@ class ReconstructTracks:
         ax.set_yticklabels([])
         ax.spines['polar'].set_visible(False)
 
+        self._background_color(); ax.set_facecolor(self.face_color)
         if self.grid:
-            self._polar_grid(ax)
+            self._grid_color(coord_system='polar')
+            self._grid_style(coord_system='polar', ax=ax)
+        else:
+            ax.grid(False)
+
         self._color_segments(ax)
+
         if self.mark_heads:
             self._head_markers(ax, polar=True)
 
-        # ax.plot(0, self.y_max_global,
-        #         color='dimgray', marker='.', markersize=8)
-
-        # simply draw a dot
+        # Scale indicator
         ax.scatter(0, self.y_max_global + 35, color='dimgray', marker='.', s=5, clip_on=False)
         ax.text(0, self.y_max_global + 50, self.y_max_label_global, va='center',
                 fontsize=10, color='dimgray', clip_on=False)
@@ -577,7 +538,7 @@ class ReconstructTracks:
             return fig
 
         # Continuous LUT colorbar for other colormap modes
-        norm, _vals = self._lut_map(self.lut_scaling_stat)
+        norm, vals = Values.LutMapper(self.Tracks if self.lut_scaling_stat in self.Tracks.columns else self.Spots, self.lut_scaling_stat, min=self.lut_vmin, max=self.lut_vmax, noticequeue=self.noticequeue)
         if norm is None:
             return None
 
@@ -596,7 +557,7 @@ class ReconstructTracks:
         )
 
         # Use the user-visible metric name for labeling (e.g. 'Speed instantaneous')
-        label_metric = self.lut_scaling_original
+        label_metric = self.lut_scaling_stat
         unit = units.get(label_metric, "")
         if unit:
             cbar.set_label(f"{label_metric} {unit}", fontsize=10)
@@ -607,40 +568,39 @@ class ReconstructTracks:
 
 # TODO: integrate Lut Map generator and animated track viz into ReconstructTracks class
 
-@staticmethod
-def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):
+# @staticmethod
+# def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):
 
-    if c_mode not in ['random colors', 'random greys', 'only-one-color', 'diferentiate replicates', 'differentiate conditions']:
+#     if c_mode not in ['random colors', 'random greys', 'only-one-color', 'diferentiate replicates', 'differentiate conditions']:
 
-        if lut_scaling_metric != 'Speed instantaneous':
-            lut_norm_df = Tracks_df[[lut_scaling_metric]].drop_duplicates()
-            _lut_scaling_metric = lut_scaling_metric
-        if lut_scaling_metric == 'Speed instantaneous':
-            lut_norm_df = Spots_df[['Distance']].drop_duplicates()
-            _lut_scaling_metric = 'Distance'
+#         if lut_scaling_metric != 'Speed instantaneous':
+#             lut_norm_df = Tracks_df[[lut_scaling_metric]].drop_duplicates()
+#             _lut_scaling_metric = lut_scaling_metric
+#         if lut_scaling_metric == 'Speed instantaneous':
+#             lut_norm_df = Spots_df[['Distance']].drop_duplicates()
+#             _lut_scaling_metric = 'Distance'
 
-        # Normalize the Net distance to a 0-1 range
-        lut_min = lut_norm_df[_lut_scaling_metric].min()
-        lut_max = lut_norm_df[_lut_scaling_metric].max()
-        norm = plt.Normalize(vmin=lut_min, vmax=lut_max)
+#         # Normalize the Net distance to a 0-1 range
+#         lut_min = lut_norm_df[_lut_scaling_metric].min()
+#         lut_max = lut_norm_df[_lut_scaling_metric].max()
+#         norm = plt.Normalize(vmin=lut_min, vmax=lut_max)
 
-        # Get the colormap based on the selected mode
-        colormap = Colors.GetCmap(c_mode)
+#         # Get the colormap based on the selected mode
+#         colormap = Colors.GetCmap(c_mode)
     
-        # Add a colorbar to show the LUT map
-        sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
-        sm.set_array([])
-        # Create a separate figure for the LUT map (colorbar)
-        fig_lut, ax_lut = plt.subplots(figsize=(2, 6))
-        ax_lut.axis('off')
-        cbar = fig_lut.colorbar(sm, ax=ax_lut, orientation='vertical', extend='both' if _extend else 'neither')
-        print(units.get(lut_scaling_metric))
-        cbar.set_label(f"{lut_scaling_metric} {units.get(lut_scaling_metric)}", fontsize=10)
+#         # Add a colorbar to show the LUT map
+#         sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
+#         sm.set_array([])
+#         # Create a separate figure for the LUT map (colorbar)
+#         fig_lut, ax_lut = plt.subplots(figsize=(2, 6))
+#         ax_lut.axis('off')
+#         cbar = fig_lut.colorbar(sm, ax=ax_lut, orientation='vertical', extend='both' if _extend else 'neither')
+#         cbar.set_label(f"{lut_scaling_metric} {units.get(lut_scaling_metric)}", fontsize=10)
 
-        return plt.gcf()
+#         return plt.gcf()
 
-    else:
-        pass
+#     else:
+#         pass
 
 
 

@@ -111,15 +111,15 @@ class Colors:
             return plt.cm.jet
         
     @staticmethod
-    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
+    def BuildQualPalette(data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        print(df.columns)
+        data.reset_index(drop=False, inplace=True)
+        tags = data[tag].unique().tolist() if not which else which
 
-        tags = df[tag].unique().tolist() if not which else which
         mp = {}
-        if f'{tag} color' in df.columns:
-            mp = (df[[tag, f'{tag} color']]
+        if f'{tag} color' in data.columns:
+            mp = (data[[tag, f'{tag} color']]
                     .dropna()
                     .drop_duplicates(tag)
             )
@@ -136,6 +136,7 @@ class Colors:
                 mp[t] = Colors.GenerateRandomColor()
 
         return mp
+    
     
 
 class Values:
@@ -203,6 +204,52 @@ class Values:
             return 0.0
 
         return round(x, sigfigs - int(math.floor(math.log10(abs(x)))) - 1)
+    
+
+    @staticmethod
+    def LutMapper(data: pd.DataFrame, stat: str, *args, min: float = None, max: float = None, **kwargs) -> Tuple[Any, Any]:
+
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        try:
+            if min is None: 
+                min = float(data[stat].min())
+
+            if max is None: 
+                max = float(data[stat].max())
+
+            if not (np.isfinite(max) or np.isfinite(min)):
+                if noticequeue:
+                    noticequeue.Report(
+                        Level.warning, 
+                        f"Invalid LUT range. Minimum and maximum values must be finite numbers. Removing infinite values.", 
+                        f"min is finite: {np.isfinite(min)}; max is finite: {np.isfinite(max)}. \
+                        min: {min} {'-> 0.0' if not np.isfinite(min) else ''}; max: {max} {'-> 100.0' if not np.isfinite(max) else ''}."
+                    )
+                if not np.isfinite(min):
+                    min = 0.0
+                if not np.isfinite(max):
+                    max = 100.0
+                    
+            if max <= min:
+                if noticequeue:
+                    noticequeue.Report(
+                        Level.warning, 
+                        f"Invalid LUT range. Max value must be greater than min value. Using default range (0.0, 100.0).", 
+                        f"Provided min: {min}; max: {max}."
+                )
+                min = 0.0
+                max = 100.0
+            
+            norm = plt.Normalize(min, max)
+            vals = data[stat].to_numpy()
+
+            return norm, vals
+        
+        except Exception as e:
+            if noticequeue:
+                noticequeue.Report(Level.error, f"Error computing LUT map. No LUT applied.", f"LUT map error: {str(e)}.")
+            return None, None
     
     
 
