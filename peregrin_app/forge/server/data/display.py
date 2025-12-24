@@ -71,3 +71,13 @@ def mount_data_display(input, output, session, S):
                 yield buffer.getvalue()
         else:
             pass
+
+    @render.download(filename=f"Time interval stats {date.today()}.csv")
+    def download_time_interval_stats():
+        time_interval_stats = S.TINTERVALSTATS.get()
+        if time_interval_stats is not None and not time_interval_stats.empty:
+            with io.BytesIO() as buffer:
+                time_interval_stats.to_csv(buffer, index=False)
+                yield buffer.getvalue()
+        else:
+            pass
