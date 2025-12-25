@@ -110,6 +110,8 @@ def MountTracks(input, output, session, S, noticequeue):
             lut_vmax=input.tracks_lutmap_scale_max(),
             use_stock_palette=input.tracks_use_stock_palette(), # TODO: not pass this arg and work with it as in the lut min max value setting, only in the forge (front-end of the app)
             stock_palette=input.tracks_stock_palette(),
+            dpi=input.tar_dpi(),
+            units_time=S.UNITS.get().get("Time point", "s"),
             noticequeue=noticequeue,
         )
     
@@ -127,7 +129,6 @@ def MountTracks(input, output, session, S, noticequeue):
                 return ReconstructTracks(**_kwargs).Realistic()
 
         return await asyncio.get_running_loop().run_in_executor(None, _build)
-
 
     @reactive.Effect
     @reactive.event(input.trr_generate, ignore_none=False)
@@ -185,7 +186,6 @@ def MountTracks(input, output, session, S, noticequeue):
 
         return await asyncio.get_running_loop().run_in_executor(None, _build)
 
-
     @reactive.Effect
     @reactive.event(input.tnr_generate, ignore_none=False)
     def _():
@@ -206,7 +206,6 @@ def MountTracks(input, output, session, S, noticequeue):
             kwargs["Tracks_df"] = kwargs["Tracks_df"].copy(deep=False)
 
         output_track_reconstruction_normalized(kwargs)
-
 
     @render.plot
     def track_reconstruction_normalized():
@@ -229,6 +228,144 @@ def MountTracks(input, output, session, S, noticequeue):
                 yield buffer.getvalue()
 
 
+    @output(id="replay_slider")
+    @render.ui
+    def replay_slider():
+        req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
+        req(input.tar_framerate() is not None)
+
+        num_frames = S.FRAMESTATS.get()["Frame"].nunique()
+        return ui.input_slider(
+            "frame_replay", "Replay",
+            min=1, max=num_frames, value=1, step=1,
+            animate={
+                "interval": frame_interval_ms(input.tar_framerate()),
+                "loop": True,
+                "play_button": ui.input_action_button(id="play", label="▶", width="100%"),
+                "pause_button": ui.input_action_button(id="stop", label="❚❚", width="100%")
+            },
+            width="100%"
+        )
+
+    def set_frame(i: int):
+        try:
+            n = S.FRAMESTATS.get()["Frame"].nunique()
+            i = 1 if i < 1 else (n if i > n else i)
+            session.send_input_message("frame_replay", {"value": i})
+        except Exception as e:
+            print(f"Error in set_frame: {e}")
+
+    @reactive.Effect
+    @reactive.event(input.prev)
+    def _prev():
+        try:
+            ui.update_slider("frame_replay", value=input.frame_replay() - 1)
+        except Exception:
+            pass
+
+    @reactive.Effect
+    @reactive.event(input.next)
+    def _next():
+        try:
+            ui.update_slider("frame_replay", value=input.frame_replay() + 1)
+        except Exception:
+            pass
+
+
+    @ui.bind_task_button(button_id="tar_generate")
+    @reactive.extended_task
+    async def output_track_reconstruction_animated(kwargs: dict):
+        def _build(_kwargs=kwargs):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+                return ReconstructTracks(**_kwargs).ImageStack(
+                    dpi=_kwargs.get("dpi", 100),
+                    units_time=_kwargs.get("units_time", "s"),
+                )
+
+        return await asyncio.get_running_loop().run_in_executor(None, _build)
+    
+    @reactive.Effect
+    @reactive.event(input.tar_generate, ignore_none=False)
+    def _():
+        output_track_reconstruction_animated.cancel()
+
+        req(
+            S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
+            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+            and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
+        )
+
+        kwargs = _reconstruct_tracks_kwargs()
+        output_track_reconstruction_animated(kwargs)
+
+        
+
+    @reactive.Effect
+    def _get_stack_images():
+        stack = output_track_reconstruction_animated.result()
+        # Only require a non-empty stack
+        req(stack is not None)
+
+        def to_webp_data_url(arr: np.ndarray) -> str:
+            im = Image.fromarray(arr, mode="RGBA")
+            if (arr[:, :, 3] == 255).all():
+                im = im.convert("RGB")
+            bio = BytesIO()
+            im.save(bio, format="WEBP", quality=80, method=6)
+            b64 = base64.b64encode(bio.getvalue()).decode("ascii")
+            return f"data:image/webp;base64,{b64}"
+
+        frame_urls = [to_webp_data_url(frame) for frame in stack]
+        S.REPLAY_ANIMATION.set(frame_urls)
+
+    @render.ui
+    def viewer():
+        # Do not catch req’s silent exception
+        req(S.REPLAY_ANIMATION.get() is not None)
+        req(input.frame_replay() is not None)
+
+        frames = S.REPLAY_ANIMATION.get()
+        # Clamp index to valid range
+        idx = max(0, min(int(input.frame_replay()) - 1, len(frames) - 1))
+        src = frames[idx]
+        return ui.img(
+            # {"src": src, "width": 800, "height": 600, "style": "display:block;"}
+            {"src": src, "style": "display:block;"}
+        )
+    
+    @render.download(filename=f"Animated Track Reconstruction {date.today()}.mp4")
+    def tar_download():
+        req(
+            S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
+            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+            and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
+        )
+
+        kwargs = _reconstruct_tracks_kwargs()
+        stack = output_track_reconstruction_animated.result()
+        req(stack is not None)
+
+        rgb, out_params = ReconstructTracks(**kwargs).SaveAnimation(
+            stack=stack,
+            path="",  # unused, kept for API compatibility
+        )
+
+        with io.BytesIO() as buffer:
+            iio.imwrite(
+                buffer,
+                rgb,
+                extension=".mp4",
+                ffmpeg_params=out_params,
+                fps=input.tar_framerate(),
+            )
+            yield buffer.getvalue()
+
+
     @render.download(filename=f"Lut Map {date.today()}.svg")
     def download_lut_map_svg():
         req(
@@ -246,6 +383,9 @@ def MountTracks(input, output, session, S, noticequeue):
                 yield buffer.getvalue()
 
     
+
+
+
 #     def lut_map(input, output, session, S):
 
 #         @render.download(filename=f"Lut Map {date.today()}.svg")

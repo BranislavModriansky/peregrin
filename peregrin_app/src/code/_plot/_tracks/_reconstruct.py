@@ -10,8 +10,7 @@ from io import BytesIO
 from ..._handlers._reports import Level
 from ..._infra._selections import Metrics
 
-
-
+\
 class ReconstructTracks:
     
     def __init__(self, Spots_df: pd.DataFrame, Tracks_df: pd.DataFrame, *args,
@@ -55,7 +54,6 @@ class ReconstructTracks:
         self.grid_color, self.face_color, self.grid_alpha, self.grid_ls = None, None, None, None
 
     KEY_COLS = ['Condition', 'Replicate', 'Track ID']
-
 
     def _arrange_data(self):
         Spots =  Categorizer(
@@ -212,93 +210,95 @@ class ReconstructTracks:
             else:
                 self.Tracks['Track color'] = mcolors.to_hex('black')
     
-    def _color_tracks(self, polar: bool = False):
+    def _build_segments(self, spots: pd.DataFrame, polar: bool = False):
         """
-        Build self.segments and self.segment_colors from self.Spots/self.Tracks.
+        Build segments and colors from a Spots-like dataframe.
 
-        Parameters
-        ----------
-        polar : bool
-            If False (default), use Cartesian coordinates (X/Y).
-            If True, use polar coordinates (theta/r), suitable for normalized
-            trajectory reconstruction plots.
-
-        Logic:
-        - If Tracks has 'Track color' but Spots doesn't, join it down.
-        - If Spots has 'Spot color', color per segment (ending spot).
-        - Else if Spots has 'Track color', color per whole track.
-        - Else, fall back to black.
+        Returns
+        -------
+        segments : list of (N_i, 2) float arrays
+        colors   : list of hex strings, one per segment
         """
-
-        # Ensure per-track colors are available on Spots when defined on Tracks
-        if 'Track color' in self.Tracks.columns and 'Track color' not in self.Spots.columns:
-            self.Spots = self.Spots.join(
+        # Ensure per-track colors are available on spots when defined on Tracks
+        if 'Track color' in self.Tracks.columns and 'Track color' not in spots.columns:
+            spots = spots.join(
                 self.Tracks[['Track color']],
                 how='left',
                 validate='many_to_one',
             )
 
-        # Select coordinate columns based on mode
-        if polar:
-            coord_cols = ('theta', 'r')
-        else:
-            coord_cols = ('X coordinate', 'Y coordinate')
+        coord_cols = ('theta', 'r') if polar else ('X coordinate', 'Y coordinate')
 
-        # Convenience alias
-        segments = self.segments
-        seg_colors = self.segment_colors
+        segments: list[np.ndarray] = []
+        seg_colors: list[str] = []
 
-        # Per-spot coloring (instantaneous LUTs, e.g. speed)
-        if 'Spot color' in self.Spots.columns:
-            for _, g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+        if 'Spot color' in spots.columns:
+            # Per-spot coloring (e.g. instantaneous LUTs)
+            for _, g in spots.groupby(level=self.KEY_COLS, sort=False):
                 coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
                 cols = g['Spot color'].astype(str).to_numpy()
                 n = coords.shape[0]
-
                 if n >= 2:
-                    # Always build one segment per consecutive pair
                     for i in range(1, n):
                         segments.append(coords[i - 1:i + 1])
-                        # Color by ending spot
                         seg_colors.append(cols[i])
-
-        elif 'Track color' in self.Spots.columns:
-            for _, g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+        elif 'Track color' in spots.columns:
+            # Per-track coloring
+            for _, g in spots.groupby(level=self.KEY_COLS, sort=False):
                 coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
                 if coords.shape[0] >= 2:
                     segments.append(coords)
                     seg_colors.append(g['Track color'].iloc[0])
-
         else:
+            # Fallback: black
             default_col = mcolors.to_hex('black')
-            for _, g in self.Spots.groupby(level=self.KEY_COLS, sort=False):
+            for _, g in spots.groupby(level=self.KEY_COLS, sort=False):
                 coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
                 if coords.shape[0] >= 2:
                     segments.append(coords)
                     seg_colors.append(default_col)
 
+        return segments, seg_colors
+
+    def _color_tracks(self, polar: bool = False):
+        """
+        Populate self.segments and self.segment_colors from self.Spots/self.Tracks.
+        """
+        self.segments, self.segment_colors = self._build_segments(self.Spots, polar=polar)
+
     def _background_color(self):
-        if self.background == 'white':    self.face_color = 'white'
-        elif self.background == 'light':  self.face_color = 'lightgrey'
-        elif self.background == 'mid':    self.face_color = 'darkgrey'
-        elif self.background == 'dark':   self.face_color = 'dimgrey'
-        elif self.background == 'black':  self.face_color = 'black'
+        mapping = {
+            'white': 'white',
+            'light': 'lightgrey',
+            'mid': 'darkgrey',
+            'dark': 'dimgrey',
+            'black': 'black',
+        }
+        self.face_color = mapping.get(self.background, 'white')
 
     def _grid_color(self, coord_system: str = 'cartesian'):
+        mapping = {
+            'cartesian': {
+                'white':    ('gainsboro', 0.5),
+                'light':    ('silver', 0.5),
+                'mid':      ('silver', 0.5),
+                'dark':     ('grey', 0.5),
+                'black':    ('dimgrey', 0.5),
+            }, 
+            'polar': {
+                'white':    ('lightgrey', 0.7, 0.8),
+                'light':    ('darkgrey', 0.7, 0.6),
+                'mid':      ('dimgrey', 0.7, 0.5),
+                'dark':     ('grey', 0.7, 0.6),
+                'black':    ('dimgrey', 0.5, 0.4),
+            }
+        }
 
         if coord_system == 'cartesian':
-            if self.background == 'white':    self.grid_color, self.grid_alpha = 'gainsboro', 0.5
-            elif self.background == 'light':  self.grid_color, self.grid_alpha = 'silver', 0.5
-            elif self.background == 'mid':    self.grid_color, self.grid_alpha = 'silver', 0.5
-            elif self.background == 'dark':   self.grid_color, self.grid_alpha = 'grey', 0.5
-            elif self.background == 'black':  self.grid_color, self.grid_alpha = 'dimgrey', 0.5
+            self.grid_color, self.grid_alpha = mapping['cartesian'].get(self.background, ('gainsboro', 0.5))
 
         elif coord_system == 'polar':
-            if self.background == 'white':    self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'lightgrey', 0.7, 0.8
-            elif self.background == 'light':  self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'darkgrey', 0.7, 0.6
-            elif self.background == 'mid':    self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'dimgrey', 0.7, 0.5
-            elif self.background == 'dark':   self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'grey', 0.7, 0.6
-            elif self.background == 'black':  self.grid_color, self.grid_a_alpha, self.grid_b_alpha = 'dimgrey', 0.5, 0.4
+            self.grid_color, self.grid_a_alpha, self.grid_alpha = mapping['polar'].get(self.background, ('lightgrey', 0.7, 0.8))
 
     def _grid_style(self, ax: plt.Axes, coord_system: str = 'cartesian'):
 
@@ -342,25 +342,28 @@ class ReconstructTracks:
                 ax.xaxis.grid(False)
                 ax.yaxis.grid(True, color=self.grid_color, linestyle='-', linewidth=1, alpha=self.grid_a_alpha)
 
-
-    def _head_markers(self, ax, polar: bool = False):
+    def _head_markers(self, ax, polar: bool = False, spots: pd.DataFrame | None = None):
         """
         Draw markers at track ends.
 
         polar=False -> use Cartesian coordinates (X/Y).
         polar=True  -> use polar coordinates (theta/r).
+
+        If `spots` is provided, use that subset; otherwise use self.Spots.
         """
+        spots_df = self.Spots if spots is None else spots
+
         x_coord, y_coord = ('theta', 'r') if polar else ('X coordinate', 'Y coordinate')
 
-        ends = self.Spots.groupby(level=self.KEY_COLS, sort=False).tail(1)
+        ends = spots_df.groupby(level=self.KEY_COLS, sort=False).tail(1)
         if len(ends):
             xe = ends[x_coord].to_numpy(dtype=float, copy=False)
             ye = ends[y_coord].to_numpy(dtype=float, copy=False)
 
             # Prefer per-spot colors if present, else per-track, else fallback to black
-            if 'Spot color' in self.Spots.columns:
+            if 'Spot color' in spots_df.columns:
                 cols = ends['Spot color'].astype(str).to_numpy()
-            elif 'Track color' in self.Spots.columns:
+            elif 'Track color' in spots_df.columns:
                 cols = ends['Track color'].astype(str).to_numpy()
             else:
                 default_col = mcolors.to_hex('black')
@@ -382,6 +385,17 @@ class ReconstructTracks:
     def _color_segments(self, ax):
         lc = LineCollection(self.segments, colors=self.segment_colors, linewidths=self.lw, zorder=10)
         ax.add_collection(lc)
+
+    def _rgba_over_background(rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndarray:
+        """Composite uint8 RGBA over an RGB background. Returns uint8 RGB."""
+        if rgba.shape[-1] != 4:
+            raise ValueError("expected RGBA input")
+        rgb = rgba[..., :3].astype(np.float32)
+        a = rgba[..., 3:4].astype(np.float32) / 255.0
+        bg_rgb = np.array(bg, dtype=np.float32).reshape(1, 1, 1, 3)
+        out = rgb * a + bg_rgb * (1.0 - a)
+        return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
 
     def Realistic(self) -> plt.Figure:
 
@@ -461,6 +475,184 @@ class ReconstructTracks:
                 fontsize=10, color='dimgray', clip_on=False)
 
         return plt.gcf()
+
+    def ImageStack(
+        self,
+        frames_mode: str = "cumulative",  # 'cumulative' | 'per_frame'
+        dpi: int = 100,
+        units_time: str = "s",
+        units_space: str = "μm",
+        size: tuple[int, int] = (975, 750),
+    ) -> np.ndarray | None:
+        """
+        Build a stack of Cartesian frames (Realistic style), returning uint8 RGBA
+        of shape (N, H, W, 4). Uses the same pipeline as Realistic():
+        - category filtering via conditions/replicates
+        - optional smoothing
+        - color assignment (including LUT min/max, palettes)
+        - background and grid settings
+        - optional head markers per frame.
+        """
+        self._arrange_data()
+        if self.smoothing_index is not None and self.smoothing_index > 0:
+            self._smooth()
+        self._assign_colors()
+
+        Spots = self.Spots.copy()
+
+        required = ["Time point", "X coordinate", "Y coordinate"]
+        missing = [c for c in required if c not in Spots.columns]
+        if missing:
+            if self.noticequeue:
+                self.noticequeue.Report(
+                    Level.warning,
+                    "Cannot build animated track reconstruction.",
+                    f"Missing required columns in Spots_df: {missing}.",
+                )
+            return None
+
+        if Spots.empty:
+            return None
+
+        # Global axes limits (fixed over time)
+        x_all = Spots["X coordinate"].to_numpy(dtype=float, copy=False)
+        y_all = Spots["Y coordinate"].to_numpy(dtype=float, copy=False)
+        xlim = (np.nanmin(x_all), np.nanmax(x_all))
+        ylim = (np.nanmin(y_all), np.nanmax(y_all))
+
+        # Time points (sorted)
+        time_points = np.unique(Spots["Time point"].to_numpy())
+        time_points.sort()
+
+        # Optional: clamp to number of frames if 'Frame' column is present
+        if "Frame" in Spots.columns:
+            frames = np.unique(Spots["Frame"].to_numpy())
+            frames_size = frames.size
+            if frames_size and len(time_points) > frames_size:
+                time_points = time_points[:frames_size]
+
+        W, H = size
+        fig_w = W / float(dpi)
+        fig_h = H / float(dpi)
+
+        image_stack: list[np.ndarray] = []
+
+        for t in time_points:
+            if frames_mode == "per_frame":
+                Spots_t = Spots.loc[Spots["Time point"] == t]
+            else:  # cumulative
+                Spots_t = Spots.loc[Spots["Time point"] <= t]
+
+            if Spots_t.empty:
+                continue
+
+            segments, seg_colors = self._build_segments(Spots_t, polar=False)
+            if not segments:
+                continue
+
+            fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
+            ax.set_aspect("equal", adjustable="box")
+            ax.set_xlim(*xlim)
+            ax.set_ylim(*ylim)
+            ax.set_xlabel(f"X coordinate [{units_space}]")
+            ax.set_ylabel(f"Y coordinate [{units_space}]")
+
+            if self.title:
+                ax.set_title(f"{self.title} | Time point: {t} {units_time}", fontsize=12)
+            else:
+                ax.set_title(f"Time point: {t} {units_time}", fontsize=12)
+
+            self._background_color()
+            ax.set_facecolor(self.face_color)
+
+            if self.grid:
+                self._grid_color(coord_system="cartesian")
+                self._grid_style(coord_system="cartesian", ax=ax)
+            else:
+                ax.grid(False)
+
+            # Ticks identical to Realistic
+            ax.xaxis.set_major_locator(MultipleLocator(200))
+            ax.yaxis.set_major_locator(MultipleLocator(200))
+            ax.xaxis.set_minor_locator(MultipleLocator(50))
+            ax.yaxis.set_minor_locator(MultipleLocator(50))
+            ax.xaxis.set_major_formatter(FormatStrFormatter("%.0f"))
+            ax.yaxis.set_major_formatter(FormatStrFormatter("%.0f"))
+            ax.tick_params(axis="both", which="major", labelsize=8)
+
+            lc = LineCollection(segments, colors=seg_colors, linewidths=self.lw, zorder=10)
+            ax.add_collection(lc)
+
+            if self.mark_heads:
+                self._head_markers(ax, polar=False, spots=Spots_t)
+
+            buf = BytesIO()
+            fig.savefig(buf, format="png", dpi=dpi, facecolor=fig.get_facecolor())
+            plt.close(fig)
+            buf.seek(0)
+            im = Image.open(buf).convert("RGBA")
+            image_stack.append(np.asarray(im, dtype=np.uint8))
+
+        print(image_stack)
+
+        if not image_stack:
+            return None
+
+        return np.stack(image_stack, axis=0)
+
+    
+    def SaveAnimation(
+        self,
+        stack:  np.ndarray,
+        path: str,
+        fps: int = 30,
+        codec: str = "libx264",
+        crf: int | None = 18,
+        pix_fmt: str = "yuv420p",
+        background: tuple[int, int, int] = (255, 255, 255),
+        bitrate: str | None = None,
+    ) -> tuple[np.ndarray, list[str]]:
+        """
+        Prepare an image stack for MP4 export.
+
+        Returns
+        -------
+        rgb       : uint8 array (N, H, W, 3)
+        out_params: list[str] ffmpeg parameters to pass to imageio / ffmpeg
+        """
+
+        if stack.ndim not in (3, 4):
+            raise ValueError("stack must have shape (N,H,W) or (N,H,W,C)")
+        if stack.ndim == 3:
+            stack = stack[..., None]  # (N,H,W,1)
+
+        N, H, W, C = stack.shape
+        if C not in (1, 3, 4):
+            raise ValueError("last dimension must be 1, 3, or 4 channels")
+
+        # Ensure uint8
+        if stack.dtype != np.uint8:
+            stack = np.clip(stack, 0, 255).astype(np.uint8)
+
+        # Expand to RGB
+        if C == 1:
+            rgb = np.repeat(stack, 3, axis=-1)
+        elif C == 3:
+            rgb = stack
+        else:
+            # RGBA -> RGB over background
+            rgb = self._rgba_over_background(stack, background)
+
+        # Build ffmpeg output params
+        out_params: list[str] = ["-pix_fmt", pix_fmt]
+        if crf is not None:
+            out_params += ["-crf", str(crf)]
+        if bitrate is not None:
+            out_params += ["-b:v", str(bitrate)]
+
+        # 'path' is kept for API compatibility; caller writes the file via imageio/ffmpeg.
+        return rgb, out_params
+
 
     def GetLutMap(self, units: dict | None = None, _extend: bool = True) -> plt.Figure | None:
         """
@@ -566,57 +758,19 @@ class ReconstructTracks:
 
         return fig_lut
 
-# TODO: integrate Lut Map generator and animated track viz into ReconstructTracks class
-
-# @staticmethod
-# def GetLutMap(Tracks_df: pd.DataFrame, Spots_df: pd.DataFrame, c_mode: str, lut_scaling_metric: str, units: dict, *args, _extend: bool = True):
-
-#     if c_mode not in ['random colors', 'random greys', 'only-one-color', 'diferentiate replicates', 'differentiate conditions']:
-
-#         if lut_scaling_metric != 'Speed instantaneous':
-#             lut_norm_df = Tracks_df[[lut_scaling_metric]].drop_duplicates()
-#             _lut_scaling_metric = lut_scaling_metric
-#         if lut_scaling_metric == 'Speed instantaneous':
-#             lut_norm_df = Spots_df[['Distance']].drop_duplicates()
-#             _lut_scaling_metric = 'Distance'
-
-#         # Normalize the Net distance to a 0-1 range
-#         lut_min = lut_norm_df[_lut_scaling_metric].min()
-#         lut_max = lut_norm_df[_lut_scaling_metric].max()
-#         norm = plt.Normalize(vmin=lut_min, vmax=lut_max)
-
-#         # Get the colormap based on the selected mode
-#         colormap = Colors.GetCmap(c_mode)
-    
-#         # Add a colorbar to show the LUT map
-#         sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
-#         sm.set_array([])
-#         # Create a separate figure for the LUT map (colorbar)
-#         fig_lut, ax_lut = plt.subplots(figsize=(2, 6))
-#         ax_lut.axis('off')
-#         cbar = fig_lut.colorbar(sm, ax=ax_lut, orientation='vertical', extend='both' if _extend else 'neither')
-#         cbar.set_label(f"{lut_scaling_metric} {units.get(lut_scaling_metric)}", fontsize=10)
-
-#         return plt.gcf()
-
-#     else:
-#         pass
 
 
 
-def _rgba_over_background(rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndarray:
-        """Composite uint8 RGBA over an RGB background. Returns uint8 RGB."""
-        if rgba.shape[-1] != 4:
-            raise ValueError("expected RGBA input")
-        rgb = rgba[..., :3].astype(np.float32)
-        a = rgba[..., 3:4].astype(np.float32) / 255.0
-        bg_rgb = np.array(bg, dtype=np.float32).reshape(1, 1, 1, 3)
-        out = rgb * a + bg_rgb * (1.0 - a)
-        return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
+
+
+# # TODO: integrate Lut Map generator and animated track viz into ReconstructTracks class
+# # (Animated is now a thin compatibility wrapper around ReconstructTracks.AnimatedStack)
 
 
 class Animated:
 
+    @staticmethod
     def create_image_stack(
         Spots_df: pd.DataFrame,
         Tracks_df: pd.DataFrame,
@@ -640,228 +794,49 @@ class Animated:
         units: str = "μm",
         size: tuple[int, int] = (975, 750),
         **kwargs
-    ) -> np.ndarray:
+    ) -> np.ndarray | None:
         """
-        Build a stack of frames from tracks, returning uint8 RGBA of shape (N, H, W, 4).
-        If Spots_df/Tracks_df are not provided, falls back to a simple demo sine path.
+        Backwards-compatible wrapper that delegates to ReconstructTracks.AnimatedStack().
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+        noticequeue = kwargs.get("noticequeue", None)
+        use_stock_palette = kwargs.get("use_stock_palette", None)
+        stock_palette = kwargs.get("stock_palette", None)
+        auto_lut_scaling = kwargs.get("auto_lut_scaling", True)
+        lut_vmin = kwargs.get("lut_vmin", None)
+        lut_vmax = kwargs.get("lut_vmax", None)
 
-        W, H = size
+        rt = ReconstructTracks(
+            Spots_df=Spots_df,
+            Tracks_df=Tracks_df,
+            conditions=conditions,
+            replicates=replicates,
+            c_mode=c_mode,
+            only_one_color=only_one_color,
+            use_stock_palette=use_stock_palette,
+            stock_palette=stock_palette,
+            lut_scaling_stat=lut_scaling_metric,
+            auto_lut_scaling=auto_lut_scaling,
+            lut_vmin=lut_vmin,
+            lut_vmax=lut_vmax,
+            smoothing_index=int(smoothing_index) if isinstance(smoothing_index, float) else smoothing_index,
+            lw=lw,
+            mark_heads=mark_heads,
+            marker=marker,
+            markersize=markersize,
+            background=background,
+            grid=grid,
+            title=title,
+            noticequeue=noticequeue,
+        )
 
-        # ---- Real data path (modified ImageStackTracksRealistics) ----
-        Spots = Spots_df.copy()
-        Tracks = Tracks_df.copy()
+        return rt.AnimatedStack(
+            frames_mode=frames_mode,
+            dpi=dpi,
+            units_time=units_time,
+            units_space=units,
+            size=size,
+        )
 
-        required = ["Condition", "Replicate", "Track ID", "Time point", "X coordinate", "Y coordinate"]
-        if any(col not in Spots.columns for col in required):
-            # Shape-safe empty
-            return
-        
-        if not conditions:
-            noticequeue.Report("warning", "No conditions selected! At at least one condition must be selected.")
-            return
-        if not replicates:
-            noticequeue.Report("warning", "No replicates selected! At at least one replicate must be selected.")
-            return
-
-        Spots = Spots.loc[Spots["Condition"].isin(conditions)].loc[Spots["Replicate"].isin(replicates)]
-        Tracks = Tracks.loc[Tracks["Condition"].isin(conditions)].loc[Tracks["Replicate"].isin(replicates)]
-
-        if Spots.empty:
-            return
-
-        # Sort and index
-        key_cols = ["Condition", "Replicate", "Track ID"]
-        Spots = Spots.sort_values(key_cols + ["Time point"]).set_index(key_cols, drop=True)
-        Tracks = Tracks.sort_values(key_cols).set_index(key_cols, drop=True)
-
-        # Optional smoothing
-        if isinstance(smoothing_index, (int, float)) and smoothing_index > 1:
-            win = int(smoothing_index)
-            Spots["X coordinate"] = Spots.groupby(level=key_cols)["X coordinate"].transform(
-                lambda s: s.rolling(win, min_periods=1).mean()
-            )
-            Spots["Y coordinate"] = Spots.groupby(level=key_cols)["Y coordinate"].transform(
-                lambda s: s.rolling(win, min_periods=1).mean()
-            )
-
-        # Colors
-        rng = np.random.default_rng(42)
-
-        def _rand_color_hex():
-            return mcolors.to_hex(rng.random(3))
-
-        def _rand_grey_hex():
-            g = float(rng.random())
-            return mcolors.to_hex((g, g, g))
-
-        if c_mode in ["random colors", "random greys", "only-one-color"]:
-            unique_tracks = Tracks.index.unique()
-            if c_mode == "random colors":
-                colors = [_rand_color_hex() for _ in range(len(unique_tracks))]
-            elif c_mode == "random greys":
-                colors = [_rand_grey_hex() for _ in range(len(unique_tracks))]
-            else:
-                colors = [only_one_color] * len(unique_tracks)
-            track_to_color = dict(zip(unique_tracks, colors))
-            Tracks["Track color"] = [track_to_color[idx] for idx in Tracks.index]
-
-        elif c_mode == "differentiate replicates":
-            Tracks["Track color"] = Tracks["Replicate color"] if "Replicate color" in Tracks.columns else "red"
-
-        else:
-            use_instantaneous = lut_scaling_metric == "Speed instantaneous"
-            if lut_scaling_metric in Tracks.columns and not use_instantaneous:
-                cmap = Colors.GetCmap(c_mode)
-                vmin = float(Tracks[lut_scaling_metric].min())
-                vmax = float(Tracks[lut_scaling_metric].max())
-                vmax = vmax if np.isfinite(vmax) and vmax > vmin else vmin + 1.0
-                norm = plt.Normalize(vmin, vmax)
-                Tracks["Track color"] = [mcolors.to_hex(cmap(norm(v))) for v in Tracks[lut_scaling_metric].to_numpy()]
-            elif use_instantaneous:
-                cmap = Colors.GetCmap(c_mode)
-                g = Spots.groupby(level=key_cols)
-                d = np.sqrt((g["X coordinate"].diff()) ** 2 + (g["Y coordinate"].diff()) ** 2)
-                speed_end = d  # distance per step; you can scale by time externally if needed
-                vmax = float(np.nanmax(speed_end.to_numpy())) if np.isfinite(speed_end.to_numpy()).any() else 1.0
-                norm = plt.Normalize(0.0, vmax if vmax > 0 else 1.0)
-                Spots["Spot color"] = [
-                    mcolors.to_hex(Colors.GetCmap(c_mode)(norm(v))) if np.isfinite(v) else mcolors.to_hex(Colors.GetCmap(c_mode)(0.0))
-                    for v in speed_end.to_numpy()
-                ]
-
-        if not (lut_scaling_metric == "Speed instantaneous"):
-            Spots = Spots.join(
-                Tracks[["Track color"]],
-                on=key_cols,
-                how="left",
-                validate="many_to_one",
-            )
-
-        # Axes limits fixed over time
-        x_all = Spots["X coordinate"].to_numpy(dtype=float, copy=False)
-        y_all = Spots["Y coordinate"].to_numpy(dtype=float, copy=False)
-        xlim = (np.nanmin(x_all), np.nanmax(x_all))
-        ylim = (np.nanmin(y_all), np.nanmax(y_all))
-
-        # Background presets
-        if background == "white":
-            grid_color, face_color, grid_alpha, grid_ls = "gainsboro", "white", 0.5, "-." if grid else "None"
-        elif background == "light":
-            grid_color, face_color, grid_alpha, grid_ls = "silver", "lightgrey", 0.5, "-." if grid else "None"
-        elif background == "mid":
-            grid_color, face_color, grid_alpha, grid_ls = "silver", "darkgrey", 0.5, "-." if grid else "None"
-        elif background == "dark":
-            grid_color, face_color, grid_alpha, grid_ls = "grey", "dimgrey", 0.5, "-." if grid else "None"
-        elif background == "black":
-            grid_color, face_color, grid_alpha, grid_ls = "dimgrey", "black", 0.5, "-." if grid else "None"
-        else:
-            grid_color, face_color, grid_alpha, grid_ls = "gainsboro", "white", 0.5, "-." if grid else "None"
-
-        # Time points
-        time_points = np.unique(Spots["Time point"].to_numpy())
-        time_points.sort()
-
-        
-        frames = Spots_df["Frame"].unique()
-        frames_size = frames.size
-
-        if frames is not None and len(time_points) > frames_size:
-            time_points = time_points[:frames_size]
-
-
-        image_stack: list[np.ndarray] = []
-
-        for t in time_points:
-            if frames_mode == "per_frame":
-                Spots_t = Spots.loc[Spots["Time point"] == t]
-            else:  # cumulative
-                Spots_t = Spots.loc[Spots["Time point"] <= t]
-
-            # Build line segments
-            segments = []
-            seg_colors = []
-
-            if lut_scaling_metric == "Speed instantaneous" and "Spot color" in Spots_t.columns:
-                for _, g in Spots_t.groupby(level=key_cols, sort=False):
-                    xy = g[["X coordinate", "Y coordinate"]].to_numpy(dtype=float, copy=False)
-                    if xy.shape[0] >= 2:
-                        cols = g["Spot color"].astype(str).to_numpy()
-                        for i in range(1, xy.shape[0]):
-                            segments.append(xy[i - 1 : i + 1])
-                            seg_colors.append(cols[i])
-            else:
-                for _, g in Spots_t.groupby(level=key_cols, sort=False):
-                    xy = g[["X coordinate", "Y coordinate"]].to_numpy(dtype=float, copy=False)
-                    if xy.shape[0] >= 2:
-                        segments.append(xy)
-                        seg_colors.append(g["Track color"].iloc[0] if "Track color" in g.columns else "red")
-
-            # Render
-            fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)
-            ax.set_aspect("equal", adjustable="box")
-            ax.set_xlim(*xlim)
-            ax.set_ylim(*ylim)
-            ax.set_xlabel(f"X coordinate {units}")
-            ax.set_ylabel(f"Y coordinate {units}")
-            ax.set_title(f"{title} | Time point: {t} {units_time}" if title else f"Time point: {t} {units_time}")
-            ax.set_facecolor(face_color)
-            if grid:
-                ax.grid(True, which="both", axis="both", color=grid_color, linestyle=grid_ls, linewidth=1, alpha=grid_alpha)
-            else:
-                ax.grid(False)
-
-            ax.xaxis.set_major_locator(MultipleLocator(200))
-            ax.yaxis.set_major_locator(MultipleLocator(200))
-            ax.xaxis.set_minor_locator(MultipleLocator(50))
-            ax.yaxis.set_minor_locator(MultipleLocator(50))
-            ax.xaxis.set_major_formatter(FormatStrFormatter("%.0f"))
-            ax.yaxis.set_major_formatter(FormatStrFormatter("%.0f"))
-            ax.tick_params(axis="both", which="major", labelsize=8)
-
-            if segments:
-                lc = LineCollection(segments, colors=seg_colors, linewidths=lw, zorder=10)
-                ax.add_collection(lc)
-
-            if mark_heads:
-                ends = Spots_t.groupby(level=key_cols, sort=False).tail(1)
-                if len(ends):
-                    xe = ends["X coordinate"].to_numpy(dtype=float, copy=False)
-                    ye = ends["Y coordinate"].to_numpy(dtype=float, copy=False)
-                    if lut_scaling_metric == "Speed instantaneous" and "Spot color" in ends.columns:
-                        cols = ends["Spot color"].astype(str).to_numpy()
-                    else:
-                        cols = ends["Track color"].astype(str).to_numpy() if "Track color" in ends.columns else np.array(["red"] * len(ends))
-                    m = np.isfinite(xe) & np.isfinite(ye)
-                    if m.any():
-                        ax.scatter(
-                            xe[m],
-                            ye[m],
-                            marker=marker.get("symbol", "o"),
-                            s=markersize,
-                            edgecolor=cols[m],
-                            facecolor=cols[m] if marker.get("fill", True) else "none",
-                            linewidths=lw,
-                            zorder=12,
-                        )
-
-            buf = BytesIO()
-            fig.savefig(buf, format="png", dpi=dpi, facecolor=fig.get_facecolor())
-            plt.close(fig)
-            buf.seek(0)
-            im = Image.open(buf).convert("RGBA")
-            image_stack.append(np.asarray(im, dtype=np.uint8))
-
-        if not image_stack:
-            return
-
-        np_stack = np.stack(image_stack, axis=0)
-
-        return np_stack
-
-
-    
     @staticmethod
     def save_image_stack_as_mp4(
         stack: np.ndarray,
@@ -872,65 +847,18 @@ class Animated:
         pix_fmt: str = "yuv420p",
         background: tuple[int, int, int] = (255, 255, 255),
         bitrate: str | None = None,
-    ) -> None:
+    ):
         """
-        Save an image stack to MP4.
-
-        Parameters
-        ----------
-        stack : np.ndarray
-            Frames with shape (N, H, W[, C]). C in {1, 3, 4}. uint8 preferred.
-            Your create_image_stack returns (N, H, W, 4) RGBA uint8.
-        path : str
-            Output filename, e.g. 'movie.mp4'.
-        fps : int
-            Frames per second.
-        codec : str
-            FFmpeg video codec. 'libx264' is widely compatible.
-        crf : int | None
-            Constant rate factor for x264. Lower is higher quality. None to skip.
-        pix_fmt : str
-            Pixel format. 'yuv420p' maximizes compatibility.
-        background : (R, G, B)
-            Used only if input has alpha. Composites RGBA over this color.
-        bitrate : str | None
-            e.g. '6M'. If set, FFmpeg will target this bitrate. Usually omit when using CRF.
+        Backwards-compatible wrapper around ReconstructTracks.save_image_stack_as_mp4().
         """
-        if stack.ndim not in (3, 4):
-            raise ValueError("stack must have shape (N,H,W) or (N,H,W,C)")
-        if stack.ndim == 3:
-            stack = stack[..., None]  # (N,H,W,1)
+        return ReconstructTracks.save_image_stack_as_mp4(
+            stack=stack,
+            path=path,
+            fps=fps,
+            codec=codec,
+            crf=crf,
+            pix_fmt=pix_fmt,
+            background=background,
+            bitrate=bitrate,
+        )
 
-        N, H, W, C = stack.shape
-        if C not in (1, 3, 4):
-            raise ValueError("last dimension must be 1, 3, or 4 channels")
-
-        # Ensure uint8
-        if stack.dtype != np.uint8:
-            stack = np.clip(stack, 0, 255).astype(np.uint8)
-
-        # Expand to RGB
-        if C == 1:
-            rgb = np.repeat(stack, 3, axis=-1)
-        elif C == 3:
-            rgb = stack
-        else:
-            # RGBA -> RGB over background
-            rgb = _rgba_over_background(stack, background)
-
-        # Build ffmpeg output params
-        out_params: list[str] = ["-pix_fmt", pix_fmt]
-        if crf is not None:
-            out_params += ["-crf", str(crf)]
-        if bitrate is not None:
-            out_params += ["-b:v", str(bitrate)]
-
-        return rgb, out_params
-
-
-    def GetLutMap(
-        self,
-        units: dict | None = None,
-        _extend: bool = True
-    ) -> plt.Figure | None:
-        pass
