@@ -103,7 +103,8 @@ def MountTracks(input, output, session, S, noticequeue):
             gridstyle=input.tracks_grid_style(),
             mark_heads=input.tracks_mark_heads(),
             marker=Markers.TrackHeads.get(input.tracks_marker_type()),
-            markersize=input.tracks_marks_size() * 10,
+            marker_size=input.tracks_marks_size() * 10,
+            marker_color=input.tracks_marks_color(),
             title=input.tracks_title(),
             auto_lut_scaling=input.tracks_lutmap_scale_auto(), # TODO: not pass this arg and work with it as in the lut min max value setting, only in the forge (front-end of the app)
             lut_vmin=input.tracks_lutmap_scale_min(),

@@ -20,7 +20,7 @@ class ReconstructTracks:
                  lut_scaling_stat: str, auto_lut_scaling: bool,
                  lut_vmin: None | float, lut_vmax: None | float,
                  smoothing_index: int, lw: float,
-                 mark_heads: bool, marker: dict, markersize: float,
+                 mark_heads: bool, marker: dict, marker_size: float, marker_color: str,
                  background: str, grid: bool,
                  title: None | str, **kwargs):
 
@@ -43,7 +43,8 @@ class ReconstructTracks:
         self.lw = lw
         self.mark_heads = mark_heads
         self.marker = marker
-        self.markersize = markersize
+        self.marker_size = marker_size
+        self.marker_color = marker_color
         self.background = background
         self.grid = grid
         self.title = title
@@ -351,42 +352,86 @@ class ReconstructTracks:
 
         If `spots` is provided, use that subset; otherwise use self.Spots.
         """
-        spots_df = self.Spots if spots is None else spots
+
+        df = spots if spots is not None else self.Spots
+        if df is None or df.empty:
+            return
 
         x_coord, y_coord = ('theta', 'r') if polar else ('X coordinate', 'Y coordinate')
 
-        ends = spots_df.groupby(level=self.KEY_COLS, sort=False).tail(1)
-        if len(ends):
-            xe = ends[x_coord].to_numpy(dtype=float, copy=False)
-            ye = ends[y_coord].to_numpy(dtype=float, copy=False)
+        # Ensure required coordinate columns exist
+        if x_coord not in df.columns or y_coord not in df.columns:
+            return
 
-            # Prefer per-spot colors if present, else per-track, else fallback to black
-            if 'Spot color' in spots_df.columns:
-                cols = ends['Spot color'].astype(str).to_numpy()
-            elif 'Track color' in spots_df.columns:
-                cols = ends['Track color'].astype(str).to_numpy()
-            else:
-                default_col = mcolors.to_hex('black')
-                cols = np.array([default_col] * len(ends), dtype=object)
-
-            m = np.isfinite(xe) & np.isfinite(ye)
-            if m.any():
-                ax.scatter(
-                    xe[m],
-                    ye[m],
-                    marker=self.marker["symbol"],
-                    s=self.markersize,
-                    edgecolor=cols[m],
-                    facecolor=cols[m] if self.marker["fill"] else "none",
-                    linewidths=self.lw,
-                    zorder=12,
+        # Group by track, supporting both MultiIndex and regular columns
+        if isinstance(df.index, pd.MultiIndex) and list(df.index.names) == self.KEY_COLS:
+            group = df.groupby(level=self.KEY_COLS, sort=False)
+        elif all(c in df.columns for c in self.KEY_COLS):
+            group = df.groupby(self.KEY_COLS, sort=False)
+        else:
+            if self.noticequeue is not None:
+                self.noticequeue.Report(
+                    Level.warning,
+                    "Cannot draw head markers.",
+                    f"Data missing grouping keys {self.KEY_COLS}.",
                 )
+            return
+
+        ends = group.tail(1)
+        if ends.empty:
+            return
+
+        xe = ends[x_coord].to_numpy(dtype=float, copy=False)
+        ye = ends[y_coord].to_numpy(dtype=float, copy=False)
+
+        # Determine colors
+        if self.marker_color == "match":
+            # Prefer per-spot color if available
+            if "Spot color" in ends.columns:
+                cols = ends["Spot color"].astype(str).to_numpy()
+            else:
+                # Try to attach per-track color
+                if "Track color" not in ends.columns and self.Tracks is not None and "Track color" in self.Tracks.columns:
+                    if isinstance(ends.index, pd.MultiIndex) and list(ends.index.names) == self.KEY_COLS:
+                        ends = ends.join(self.Tracks[["Track color"]], how="left")
+                    elif all(c in ends.columns for c in self.KEY_COLS):
+                        ends = (
+                            ends.set_index(self.KEY_COLS)
+                            .join(self.Tracks[["Track color"]], how="left")
+                            .reset_index()
+                        )
+                if "Track color" in ends.columns:
+                    cols = ends["Track color"].astype(str).to_numpy()
+                else:
+                    if self.noticequeue is not None:
+                        self.noticequeue.Report(
+                            Level.error,
+                            "Cannot match head marker colors.",
+                            "No color information found for track heads. Defaulting to black.",
+                        )
+                    default_col = mcolors.to_hex("black")
+                    cols = np.array([default_col] * len(ends), dtype=object)
+        else:
+            cols = np.array([self.marker_color] * len(ends), dtype=object)
+
+        m = np.isfinite(xe) & np.isfinite(ye)
+        if m.any():
+            ax.scatter(
+                xe[m],
+                ye[m],
+                marker=self.marker["symbol"],
+                s=self.marker_size,
+                edgecolor=cols[m],
+                facecolor=cols[m] if self.marker["fill"] else "none",
+                linewidths=self.lw,
+                zorder=12,
+            )
 
     def _color_segments(self, ax):
         lc = LineCollection(self.segments, colors=self.segment_colors, linewidths=self.lw, zorder=10)
         ax.add_collection(lc)
 
-    def _rgba_over_background(rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndarray:
+    def _rgba_over_background(self, rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndarray:
         """Composite uint8 RGBA over an RGB background. Returns uint8 RGB."""
         if rgba.shape[-1] != 4:
             raise ValueError("expected RGBA input")
