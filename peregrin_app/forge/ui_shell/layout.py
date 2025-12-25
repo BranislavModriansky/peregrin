@@ -246,10 +246,11 @@ app_ui = ui.page_sidebar(
                                         ui.panel_conditional(
                                             "input.tracks_mark_heads",
                                             ui.row(
-                                                ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="circle-empty", width="200px"),
-                                                ui.input_numeric("tracks_marks_size", "Marker size:", 3, min=0, width="130px")
+                                                ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="hexagon-empty", width="200px"),
+                                                ui.input_selectize("tracks_marks_color", "Marker Color:", ["match"] + Styles.Color, selected="match", width="150px"),
+                                                ui.input_numeric("tracks_marks_size", "Marker size:", 2, min=0, width="130px")
                                             )
-                                        ),
+                                        )
                                     ),
                                     ui.accordion_panel(
                                         "Decoratives",
