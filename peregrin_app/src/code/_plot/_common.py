@@ -1,3 +1,4 @@
+import math
 from os import path
 import seaborn as sns
 import numpy as np
@@ -34,7 +35,7 @@ class Colors:
         return '#{:02x}{:02x}{:02x}'.format(n, n, n)
 
     @staticmethod
-    def MakeCmap(elements: list, cmap: str, **kwargs) -> list:
+    def StockQualPalette(elements: list, cmap: str, **kwargs) -> list:
         """
         Generates a qualitative colormap for a given list of elements.
         """
@@ -101,20 +102,24 @@ class Colors:
             return plt.cm.twilight
         elif c_mode == 'seismic LUT':
             return plt.cm.seismic
+        
+        elif c_mode == None:
+            noticequeue.Report(Level.warning, "No color mode specified. Using 'jet LUT' instead.")
+            return plt.cm.jet
         else:
             noticequeue.Report(Level.warning, f"Unsupported color mode: {c_mode}. Using 'jet LUT' instead.")
             return plt.cm.jet
         
     @staticmethod
-    def BuildQualPalette(df: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
+    def BuildQualPalette(data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        print(df.columns)
+        data.reset_index(drop=False, inplace=True)
+        tags = data[tag].unique().tolist() if not which else which
 
-        tags = df[tag].unique().tolist() if not which else which
         mp = {}
-        if f'{tag} color' in df.columns:
-            mp = (df[[tag, f'{tag} color']]
+        if f'{tag} color' in data.columns:
+            mp = (data[[tag, f'{tag} color']]
                     .dropna()
                     .drop_duplicates(tag)
             )
@@ -131,6 +136,7 @@ class Colors:
                 mp[t] = Colors.GenerateRandomColor()
 
         return mp
+    
     
 
 class Values:
@@ -155,6 +161,96 @@ class Values:
             return clamped
         
         return value
+    
+
+    @staticmethod
+    def RoundSigFigs(x, sigfigs: int = 5, **kwargs) -> float:
+        """
+        Round a number to a given number of significant figures.
+
+        Parameters
+        ----------
+        x : any
+            The value to round.
+        sig : int
+            Number of significant figures (default = 5).
+
+        Returns
+        -------
+        int, float, or None
+            Rounded value, or None if input is None.
+        """
+
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        if x is None:
+            return None
+
+        try:
+            x = float(x)
+
+        except (TypeError, ValueError) as e:
+            if noticequeue: noticequeue.Report(Level.Error, f"Cannot convert {type(x)}: {x} to float.", str(e))
+            return None
+        
+        except Exception as e:
+            if noticequeue: noticequeue.Report(Level.Error, f"Error converting {type(x)}: {x} to float.", str(e))
+            return None
+
+        if math.isnan(x) or math.isinf(x):
+            return x
+
+        if x == 0.0:
+            return 0.0
+
+        return round(x, sigfigs - int(math.floor(math.log10(abs(x)))) - 1)
+    
+
+    @staticmethod
+    def LutMapper(data: pd.DataFrame, stat: str, *args, min: float = None, max: float = None, **kwargs) -> Tuple[Any, Any]:
+
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        try:
+            if min is None: 
+                min = float(data[stat].min())
+
+            if max is None: 
+                max = float(data[stat].max())
+
+            if not (np.isfinite(max) or np.isfinite(min)):
+                if noticequeue:
+                    noticequeue.Report(
+                        Level.warning, 
+                        f"Invalid LUT range. Minimum and maximum values must be finite numbers. Removing infinite values.", 
+                        f"min is finite: {np.isfinite(min)}; max is finite: {np.isfinite(max)}. \
+                        min: {min} {'-> 0.0' if not np.isfinite(min) else ''}; max: {max} {'-> 100.0' if not np.isfinite(max) else ''}."
+                    )
+                if not np.isfinite(min):
+                    min = 0.0
+                if not np.isfinite(max):
+                    max = 100.0
+                    
+            if max <= min:
+                if noticequeue:
+                    noticequeue.Report(
+                        Level.warning, 
+                        f"Invalid LUT range. Max value must be greater than min value. Using default range (0.0, 100.0).", 
+                        f"Provided min: {min}; max: {max}."
+                )
+                min = 0.0
+                max = 100.0
+            
+            norm = plt.Normalize(min, max)
+            vals = data[stat].to_numpy()
+
+            return norm, vals
+        
+        except Exception as e:
+            if noticequeue:
+                noticequeue.Report(Level.error, f"Error computing LUT map. No LUT applied.", f"LUT map error: {str(e)}.")
+            return None, None
+    
     
 
 
@@ -222,7 +318,6 @@ class Categorizer:
         """
         return self._filter().groupby(self.aggby).agg(self.aggdict).reset_index()
 
-
     def __call__(self) -> pd.DataFrame:
         """
         Making the instance callable.
@@ -240,3 +335,16 @@ class Categorizer:
         """
         return self._filter, self._aggregate, self._checkerrors
     
+
+
+class LutScale:
+
+    def __init__(self, min_val: float, max_val: float, cmap: str, **kwargs):
+        """
+        Initialize the LUT scale with min and max values and a colormap.
+        """
+        self.min_val = min_val
+        self.max_val = max_val
+        self.cmap = cmap
+        self.noticequeue = kwargs.get('noticequeue', None)
+        

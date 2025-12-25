@@ -542,7 +542,7 @@ def mount_superplots(input, output, session, S, noticequeue):
             title=input.vp_title(),
             palette=input.vp_palette(),
             use_stock_palette=input.vp_use_stock_palette(),
-            units=S.UNITS.get(),
+            units=S.UNITS.get().get(input.vp_metric()),
             centre_val=input.vp_skeleton_centre(),
             middle_vals=input.vp_replicate_bullets(),
             error_bars=input.vp_errorbars_method(),

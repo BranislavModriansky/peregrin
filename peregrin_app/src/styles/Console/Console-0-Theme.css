@@ -927,3 +927,7 @@ button.bslib-full-screen-enter.badge.rounded-pill > svg {
     color: var(--notification-error-text) !important;
 }
 
+.shiny-text-output.shiny-bound-output{
+    border-color: var(--bg-color-thirdlevel) !important;
+    background-color: var(--bg-color-secondlevel) !important;
+}

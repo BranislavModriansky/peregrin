@@ -1,5 +1,3 @@
-// TODO: Let the user turn off this script while keeping Console-1 the theme
-
 (function() {
     // Cleanup existing canvas if present to prevent duplicates
     const existingCanvas = document.getElementById('animated-canvas');
@@ -24,27 +22,27 @@
     // Expose config to window so it can be modified from outside (e.g. Python/Shiny)
     window.PeregrinGridConfig = window.PeregrinGridConfig || {
         // Control
-        ENABLED: true,
+        ENABLED: true,               // <- access from UI
         // Grid & Physics
         GRID_SPACING: 12.5,
         DOT_RADIUS: 0.5,
-        INFLUENCE_RADIUS: 750,
-        MOUSE_FORCE: 0.75,
-        SPRING_STIFFNESS: 0.035,
-        DAMPING: 0.75,
-        MOUSE_LAG: 0.75,
-        // Visuals
+        INFLUENCE_RADIUS: 750,       // <- access from UI
+        MOUSE_FORCE: 0.75,           // <- access from UI
+        SPRING_STIFFNESS: 0.035,     // <- access from UI
+        DAMPING: 0.75,               // <- access from UI
+        MOUSE_LAG: 0.75,             // <- access from UI
+        // Proton Color
         COLOR_R: 130,
         COLOR_G: 218,
         COLOR_B: 240,
-        BASE_ALPHA: 0.35,
-        // Glow Logic
+        BASE_ALPHA: 0.35,            // <- access from UI
+        // Glow
         GLOW_INTENSITY: 5.25,
-        GLOW_POWER: 3,          // <- updated from UI
+        GLOW_POWER: 3,               // <- access from UI
         GLOW_DISPLACEMENT_NORM: 50,
         ALPHA_SMOOTHING: 0.5,
-        // Tangle/Aggregation Prevention
-        TANGLE_THRESHOLD: 10,   // <- updated from UI
+        // Aggregation Prevention
+        TANGLE_THRESHOLD: 10,        // <- access from UI
         FADE_RADIUS_MULT: 2
     };
     const cfg = window.PeregrinGridConfig;
