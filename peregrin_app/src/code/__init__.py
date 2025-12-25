@@ -4,10 +4,7 @@ from ._infra._formats import *
 from ._compute._params import *
 from ._compute._filters import Threshold
 from ._plot._common import *
-from ._plot._tracks._reconstruct import (
-    Animated,
-    ReconstructTracks
-)
+from ._plot._tracks._reconstruct import ReconstructTracks
 from ._plot._tracks._subs import frame_interval_ms
 from ._plot._collate._SwarmsAndBeyond import SwarmsAndBeyond
 from ._plot._collate._Superviolins import Superviolins
