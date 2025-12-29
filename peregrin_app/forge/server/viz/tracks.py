@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import Markers, frame_interval_ms, ReconstructTracks, Values
+from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Styles
 
 import numpy as np
 from io import BytesIO
@@ -94,7 +94,7 @@ def MountTracks(input, output, session, S, noticequeue):
             conditions=input.conditions_tr(),
             replicates=input.replicates_tr(),
             c_mode=input.tracks_color_mode(),
-            only_one_color=input.tracks_only_one_color(),
+            only_one_color=Styles.Color[input.tracks_only_one_color()],
             lut_scaling_stat=input.tracks_lut_scaling_metric(),
             background=input.tracks_background(),
             smoothing_index=input.tracks_smoothing_index(),

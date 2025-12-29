@@ -163,7 +163,7 @@ class ReconstructTracks:
         rng = np.random.default_rng(42)
         track_index = self.Tracks.index.unique()
 
-        if self.c_mode == 'only-one-color':
+        if self.c_mode == 'single color':
             self.Tracks['Track color'] = mcolors.to_hex(self.only_one_color)
 
         elif self.c_mode in ['random colors', 'random greys']:
@@ -209,6 +209,19 @@ class ReconstructTracks:
 
             else:
                 self.Tracks['Track color'] = mcolors.to_hex('black')
+
+        if 'Track color' in self.Tracks.columns and 'Track color' not in self.Spots.columns:
+            self.Spots = self.Spots.join(
+                self.Tracks[['Track color']],
+                how='left',
+                validate='many_to_one',
+            )
+        # elif 'Spot color' in self.Spots.columns and 'Spot color' not in self.Tracks.columns:
+        #     self.Tracks = self.Tracks.join(
+        #         self.Spots[['Spot color']].groupby(level=self.KEY_COLS).first().rename(columns={'Spot color': 'Track color'}),
+        #         how='left',
+        #         validate='many_to_one',
+        #     )
     
     def _build_segments(self, spots: pd.DataFrame, polar: bool = False):
         """
@@ -219,14 +232,6 @@ class ReconstructTracks:
         segments : list of (N_i, 2) float arrays
         colors   : list of hex strings, one per segment
         """
-        # Ensure per-track colors are available on spots when defined on Tracks
-        if 'Track color' in self.Tracks.columns and 'Track color' not in spots.columns:
-            spots = spots.join(
-                self.Tracks[['Track color']],
-                how='left',
-                validate='many_to_one',
-            )
-
         coord_cols = ('theta', 'r') if polar else ('X coordinate', 'Y coordinate')
 
         segments: list[np.ndarray] = []
@@ -361,14 +366,11 @@ class ReconstructTracks:
             ye = ends[y_coord].to_numpy(dtype=float, copy=False)
 
             # Prefer per-spot colors if present, else per-track, else fallback to black
-            if 'Spot color' in spots_df.columns:
+            if 'Spot color' in ends.columns:
                 cols = ends['Spot color'].astype(str).to_numpy()
-            elif 'Track color' in spots_df.columns:
+            elif 'Track color' in ends.columns:
                 cols = ends['Track color'].astype(str).to_numpy()
-            else:
-                default_col = mcolors.to_hex('black')
-                cols = np.array([default_col] * len(ends), dtype=object)
-
+            
             m = np.isfinite(xe) & np.isfinite(ye)
             if m.any():
                 ax.scatter(
@@ -685,7 +687,7 @@ class ReconstructTracks:
             self._assign_colors()
 
         # Modes where a LUT / legend is not meaningful
-        if self.c_mode in ['random colors', 'random greys', 'only-one-color']:
+        if self.c_mode in ['random colors', 'random greys', 'single color']:
             return None
 
         # Qualitative legend for categorical modes

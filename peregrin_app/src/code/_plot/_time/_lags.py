@@ -92,7 +92,7 @@ class MSD:
 
             return mp
 
-        elif self.c_mode == 'only-one-color':
+        elif self.c_mode == 'single color':
             keys = list(self.conditions) + list(self.replicates) + [None]
             return {k: self.color for k in keys}
             

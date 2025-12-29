@@ -7,13 +7,16 @@ ROOT = Path(__file__).resolve().parent
 
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
+# TODO: Move title input boxes to be part of the plot settings modals instead of being always visible
+
+# TODO: remodel the dictionary utilization so that keywords are actually hex codes instead of color names (because when inputing a dictionary into a selectize/other inputs, the items would be shown, and the keywords would be registered automatically - in this case there is no need to use list(dict.keys())) method nd later dict.get(key) method to get the values
 
 # BUG - Setting a threshold removes assigned colors from the data
 # BUG - Violinplots show inappropriate y-axis labels
 # TODO - Finalize the Time interval implementation everywhere - filtering!!!
 
 # TODO - make an option to convert the time units (e.g. user inputs a df in seconds but wants to see minutes/hours in the graphs and calculations)
-
+ 
 # TODO - use / utilize np.nan values where data is not able to be calculated instead of 0 values and be sure it doesnt get into way of calculations and graph generations
 
 # TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.

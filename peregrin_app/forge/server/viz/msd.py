@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import MSD
+from src.code import MSD, Styles
 
 
 
@@ -119,8 +119,8 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         else:
             errorband = None
 
-        if input.c_mode_msd() == "only-one-color":
-            color = input.only_one_color_msd()
+        if input.c_mode_msd() == "single color":
+            color = Styles.Colors[input.only_one_color_msd()]
         else:
             color = None
 
@@ -162,7 +162,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         else:
             errorband = None
 
-        if input.c_mode_msd() == "only-one-color":
+        if input.c_mode_msd() == "single color":
             color = input.only_one_color_msd()
         else:
             color = None
