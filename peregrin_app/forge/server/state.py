@@ -21,5 +21,7 @@ def build_state():
         "TINTERVALSTATS": reactive.Value(pd.DataFrame()),
         "UNITS": reactive.Value(),
         "REPLAY_ANIMATION": reactive.Value(None),
+        "MIN_DENSITY": reactive.Value(None),
+        "MAX_DENSITY": reactive.Value(None)
     })
 

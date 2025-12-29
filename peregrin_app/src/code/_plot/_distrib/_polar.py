@@ -10,7 +10,7 @@ from ..._handlers._reports import Level
 
 
 
-class PolarDataDistribution:
+class PolarDataDistribute:
 
     def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
                  *args, normalization: str = 'globally', weight: str = None, 
@@ -21,6 +21,8 @@ class PolarDataDistribution:
                  **kwargs):
         
         # - Shared arguments for all polar plots
+        self.noticequeue = kwargs.get('noticequeue', None)
+
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
@@ -28,7 +30,7 @@ class PolarDataDistribution:
         self.normalization = normalization
         self.weight = weight
 
-        self.cmap = Colors.GetCmap(cmap)
+        self.cmap = Colors.GetCmap(cmap, noticequeue=self.noticequeue)
         self.face = face
         self.text_color = text_color
         self.title = title
@@ -36,7 +38,6 @@ class PolarDataDistribution:
         self.label_y = label_y
         self.label_y_color = label_y_color
 
-        self.noticequeue = kwargs.get('noticequeue', None)
         self.background = kwargs.get('background', 'white')
         self.min_density = kwargs.get('min_density', None)
         self.max_density = kwargs.get('max_density', None)
@@ -75,6 +76,7 @@ class PolarDataDistribution:
         self.INNER_RADIUS = 0.7
         self.WIDTH = self.OUTER_RADIUS - self.INNER_RADIUS
         self.D_THETA = 2 * np.pi / self.bins
+        self.auto_lut_scale = kwargs.get('auto_lut_scale', False)
 
         self._check_input()
 
@@ -128,37 +130,35 @@ class PolarDataDistribution:
         return theta, density
     
     def _density_norm(self):
-        if self.min_density is None and self.max_density is None:
+        if self.auto_lut_scale:
             if self.normalization == 'locally':
-                self.min_density = np.min(self.density)
-                self.max_density = np.max(self.density)
+                _min_density = np.min(self.density)
+                _max_density = np.max(self.density)
             elif self.normalization == 'globally':
                 angles_total = np.asarray(self.data['Direction mean'], dtype=float)
                 angles_total = angles_total % (2 * np.pi)
                 weights_total = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
                 _, all_density = self._theta_density(angles_total, weights_total, wrap=True)
-                self.min_density = np.min(all_density)
-                self.max_density = np.max(all_density)
+                _min_density = np.min(all_density)
+                _max_density = np.max(all_density)
         else:
+            _min_density = self.min_density
+            _max_density = self.max_density
             if self.min_density is None:
                 self.noticequeue.Report(Level.warning, "Minimum density not provided -> setting 0.")
-                self.min_density = 0.0
+                _min_density = 0.0
             if self.max_density is None:
                 self.noticequeue.Report(Level.warning, "Maximum density not provided -> setting 1.")
-                self.max_density = 1.0
+                _max_density = 1.0
             if self.min_density >= self.max_density:
                 self.noticequeue.Report(Level.error, "Minimum density must be less than maximum density -> resetting to 0 and 1.")
-                self.min_density = 0.0
-                self.max_density = 1.0
-            if not isinstance(self.min_density, (int, float)):
-                self.noticequeue.Report(Level.error, "Minimum density must be a numeric value -> resetting to 0.")
-                self.min_density = 0.0
-            if not isinstance(self.max_density, (int, float)):
-                self.noticequeue.Report(Level.error, "Maximum density must be a numeric value -> resetting to 1.")
-                self.max_density = 1.0
-                     
-
-        self.norm = Normalize(self.min_density, self.max_density)
+                _min_density = 0.0
+                _max_density = 1.0
+        
+        self._min_density = _min_density
+        self._max_density = _max_density
+            
+        self.norm = Normalize(self._min_density, self._max_density)
 
     def _mean_direction(self, ax):
         mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
@@ -174,7 +174,7 @@ class PolarDataDistribution:
         if self.label_x:
             if create:
                 for angle in range(0, 360, 45):
-                    ax.text(np.deg2rad(angle), self.OUTER_RADIUS + 0.085, f"{angle}°", 
+                    ax.text(np.deg2rad(angle), self.OUTER_RADIUS + 0.1, f"{angle}°", 
                             ha='center', va='center', fontsize=10, color=self.text_color, fontweight="medium", zorder=100)
         elif not self.label_x:
             ax.set_xticklabels([])
@@ -224,7 +224,6 @@ class PolarDataDistribution:
             ax.plot(theta_line, np.full_like(theta_line, circuit), color='black', linewidth=0.9)
 
         self._annotate_x_axis(ax, create=True)
-        self._annotate_y_axis(ax)
         if self.title:
             ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
         ax.set_axis_off()
@@ -238,7 +237,16 @@ class PolarDataDistribution:
         
         fig.set_facecolor(self.face)
 
-        return plt.gcf(), self.max_density, self.min_density
+        return plt.gcf()
+    
+    def get_density_caps(self):
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights, wrap=True)
+        self._density_norm()
+
+        print(self._min_density, self._max_density)
+
+        return self._min_density, self._max_density
 
 
     def KDELinePlot(self):

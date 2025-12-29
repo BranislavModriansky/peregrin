@@ -404,7 +404,7 @@ app_ui = ui.page_sidebar(
                                 ),
                                 ui.br(),
                                 ui.row(
-                                    ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "per condition": "Normalize per condition"}, selected="globally"),
+                                    ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories"}, selected="globally"),
                                     ui.column(
                                         1, 
                                         ui.input_checkbox(id="dd_add_weights", label="Add weights", value=False),
@@ -428,7 +428,7 @@ app_ui = ui.page_sidebar(
                                     ui.accordion_panel(
                                         "Compose",
                                         ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                                        ui.input_numeric()
+                                        # ui.input_numeric()
                                     ),
                                     ui.accordion_panel(
                                         "Color",
@@ -450,14 +450,32 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                                        ui.input_numeric("dd_kde_bandwidth", "Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
-                                        ui.input_checkbox("dd_"),
+                                        ui.row(
+                                            ui.input_numeric("dd_kde_colormesh_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
+                                            ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
+                                        ),
+                                        ui.br(),
+                                        ui.row(
+                                            ui.input_checkbox("dd_kde_colormesh_auto_scale_lut", "Auto scale LUT to min/max density", value=True),
+                                        ),
+                                        ui.row(
+                                            ui.panel_conditional(
+                                                "input.dd_kde_colormesh_auto_scale_lut == true",
+                                                ui.div(ui.output_text_verbatim(id="dd_kde_colormesh_density_range", placeholder=True), style="margin-left: 30px; margin-right: 30px;"),
+                                            ),
+                                            ui.panel_conditional(
+                                                "input.dd_kde_colormesh_auto_scale_lut == false",
+                                                ui.div(ui.markdown("LUT map scale range:"), style="margin-left: 30px; margin-right: 10px; margin-top: 5px;"),
+                                                ui.div(ui.input_numeric("dd_kde_colormesh_lutmap_scale_min", None, 0, step=0.1, width="100px"), style="margin-left: 10px; margin-right: 10px;"),
+                                                ui.div(ui.input_numeric("dd_kde_colormesh_lutmap_scale_max", None, 1, step=0.1, width="100px"), style="margin-left: 10px; margin-right: 30px;"),
+                                            )
+                                        ),
+                                        ui.input_checkbox(id="dd_kde_colormesh_theta_labels", label="Annotate theta axis", value=True),
                                         ui.input_text("dd_kde_colormesh_title", label=None, placeholder="Title me!", width="100%")
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ""
+                                        ui.input_selectize(id="dd_kde_colormesh_lut_map", label="Select LUT map:", choices=Styles.LUTOptions, selected="plasma LUT")
                                     ),
                                     class_="accordion02"
                                 ),

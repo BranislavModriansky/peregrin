@@ -80,7 +80,7 @@ def MountTracks(input, output, session, S, noticequeue):
         else:
             vals = S.TRACKSTATS.get()[stat]
         
-        return f" min: {Values.RoundSigFigs(np.nanmin(vals))} - max: {Values.RoundSigFigs(np.nanmax(vals))} "
+        return f"min: {Values.RoundSigFigs(np.nanmin(vals))}; max: {Values.RoundSigFigs(np.nanmax(vals))}"
 
 
     def _reconstruct_tracks_kwargs() -> dict:

@@ -9,6 +9,7 @@ from ._plot._tracks._subs import frame_interval_ms
 from ._plot._collate._SwarmsAndBeyond import SwarmsAndBeyond
 from ._plot._collate._Superviolins import Superviolins
 from ._plot._time._lags import MSD
+from ._plot._distrib._polar import PolarDataDistribute
 from ._handlers._scheduling import Debounce, Throttle
 from ._handlers._reports import Level, NoticeQueue
 
@@ -19,6 +20,7 @@ __all__ = [
     "Spots", "Tracks", "Frames", "TimeIntervals",
     "Threshold",
     "GetLutMap", "Animated", "ReconstructTracks",
+    "PolarDataDistribute",
     "SwarmsAndBeyond", "Superviolins",
     "Metrics", "Styles", "Markers", "Modes", "Values",
     "FilenameFormatExample",
