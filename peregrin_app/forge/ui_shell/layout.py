@@ -427,7 +427,8 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ""
+                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
+                                        ui.input_numeric()
                                     ),
                                     ui.accordion_panel(
                                         "Color",
@@ -449,6 +450,9 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
+                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
+                                        ui.input_numeric("dd_kde_bandwidth", "Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
+                                        ui.input_checkbox("dd_"),
                                         ui.input_text("dd_kde_colormesh_title", label=None, placeholder="Title me!", width="100%")
                                     ),
                                     ui.accordion_panel(

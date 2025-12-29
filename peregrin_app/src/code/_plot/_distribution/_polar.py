@@ -78,9 +78,6 @@ class PolarDataDistribution:
 
         self._check_input()
 
-        angles_total = np.asarray(data['Direction mean'], dtype=float)
-        self.angles_total = angles_total % (2 * np.pi)
-
 
     def _check_input(self):
 
@@ -110,32 +107,57 @@ class PolarDataDistribution:
 
         angles = np.asarray(data['Direction mean'], dtype=float)
         self.angles = angles % (2 * np.pi)
-
         self.weights = np.asarray(data[self.weight], dtype=float) if self.weight else None
 
-    def _theta_density(self,  wrap: bool = False):
-        if self.weights is not None:
-            check = np.isfinite(self.angles) & np.isfinite(self.weights)
-            angles, weights = self.angles[check] % (2 * np.pi), self.weights[check]
+    def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = False):
+        if weights is not None:
+            check = np.isfinite(a) & np.isfinite(weights)
+            angles, weights = a[check] % (2 * np.pi), weights[check]
         else:
-            check = np.isfinite(self.angles)
-            angles = self.angles[check] % (2 * np.pi)
+            check = np.isfinite(a)
+            angles = a[check] % (2 * np.pi)
 
         if angles.size < 2:
             theta, density = np.linspace(0, 2 * np.pi, self.bins, endpoint=False), np.zeros(self.bins, dtype=float)
         else:
-            kde = gaussian_kde(angles, bw_method=self.bw, weights=weights if self.weights is not None else None)
+            kde = gaussian_kde(angles, bw_method=self.bw, weights=weights if weights is not None else None)
             theta = np.linspace(0, 2 * np.pi, self.bins, endpoint=False)
         
             density = sum(kde(theta + (2 * np.pi * k)) for k in range(-2, 3)) if wrap else kde(theta)
 
-        self.theta, self.density = theta, density
+        return theta, density
     
-    def _density_norm(self, density: np.ndarray):
-        if self.min_density is None:
-            self.min_density = density.min()
-        if self.max_density is None:
-            self.max_density = density.max()
+    def _density_norm(self):
+        if self.min_density is None and self.max_density is None:
+            if self.normalization == 'locally':
+                self.min_density = np.min(self.density)
+                self.max_density = np.max(self.density)
+            elif self.normalization == 'globally':
+                angles_total = np.asarray(self.data['Direction mean'], dtype=float)
+                angles_total = angles_total % (2 * np.pi)
+                weights_total = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
+                _, all_density = self._theta_density(angles_total, weights_total, wrap=True)
+                self.min_density = np.min(all_density)
+                self.max_density = np.max(all_density)
+        else:
+            if self.min_density is None:
+                self.noticequeue.Report(Level.warning, "Minimum density not provided -> setting 0.")
+                self.min_density = 0.0
+            if self.max_density is None:
+                self.noticequeue.Report(Level.warning, "Maximum density not provided -> setting 1.")
+                self.max_density = 1.0
+            if self.min_density >= self.max_density:
+                self.noticequeue.Report(Level.error, "Minimum density must be less than maximum density -> resetting to 0 and 1.")
+                self.min_density = 0.0
+                self.max_density = 1.0
+            if not isinstance(self.min_density, (int, float)):
+                self.noticequeue.Report(Level.error, "Minimum density must be a numeric value -> resetting to 0.")
+                self.min_density = 0.0
+            if not isinstance(self.max_density, (int, float)):
+                self.noticequeue.Report(Level.error, "Maximum density must be a numeric value -> resetting to 1.")
+                self.max_density = 1.0
+                     
+
         self.norm = Normalize(self.min_density, self.max_density)
 
     def _mean_direction(self, ax):
@@ -184,7 +206,8 @@ class PolarDataDistribution:
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(wrap=True)
+        self.theta, self.density = self._theta_density(self.angles, self.weights, wrap=True)
+        self._density_norm()
 
         self._polar_hist(
             ax, 
