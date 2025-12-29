@@ -595,8 +595,6 @@ class ReconstructTracks:
             im = Image.open(buf).convert("RGBA")
             image_stack.append(np.asarray(im, dtype=np.uint8))
 
-        print(image_stack)
-
         if not image_stack:
             return None
 

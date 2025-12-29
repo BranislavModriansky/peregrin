@@ -399,9 +399,6 @@ def mount_thresholds_calc(input, output, session, S):
             spots_output = spot_data.loc[filter.index.intersection(spot_data.index)]
             tracks_output = track_data.loc[filter.index.intersection(track_data.index)]
 
-            # print(f"Spots after thresholding: {len(spots_output)}")
-            # print(f"Tracks after thresholding: {len(tracks_output)}")
-
             thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
             S.THRESHOLDS.set(thresholds)
 

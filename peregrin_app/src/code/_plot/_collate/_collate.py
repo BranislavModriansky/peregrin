@@ -508,9 +508,6 @@ class SuperViolins:
     
                 self.unique_reps = tuple(self.df[self.rep].unique())
                 
-                # make sure there"s enough colours for 
-                # each subgroup when instantiating
-
                 if self.use_stock_palette:
                     try:
                         if self.palette not in qualitative: raise AttributeError(f"Palette must be one of {qualitative}")
@@ -518,7 +515,6 @@ class SuperViolins:
                         self.colours = [self.cm(i / self.cm.N) for i in range(len(self.unique_reps))]
                     except Exception as e:
                         print(e)
-                        print("Random colours were created for each unique replicate.")
                         colours = {rep: Colors.GenerateRandomColor() for rep in self.unique_reps}
                         self.colours = [colours[rep] for rep in self.unique_reps]
                 else: 
@@ -529,12 +525,10 @@ class SuperViolins:
                             self.colours = [cmap[rep] for rep in self.unique_reps]
                         except Exception:
                             if self.palette not in qualitative: raise AttributeError(f"Palette must be one of {qualitative}")
-                            print("Could not find assigned replicate colours -> using stock palette instead.")
                             self.cm = plt.get_cmap(self.palette)
                             self.colours = [self.cm(i / self.cm.N) for i in range(len(self.unique_reps))]
                     except Exception as e:
                         print(e)
-                        print("Random colours were created for each unique replicate.")
                         colours = {rep: Colors.GenerateRandomColor() for rep in self.unique_reps}
                         self.colours = [colours[rep] for rep in self.unique_reps]
 

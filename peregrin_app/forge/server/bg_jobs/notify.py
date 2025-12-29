@@ -85,6 +85,5 @@ def mount_notifier(noticequeue):
     @reactive.poll(show_notifications, interval_secs=1.5)
     def read_queue():
         """Reads data from the noticequeue"""
-        print("Polling noticequeue for notifications...")
         show_notifications()
         return noticequeue.Emit()

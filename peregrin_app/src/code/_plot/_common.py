@@ -125,7 +125,6 @@ class Colors:
             )
             
             mp = mp.set_index(tag)[f'{tag} color'].to_dict()
-            print(f"Color map: {mp}")
         
         missing = [t for t in tags if t not in mp]
 

@@ -243,9 +243,7 @@ class PolarDataDistribute:
         self._arrange_data()
         self.theta, self.density = self._theta_density(self.angles, self.weights, wrap=True)
         self._density_norm()
-
-        print(self._min_density, self._max_density)
-
+        
         return self._min_density, self._max_density
 
 
