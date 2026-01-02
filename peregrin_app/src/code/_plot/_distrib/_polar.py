@@ -112,6 +112,7 @@ class PolarDataDistribute:
         self.weights = np.asarray(data[self.weight], dtype=float) if self.weight else None
 
     def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = False):
+        
         if weights is not None:
             check = np.isfinite(a) & np.isfinite(weights)
             angles, weights = a[check] % (2 * np.pi), weights[check]
@@ -138,7 +139,7 @@ class PolarDataDistribute:
                 angles_total = np.asarray(self.data['Direction mean'], dtype=float)
                 angles_total = angles_total % (2 * np.pi)
                 weights_total = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
-                _, all_density = self._theta_density(angles_total, weights_total, wrap=True)
+                _, all_density = self._theta_density(angles_total, weights_total)
                 _min_density = np.min(all_density)
                 _max_density = np.max(all_density)
         else:
@@ -159,6 +160,7 @@ class PolarDataDistribute:
         self._max_density = _max_density
             
         self.norm = Normalize(self._min_density, self._max_density)
+        self.normalized_density = self.norm(self.density)
 
     def _mean_direction(self, ax):
         mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
@@ -215,7 +217,7 @@ class PolarDataDistribute:
             heights=np.full_like(self.theta, self.WIDTH),
             widths=self.D_THETA * 1.1,
             bottom=self.INNER_RADIUS,
-            color=self.cmap(self.norm(self.density)),
+            color=self.cmap(self.normalized_density),
             antialiased=False
         )
 
@@ -238,20 +240,61 @@ class PolarDataDistribute:
         fig.set_facecolor(self.face)
 
         return plt.gcf()
-    
-    def get_density_caps(self):
-        self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights, wrap=True)
-        self._density_norm()
-        
-        return self._min_density, self._max_density
 
 
     def KDELinePlot(self):
-        pass
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self._density_norm()
+
+        if self.outline:
+            ax.plot(
+                self.theta, 
+                self.normalized_density, 
+                color=self.outline_color,
+                linewidth=self.outline_width
+                 
+            )
+        
+        if self.kde_fill:
+            ax.fill_between(
+                self.theta, 
+                0, 
+                self.normalized_density, 
+                color=self.kde_fill_color, 
+                alpha=self.kde_fill_alpha,
+                zorder=5,
+                linewidth=0
+            )
+
+        if self.show_abs_average:
+            self._mean_direction(ax)
+
+        self._annotate_x_axis(ax)
+        self._annotate_y_axis(ax)
+        if self.title:
+            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
+        ax.set_facecolor(self.background)
+        fig.set_facecolor(self.face)
+
+        return plt.gcf()
+
+
 
     def RoseChart(self):
         pass
 
+
     def Overlay(self):
         pass
+
+
+    def get_density_caps(self):
+        
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self._density_norm()
+
+        return self._min_density, self._max_density

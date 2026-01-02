@@ -470,7 +470,7 @@ app_ui = ui.page_sidebar(
                                                 ui.div(ui.input_numeric("dd_kde_colormesh_lutmap_scale_max", None, 1, step=0.1, width="100px"), style="margin-left: 10px; margin-right: 30px;"),
                                             )
                                         ),
-                                        ui.input_checkbox(id="dd_kde_colormesh_theta_labels", label="Annotate theta axis", value=True),
+                                        ui.input_checkbox(id="dd_kde_colormesh_theta_labels", label="Theta axis annotation", value=True),
                                         ui.input_text("dd_kde_colormesh_title", label=None, placeholder="Title me!", width="100%")
                                     ),
                                     ui.accordion_panel(
@@ -492,11 +492,13 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ""
+                                        ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
+                                        ui.input_checkbox(id="dd_kde_line_dial", label="Display average direction dial", value=True),
+                                        ui.input_checkbox_group(id="dd_kde_line_labels", label=None, choices={"theta": "Theta axis annotation", "r": "R axis annotation"}, selected=["theta", "r"]),
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ""
+                                        ui.input_checkbox(id="dd_kde_line_fill", label="Fill KDE area", value=True),
                                     ),
                                     class_="accordion02"
                                 ),

@@ -58,37 +58,38 @@ def MountDistributions(input, output, session, S, noticequeue):
                 selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
 
-    def _density_caps_kwargs() -> dict:
+    def _common_kwargs() -> dict:
         if input.dd_add_weights():
             weight=input.dd_weight()
         else: 
             weight=None
-        if input.dd_kde_colormesh_auto_scale_lut():
-            min_density=input.dd_kde_colormesh_lutmap_scale_min()
-            max_density=input.dd_kde_colormesh_lutmap_scale_max()
-        else:
-            min_density=0.0
-            max_density=1.0
 
         return dict(
             data=S.TRACKSTATS.get(),
             conditions=input.conditions_dd(),
             replicates=input.replicates_dd(),
             normalization=input.dd_normalization(),
-            auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
-            cmap=input.dd_kde_colormesh_lut_map(),
             weight=weight,
-            min_density=min_density,
-            max_density=max_density,
             noticequeue=noticequeue,
         )
 
+    def _density_caps_kwargs() -> dict:
+        if input.dd_kde_colormesh_auto_scale_lut():
+            min_density=input.dd_kde_colormesh_lutmap_scale_min()
+            max_density=input.dd_kde_colormesh_lutmap_scale_max()
+        else:
+            min_density=0.0
+            max_density=1.0
+
+        return dict(
+            **_common_kwargs(),
+            auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
+            cmap=input.dd_kde_colormesh_lut_map(),
+            min_density=min_density,
+            max_density=max_density,
+        )
 
     def _distribution_kde_colormesh_kwargs() -> dict:
-        if input.dd_add_weights():
-            weight=input.dd_weight()
-        else: 
-            weight=None
         if input.dd_kde_colormesh_auto_scale_lut():
             min_density=0.0
             max_density=1.0
@@ -97,11 +98,7 @@ def MountDistributions(input, output, session, S, noticequeue):
             max_density=input.dd_kde_colormesh_lutmap_scale_max()
 
         return dict(
-            data=S.TRACKSTATS.get(),
-            conditions=input.conditions_dd(),
-            replicates=input.replicates_dd(),
-            normalization=input.dd_normalization(),
-            weight=weight,
+            **_common_kwargs(),
             cmap=input.dd_kde_colormesh_lut_map(),
             text_color='black' if input.app_theme() == "Shiny" else 'white',
             label_x=input.dd_kde_colormesh_theta_labels(),
@@ -110,7 +107,24 @@ def MountDistributions(input, output, session, S, noticequeue):
             auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
             min_density=min_density,
             max_density=max_density,
-            noticequeue=noticequeue,
+        )
+    
+    def _distribution_kde_line_kwargs() -> dict:
+        return dict(
+            **_common_kwargs(),
+            text_color='black' if input.app_theme() == "Shiny" else 'white',
+            label_x=input.dd_kde_line_theta_labels(),
+            label_y=input.dd_kde_line_r_labels(),
+            bandwidth=input.dd_kde_line_bandwidth(),
+            outline=input.dd_kde_line_outline(),
+            outline_color=input.dd_kde_line_outline_color(),
+            outline_width=input.dd_kde_line_outline_width(),
+            kde_fill=input.dd_kde_line_fill(),
+            kde_fill_color=input.dd_kde_line_fill_color(),
+            kde_fill_alpha=input.dd_kde_line_fill_alpha(),
+            show_abs_average=input.dd_kde_line_show_abs_average(),
+            mean_angle_color=input.dd_kde_line_mean_angle_color(),
+            mean_angle_width=input.dd_kde_line_mean_angle_width()
         )
     
     ui.bind_task_button(button_id="generate_dd_kde_colormesh")
