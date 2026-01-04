@@ -14,7 +14,7 @@ class PolarDataDistribute:
 
     def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
                  *args, normalization: str = 'globally', weight: str = None, 
-                 cmap: str = 'plasma', face: str = 'none', 
+                 cmap: str = 'plasma LUT', face: str = 'none', 
                  text_color: str = 'black', title: str = None, 
                  label_x: bool = True, label_y: bool = True, 
                  label_y_color: str = 'lightgrey',
@@ -63,9 +63,10 @@ class PolarDataDistribute:
         self.kde_fill_color = kwargs.get('kde_fill_color', 'blue')
         self.kde_fill_alpha = kwargs.get('kde_fill_alpha', 0.4)
         # outline, its color and its width already mentioned
-        self.show_abs_average = kwargs.get('absolute_average', True)
+        self.show_abs_average = kwargs.get('show_abs_average', True)
         self.mean_angle_color = kwargs.get('mean_angle_color', 'black')
         self.mean_angle_width = kwargs.get('mean_angle_width', 3)
+        self.r_locate = kwargs.get('r_locate', 75)
 
         # - Keyword arguments for Rose chart & KDE overlay
         self.fraction_size = kwargs.get('fraction_size', 0.5)
@@ -76,7 +77,7 @@ class PolarDataDistribute:
         self.INNER_RADIUS = 0.7
         self.WIDTH = self.OUTER_RADIUS - self.INNER_RADIUS
         self.D_THETA = 2 * np.pi / self.bins
-        self.auto_lut_scale = kwargs.get('auto_lut_scale', False)
+        self.auto_lut_scale = kwargs.get('auto_lut_scale', True)
 
         self._check_input()
 
@@ -98,6 +99,10 @@ class PolarDataDistribute:
             self.gap = Values.Clamp01(self.gap)
             self.noticequeue.Report(Level.error, "Gap must be in range (0, 1). Clamped to: " + str(self.gap))
 
+        if not (0 <= self.r_locate <= 360):
+            self.r_locate = 75
+            self.noticequeue.Report(Level.warning, "R axis labels position must be in range (0, 360). Resetting to 75.")
+
 
     def _arrange_data(self):
         data = Categorizer(
@@ -111,7 +116,7 @@ class PolarDataDistribute:
         self.angles = angles % (2 * np.pi)
         self.weights = np.asarray(data[self.weight], dtype=float) if self.weight else None
 
-    def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = False):
+    def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = True, num_points: int = None):
         
         if weights is not None:
             check = np.isfinite(a) & np.isfinite(weights)
@@ -121,16 +126,16 @@ class PolarDataDistribute:
             angles = a[check] % (2 * np.pi)
 
         if angles.size < 2:
-            theta, density = np.linspace(0, 2 * np.pi, self.bins, endpoint=False), np.zeros(self.bins, dtype=float)
+            theta, density = np.linspace(0, 2 * np.pi, self.bins if num_points is None else num_points, endpoint=False), np.zeros(self.bins if num_points is None else num_points, dtype=float)
         else:
             kde = gaussian_kde(angles, bw_method=self.bw, weights=weights if weights is not None else None)
-            theta = np.linspace(0, 2 * np.pi, self.bins, endpoint=False)
+            theta = np.linspace(0, 2 * np.pi, self.bins if num_points is None else num_points, endpoint=False)
         
             density = sum(kde(theta + (2 * np.pi * k)) for k in range(-2, 3)) if wrap else kde(theta)
 
         return theta, density
     
-    def _density_norm(self):
+    def _density_norm(self, wrap: bool = True, num_points: int = None):
         if self.auto_lut_scale:
             if self.normalization == 'locally':
                 _min_density = np.min(self.density)
@@ -139,7 +144,7 @@ class PolarDataDistribute:
                 angles_total = np.asarray(self.data['Direction mean'], dtype=float)
                 angles_total = angles_total % (2 * np.pi)
                 weights_total = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
-                _, all_density = self._theta_density(angles_total, weights_total)
+                _, all_density = self._theta_density(angles_total, weights_total, wrap=wrap, num_points=num_points)
                 _min_density = np.min(all_density)
                 _max_density = np.max(all_density)
         else:
@@ -165,11 +170,11 @@ class PolarDataDistribute:
     def _mean_direction(self, ax):
         mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
         mean_angle_wrapped = mean_angle % (2 * np.pi)
-        density_at_mean = np.interp(mean_angle_wrapped, self.theta, self.density)
+        density_at_mean = np.interp(mean_angle_wrapped, self.theta, self.normalized_density)
 
         ax.vlines(mean_angle_wrapped, 0, density_at_mean, color=self.mean_angle_color, linewidth=self.mean_angle_width, zorder=11)
     
-    def _annotate_x_axis(self, ax, create: bool = False):
+    def _annotate_theta_axis(self, ax, create: bool = False):
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
 
@@ -178,17 +183,26 @@ class PolarDataDistribute:
                 for angle in range(0, 360, 45):
                     ax.text(np.deg2rad(angle), self.OUTER_RADIUS + 0.1, f"{angle}°", 
                             ha='center', va='center', fontsize=10, color=self.text_color, fontweight="medium", zorder=100)
+            else:
+                ax.tick_params(axis="x", labelcolor=self.text_color)
         elif not self.label_x:
             ax.set_xticklabels([])
         
-    def _annotate_y_axis(self, ax):
+    def _annotate_r_axis(self, ax, axtext: bool = False):
         if self.label_y:
-            for label in ax.get_yticklabels():
-                label = int(label.get_text())
-                ax.text(np.deg2rad(75), label, str(label),
-                    ha="center", va="center", fontsize=10, zorder=100,
-                    color=self.label_y_color, fontweight="medium")
-        ax.set_yticklabels([])
+            if axtext:
+                for label in ax.get_yticklabels():
+                    label = int(label.get_text())
+                    ax.text(np.deg2rad(self.r_locate), label, str(label),
+                        ha="center", va="center", fontsize=10, zorder=100,
+                        color=self.label_y_color, fontweight="medium")
+                ax.set_yticklabels([])
+            else:
+                ax.tick_params(axis="y", labelcolor=self.label_y_color)
+                ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.0])
+                ax.set_rlabel_position(self.r_locate)
+        else:
+            ax.set_yticklabels([])
 
     def _polar_hist(self, ax, data: np.ndarray, heights: np.ndarray, widths: np.ndarray, 
                     bottom: float = 0.0, color: Any = None, **kwargs):
@@ -204,11 +218,12 @@ class PolarDataDistribute:
             **kwargs
         )
 
+
     def GaussianKDEColormesh(self):
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights, wrap=True)
+        self.theta, self.density = self._theta_density(self.angles, self.weights)
         self._density_norm()
 
         self._polar_hist(
@@ -225,7 +240,7 @@ class PolarDataDistribute:
         for circuit in (self.INNER_RADIUS, self.OUTER_RADIUS):
             ax.plot(theta_line, np.full_like(theta_line, circuit), color='black', linewidth=0.9)
 
-        self._annotate_x_axis(ax, create=True)
+        self._annotate_theta_axis(ax, create=True)
         if self.title:
             ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
         ax.set_axis_off()
@@ -243,11 +258,13 @@ class PolarDataDistribute:
 
 
     def KDELinePlot(self):
+        num_points=1440
+
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights)
-        self._density_norm()
+        self.theta, self.density = self._theta_density(self.angles, self.weights, num_points=num_points)
+        self._density_norm(num_points=num_points)
 
         if self.outline:
             ax.plot(
@@ -272,8 +289,8 @@ class PolarDataDistribute:
         if self.show_abs_average:
             self._mean_direction(ax)
 
-        self._annotate_x_axis(ax)
-        self._annotate_y_axis(ax)
+        self._annotate_theta_axis(ax)
+        self._annotate_r_axis(ax)
         if self.title:
             ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
         ax.set_facecolor(self.background)

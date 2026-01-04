@@ -406,7 +406,7 @@ app_ui = ui.page_sidebar(
                                 ui.row(
                                     ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories"}, selected="globally"),
                                     ui.column(
-                                        1, 
+                                        2, 
                                         ui.input_checkbox(id="dd_add_weights", label="Add weights", value=False),
                                         offset=1,
                                     ),
@@ -454,28 +454,29 @@ app_ui = ui.page_sidebar(
                                             ui.input_numeric("dd_kde_colormesh_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
                                             ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
                                         ),
-                                        ui.br(),
+                                        # ui.br(),
                                         ui.row(
                                             ui.input_checkbox("dd_kde_colormesh_auto_scale_lut", "Auto scale LUT to min/max density", value=True),
-                                        ),
-                                        ui.row(
                                             ui.panel_conditional(
                                                 "input.dd_kde_colormesh_auto_scale_lut == true",
-                                                ui.div(ui.output_text_verbatim(id="dd_kde_colormesh_density_range", placeholder=True), style="margin-left: 30px; margin-right: 30px;"),
+                                                ui.div(ui.output_text_verbatim(id="dd_kde_colormesh_density_range", placeholder=True), style="margin-left: 20px; margin-right: 30px; margin-top: -6px;"),
                                             ),
+                                        ),
+                                        ui.row(
                                             ui.panel_conditional(
                                                 "input.dd_kde_colormesh_auto_scale_lut == false",
                                                 ui.div(ui.markdown("LUT map scale range:"), style="margin-left: 30px; margin-right: 10px; margin-top: 5px;"),
                                                 ui.div(ui.input_numeric("dd_kde_colormesh_lutmap_scale_min", None, 0, step=0.1, width="100px"), style="margin-left: 10px; margin-right: 10px;"),
-                                                ui.div(ui.input_numeric("dd_kde_colormesh_lutmap_scale_max", None, 1, step=0.1, width="100px"), style="margin-left: 10px; margin-right: 30px;"),
+                                                ui.div(ui.input_numeric("dd_kde_colormesh_lutmap_scale_max", None, 1, step=0.1, width="100px"), style="margin-left: 10px; margin-right: 30px;")
                                             )
                                         ),
                                         ui.input_checkbox(id="dd_kde_colormesh_theta_labels", label="Theta axis annotation", value=True),
+                                        ui.br(),
                                         ui.input_text("dd_kde_colormesh_title", label=None, placeholder="Title me!", width="100%")
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ui.input_selectize(id="dd_kde_colormesh_lut_map", label="Select LUT map:", choices=Styles.LUTOptions, selected="plasma LUT")
+                                        ui.input_selectize(id="dd_kde_colormesh_lut_map", label="Select LUT map:", choices=Styles.LUTOptions, selected="plasma LUT", width="200px"),
                                     ),
                                     class_="accordion02"
                                 ),
@@ -492,13 +493,52 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
-                                        ui.input_checkbox(id="dd_kde_line_dial", label="Display average direction dial", value=True),
-                                        ui.input_checkbox_group(id="dd_kde_line_labels", label=None, choices={"theta": "Theta axis annotation", "r": "R axis annotation"}, selected=["theta", "r"]),
+                                        ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.05, min=0.0001, step=0.001, width="150px"),
+                                        ui.input_checkbox(id="dd_kde_line_dial", label="Display direction mean dial", value=True),
+                                        ui.row(
+                                            ui.column(6,
+                                                ui.input_checkbox("dd_kde_line_theta_labels", "Theta axis annotation", value=True),
+                                                ui.input_checkbox("dd_kde_line_r_labels", "R axis annotation", value=True)
+                                            )
+                                        ),
+                                        ui.row(
+                                            ui.panel_conditional(
+                                                "input.dd_kde_line_r_labels == true",
+                                                ui.div(ui.markdown("Label Color:"), style="margin-left: 50px;"),
+                                                ui.div(ui.input_selectize("dd_kde_line_r_label_color", label=None, choices=Styles.Color, selected="#ffffff", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
+                                                ui.div(ui.markdown("Position [°]:"), style="margin-left: 24px;"),
+                                                ui.div(ui.input_numeric("dd_kde_line_r_axis_position", label=None, value=75, min=0, max=360, step=1, width="75px"), style="margin-left: 10px; margin-top: -6px;"),
+                                            )
+                                        ),
+                                        ui.br(),
+                                        ui.input_text("dd_kde_line_title", label=None, placeholder="Title me!", width="100%")
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ui.input_checkbox(id="dd_kde_line_fill", label="Fill KDE area", value=True),
+                                        ui.row(
+                                            ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_outline", label="Show KDE outline area", value=True), style="margin-left: 18px; margin-top: 12px;")),
+                                            ui.panel_conditional(
+                                                "input.dd_kde_line_outline == true",
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_outline_color", label="Line color:", choices=Styles.Color, selected="#d7fffe", width="175px")),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_outline_width", label="Line width:", value=2, min=0.1, step=0.5, width="150px")),
+                                            ),
+                                        ),
+                                        ui.row(
+                                            ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_fill", label="Fill KDE area", value=True), style="margin-left: 18px; margin-top: 12px;")),
+                                            ui.panel_conditional(
+                                                "input.dd_kde_line_fill == true",
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_fill_color", label="Fill color:", choices=Styles.Color, selected="#738595", width="175px")),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_fill_alpha", label="Fill opacity:", value=0.5, min=0, max=1, step=0.1, width="150px"))
+                                            )
+                                        ),
+                                        ui.row(
+                                            ui.panel_conditional(
+                                                "input.dd_kde_line_dial == true",
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_dial_color", label="Dial color:", choices=Styles.Color, selected="#ffffe4", width="175px"), offset=4),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_dial_width", label="Dial width:", value=3, min=0.1, step=0.5, width="150px")),
+                                            )
+                                        ),
+                                        ui.column(4, ui.div(ui.input_selectize(id="dd_kde_line_bg_color", label="Background color:", choices=Styles.Color, selected="#1a1a1a", width="175px"), style="margin-left: -4px;"), offset=4),
                                     ),
                                     class_="accordion02"
                                 ),

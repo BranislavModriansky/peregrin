@@ -222,3 +222,7 @@
 .dd-cards-wrap .card-body {
   height: auto !important;
 }
+
+.navbar {
+    background-color: white !important;
+}

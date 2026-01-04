@@ -113,18 +113,21 @@ def MountDistributions(input, output, session, S, noticequeue):
         return dict(
             **_common_kwargs(),
             text_color='black' if input.app_theme() == "Shiny" else 'white',
+            bandwidth=input.dd_kde_line_bandwidth(),
             label_x=input.dd_kde_line_theta_labels(),
             label_y=input.dd_kde_line_r_labels(),
-            bandwidth=input.dd_kde_line_bandwidth(),
-            outline=input.dd_kde_line_outline(),
+            label_y_color=input.dd_kde_line_r_label_color(),
+            r_locate=input.dd_kde_line_r_axis_position(),
+            outline=True,
             outline_color=input.dd_kde_line_outline_color(),
             outline_width=input.dd_kde_line_outline_width(),
             kde_fill=input.dd_kde_line_fill(),
             kde_fill_color=input.dd_kde_line_fill_color(),
             kde_fill_alpha=input.dd_kde_line_fill_alpha(),
-            show_abs_average=input.dd_kde_line_show_abs_average(),
-            mean_angle_color=input.dd_kde_line_mean_angle_color(),
-            mean_angle_width=input.dd_kde_line_mean_angle_width()
+            show_abs_average=input.dd_kde_line_dial(),
+            mean_angle_color=input.dd_kde_line_dial_color(),
+            mean_angle_width=input.dd_kde_line_dial_width(),
+            background=input.dd_kde_line_bg_color(),
         )
     
     ui.bind_task_button(button_id="generate_dd_kde_colormesh")
@@ -179,3 +182,39 @@ def MountDistributions(input, output, session, S, noticequeue):
         ): return "No data."
 
         return f"min: {S.MIN_DENSITY.get()}; max: {S.MAX_DENSITY.get()}"
+    
+
+    ui.bind_task_button(button_id="generate_dd_kde_line")
+    @reactive.extended_task
+    async def output_data_distribution_kde_line(kwargs: dict):
+        def _build(_kwargs=kwargs):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+                fig = PolarDataDistribute(**_kwargs).KDELinePlot()
+
+                return fig
+            
+        return await asyncio.get_running_loop().run_in_executor(None, _build)
+    
+    @reactive.Effect
+    @reactive.event(input.generate_dd_kde_line, ignore_none=False)
+    def _():
+        output_data_distribution_kde_line.cancel()
+
+        req(
+            S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+            and "Condition" in S.TRACKSTATS.get().columns and "Replicate" in S.TRACKSTATS.get().columns
+        )
+
+        kwargs = _distribution_kde_line_kwargs()
+
+        output_data_distribution_kde_line(kwargs)
+
+    @render.plot
+    def dd_plot_kde_line():
+        return output_data_distribution_kde_line.result()
+    
