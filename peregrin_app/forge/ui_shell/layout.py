@@ -412,7 +412,7 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.panel_conditional(
                                         "input.dd_add_weights == true",
-                                        ui.div(ui.input_selectize(id="dd_weight", label=None, choices=[], selected=None, width="200px"), style="margin-top: -5px;"),
+                                        ui.div(ui.input_selectize(id="dd_weight", label=None, choices=[p for p in Metrics.Track if p not in ["Direction mean"]], selected=None, width="200px"), style="margin-top: -5px;"),
                                     ),
                                 )
                             ),

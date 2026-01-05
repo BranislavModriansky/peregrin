@@ -80,7 +80,7 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
             'Speed min','Speed max','Speed mean','Speed std','Speed median',
             'Speed q10','Speed q25','Speed q50','Speed q75','Speed q95','Speed IQR',
             'Speed SEM','Speed CI95 low','Speed CI95 high',
-            'Direction mean','Direction std','Direction median',
+            'Direction mean','Direction sd','Direction median',
             'Track points'
         ]
         return pd.DataFrame(columns=cols)
@@ -124,21 +124,18 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     
     dir_agg = sin_cos.groupby(['Condition','Replicate','Track ID'], sort=False).agg(
         mean_sin=('_sin','mean'),
-        mean_cos=('_cos','mean'),
-        median_sin=('_sin','median'),
-        median_cos=('_cos','median')
+        mean_cos=('_cos','mean')
     )
 
     dir_aggs = {
         'Direction mean': lambda row: np.arctan2(row['mean_sin'], row['mean_cos']),
         'Direction sd': lambda row: np.sqrt(-2 * np.log(np.sqrt(row['mean_sin']**2 + row['mean_cos']**2))),
-        'Direction median': lambda row: np.arctan2(row['median_sin'], row['median_cos']),
     }
 
     for col, func in dir_aggs.items():
         dir_agg[col] = dir_agg.apply(func, axis=1)
 
-    dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos','median_sin','median_cos'])
+    dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
 
     result = agg.merge(dir_agg, left_index=True, right_index=True).reset_index()
     result['Track UID'] = np.arange(len(result))
@@ -148,24 +145,13 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
 
 @staticmethod
 def Frames(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute per-frame (time point) summary metrics grouped by Condition, Replicate, Time point:
-    - Track length, Track displacement, Confinement ratio distributions: min, max, mean, std, median
-    - Speed (Distance) distributions as Speed min, Speed max, Speed mean, Speed std, Speed median
-    - Direction distributions (circular): Direction mean (rad), Direction std (rad), Direction median (rad)
-        and corresponding degrees
-
-    Expects columns: Condition, Replicate, Time point, Track length, Track displacement,
-                    Confinement ratio, Distance, Direction
-    Returns a DataFrame indexed by Condition, Replicate, Time point with all time-point metrics.
-    """
+    
     if df.empty:
         # define columns
         cols = ['Condition','Replicate','Time point','Frame'] + \
-            [f'{metric} {stat}' for metric in ['Track length','Track displacement','Confinement ratio'] for stat in ['min','max','mean','std','median']] + \
-            [f'Speed {stat}' for stat in ['min','max','mean','std','median']] + \
-            ['Direction mean (rad)','Direction std (rad)','Direction median (rad)',
-                'Direction mean (deg)','Direction std (deg)','Direction median (deg)']
+            [f'{metric} {stat}' for metric in ['Track length','Track displacement','Confinement ratio'] for stat in ['min','max','mean','sd','median']] + \
+            [f'Speed {stat}' for stat in ['min','max','mean','sd','median']] + \
+            ['Direction mean','Direction sd']
         return pd.DataFrame(columns=cols)
 
     group_cols = ['Condition','Replicate','Time point','Frame']
@@ -190,10 +176,7 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     # mean direction
     dir_frame['Direction mean'] = np.arctan2(dir_frame['_sin'], dir_frame['_cos'])
     # circular std: R = sqrt(mean_sin^2+mean_cos^2)
-    dir_frame['Direction std'] = np.hypot(dir_frame['_sin'], dir_frame['_cos'])
-    # median direction: use groupby apply median sin/cos
-    median = tmp.groupby(group_cols).agg({'_sin':'median','_cos':'median'})
-    dir_frame['Direction median'] = np.arctan2(median['_sin'], median['_cos'])
+    dir_frame['Direction sd'] = np.hypot(dir_frame['_sin'], dir_frame['_cos'])
     
     dir_frame = dir_frame.drop(columns=['_sin','_cos','Direction'], errors='ignore')
 
@@ -204,17 +187,17 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
         'Cumulative track length min': 'Track length min',
         'Cumulative track length max': 'Track length max',
         'Cumulative track length mean': 'Track length mean',
-        'Cumulative track length std': 'Track length std',
+        'Cumulative track length sd': 'Track length sd',
         'Cumulative track length median': 'Track length median',
         'Cumulative track displacement min': 'Track displacement min',
         'Cumulative track displacement max': 'Track displacement max',
         'Cumulative track displacement mean': 'Track displacement mean',
-        'Cumulative track displacement std': 'Track displacement std',
+        'Cumulative track displacement sd': 'Track displacement sd',
         'Cumulative track displacement median': 'Track displacement median',
         'Cumulative confinement ratio min': 'Confinement ratio min',
         'Cumulative confinement ratio max': 'Confinement ratio max',
         'Cumulative confinement ratio mean': 'Confinement ratio mean',
-        'Cumulative confinement ratio std': 'Confinement ratio std',
+        'Cumulative confinement ratio sd': 'Confinement ratio sd',
         'Cumulative confinement ratio median': 'Confinement ratio median',
     })
     time_stats = time_stats.reset_index()

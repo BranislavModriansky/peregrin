@@ -81,6 +81,98 @@ class PolarDataDistribute:
 
         self._check_input()
 
+    def GaussianKDEColormesh(self):
+        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
+
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self._density_norm()
+
+        self._polar_hist(
+            ax, 
+            data=self.theta, 
+            heights=np.full_like(self.theta, self.WIDTH),
+            widths=self.D_THETA * 1.1,
+            bottom=self.INNER_RADIUS,
+            color=self.cmap(self.normalized_density),
+            antialiased=False
+        )
+
+        theta_line = np.linspace(0, 2*np.pi, 500)
+        for circuit in (self.INNER_RADIUS, self.OUTER_RADIUS):
+            ax.plot(theta_line, np.full_like(theta_line, circuit), color='black', linewidth=0.9)
+
+        self._annotate_theta_axis(ax, create=True)
+        if self.title:
+            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
+        ax.set_axis_off()
+
+        sm = plt.cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
+        cbar = plt.colorbar(sm, ax=ax, orientation='horizontal', pad=0.115, fraction=0.045)
+        cbar.set_ticks([])
+        for cap in ('min', 'max'):
+            cbar.ax.text(0.035 if cap == 'min' else 0.965, -0.5, cap, va='center', ha='center', color=self.text_color, transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
+        cbar.set_label("Density" + (f" weighted by {self.weight}" if self.weight else ""), labelpad=10, color=self.text_color)
+        
+        fig.set_facecolor(self.face)
+
+        return plt.gcf()
+
+    def KDELinePlot(self):
+        num_points=1440
+
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights, num_points=num_points)
+        self._density_norm(num_points=num_points)
+
+        if self.outline:
+            ax.plot(
+                self.theta, 
+                self.normalized_density, 
+                color=self.outline_color,
+                linewidth=self.outline_width
+                 
+            )
+        
+        if self.kde_fill:
+            ax.fill_between(
+                self.theta, 
+                0, 
+                self.normalized_density, 
+                color=self.kde_fill_color, 
+                alpha=self.kde_fill_alpha,
+                zorder=5,
+                linewidth=0
+            )
+
+        if self.show_abs_average:
+            self._mean_direction(ax)
+
+        self._annotate_theta_axis(ax)
+        self._annotate_r_axis(ax)
+        if self.title:
+            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
+        ax.set_facecolor(self.background)
+        fig.set_facecolor(self.face)
+
+        return plt.gcf()
+
+    def RoseChart(self):
+        ...
+
+    def Overlay(self):
+        ...
+
+    def get_density_caps(self):
+        
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self._density_norm()
+
+        return self._min_density, self._max_density
+    
 
     def _check_input(self):
 
@@ -102,7 +194,6 @@ class PolarDataDistribute:
         if not (0 <= self.r_locate <= 360):
             self.r_locate = 75
             self.noticequeue.Report(Level.warning, "R axis labels position must be in range (0, 360). Resetting to 75.")
-
 
     def _arrange_data(self):
         data = Categorizer(
@@ -217,101 +308,3 @@ class PolarDataDistribute:
             linewidth=self.outline_width if self.outline else 0,
             **kwargs
         )
-
-
-    def GaussianKDEColormesh(self):
-        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
-
-        self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights)
-        self._density_norm()
-
-        self._polar_hist(
-            ax, 
-            data=self.theta, 
-            heights=np.full_like(self.theta, self.WIDTH),
-            widths=self.D_THETA * 1.1,
-            bottom=self.INNER_RADIUS,
-            color=self.cmap(self.normalized_density),
-            antialiased=False
-        )
-
-        theta_line = np.linspace(0, 2*np.pi, 500)
-        for circuit in (self.INNER_RADIUS, self.OUTER_RADIUS):
-            ax.plot(theta_line, np.full_like(theta_line, circuit), color='black', linewidth=0.9)
-
-        self._annotate_theta_axis(ax, create=True)
-        if self.title:
-            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
-        ax.set_axis_off()
-
-        sm = plt.cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
-        cbar = plt.colorbar(sm, ax=ax, orientation='horizontal', pad=0.115, fraction=0.045)
-        cbar.set_ticks([])
-        for cap in ('min', 'max'):
-            cbar.ax.text(0.035 if cap == 'min' else 0.965, -0.5, cap, va='center', ha='center', color=self.text_color, transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
-        cbar.set_label("Density" + (f" weighted by {self.weight}" if self.weight else ""), labelpad=10, color=self.text_color)
-        
-        fig.set_facecolor(self.face)
-
-        return plt.gcf()
-
-
-    def KDELinePlot(self):
-        num_points=1440
-
-        fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
-
-        self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights, num_points=num_points)
-        self._density_norm(num_points=num_points)
-
-        if self.outline:
-            ax.plot(
-                self.theta, 
-                self.normalized_density, 
-                color=self.outline_color,
-                linewidth=self.outline_width
-                 
-            )
-        
-        if self.kde_fill:
-            ax.fill_between(
-                self.theta, 
-                0, 
-                self.normalized_density, 
-                color=self.kde_fill_color, 
-                alpha=self.kde_fill_alpha,
-                zorder=5,
-                linewidth=0
-            )
-
-        if self.show_abs_average:
-            self._mean_direction(ax)
-
-        self._annotate_theta_axis(ax)
-        self._annotate_r_axis(ax)
-        if self.title:
-            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
-        ax.set_facecolor(self.background)
-        fig.set_facecolor(self.face)
-
-        return plt.gcf()
-
-
-
-    def RoseChart(self):
-        pass
-
-
-    def Overlay(self):
-        pass
-
-
-    def get_density_caps(self):
-        
-        self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights)
-        self._density_norm()
-
-        return self._min_density, self._max_density

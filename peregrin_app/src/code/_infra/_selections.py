@@ -23,9 +23,9 @@ class Metrics:
         "Speed median",
         "Speed max",
         "Speed min",
-        "Speed std",
+        "Speed sd",
         "Direction mean",
-        "Direction std",
+        "Direction sd",
     ]
 
     Time = [
