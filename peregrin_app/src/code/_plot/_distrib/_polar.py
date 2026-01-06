@@ -81,7 +81,7 @@ class PolarDataDistribute:
 
         self._check_input()
 
-    def GaussianKDEColormesh(self):
+    def GaussianKDEColormesh(self) -> plt.Figure:
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
 
         self._arrange_data()
@@ -118,7 +118,7 @@ class PolarDataDistribute:
 
         return plt.gcf()
 
-    def KDELinePlot(self):
+    def KDELinePlot(self) -> plt.Figure:
         num_points=1440
 
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
@@ -159,13 +159,25 @@ class PolarDataDistribute:
 
         return plt.gcf()
 
-    def RoseChart(self):
+    def RoseChart(self) -> plt.Figure:
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+
+        self._arrange_data()
+        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self._density_norm()
+
+        self._bins()
+
+
+
+
+
+
+
+    def Overlay(self) -> plt.Figure:
         ...
 
-    def Overlay(self):
-        ...
-
-    def get_density_caps(self):
+    def get_density_caps(self) -> tuple[float, float]:
         
         self._arrange_data()
         self.theta, self.density = self._theta_density(self.angles, self.weights)
@@ -174,7 +186,7 @@ class PolarDataDistribute:
         return self._min_density, self._max_density
     
 
-    def _check_input(self):
+    def _check_input(self) -> None:
 
         if 'Direction mean' not in self.data.columns:
             self.noticequeue.Report(Level.error, "Missing Direction data in the input DataFrame.")
@@ -195,7 +207,14 @@ class PolarDataDistribute:
             self.r_locate = 75
             self.noticequeue.Report(Level.warning, "R axis labels position must be in range (0, 360). Resetting to 75.")
 
-    def _arrange_data(self):
+        if not (0.0 < self.gap <= 1.0):
+            self.gap = 0.0
+            self.noticequeue.Report(Level.warning, "Gap must be in range (0.0, 1.0). Resetting to 0.0.")
+        else:
+            self.gap = float(self.gap)
+
+
+    def _arrange_data(self) -> None:
         data = Categorizer(
             data=self.data,
             conditions=self.conditions,
@@ -207,7 +226,7 @@ class PolarDataDistribute:
         self.angles = angles % (2 * np.pi)
         self.weights = np.asarray(data[self.weight], dtype=float) if self.weight else None
 
-    def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = True, num_points: int = None):
+    def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = True, num_points: int = None) -> tuple[np.ndarray, np.ndarray]:
         
         if weights is not None:
             check = np.isfinite(a) & np.isfinite(weights)
@@ -226,7 +245,7 @@ class PolarDataDistribute:
 
         return theta, density
     
-    def _density_norm(self, wrap: bool = True, num_points: int = None):
+    def _density_norm(self, wrap: bool = True, num_points: int = None) -> None:
         if self.auto_lut_scale:
             if self.normalization == 'locally':
                 _min_density = np.min(self.density)
@@ -258,14 +277,14 @@ class PolarDataDistribute:
         self.norm = Normalize(self._min_density, self._max_density)
         self.normalized_density = self.norm(self.density)
 
-    def _mean_direction(self, ax):
+    def _mean_direction(self, ax) -> None:
         mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
         mean_angle_wrapped = mean_angle % (2 * np.pi)
         density_at_mean = np.interp(mean_angle_wrapped, self.theta, self.normalized_density)
 
         ax.vlines(mean_angle_wrapped, 0, density_at_mean, color=self.mean_angle_color, linewidth=self.mean_angle_width, zorder=11)
     
-    def _annotate_theta_axis(self, ax, create: bool = False):
+    def _annotate_theta_axis(self, ax, create: bool = False) -> None:
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
 
@@ -279,7 +298,7 @@ class PolarDataDistribute:
         elif not self.label_x:
             ax.set_xticklabels([])
         
-    def _annotate_r_axis(self, ax, axtext: bool = False):
+    def _annotate_r_axis(self, ax, axtext: bool = False) -> None:
         if self.label_y:
             if axtext:
                 for label in ax.get_yticklabels():
@@ -296,7 +315,7 @@ class PolarDataDistribute:
             ax.set_yticklabels([])
 
     def _polar_hist(self, ax, data: np.ndarray, heights: np.ndarray, widths: np.ndarray, 
-                    bottom: float = 0.0, color: Any = None, **kwargs):
+                    bottom: float = 0.0, color: Any = None, **kwargs) -> None:
         ax.bar(
             data,
             heights,
@@ -308,3 +327,33 @@ class PolarDataDistribute:
             linewidth=self.outline_width if self.outline else 0,
             **kwargs
         )
+
+    def _space_bins(self) -> None:
+        # Bin edges
+        bin_edges = np.linspace(0.0, 2 * np.pi, int(self.bins) + 1)
+        bin_widths = np.diff(bin_edges)
+
+        # Gaps between bars
+        self.bin_locs = bin_edges[:-1] + (bin_widths * self.gap / 2.0)
+        self.bin_widths = bin_widths * (1.0 - self.gap)
+
+    def _color_bins(self) -> None:
+
+        # TODO: upgrade the tile coloring options. 
+        #       A. single color => color the bins with single color
+        #       B. colormap => divide bins into tiles
+        #           - no mapping 
+        #               -> color bin tiles solely based on their order
+        #                  and distance from the center
+        #               -> allow the user to set the number of bin tiles created
+        #           - mapping to conditions / replicates [differentiate conditions / differentiate replicates]
+        #               -> each condition / replicate inherrits its own color from:
+        #                  a) a qualitative colormap
+        #                  b) user-defined colors'
+        #               -> create a cbar legend indicating which color corresponds to which condition / replicate
+        #           - mapping to quantiles of weight values
+        #               -> divide the bins and  the weight values into the corresponding number of quantiles (based on user selection)
+        #               -> map bin tile proportions and colors to the values in quantiles of weight values 
+        #               -> create a cbar legend indicating which color corresponds to which weight value range
+
+        ...
