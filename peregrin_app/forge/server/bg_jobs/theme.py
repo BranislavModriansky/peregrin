@@ -147,12 +147,15 @@ def set_theme(input, output, session, S):
                 ui.include_css(
                     f"peregrin_app/src/styles/{selected_theme_base}/{selected_theme}-Theme.css"
                 ),
-                ui.tags.link(
-                    rel="stylesheet",
-                    href=f"{selected_theme_base}/{selected_theme_base}-Fonts.css",
-                )
-                if selected_theme_base != "Shiny"
-                else None,
+                # ui.tags.link(
+                #     rel="stylesheet",
+                #     href=f"{selected_theme_base}/{selected_theme_base}-Fonts.css",
+                # )
+                # if selected_theme_base != "Shiny"
+                # else None,
+                
+                # Yet to decide whether its a good idea to have custom fonts per theme
+                
             ]
         )
 

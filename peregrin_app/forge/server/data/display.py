@@ -2,6 +2,8 @@ import io
 from datetime import date
 from shiny import render
 
+# TODO: Do not display the data only as a frame
+#       -> Show the data-wrangler like output inside of the cards for each dataframe
 
 def mount_data_display(input, output, session, S):
 

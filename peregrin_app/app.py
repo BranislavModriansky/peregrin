@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parent
 
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
+# TODO: Fix the already processesd data input and perhaps move it to the Input menu tab
+
 # TODO: Move title input boxes to be part of the plot settings modals instead of being always visible
 
 # TODO: remodel the dictionary utilization so that keywords are actually hex codes instead of color names (because when inputing a dictionary into a selectize/other inputs, the items would be shown, and the keywords would be registered automatically - in this case there is no need to use list(dict.keys())) method nd later dict.get(key) method to get the values

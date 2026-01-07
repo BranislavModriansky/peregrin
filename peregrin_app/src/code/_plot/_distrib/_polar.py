@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from typing import Any
-from scipy.stats import gaussian_kde
+from scipy.stats import gaussian_kde, vonmises
 
 from .._common import Colors, Categorizer, Values
 from ..._handlers._reports import Level
@@ -56,7 +56,7 @@ class PolarDataDistribute:
         self.single_color = kwargs.get('single_color', 'coral')
 
         # - Keyword arguments for KDE Line plot
-        self.bw = kwargs.get('bandwidth', 0.02)
+        self.kappa = kwargs.get('kappa', 100)
         self.num_points = kwargs.get('num_points', 1000)
         self.normalize = kwargs.get('normalize', True)
         self.kde_fill = kwargs.get('kde_fill', True)
@@ -69,6 +69,7 @@ class PolarDataDistribute:
         self.r_locate = kwargs.get('r_locate', 75)
 
         # - Keyword arguments for Rose chart & KDE overlay
+        self.bw = kwargs.get('bandwidth', 0.02)
         self.fraction_size = kwargs.get('fraction_size', 0.5)
 
         # - Keyword arguments and constants for Gaussian KDE Colormesh
@@ -119,11 +120,12 @@ class PolarDataDistribute:
         return plt.gcf()
 
     def KDELinePlot(self) -> plt.Figure:
-        num_points=1440
+        num_points=3600
 
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
 
         self._arrange_data()
+        self.kappa = self._bandwidth_to_kappa()
         self.theta, self.density = self._theta_density(self.angles, self.weights, num_points=num_points)
         self._density_norm(num_points=num_points)
 
@@ -238,10 +240,13 @@ class PolarDataDistribute:
         if angles.size < 2:
             theta, density = np.linspace(0, 2 * np.pi, self.bins if num_points is None else num_points, endpoint=False), np.zeros(self.bins if num_points is None else num_points, dtype=float)
         else:
-            kde = gaussian_kde(angles, bw_method=self.bw, weights=weights if weights is not None else None)
             theta = np.linspace(0, 2 * np.pi, self.bins if num_points is None else num_points, endpoint=False)
         
-            density = sum(kde(theta + (2 * np.pi * k)) for k in range(-2, 3)) if wrap else kde(theta)
+            density = np.mean(
+                (weights[:, None] if weights is not None else 1) *
+                vonmises.pdf(theta[:, None], self.kappa, loc=angles),
+                axis=1
+            )
 
         return theta, density
     
@@ -338,7 +343,6 @@ class PolarDataDistribute:
         self.bin_widths = bin_widths * (1.0 - self.gap)
 
     def _color_bins(self) -> None:
-
         # TODO: upgrade the tile coloring options. 
         #       A. single color => color the bins with single color
         #       B. colormap => divide bins into tiles
@@ -357,3 +361,6 @@ class PolarDataDistribute:
         #               -> create a cbar legend indicating which color corresponds to which weight value range
 
         ...
+
+    def _bandwidth_to_kappa(self, kappa_min=0, kappa_max=1e4):
+        return np.clip(1.0 / (self.bw ** 2), kappa_min, kappa_max)

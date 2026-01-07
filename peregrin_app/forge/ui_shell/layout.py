@@ -1195,6 +1195,8 @@ app_ui = ui.page_sidebar(
 
         ui.nav_spacer(),
 
+        
+
         ui.nav_control(
             ui.input_selectize(
                 id="app_theme",
@@ -1206,7 +1208,6 @@ app_ui = ui.page_sidebar(
             ),
             ui.output_ui("custom_theme_url"),
         ),
-        # title="Peregrin",
         title=ui.tags.span(
             ui.a(
             "Peregrin",
