@@ -274,13 +274,8 @@ def mount_data_labeling(input, output, session, S, noticequeue):
             @reactive.Effect
             def _replicate_colors():
                 with reactive.isolate():
-                    # print("Writing replicate colors...")
-                    # print(input.write_replicate_colors())
-
                     if input.write_replicate_colors():
-
                         for idx, rep in enumerate(replicates):
-                            # print(input[f"replicate_color{idx}"]())
                             color = input[f"replicate_color{idx}"]()
                             if color:
                                 df_unfiltered_spots.loc[df_unfiltered_spots["Replicate"] == rep, "Replicate color"] = color
@@ -372,7 +367,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if input.write_condition_colors():
 
                         for idx, cond in enumerate(conditions):
-                            # print(input[f"replicate_color{idx}"]())
                             color = input[f"condition_color{idx}"]()
                             if color:
                                 df_unfiltered_spots.loc[df_unfiltered_spots["Condition"] == cond, "Condition color"] = color

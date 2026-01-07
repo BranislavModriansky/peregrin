@@ -31,9 +31,6 @@ class DataLoader:
 
         _, ext = op.splitext(filepath.lower())
 
-        print(ext)
-        print(filepath)
-
         if ext not in ['.csv', '.xls', '.xlsx']:
             noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx.")
             return None

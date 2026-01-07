@@ -11,6 +11,7 @@ from .filters.threshold1d.calc_thresholds import mount_thresholds_calc
 from .filters.threshold1d.export_info import mount_thresholds_info_export
 
 from .viz.tracks import MountTracks
+from .viz.distributions import MountDistributions
 from .viz.superplots import mount_superplots
 from .viz.msd import mount_plot_msd
 
@@ -56,6 +57,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     # MountTracks.lut_map(*args)
     # MountTracks()(*args1)
     MountTracks(*args1)
+    MountDistributions(*args1)
     mount_superplots(*args, **kwargs)
     mount_plot_msd(*args, **kwargs)
 

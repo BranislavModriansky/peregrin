@@ -103,6 +103,9 @@ def mount_thresholds_calc(input, output, session, S):
         @output(id=f"thresholding_histogram_placeholder_{id}")
         @render.plot
         def threshold_histogram():
+
+            _color = 'black' if input.app_theme() == "Shiny" else 'white'
+
             data = thresholds.get(id)
             req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
 
@@ -141,13 +144,13 @@ def mount_thresholds_calc(input, output, session, S):
                 y_kde = kde(x_kde)
                 # Scale KDE to histogram
                 y_kde_scaled = y_kde * (n.max() / y_kde.max())
-                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
 
                 ax.set_xticks([])  # Remove x-axis ticks
                 ax.set_yticks([])  # Remove y-axis ticks
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
-                return fig
+                # return fig
             
             if threshold_type == "Normalized 0-1":
 
@@ -174,13 +177,13 @@ def mount_thresholds_calc(input, output, session, S):
                 y_kde = kde(x_kde)
                 # Scale KDE to histogram
                 y_kde_scaled = y_kde * (n.max() / y_kde.max())
-                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
 
                 ax.set_xticks([])  # Remove x-axis ticks
                 ax.set_yticks([])  # Remove y-axis ticks
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
-                return fig
+                # return fig
 
             if threshold_type == "Quantile":
                 bins = input.bins() if input.bins() is not None else 25
@@ -213,12 +216,12 @@ def mount_thresholds_calc(input, output, session, S):
                 x_kde = np.linspace(values.min(), values.max(), 500)
                 y_kde = kde(x_kde)
                 y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
 
                 ax.set_xticks([])
                 ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
-                return fig
+                # return fig
 
             if threshold_type == "Relative to...":
                 reference = input[f"reference_value_{id}"]()
@@ -268,14 +271,18 @@ def mount_thresholds_calc(input, output, session, S):
                 x_kde = np.linspace(bins[0], bins[-1], 500)
                 y_kde = kde(x_kde)
                 y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                ax.plot(x_kde, y_kde_scaled, color="black", linewidth=1.5)
+                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
 
-                ax.axvline(0, linestyle="--", linewidth=1, color="black")
+                ax.axvline(0, linestyle="--", linewidth=1, color=_color)
 
 
                 ax.set_xticks([]); ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
-                return fig
+
+
+            fig.set_facecolor('none')
+            ax.set_facecolor('none')
+            return fig
 
     @reactive.Effect
     @reactive.event(input.append_threshold, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
@@ -391,9 +398,6 @@ def mount_thresholds_calc(input, output, session, S):
 
             spots_output = spot_data.loc[filter.index.intersection(spot_data.index)]
             tracks_output = track_data.loc[filter.index.intersection(track_data.index)]
-
-            # print(f"Spots after thresholding: {len(spots_output)}")
-            # print(f"Tracks after thresholding: {len(tracks_output)}")
 
             thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
             S.THRESHOLDS.set(thresholds)

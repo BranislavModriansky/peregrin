@@ -256,8 +256,6 @@ class Threshold:
                 reference = 0.0
             ref, _ = self.compute_reference_and_span(working_df, reference, reference_value)
 
-            # print(f"Reference value: {ref}, Floor: {ref + _floor}, Roof: {ref + _roof}, -Floor: {ref - _floor}, -Roof: {ref - _roof}")
-
             return working_df[
                 (working_df >= (ref + _floor)) 
                 & (working_df <= (ref + _roof))

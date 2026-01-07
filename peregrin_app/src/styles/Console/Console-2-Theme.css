@@ -1207,3 +1207,30 @@ nav a:not(.active).hover::after {
 .peregrin-logo::after {
     display: none !important;
 }
+
+
+.dd-cards-wrap {
+  /* Masonry-like stacking (no row alignment) */
+  display: block !important;
+  column-count: 2;
+  column-gap: 1rem;
+}
+/* Fit cards to 1 column on smaller screens */
+@media (max-width: 991.98px) {
+  .dd-cards-wrap {
+    column-count: 1;
+  }
+}
+.dd-cards-wrap > * {
+  display: inline-block;
+  width: 100% !important;
+  max-width: 100% !important;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 1rem 0;
+}
+.dd-cards-wrap .card,
+.dd-cards-wrap .card-body {
+  height: auto !important;
+}

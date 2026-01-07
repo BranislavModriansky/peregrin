@@ -164,7 +164,7 @@ class ReconstructTracks:
         rng = np.random.default_rng(42)
         track_index = self.Tracks.index.unique()
 
-        if self.c_mode == 'only-one-color':
+        if self.c_mode == 'single color':
             self.Tracks['Track color'] = mcolors.to_hex(self.only_one_color)
 
         elif self.c_mode in ['random colors', 'random greys']:
@@ -210,6 +210,19 @@ class ReconstructTracks:
 
             else:
                 self.Tracks['Track color'] = mcolors.to_hex('black')
+
+        if 'Track color' in self.Tracks.columns and 'Track color' not in self.Spots.columns:
+            self.Spots = self.Spots.join(
+                self.Tracks[['Track color']],
+                how='left',
+                validate='many_to_one',
+            )
+        # elif 'Spot color' in self.Spots.columns and 'Spot color' not in self.Tracks.columns:
+        #     self.Tracks = self.Tracks.join(
+        #         self.Spots[['Spot color']].groupby(level=self.KEY_COLS).first().rename(columns={'Spot color': 'Track color'}),
+        #         how='left',
+        #         validate='many_to_one',
+        #     )
     
     def _build_segments(self, spots: pd.DataFrame, polar: bool = False):
         """
@@ -220,14 +233,6 @@ class ReconstructTracks:
         segments : list of (N_i, 2) float arrays
         colors   : list of hex strings, one per segment
         """
-        # Ensure per-track colors are available on spots when defined on Tracks
-        if 'Track color' in self.Tracks.columns and 'Track color' not in spots.columns:
-            spots = spots.join(
-                self.Tracks[['Track color']],
-                how='left',
-                validate='many_to_one',
-            )
-
         coord_cols = ('theta', 'r') if polar else ('X coordinate', 'Y coordinate')
 
         segments: list[np.ndarray] = []
@@ -363,17 +368,23 @@ class ReconstructTracks:
         if x_coord not in df.columns or y_coord not in df.columns:
             return
 
-        # Group by track, supporting both MultiIndex and regular columns
-        if isinstance(df.index, pd.MultiIndex) and list(df.index.names) == self.KEY_COLS:
-            group = df.groupby(level=self.KEY_COLS, sort=False)
-        elif all(c in df.columns for c in self.KEY_COLS):
-            group = df.groupby(self.KEY_COLS, sort=False)
-        else:
-            if self.noticequeue is not None:
-                self.noticequeue.Report(
-                    Level.warning,
-                    "Cannot draw head markers.",
-                    f"Data missing grouping keys {self.KEY_COLS}.",
+            # Prefer per-spot colors if present, else per-track, else fallback to black
+            if 'Spot color' in ends.columns:
+                cols = ends['Spot color'].astype(str).to_numpy()
+            elif 'Track color' in ends.columns:
+                cols = ends['Track color'].astype(str).to_numpy()
+            
+            m = np.isfinite(xe) & np.isfinite(ye)
+            if m.any():
+                ax.scatter(
+                    xe[m],
+                    ye[m],
+                    marker=self.marker["symbol"],
+                    s=self.markersize,
+                    edgecolor=cols[m],
+                    facecolor=cols[m] if self.marker["fill"] else "none",
+                    linewidths=self.lw,
+                    zorder=12,
                 )
             return
 
@@ -638,8 +649,6 @@ class ReconstructTracks:
             im = Image.open(buf).convert("RGBA")
             image_stack.append(np.asarray(im, dtype=np.uint8))
 
-        print(image_stack)
-
         if not image_stack:
             return None
 
@@ -730,7 +739,7 @@ class ReconstructTracks:
             self._assign_colors()
 
         # Modes where a LUT / legend is not meaningful
-        if self.c_mode in ['random colors', 'random greys', 'only-one-color']:
+        if self.c_mode in ['random colors', 'random greys', 'single color']:
             return None
 
         # Qualitative legend for categorical modes
