@@ -17,7 +17,7 @@ from ._handlers._reports import Level, NoticeQueue
 
 __all__ = [
     "DataLoader",
-    "Spots", "Tracks", "Frames", "TimeIntervals",
+    "Spots", "Tracks", "Frames", "TimeIntervals", "Summarize",
     "Threshold",
     "GetLutMap", "Animated", "ReconstructTracks",
     "PolarDataDistribute",

@@ -107,8 +107,6 @@ def mount_data_input(input, output, session, S, noticequeue):
     def parsed_files():
         all_data = []
 
-        
-
         for idx in range(1, S.INPUTS.get()+1):
 
             files = input[f"input_file{idx}"]()
