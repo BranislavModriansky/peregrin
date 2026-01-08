@@ -75,13 +75,12 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     """
     if df.empty:
         cols = [
-            'Condition','Replicate','Track ID',
+            'Condition','Replicate','Track ID', 'Track points',
             'Track length','Track displacement','Confinement ratio',
             'Speed min','Speed max','Speed mean','Speed std','Speed median',
             'Speed q10','Speed q25','Speed q50','Speed q75','Speed q95','Speed IQR',
             'Speed SEM','Speed CI95 low','Speed CI95 high',
             'Direction mean','Direction sd','Direction median',
-            'Track points'
         ]
         return pd.DataFrame(columns=cols)
 
@@ -356,8 +355,8 @@ class TimeIntervals:
                 'MSD sd': sd,
                 'MSD median': median,
 
-                'Turn mean (degrees)': np.rad2deg(np.abs(turn_mean_agg)),
-                'Turn median (degrees)': np.rad2deg(np.abs(turn_med_agg)),
+                'Turn mean': np.rad2deg(np.abs(turn_mean_agg)),
+                'Turn median': np.rad2deg(np.abs(turn_med_agg)),
             })
 
         out = pd.DataFrame(rows).sort_values(
@@ -367,3 +366,39 @@ class TimeIntervals:
     
     def __call__(self) -> pd.DataFrame:
         return self.ComputeTimeIntervals()
+
+
+class Summarize:
+
+    @staticmethod
+    def dataframe_summary(df: pd.DataFrame) -> dict:
+        return {
+            "rows": len(df),
+            "columns": df.shape[1],
+            "missing_cells": int(df.isna().sum().sum()),
+            "memory_mb": round(df.memory_usage(deep=True).sum() / 1e6, 2),
+        }
+
+    @staticmethod
+    def column_summary(series: pd.Series) -> dict:
+        if pd.api.types.is_numeric_dtype(series):
+            return {
+                "type": "numeric",
+                "missing": int(series.isna().sum()),
+                "distinct": series.nunique(dropna=True),
+                "min": series.min(),
+                "max": series.max(),
+                "mean": series.mean(),
+                "median": series.median(),
+                "mode": series.mode(dropna=True).iloc[0] if not series.mode(dropna=True).empty else None,
+                "sd": series.std(),
+                "variance": series.var(),
+            }
+        else:
+            value_counts = series.value_counts(dropna=True, normalize=True).head(3)
+            return {
+                "type": "categorical",
+                "missing": int(series.isna().sum()),
+                "distinct": series.nunique(dropna=True),
+                "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],   
+            }
