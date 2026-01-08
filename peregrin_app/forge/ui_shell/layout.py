@@ -1,5 +1,5 @@
 import warnings
-import shiny.ui as ui
+from shiny import ui
 from shiny._deprecated import ShinyDeprecationWarning
 
 from src.code import Metrics, Markers, Styles, Modes
@@ -149,32 +149,76 @@ app_ui = ui.page_sidebar(
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Spot stats", class_="bg-blue"),
-                    ui.output_data_frame("render_spot_stats"),
+                    ui.div(
+                        ui.div(
+                            ui.output_ui("spots_summary"),
+                            class_="df-summary"
+                        ),
+                        ui.div(
+                            ui.output_ui("spots_summaries"),
+                            class_="column-summaries"
+                        ),
+                        class_="layout"
+                    ),
+                    ui.output_data_frame("spot_stats"),
                     ui.download_button("download_spot_stats", "Download CSV"),
-                    full_screen=True, 
+                    full_screen=True
                 ),
                 ui.card(
                     # ui.card_header("Track stats", class_="bg-light"),
                     ui.card_header("Track stats", class_="bg-secondary-css"),
-                    ui.output_data_frame("render_track_stats"),
+                    ui.div(
+                        ui.div(
+                            ui.output_ui("tracks_summary"),
+                            class_="df-summary"
+                        ),
+                        ui.div(
+                            ui.output_ui("tracks_summaries"),
+                            class_="column-summaries"
+                        ),
+                        class_="layout"
+                    ),
+                    ui.output_data_frame("track_stats"),
                     ui.download_button("download_track_stats", "Download CSV"),
-                    full_screen=True, 
+                    full_screen=True
                 ),
                 ui.card(
                     # ui.card_header("Frame stats", class_="bg-light"),
                     ui.card_header("Frame stats", class_="bg-secondary-css"),
-                    ui.output_data_frame("render_frame_stats"),
+                    ui.div(
+                        ui.div(
+                            ui.output_ui("frames_summary"),
+                            class_="df-summary"
+                        ),
+                        ui.div(
+                            ui.output_ui("frame_summaries"),
+                            class_="column-summaries"
+                        ),
+                        class_="layout"
+                    ),
+                    ui.output_data_frame("frame_stats"),
                     ui.download_button("download_frame_stats", "Download CSV"),
-                    full_screen=True, 
+                    full_screen=True
                 ),
             ),
             ui.layout_columns(
                 ui.card(
                     # ui.card_header("Time interval stats", class_="bg-light"),
                     ui.card_header("Time interval stats", class_="bg-secondary-css"),
-                    ui.output_data_frame("render_time_interval_stats"),
-                    ui.download_button("download_time_interval_stats", "Download CSV"),
-                    full_screen=True, 
+                    ui.div(
+                        ui.div(
+                            ui.output_ui("tintervals_summary"),
+                            class_="df-summary"
+                        ),
+                        ui.div(
+                            ui.output_ui("tinterval_summaries"),
+                            class_="column-summaries"
+                        ),
+                        class_="layout"
+                    ),
+                    ui.output_data_frame("tinterval_stats"),
+                    ui.download_button("download_tinterval_stats", "Download CSV"),
+                    full_screen=True
                 ),
             ),
             ui.output_ui("initialize_loader2"),
@@ -247,7 +291,7 @@ app_ui = ui.page_sidebar(
                                             "input.tracks_mark_heads",
                                             ui.row(
                                                 ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="hexagon-empty", width="200px"),
-                                                ui.input_selectize("tracks_marks_color", "Marker Color:", ["match"] + Styles.Color, selected="match", width="150px"),
+                                                ui.input_selectize("tracks_marks_color", "Marker Color:", Styles.Color, selected="match", width="150px"),
                                                 ui.input_numeric("tracks_marks_size", "Marker size:", 2, min=0, width="130px")
                                             )
                                         )

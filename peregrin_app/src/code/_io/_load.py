@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+import numpy as np
 import os.path as op
 from typing import List
 
@@ -20,8 +21,11 @@ def _try_reading(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **
 
 
 class DataLoader:
+
+    def __init__(self):
+        ...
     
-    @staticmethod
+    # @staticmethod
     def GetDataFrame(filepath: str, **kwargs) -> pd.DataFrame:
         """
         Loads a DataFrame from a file based on its extension.
@@ -49,7 +53,7 @@ class DataLoader:
         
     
 
-    @staticmethod
+    # @staticmethod
     def ExtractStripped(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
         """
         Prepare tracking data:
@@ -83,6 +87,9 @@ class DataLoader:
         return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
     
 
+
+    
+
     @staticmethod
     def ExtractFull(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
         """
@@ -93,6 +100,8 @@ class DataLoader:
         - Keeps all other columns intact.
         - Normalizes column labels (e.g. 'CONTRAST_CH' → 'Contrast ch').
         """
+
+        print("Extracting full data...")
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         try: 
@@ -138,7 +147,21 @@ class DataLoader:
         except Exception as e:
             pass
 
+        def _py_numeric_df(df: pd.DataFrame) -> None:
+            for col in df.columns:
+                try: 
+                    df[col] = pd.to_numeric(df[col], errors='raise')
+                except Exception as e: 
+                    continue  # quietly move on if conversion fails
+
+        _py_numeric_df(df)
+            
         return df
+    
+    
+
+    
+
 
 
     @staticmethod
