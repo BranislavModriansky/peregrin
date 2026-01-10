@@ -15,7 +15,7 @@ def mount_thresholds_build(input, output, session, S):
         return ui.accordion(
             ui.accordion_panel(
                 "Settings",
-                ui.input_numeric("bins", "Number of bins", value=25, min=1, step=1),
+                ui.input_numeric("bins", "Number of bins", value=15, min=1, step=1),
                 ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
             ),
             ui.accordion_panel(

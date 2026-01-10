@@ -84,7 +84,7 @@ class MSD:
 
             else:
                 mp = Colors.BuildQualPalette(
-                    df=self.data,
+                    data=self.data,
                     tag=tag,
                     which=tags,
                     noticequeue=self.noticequeue

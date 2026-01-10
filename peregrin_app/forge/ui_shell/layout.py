@@ -316,7 +316,7 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.panel_conditional(
                                         "input.tracks_color_mode == 'single color'",
-                                        ui.input_selectize("tracks_only_one_color", "Color:", list(Styles.Color.keys()), width="190px"),
+                                        ui.input_selectize("tracks_only_one_color", "Color:", Styles.Color, width="190px"),
                                     ),
                                     ui.input_selectize("tracks_background", "Background:", Styles.Background, width="120px"),
                                 ),
@@ -691,7 +691,7 @@ app_ui = ui.page_sidebar(
                                         ui.panel_conditional(
                                             "input.c_mode_msd == 'single color'",
                                             ui.div(
-                                                ui.input_selectize("only_one_color_msd", "Color:", list(Styles.Color.keys())),
+                                                ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
                                                 style="margin-left: 15px;"
                                             )
                                         ),
@@ -872,7 +872,7 @@ app_ui = ui.page_sidebar(
                                                             ui.input_checkbox("tch_outline_bullets", "Outline bullets", False),
                                                             ui.panel_conditional(
                                                                 "input.tch_outline_bullets == true",
-                                                                ui.input_selectize("tch_bullet_outline_color", "Outline color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                                ui.input_selectize("tch_bullet_outline_color", "Outline color:", Styles.Color, selected="match"),
                                                                 ui.input_numeric("tch_bullet_outline_width", "Outline width:", 1, min=0, step=0.1),
                                                             ),
                                                         ),
@@ -938,7 +938,7 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.tch_errorband_fill == true && input.tch_errorband_outline == true || input.tch_errorband_fill == false",
                                                 ui.input_numeric("tch_errorband_outline_width", "Outline width:", 1, min=0, step=0.1),
-                                                ui.input_selectize("tch_errorband_outline_color", "Outline color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                ui.input_selectize("tch_errorband_outline_color", "Outline color:", Styles.Color, selected="match"),
                                             ),
                                         ),
                                         ui.accordion_panel(
@@ -949,7 +949,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_mean", "Show mean", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_mean == true",
-                                                        ui.input_selectize("tch_errorband_mean_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_mean_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_mean_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_mean_line_width", "Line width:", 1, min=0, step=0.1),
                                                     ),
@@ -959,7 +959,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_median", "Show median", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_median == true",
-                                                        ui.input_selectize("tch_errorband_median_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_median_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_median_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_median_line_width", "Line width:", 1, min=0, step=0.1),
                                                     ),
@@ -969,7 +969,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_min", "Show min", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_min == true",
-                                                        ui.input_selectize("tch_errorband_min_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_min_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_min_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_min_line_width", "Line width:", 1, min=0, step=0.1),
                                                     )
@@ -979,7 +979,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_max", "Show max", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_max == true",
-                                                        ui.input_selectize("tch_errorband_max_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_max_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_max_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_max_line_width", "Line width:", 1, min=0, step=0.1),
                                                     )
@@ -1037,7 +1037,7 @@ app_ui = ui.page_sidebar(
                                                 "input.sp_show_swarms == true",
                                                 ui.input_numeric("sp_swarm_marker_size", "Dot size:", 1, min=0, step=0.5),
                                                 ui.input_numeric("sp_swarm_marker_alpha", "Dot opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", Styles.Color, selected="black"),
                                             ),
                                         ),
                                         ui.accordion_panel(
@@ -1045,9 +1045,9 @@ app_ui = ui.page_sidebar(
                                             ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
                                             ui.panel_conditional(
                                                 "input.sp_show_violins == true",
-                                                ui.input_selectize("sp_violin_fill", "Fill color:", list(Styles.Color.keys()), selected="whitesmoke"),
+                                                ui.input_selectize("sp_violin_fill", "Fill color:", Styles.Color, selected="whitesmoke"),
                                                 ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ui.input_selectize("sp_violin_outline", "Outline color:", list(Styles.Color.keys()), selected="lightgrey"),
+                                                ui.input_selectize("sp_violin_outline", "Outline color:", Styles.Color, selected="lightgrey"),
                                                 ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
                                             ),
                                         ),
@@ -1077,12 +1077,12 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_mean == true",
                                                 ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
-                                                ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Styles.Color, selected="black"),
                                             ),
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_median == true",
                                                 ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
-                                                ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=list(Styles.Color.keys()), selected="darkblue"),
+                                                ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Styles.Color, selected="darkblue"),
                                             ),
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
@@ -1092,7 +1092,7 @@ app_ui = ui.page_sidebar(
                                                 "input.sp_show_errbars == true",
                                                 ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
                                                 ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
-                                                ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Styles.Color, selected="black"),
                                                 ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
                                             ),
                                             ui.panel_conditional(
@@ -1111,14 +1111,14 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.sp_show_rep_means == true",
                                                 ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
-                                                ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Styles.Color, selected="black"),
                                                 ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
                                                 ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
                                             ),
                                             ui.panel_conditional(
                                                 "input.sp_show_rep_medians == true",
                                                 ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
-                                                ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Styles.Color, selected="black"),
                                                 ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
                                                 ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
                                             ),

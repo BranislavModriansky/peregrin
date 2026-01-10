@@ -120,7 +120,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             errorband = None
 
         if input.c_mode_msd() == "single color":
-            color = Styles.Colors[input.only_one_color_msd()]
+            color = input.only_one_color_msd()
         else:
             color = None
 
