@@ -1,6 +1,7 @@
 # debounce_throttle.py
 import functools
 import time
+import inspect
 from typing import Callable, Optional, Any
 
 from shiny import reactive
@@ -163,18 +164,24 @@ def DebounceEffect(delay_secs: int | float) -> Callable[[Callable[[], object]], 
     def wrapper(f: Callable[[], object]) -> Callable[[], object]:
         f_callable = _unwrap_effect_callable(f)
 
+        async def _call_maybe_await(fn: Callable[[], object]) -> object:
+            res = fn()
+            if inspect.isawaitable(res):
+                return await res
+            return res
+
         # Per-effect state (do NOT share across all wrapped effects).
         when = reactive.Value[Optional[float]](None)
         trigger = reactive.Value(0)
 
         @reactive.effect(priority=102)
-        def primer():
+        async def primer():
             """
             Each time upstream invalidates, push the deadline out by `delay_secs`.
             NOTE: This calls the function to establish reactive dependencies.
             """
             try:
-                f_callable()
+                await _call_maybe_await(f_callable)
             except Exception:
                 ...
             finally:
@@ -197,8 +204,8 @@ def DebounceEffect(delay_secs: int | float) -> Callable[[Callable[[], object]], 
         @reactive.effect
         @reactive.event(trigger, ignore_none=False)
         @functools.wraps(f_callable)
-        def debounced_effect():
-            f_callable()
+        async def debounced_effect():
+            await _call_maybe_await(f_callable)
 
         return debounced_effect
 

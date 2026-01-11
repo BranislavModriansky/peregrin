@@ -152,6 +152,24 @@
     background: none !important;
 }
 
+.btn-tertiary-css {
+    background-color: #fbfbfb !important;
+    border-color: #6a6a6a !important;
+    color: #3a3a3a !important;
+}
+.btn-tertiary-css:hover {
+    background-color: white !important;
+    border-color: black !important;
+    color: black !important;
+}
+.action-button.btn-tertiary-css:active {
+    background-color: #f0f0f0 !important;
+    border-color: black !important;
+}
+.action-button.btn-tertiary-css:active * {
+    color: black !important;
+}
+
 
 
 /* app theme selectize ui */

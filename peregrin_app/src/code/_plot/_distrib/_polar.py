@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -176,6 +177,10 @@ class PolarDataDistribute:
 
 
 
+
+
+
+
     def Overlay(self) -> plt.Figure:
         ...
 
@@ -297,7 +302,7 @@ class PolarDataDistribute:
             if create:
                 for angle in range(0, 360, 45):
                     ax.text(np.deg2rad(angle), self.OUTER_RADIUS + 0.1, f"{angle}°", 
-                            ha='center', va='center', fontsize=10, color=self.text_color, fontweight="medium", zorder=100)
+                            ha='center', va='center', fontsize=10, color=self.text_color, fontweight="medium", zorder=500)
             else:
                 ax.tick_params(axis="x", labelcolor=self.text_color)
         elif not self.label_x:
