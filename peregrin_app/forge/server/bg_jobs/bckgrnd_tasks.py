@@ -36,7 +36,23 @@ def mount_tasks(input, output, session, S, noticequeue):
                 try: ui.remove_ui("import_mode_btn", session=session)
                 except Exception: pass
 
-                return ui.input_action_button("import_mode_btn", "Import raw data", class_="btn-tertiary-css")
+                # Wrap button and input in a flex container to keep them in one row
+                return ui.div(
+                    ui.input_action_button("import_mode_btn", "Import raw data", class_="btn-tertiary-css"),
+                    
+                    ui.div(
+                        ui.div(
+                            ui.markdown("""<span style='color: #0171b7; white-space:nowrap;'><i>Drop in <b>Spot Stats CSV</b>: </i></span>"""),
+                            style="margin-right: 10px;"
+                        ),
+                        ui.div(
+                            ui.input_file(id="already_processed_input", label=None, placeholder="Drag & drop CSV", accept=[".csv"], multiple=False),
+                            style="min-width: 250px;"
+                        ),
+                        style="display: flex; align-items: center; margin-left: 20px;"
+                    ),
+                    style="display: flex; align-items: center;"
+                )
                 
     @reactive.effect
     def switch_import_mode():
