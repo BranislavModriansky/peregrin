@@ -105,6 +105,7 @@ def mount_thresholds_calc(input, output, session, S):
         def threshold_histogram():
 
             _color = 'black' if input.app_theme() == "Shiny" else 'white'
+            _marker_color = '#337ab7' if input.app_theme() == "Shiny" else '#a15c5c'
 
             data = thresholds.get(id)
             req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
@@ -137,7 +138,7 @@ def mount_thresholds_calc(input, output, session, S):
                     if bins[i] < slider_low_pct or bins[i+1] > slider_high_pct:
                         patches[i].set_facecolor("grey")
                     else:
-                        patches[i].set_facecolor("#337ab7")
+                        patches[i].set_facecolor(_marker_color)
 
                 # Add KDE curve (scaled to match histogram)
                 kde = gaussian_kde(values)
@@ -169,7 +170,7 @@ def mount_thresholds_calc(input, output, session, S):
                     if bins[i] < slider_low_pct or bins[i+1] > slider_high_pct:
                         patches[i].set_facecolor("grey")
                     else:
-                        patches[i].set_facecolor("#337ab7")
+                        patches[i].set_facecolor(_marker_color)
 
                 # Add KDE curve (scaled to match histogram)
                 kde = gaussian_kde(normalized)
@@ -208,7 +209,7 @@ def mount_thresholds_calc(input, output, session, S):
                     if bin_end < lower_bound or bin_start > upper_bound:
                         patches[i].set_facecolor("grey")
                     else:
-                        patches[i].set_facecolor("#337ab7")
+                        patches[i].set_facecolor(_marker_color)
 
                 # KDE curve
                 kde = gaussian_kde(values)
@@ -260,7 +261,7 @@ def mount_thresholds_calc(input, output, session, S):
                 for i in range(len(patches)):
                     bin_start, bin_end = bins[i], bins[i+1]
                     if _intersects_symmetric(bin_start, bin_end, sel_low, sel_high):
-                        patches[i].set_facecolor("#337ab7")
+                        patches[i].set_facecolor(_marker_color)
                     else:
                         patches[i].set_facecolor("grey")
 

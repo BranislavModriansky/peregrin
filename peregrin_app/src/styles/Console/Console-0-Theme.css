@@ -1035,3 +1035,10 @@ button.bslib-full-screen-enter.badge.rounded-pill > svg {
 .btn-tertiary-css:active span.action-label {
     color: var(--color-primary) !important;
 }
+
+.shiny-data-grid thead tr th {
+    border-top: thin solid var(--color-secondary) !important;
+    border-left: thin solid var(--color-secondary) !important;
+    border-right: thin solid var(--color-primary) !important;
+    border-bottom: thin solid var(--color-primary) !important;
+}

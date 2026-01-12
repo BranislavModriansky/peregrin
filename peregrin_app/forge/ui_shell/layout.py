@@ -390,12 +390,16 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                                        # ui.input_numeric()
+                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=24, min=2, step=1, width="150px"),
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ""
+                                        ui.input_selectize(id="dd_rosechart_cmode", label="Color mode:", choices=["single color", "level-based", "n-tiles", "differentiate conditions", "differentiate replicates"], selected="single color", width="200px"),
+                                        ui.panel_conditional(
+                                            "input.dd_rosechart_cmode == 'n-tiles'",
+                                            ui.input_numeric("dd_rosechart_ntiles", "n-tiles:", value=5, min=2, step=1, width="150px"),
+                                            ui.input_selectize("dd_rosechart_partition_selector", "Discretize:", choices=Metrics.Track, selected="Confinement ratio", width="200px"),
+                                        )
                                     ),
                                     class_="accordion02"
                                 ),
@@ -512,27 +516,6 @@ app_ui = ui.page_sidebar(
                             ui.output_plot("dd_plot_kde_line"),
                             ui.download_button("download_dd_kde_line", "Download Line Plot", width="100%")
                         ),
-                        # ui.card(
-                        #     ui.card_header("Overlay", class_="bg-secondary-css"),
-                        #     ui.panel_well(
-                        #         ui.accordion(
-                        #             ui.accordion_panel(
-                        #                 "Compose",
-                        #                 ""
-                        #             ),
-                        #             ui.accordion_panel(
-                        #                 "Color",
-                        #                 ""
-                        #             ),
-                        #             class_="accordion02"
-                        #         ),
-                        #         ui.br(),
-                        #         ui.input_task_button(id="generate_dd_overlay", label="Generate", class_="btn-secondary task-btn", width="100%"),
-                        #     ),
-                        #     ui.br(),
-                        #     ui.output_plot("dd_plot_overlay"),
-                        #     ui.download_button("download_dd_overlay", "Download Overlay", width="100%")
-                        # ),
                         width=1/2,
                         class_="dd-cards-wrap"
                     )
