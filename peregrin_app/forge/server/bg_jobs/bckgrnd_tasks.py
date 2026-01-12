@@ -38,18 +38,17 @@ def mount_tasks(input, output, session, S, noticequeue):
 
                 # Wrap button and input in a flex container to keep them in one row
                 return ui.div(
-                    ui.input_action_button("import_mode_btn", "Import raw data", class_="btn-tertiary-css"),
-                    
+                    ui.div(
+                        ui.input_action_button("import_mode_btn", "Import raw data", class_="btn-tertiary-css"),
+                        style="margin-top: -32px;"
+                    ),
                     ui.div(
                         ui.div(
                             ui.markdown("""<span style='color: #0171b7; white-space:nowrap;'><i>Drop in <b>Spot Stats CSV</b>: </i></span>"""),
-                            style="margin-right: 10px;"
+                            style="margin-right: 15px; margin-top: -12px"
                         ),
-                        ui.div(
-                            ui.input_file(id="already_processed_input", label=None, placeholder="Drag & drop CSV", accept=[".csv"], multiple=False),
-                            style="min-width: 250px;"
-                        ),
-                        style="display: flex; align-items: center; margin-left: 20px;"
+                        ui.input_file(id="already_processed_input", label=None, placeholder="Drag & drop CSV", accept=[".csv"], multiple=False),
+                        style="display: flex; align-items: center; margin-left: 35px;"
                     ),
                     style="display: flex; align-items: center;"
                 )

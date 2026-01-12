@@ -1,8 +1,9 @@
+import traceback
 from unittest import case
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render   
-from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals, Metrics
+from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals, Metrics, Level
 
 # from utils import emit_warning
 
@@ -246,7 +247,7 @@ def mount_data_input(input, output, session, S, noticequeue):
     def load_processed_data():
         fileinfo = input.already_processed_input()
         try:
-            df = DataLoader.GetDataFrame(fileinfo[0]["datapath"])
+            df = DataLoader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
 
             S.UNFILTERED_SPOTSTATS.set(df)
             S.UNFILTERED_TRACKSTATS.set(Tracks(df))
@@ -261,5 +262,6 @@ def mount_data_input(input, output, session, S, noticequeue):
             ui.update_action_button(id="append_threshold", disabled=False)
             
         except Exception as e:
-            print(e)
+            error_trace = traceback.format_exc()
+            noticequeue.Report(Level.error, "Error in loading processed data", error_trace)
 

@@ -225,7 +225,6 @@ body {
 }
 
 
-
 /* task button colors */
 .task-btn {
     background-color: var(--color-task-btn) !important;
@@ -482,12 +481,8 @@ nav span {
 }
 
 
-.action-label {
-    color: var(--color-zero) !important;
-}
-.action-label:hover {
-    color: var(--color-hover) !important;
-}
+
+
 
 
 .form-group .radio input {
@@ -643,17 +638,21 @@ nav span {
     margin-left: -15px;
     background: none;
     box-shadow: none;
-    color: lightgrey;
     cursor: pointer;
     font-size: 2.65rem;
 }
 .btn-noframe:hover {
-    color: dimgrey;
     background: none;
 }
 .btn-noframe:active {
-    color: #58a9d6 !important;
     background: none !important;
+}
+
+.btn-noframe span.action-label {
+    color: var(--color-zero) !important;
+}
+.btn-noframe:hover span.action-label{
+    color: var(--color-hover) !important;
 }
 
 
@@ -1007,4 +1006,32 @@ button.bslib-full-screen-enter.badge.rounded-pill > svg {
                 
 .modebar-container {
     display: none !important;
+}
+
+.btn-tertiary-css {
+    border: thin solid transparent !important;
+    border-top: thin solid var(--color-primary) !important;
+    border-left: thin solid var(--color-primary) !important;
+    font-weight: 500 !important;
+    border-right: none !important;
+    background-color: var(--bg-color-thirdlevel) !important;
+    color: var(--color-zero) !important;
+}
+.btn-tertiary-css span.action-label {
+    color: var(--color-zerosecondary) !important;
+}
+.btn-tertiary-css:hover {
+    background-color: var(--bg-color-firstlevel) !important;
+}
+.btn-tertiary-css:hover span.action-label {
+    color: var(--color-secondary) !important;
+}
+.btn-tertiary-css:active {
+    background-color: var(--bg-color-firstlevel) !important;
+    border-left: thin solid transparent !important;
+    border-top: thin solid transparent !important;
+    transform: scale(0.99);
+}
+.btn-tertiary-css:active span.action-label {
+    color: var(--color-primary) !important;
 }

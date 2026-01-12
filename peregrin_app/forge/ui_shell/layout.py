@@ -57,78 +57,11 @@ app_ui = ui.page_sidebar(
             "Input Menu",
             # _ Buttons & input UIs _
             ui.div(
-                ui.div(
-                    ui.output_ui("import_mode"),
-                    # ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
-                    # ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
-                    # ui.output_ui("run_btn_ui"),
-                ),
-                ui.div(
-                    ui.output_ui("buttons"),
-                ),
+                ui.div(ui.output_ui("import_mode")),
+                ui.div(ui.output_ui("buttons")),
                 style="display:flex; align-items:center; justify-content:space-between; gap:12px;"
             ),
-
             ui.output_ui("input_panel"),
-            
-        #     ui.div(
-        #         {"id": "data-inputs"},
-
-        #         # _ Label settings (secondary sidebar) _
-        #         ui.layout_sidebar(
-        #             ui.sidebar(
-        #                 ui.div(
-        #                     ui.markdown(""" <br><h4><b>  Label settings:  </h4></b> """), 
-        #                     style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"
-        #                 ),
-        #                 ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
-        #                 ui.div(  
-        #                     # ui.tags.style(Customize.Link1),
-        #                     ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
-        #                     ui.input_checkbox("auto_label", "Auto-label", False),
-                            
-        #                     ui.output_ui("data_labeling_ui"),
-
-        #                 ), 
-        #                 ui.output_ui('task_btn_labeling_sidebar'),
-        #                 width="300px",
-        #                 id="labeling_sidebar",
-        #             ), 
-        #             # File inputs
-        #             ui.div(
-        #                 {"id": "input_file_container_1"},
-        #                 ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
-        #                 ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
-        #                 ui.markdown(""" <hr style="border: none; border-top: 1px dotted" /> """),
-        #             ), 
-        #             id="labeling_sidebar_n_data_input_layout",
-        #         ),
-
-        #         # _ Draggable accordion panel - columns selection _
-        #         ui.panel_absolute(
-        #             ui.card(
-        #                 ui.accordion(
-        #                     ui.accordion_panel(
-        #                         "Select columns",
-        #                         ui.input_selectize("select_id", "Track identifier:", ["e.g. TRACK_ID"]),
-        #                         ui.input_selectize("select_t", "Time point:", ["e.g. POSITION_T"]),
-        #                         ui.row(
-        #                             ui.column(6,
-        #                                 ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.Units.TimeUnits.keys()), selected="seconds"),
-        #                                 style_="margin-bottom: 5px;",
-        #                             )
-        #                         ),
-        #                         ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
-        #                         ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
-        #                         ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"), #TODO - define this style inside of the css and remove it from here
-        #                     ), 
-        #                     open=False, class_="draggable-accordion", id="draggable_column_selector_panel"
-        #                 ),
-        #             ), 
-        #             width="350px", right="450px", top="130px", draggable=True, class_="elevated-panel"
-        #         )
-        #     )
-        
         ),
 
         # TODO - _ _ _ _ GATING _ _ _ _
@@ -144,31 +77,12 @@ app_ui = ui.page_sidebar(
                     Gates here
                     """
                 )
-            ),
-            
+            )
         ),
 
         # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
         ui.nav_panel(
             "Dashboard",
-
-            # _ Input for already processed data _
-            # ui.row(
-            #     ui.column(6, 
-            #         ui.markdown( #TODO - define this style inside of the css and remove it from here
-            #             """ 
-            #             <p style='line-height:0.1;'> <br> </p>
-            #             <h4 style='margin: 0.5;'> 
-            #                 Got previously processed data? </h4> 
-            #             <p style='color: #0171b7;'><i> 
-            #                 Drop in <b>Spot Stats CSV</b> file here: </i></p>
-            #             """
-            #         ),
-            #         ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False), 
-            #         offset=1
-            #     )
-            # ), 
-            # ui.markdown(""" ___ """),
 
             # _ Data display _
             ui.layout_columns(
@@ -264,7 +178,7 @@ app_ui = ui.page_sidebar(
                         ),
 
                         # _ _ SETTINGS _ _
-                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated", width="200px"),
+                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Realistic", width="200px"),
 
                         ui.accordion(
                             ui.accordion_panel(
@@ -598,27 +512,27 @@ app_ui = ui.page_sidebar(
                             ui.output_plot("dd_plot_kde_line"),
                             ui.download_button("download_dd_kde_line", "Download Line Plot", width="100%")
                         ),
-                        ui.card(
-                            ui.card_header("Overlay", class_="bg-secondary-css"),
-                            ui.panel_well(
-                                ui.accordion(
-                                    ui.accordion_panel(
-                                        "Compose",
-                                        ""
-                                    ),
-                                    ui.accordion_panel(
-                                        "Color",
-                                        ""
-                                    ),
-                                    class_="accordion02"
-                                ),
-                                ui.br(),
-                                ui.input_task_button(id="generate_dd_overlay", label="Generate", class_="btn-secondary task-btn", width="100%"),
-                            ),
-                            ui.br(),
-                            ui.output_plot("dd_plot_overlay"),
-                            ui.download_button("download_dd_overlay", "Download Overlay", width="100%")
-                        ),
+                        # ui.card(
+                        #     ui.card_header("Overlay", class_="bg-secondary-css"),
+                        #     ui.panel_well(
+                        #         ui.accordion(
+                        #             ui.accordion_panel(
+                        #                 "Compose",
+                        #                 ""
+                        #             ),
+                        #             ui.accordion_panel(
+                        #                 "Color",
+                        #                 ""
+                        #             ),
+                        #             class_="accordion02"
+                        #         ),
+                        #         ui.br(),
+                        #         ui.input_task_button(id="generate_dd_overlay", label="Generate", class_="btn-secondary task-btn", width="100%"),
+                        #     ),
+                        #     ui.br(),
+                        #     ui.output_plot("dd_plot_overlay"),
+                        #     ui.download_button("download_dd_overlay", "Download Overlay", width="100%")
+                        # ),
                         width=1/2,
                         class_="dd-cards-wrap"
                     )
@@ -1253,6 +1167,7 @@ app_ui = ui.page_sidebar(
                 # choices=["Shiny", "Console-0", "Console-1", "Console-2"],
                 choices=["Shiny", "Console-0"],
                 selected="Shiny",
+                # selected="Console-0",
                 width="140px",
                 options={"hideSelected": True, },
             ),
