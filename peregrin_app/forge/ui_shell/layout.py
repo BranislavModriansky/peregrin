@@ -398,7 +398,7 @@ app_ui = ui.page_sidebar(
                                         ui.panel_conditional(
                                             "input.dd_rosechart_cmode == 'n-tiles'",
                                             ui.input_numeric("dd_rosechart_ntiles", "n-tiles:", value=5, min=2, step=1, width="150px"),
-                                            ui.input_selectize("dd_rosechart_partition_selector", "Discretize:", choices=Metrics.Track, selected="Confinement ratio", width="200px"),
+                                            ui.input_selectize("dd_rosechart_partition_selector", "Discretize:", choices=Metrics.Track, selected="Confinement ratio", width="215px"),
                                         )
                                     ),
                                     class_="accordion02"

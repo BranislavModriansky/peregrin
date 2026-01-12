@@ -180,19 +180,6 @@ class PolarDataDistribute:
         return plt.gcf()
 
 
-
-
-
-
-
-
-
-
-
-
-    def Overlay(self) -> plt.Figure:
-        ...
-
     def get_density_caps(self) -> tuple[float, float]:
         
         self._arrange_data()
@@ -229,18 +216,18 @@ class PolarDataDistribute:
         else:
             self.gap = float(self.gap)
 
-
     def _arrange_data(self) -> None:
-        data = Categorizer(
+        self.data = Categorizer(
             data=self.data,
             conditions=self.conditions,
             replicates=self.replicates,
             noticequeue=self.noticequeue
         )()
 
-        angles = np.asarray(data['Direction mean'], dtype=float)
+        # self.data = data
+        angles = np.asarray(self.data['Direction mean'], dtype=float)
         self.angles = angles % (2 * np.pi)
-        self.weights = np.asarray(data[self.weight], dtype=float) if self.weight else None
+        self.weights = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
 
     def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = True, num_points: int = None) -> tuple[np.ndarray, np.ndarray]:
         
@@ -388,27 +375,10 @@ class PolarDataDistribute:
         )
 
     def _plot(self, ax) -> None:
-        # TODO: upgrade the tile coloring options. 
-        #       A. single color => color the bins with single color
-        #       B. colormap => divide bins into tiles
-        #           - no mapping 
-        #               -> color bin tiles solely based on their order
-        #                  and distance from the center
-        #               -> allow the user to set the number of bin tiles created
-        #           - mapping to conditions / replicates [differentiate conditions / differentiate replicates]
-        #               -> each condition / replicate inherrits its own color from:
-        #                  a) a qualitative colormap
-        #                  b) user-defined colors'
-        #               -> create a cbar legend indicating which color corresponds to which condition / replicate
-        #           - mapping to quantiles of weight values
-        #               -> divide the bins and  the weight values into the corresponding number of quantiles (based on user selection)
-        #               -> map bin tile proportions and colors to the values in quantiles of weight values 
-        #               -> create a cbar legend indicating which color corresponds to which weight value range
 
         match self.c_mode:
 
             case 'single color':
-
                 color = self.single_color
 
                 for i in range(self.bins):
@@ -417,6 +387,7 @@ class PolarDataDistribute:
                         continue
 
                     self._plot_bins(ax, i, color=color, height=abs_height)
+
 
             case 'level-based':
                 colors = self._slice_cmap(self.levels)
@@ -490,23 +461,73 @@ class PolarDataDistribute:
                         seat += height
 
 
-
             case 'differentiate conditions':
-                unique_cond, cond_idx = np.unique(self.data['Condition'].unique(), return_inverse=True)
+                unique_cond, cond_idx = np.unique(self.data['Condition'], return_inverse=True)
+                print(f"Unique conditions: {unique_cond}")
+                print(f"Condition indices: {cond_idx}")
+                
                 if self.default_colors:
-                    self.colors = self._slice_cmap(len(unique_cond))
-                ...
+                    colors = self._slice_cmap(len(unique_cond))
+                    print(f"Assigned colors for conditions: {colors}")
+                else:
+                    colors = [self.data[self.data['Condition'] == cond].iloc[0]['Condition color'] for cond in unique_cond]
+                    print(f"Using provided colors for conditions: {colors}")
+                
+                bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
+                bin_idx = np.clip(bin_idx, 0, self.bins - 1)
+                
+                for i in range(self.bins):
+                    m = bin_idx == i
+                    if not np.any(m):
+                        continue
+
+                    counts_per_cond = np.bincount(cond_idx[m], minlength=unique_cond.size).astype(float)
+
+                    seat = 0.0
+                    for c in range(len(unique_cond)):
+                        color = colors[c]
+                        height = counts_per_cond[c]
+                        if height <= 0:
+                            continue
+
+                        self._plot_bins(ax, i, color, height=height, seat=seat)
+                        seat += height
 
                 
-
-
-
             case 'differentiate replicates':
-                ...
+                unique_repl, repl_idx = np.unique(self.data['Replicate'], return_inverse=True)
+                print(f"Unique replicates: {unique_repl}")
+                print(f"Replicate indices: {repl_idx}")
+                
+                if self.default_colors:
+                    colors = self._slice_cmap(len(unique_repl))
+                    print(f"Assigned colors for replicates: {colors}")
+                else:
+                    colors = [self.data[self.data['Replicate'] == repl].iloc[0]['Replicate color'] for repl in unique_repl]
+                    print(f"Using provided colors for replicates: {colors}")
+                
+                bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
+                bin_idx = np.clip(bin_idx, 0, self.bins - 1)
+                
+                for i in range(self.bins):
+                    m = bin_idx == i
+                    if not np.any(m):
+                        continue
 
+                    counts_per_repl = np.bincount(repl_idx[m], minlength=unique_repl.size).astype(float)
+
+                    seat = 0.0
+                    for r in range(len(unique_repl)):
+                        color = colors[r]
+                        height = counts_per_repl[r]
+                        if height <= 0:
+                            continue
+
+                        self._plot_bins(ax, i, color, height=height, seat=seat)
+                        seat += height
 
     def _slice_cmap(self, slices: int) -> list:
-        return self.cmap(np.linspace(0, 1, slices))
+        return self.cmap(np.linspace(0.05, 0.95, slices))
 
     def _bandwidth_to_kappa(self, kappa_min=0, kappa_max=1e4):
         return np.clip(1.0 / (self.bw ** 2), kappa_min, kappa_max)
