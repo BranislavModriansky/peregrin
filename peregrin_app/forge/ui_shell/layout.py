@@ -55,95 +55,34 @@ app_ui = ui.page_sidebar(
         # _ _ _ _ RAW DATA INPUT PANEL - APP INITIALIZATION _ _ _ _
         ui.nav_panel(
             "Input Menu",
+            # _ Buttons & input UIs _
             ui.div(
-                {"id": "data-inputs"},
+                ui.div(ui.output_ui("import_mode")),
+                ui.div(ui.output_ui("buttons")),
+                style="display:flex; align-items:center; justify-content:space-between; gap:12px;"
+            ),
+            ui.output_ui("input_panel"),
+        ),
 
-                # _ Buttons & input UIs _
-                ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
-                ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
-                ui.output_ui("run_btn_ui"),
-                # TODO - ui.input_action_button("reset", "Reset", class_="btn-danger"),
-                # TODO - ui.input_action_button("input_help", "Show help"),
-                ui.output_ui("initialize_loader1"),
-                ui.markdown(" <br> "),
-
-                # _ Label settings (secondary sidebar) _
-                ui.layout_sidebar(
-                    ui.sidebar(
-                        ui.div(
-                            ui.markdown(""" <br><h4><b>  Label settings:  </h4></b> """), 
-                            style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"
-                        ),
-                        ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
-                        ui.div(  
-                            # ui.tags.style(Customize.Link1),
-                            ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
-                            ui.input_checkbox("auto_label", "Auto-label", False),
-                            
-                            ui.output_ui("data_labeling_ui"),
-
-                        ), 
-                        ui.output_ui('task_btn_labeling_sidebar'),
-                        width="300px",
-                        id="labeling_sidebar",
-                    ), 
-                    # File inputs
-                    ui.div(
-                        {"id": "input_file_container_1"},
-                        ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
-                        ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
-                        ui.markdown(""" <hr style="border: none; border-top: 1px dotted" /> """),
-                    ), 
-                    id="labeling_sidebar_n_data_input_layout",
-                ),
-
-                # _ Draggable accordion panel - columns selection _
-                ui.panel_absolute(
-                    ui.card(
-                        ui.accordion(
-                            ui.accordion_panel(
-                                "Select columns",
-                                ui.input_selectize("select_id", "Track identifier:", ["e.g. TRACK_ID"]),
-                                ui.input_selectize("select_t", "Time point:", ["e.g. POSITION_T"]),
-                                ui.row(
-                                    ui.column(6,
-                                        ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.Units.TimeUnits.keys()), selected="seconds"),
-                                        style_="margin-bottom: 5px;",
-                                    )
-                                ),
-                                ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
-                                ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
-                                ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"), #TODO - define this style inside of the css and remove it from here
-                            ), 
-                            open=False, class_="draggable-accordion", id="draggable_column_selector_panel"
-                        ),
-                    ), 
-                    width="350px", right="450px", top="130px", draggable=True, class_="elevated-panel"
+        # TODO - _ _ _ _ GATING _ _ _ _
+        ui.nav_panel(
+            "Gating Panel",
+            ui.layout_sidebar(
+                ui.sidebar(
+                    "Gating_sidebar", 
+                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
+                ), 
+                ui.markdown(
+                    """ 
+                    Gates here
+                    """
                 )
             )
         ),
 
         # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
         ui.nav_panel(
-            "Data Tables",
-
-            # _ Input for already processed data _
-            ui.row(
-                ui.column(6, 
-                    ui.markdown( #TODO - define this style inside of the css and remove it from here
-                        """ 
-                        <p style='line-height:0.1;'> <br> </p>
-                        <h4 style='margin: 0.5;'> 
-                            Got previously processed data? </h4> 
-                        <p style='color: #0171b7;'><i> 
-                            Drop in <b>Spot Stats CSV</b> file here: </i></p>
-                        """
-                    ),
-                    ui.input_file(id="already_processed_input", label=None, placeholder="Drag and drop here!", accept=[".csv"], multiple=False), 
-                    offset=1
-                )
-            ), 
-            ui.markdown(""" ___ """),
+            "Dashboard",
 
             # _ Data display _
             ui.layout_columns(
@@ -165,7 +104,6 @@ app_ui = ui.page_sidebar(
                     full_screen=True
                 ),
                 ui.card(
-                    # ui.card_header("Track stats", class_="bg-light"),
                     ui.card_header("Track stats", class_="bg-secondary-css"),
                     ui.div(
                         ui.div(
@@ -183,7 +121,6 @@ app_ui = ui.page_sidebar(
                     full_screen=True
                 ),
                 ui.card(
-                    # ui.card_header("Frame stats", class_="bg-light"),
                     ui.card_header("Frame stats", class_="bg-secondary-css"),
                     ui.div(
                         ui.div(
@@ -203,7 +140,6 @@ app_ui = ui.page_sidebar(
             ),
             ui.layout_columns(
                 ui.card(
-                    # ui.card_header("Time interval stats", class_="bg-light"),
                     ui.card_header("Time interval stats", class_="bg-secondary-css"),
                     ui.div(
                         ui.div(
@@ -222,24 +158,6 @@ app_ui = ui.page_sidebar(
                 ),
             ),
             ui.output_ui("initialize_loader2"),
-        ),
-        
-        # TODO - _ _ _ _ GATING _ _ _ _
-        ui.nav_panel(
-            "Gating Panel",
-            ui.layout_sidebar(
-                ui.sidebar(
-                    "Gating_sidebar", 
-                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
-                    # bg="#f8f8f8",
-                ), 
-                ui.markdown(
-                    """ 
-                    Gates here
-                    """
-                )
-            ),
-            
         ),
 
         # _ _ _ _ VISUALIZATION PANEL _ _ _ _
@@ -260,7 +178,7 @@ app_ui = ui.page_sidebar(
                         ),
 
                         # _ _ SETTINGS _ _
-                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Animated", width="200px"),
+                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Realistic", width="200px"),
 
                         ui.accordion(
                             ui.accordion_panel(
@@ -316,7 +234,7 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.panel_conditional(
                                         "input.tracks_color_mode == 'single color'",
-                                        ui.input_selectize("tracks_only_one_color", "Color:", list(Styles.Color.keys()), width="190px"),
+                                        ui.input_selectize("tracks_only_one_color", "Color:", Styles.Color, width="190px"),
                                     ),
                                     ui.input_selectize("tracks_background", "Background:", Styles.Background, width="120px"),
                                 ),
@@ -472,12 +390,16 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                                        # ui.input_numeric()
+                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=24, min=2, step=1, width="150px"),
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ""
+                                        ui.input_selectize(id="dd_rosechart_cmode", label="Color mode:", choices=["single color", "level-based", "n-tiles", "differentiate conditions", "differentiate replicates"], selected="single color", width="200px"),
+                                        ui.panel_conditional(
+                                            "input.dd_rosechart_cmode == 'n-tiles'",
+                                            ui.input_numeric("dd_rosechart_ntiles", "n-tiles:", value=5, min=2, step=1, width="150px"),
+                                            ui.input_selectize("dd_rosechart_partition_selector", "Discretize:", choices=Metrics.Track, selected="Confinement ratio", width="215px"),
+                                        )
                                     ),
                                     class_="accordion02"
                                 ),
@@ -594,27 +516,6 @@ app_ui = ui.page_sidebar(
                             ui.output_plot("dd_plot_kde_line"),
                             ui.download_button("download_dd_kde_line", "Download Line Plot", width="100%")
                         ),
-                        ui.card(
-                            ui.card_header("Overlay", class_="bg-secondary-css"),
-                            ui.panel_well(
-                                ui.accordion(
-                                    ui.accordion_panel(
-                                        "Compose",
-                                        ""
-                                    ),
-                                    ui.accordion_panel(
-                                        "Color",
-                                        ""
-                                    ),
-                                    class_="accordion02"
-                                ),
-                                ui.br(),
-                                ui.input_task_button(id="generate_dd_overlay", label="Generate", class_="btn-secondary task-btn", width="100%"),
-                            ),
-                            ui.br(),
-                            ui.output_plot("dd_plot_overlay"),
-                            ui.download_button("download_dd_overlay", "Download Overlay", width="100%")
-                        ),
                         width=1/2,
                         class_="dd-cards-wrap"
                     )
@@ -691,7 +592,7 @@ app_ui = ui.page_sidebar(
                                         ui.panel_conditional(
                                             "input.c_mode_msd == 'single color'",
                                             ui.div(
-                                                ui.input_selectize("only_one_color_msd", "Color:", list(Styles.Color.keys())),
+                                                ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
                                                 style="margin-left: 15px;"
                                             )
                                         ),
@@ -872,7 +773,7 @@ app_ui = ui.page_sidebar(
                                                             ui.input_checkbox("tch_outline_bullets", "Outline bullets", False),
                                                             ui.panel_conditional(
                                                                 "input.tch_outline_bullets == true",
-                                                                ui.input_selectize("tch_bullet_outline_color", "Outline color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                                ui.input_selectize("tch_bullet_outline_color", "Outline color:", Styles.Color, selected="match"),
                                                                 ui.input_numeric("tch_bullet_outline_width", "Outline width:", 1, min=0, step=0.1),
                                                             ),
                                                         ),
@@ -938,7 +839,7 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.tch_errorband_fill == true && input.tch_errorband_outline == true || input.tch_errorband_fill == false",
                                                 ui.input_numeric("tch_errorband_outline_width", "Outline width:", 1, min=0, step=0.1),
-                                                ui.input_selectize("tch_errorband_outline_color", "Outline color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                ui.input_selectize("tch_errorband_outline_color", "Outline color:", Styles.Color, selected="match"),
                                             ),
                                         ),
                                         ui.accordion_panel(
@@ -949,7 +850,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_mean", "Show mean", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_mean == true",
-                                                        ui.input_selectize("tch_errorband_mean_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_mean_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_mean_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_mean_line_width", "Line width:", 1, min=0, step=0.1),
                                                     ),
@@ -959,7 +860,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_median", "Show median", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_median == true",
-                                                        ui.input_selectize("tch_errorband_median_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_median_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_median_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_median_line_width", "Line width:", 1, min=0, step=0.1),
                                                     ),
@@ -969,7 +870,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_min", "Show min", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_min == true",
-                                                        ui.input_selectize("tch_errorband_min_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_min_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_min_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_min_line_width", "Line width:", 1, min=0, step=0.1),
                                                     )
@@ -979,7 +880,7 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_max", "Show max", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_max == true",
-                                                        ui.input_selectize("tch_errorband_max_line_color", "Line color:", list(Styles.Color.keys()) + ["match"], selected="match"),
+                                                        ui.input_selectize("tch_errorband_max_line_color", "Line color:", Styles.Color, selected="match"),
                                                         ui.input_selectize("tch_errorband_max_line_style", "Line style:", Styles.LineStyle),
                                                         ui.input_numeric("tch_errorband_max_line_width", "Line width:", 1, min=0, step=0.1),
                                                     )
@@ -1037,7 +938,7 @@ app_ui = ui.page_sidebar(
                                                 "input.sp_show_swarms == true",
                                                 ui.input_numeric("sp_swarm_marker_size", "Dot size:", 1, min=0, step=0.5),
                                                 ui.input_numeric("sp_swarm_marker_alpha", "Dot opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", Styles.Color, selected="black"),
                                             ),
                                         ),
                                         ui.accordion_panel(
@@ -1045,9 +946,9 @@ app_ui = ui.page_sidebar(
                                             ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
                                             ui.panel_conditional(
                                                 "input.sp_show_violins == true",
-                                                ui.input_selectize("sp_violin_fill", "Fill color:", list(Styles.Color.keys()), selected="whitesmoke"),
+                                                ui.input_selectize("sp_violin_fill", "Fill color:", Styles.Color, selected="whitesmoke"),
                                                 ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ui.input_selectize("sp_violin_outline", "Outline color:", list(Styles.Color.keys()), selected="lightgrey"),
+                                                ui.input_selectize("sp_violin_outline", "Outline color:", Styles.Color, selected="lightgrey"),
                                                 ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
                                             ),
                                         ),
@@ -1077,12 +978,12 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_mean == true",
                                                 ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
-                                                ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Styles.Color, selected="black"),
                                             ),
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_median == true",
                                                 ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
-                                                ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=list(Styles.Color.keys()), selected="darkblue"),
+                                                ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Styles.Color, selected="darkblue"),
                                             ),
                                             ui.panel_conditional(
                                                 "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
@@ -1092,7 +993,7 @@ app_ui = ui.page_sidebar(
                                                 "input.sp_show_errbars == true",
                                                 ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
                                                 ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
-                                                ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Styles.Color, selected="black"),
                                                 ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
                                             ),
                                             ui.panel_conditional(
@@ -1111,14 +1012,14 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.sp_show_rep_means == true",
                                                 ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
-                                                ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Styles.Color, selected="black"),
                                                 ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
                                                 ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
                                             ),
                                             ui.panel_conditional(
                                                 "input.sp_show_rep_medians == true",
                                                 ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
-                                                ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", list(Styles.Color.keys()), selected="black"),
+                                                ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Styles.Color, selected="black"),
                                                 ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
                                                 ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
                                             ),
@@ -1246,8 +1147,10 @@ app_ui = ui.page_sidebar(
             ui.input_selectize(
                 id="app_theme",
                 label=None,
-                choices=["Shiny", "Console-0", "Console-1", "Console-2"],
+                # choices=["Shiny", "Console-0", "Console-1", "Console-2"],
+                choices=["Shiny", "Console-0"],
                 selected="Shiny",
+                # selected="Console-0",
                 width="140px",
                 options={"hideSelected": True, },
             ),

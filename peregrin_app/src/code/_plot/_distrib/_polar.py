@@ -1,5 +1,7 @@
+import warnings
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from typing import Any
@@ -16,8 +18,8 @@ class PolarDataDistribute:
                  *args, normalization: str = 'globally', weight: str = None, 
                  cmap: str = 'plasma LUT', face: str = 'none', 
                  text_color: str = 'black', title: str = None, 
-                 label_x: bool = True, label_y: bool = True, 
-                 label_y_color: str = 'lightgrey',
+                 label_theta: bool = True, label_r: bool = True, 
+                 label_r_color: str = 'lightgrey',
                  **kwargs):
         
         # - Shared arguments for all polar plots
@@ -34,17 +36,21 @@ class PolarDataDistribute:
         self.face = face
         self.text_color = text_color
         self.title = title
-        self.label_x = label_x
-        self.label_y = label_y
-        self.label_y_color = label_y_color
+        self.label_theta = label_theta
+        self.label_r = label_r
+        self.label_r_color = label_r_color
 
         self.background = kwargs.get('background', 'white')
         self.min_density = kwargs.get('min_density', None)
         self.max_density = kwargs.get('max_density', None)
 
-        # - Keyword arguments for Rose Chart
+        # Keyword arguments for KDE Colormesh
+        self.bw = kwargs.get('bandwidth', 0.02) or kwargs.get('bw', 0.02)
+
+        # Keyword arguments for Rose Chart
+        self.discretize = kwargs.get('discretize', None)
         self.bins = kwargs.get('bins', 16)
-        self.ntiles = kwargs.get('ntiles', 10)
+        self.ntiles = kwargs.get('ntiles', 10) or kwargs.get('n_tiles', 10)
         self.alignment = kwargs.get('alignment', 'edge')
         self.gap = kwargs.get('gap', 0.1)
         self.outline = kwargs.get('outline', False)
@@ -52,10 +58,12 @@ class PolarDataDistribute:
         if self.outline_color == 'blend in':
             self.outline_color = self.background
         self.outline_width = kwargs.get('outline_width', 0)
-        self.radial_step = kwargs.get('radial_step', None)
+        self.levels = kwargs.get('levels', 5)
+        self.c_mode = kwargs.get('c_mode', 'single color') or kwargs.get('color_mode', 'single color')
+        self.default_colors = kwargs.get('default_colors', True)
         self.single_color = kwargs.get('single_color', 'coral')
 
-        # - Keyword arguments for KDE Line plot
+        # Keyword arguments for KDE Line plot
         self.kappa = kwargs.get('kappa', 100)
         self.num_points = kwargs.get('num_points', 1000)
         self.normalize = kwargs.get('normalize', True)
@@ -66,11 +74,7 @@ class PolarDataDistribute:
         self.show_abs_average = kwargs.get('show_abs_average', True)
         self.mean_angle_color = kwargs.get('mean_angle_color', 'black')
         self.mean_angle_width = kwargs.get('mean_angle_width', 3)
-        self.r_locate = kwargs.get('r_locate', 75)
-
-        # - Keyword arguments for Rose chart & KDE overlay
-        self.bw = kwargs.get('bandwidth', 0.02)
-        self.fraction_size = kwargs.get('fraction_size', 0.5)
+        self.r_loc = kwargs.get('r_loc', 75) or kwargs.get('loc_r', 75) or kwargs.get('r_locate', 75)
 
         # - Keyword arguments and constants for Gaussian KDE Colormesh
         # bins and bandwidth already mentioned
@@ -134,8 +138,7 @@ class PolarDataDistribute:
                 self.theta, 
                 self.normalized_density, 
                 color=self.outline_color,
-                linewidth=self.outline_width
-                 
+                linewidth=self.outline_width  
             )
         
         if self.kde_fill:
@@ -149,15 +152,14 @@ class PolarDataDistribute:
                 linewidth=0
             )
 
-        if self.show_abs_average:
-            self._mean_direction(ax)
-
+        self._mean_direction(ax)
         self._annotate_theta_axis(ax)
-        self._annotate_r_axis(ax)
-        if self.title:
-            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
+        self._annotate_dens_r_axis(ax)
         ax.set_facecolor(self.background)
         fig.set_facecolor(self.face)
+
+        if self.title:
+            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
 
         return plt.gcf()
 
@@ -165,19 +167,18 @@ class PolarDataDistribute:
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights)
-        self._density_norm()
 
-        self._bins()
+        self._allocate_bins()
+        self._plot(ax)
+        self._annotate_theta_axis(ax)
+        self._annotate_hist_r_axis(ax)
+        ax.set_facecolor(self.background)
+        fig.set_facecolor(self.face)
+        if self.title:
+            ax.set_title(self.title, color=self.text_color, fontsize=14, pad=20)
 
+        return plt.gcf()
 
-
-
-
-
-
-    def Overlay(self) -> plt.Figure:
-        ...
 
     def get_density_caps(self) -> tuple[float, float]:
         
@@ -205,8 +206,8 @@ class PolarDataDistribute:
             self.gap = Values.Clamp01(self.gap)
             self.noticequeue.Report(Level.error, "Gap must be in range (0, 1). Clamped to: " + str(self.gap))
 
-        if not (0 <= self.r_locate <= 360):
-            self.r_locate = 75
+        if not (0 <= self.r_loc <= 360):
+            self.r_loc = 75
             self.noticequeue.Report(Level.warning, "R axis labels position must be in range (0, 360). Resetting to 75.")
 
         if not (0.0 < self.gap <= 1.0):
@@ -215,18 +216,18 @@ class PolarDataDistribute:
         else:
             self.gap = float(self.gap)
 
-
     def _arrange_data(self) -> None:
-        data = Categorizer(
+        self.data = Categorizer(
             data=self.data,
             conditions=self.conditions,
             replicates=self.replicates,
             noticequeue=self.noticequeue
         )()
 
-        angles = np.asarray(data['Direction mean'], dtype=float)
+        # self.data = data
+        angles = np.asarray(self.data['Direction mean'], dtype=float)
         self.angles = angles % (2 * np.pi)
-        self.weights = np.asarray(data[self.weight], dtype=float) if self.weight else None
+        self.weights = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
 
     def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = True, num_points: int = None) -> tuple[np.ndarray, np.ndarray]:
         
@@ -283,9 +284,10 @@ class PolarDataDistribute:
         self.normalized_density = self.norm(self.density)
 
     def _mean_direction(self, ax) -> None:
-        mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
-        mean_angle_wrapped = mean_angle % (2 * np.pi)
-        density_at_mean = np.interp(mean_angle_wrapped, self.theta, self.normalized_density)
+        if self.show_abs_average:
+            mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
+            mean_angle_wrapped = mean_angle % (2 * np.pi)
+            density_at_mean = np.interp(mean_angle_wrapped, self.theta, self.normalized_density)
 
         ax.vlines(mean_angle_wrapped, 0, density_at_mean, color=self.mean_angle_color, linewidth=self.mean_angle_width, zorder=11)
     
@@ -293,31 +295,45 @@ class PolarDataDistribute:
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
 
-        if self.label_x:
+        if self.label_theta:
             if create:
                 for angle in range(0, 360, 45):
                     ax.text(np.deg2rad(angle), self.OUTER_RADIUS + 0.1, f"{angle}°", 
-                            ha='center', va='center', fontsize=10, color=self.text_color, fontweight="medium", zorder=100)
+                            ha='center', va='center', fontsize=10, color=self.text_color, fontweight="medium", zorder=500)
             else:
                 ax.tick_params(axis="x", labelcolor=self.text_color)
-        elif not self.label_x:
+        elif not self.label_theta:
             ax.set_xticklabels([])
         
-    def _annotate_r_axis(self, ax, axtext: bool = False) -> None:
-        if self.label_y:
-            if axtext:
-                for label in ax.get_yticklabels():
-                    label = int(label.get_text())
-                    ax.text(np.deg2rad(self.r_locate), label, str(label),
-                        ha="center", va="center", fontsize=10, zorder=100,
-                        color=self.label_y_color, fontweight="medium")
-                ax.set_yticklabels([])
-            else:
-                ax.tick_params(axis="y", labelcolor=self.label_y_color)
-                ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.0])
-                ax.set_rlabel_position(self.r_locate)
+    def _annotate_dens_r_axis(self, ax) -> None:
+        if self.label_r:
+            ax.tick_params(axis="y", labelcolor=self.label_r_color)
+            ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.0])
+            ax.set_rlabel_position(self.r_loc)
+            ax.yaxis.label.set_color(self.label_r_color)
+            ax.yaxis.label.set_fontweight("medium")
         else:
             ax.set_yticklabels([])
+
+    def _annotate_hist_r_axis(self, ax) -> None:
+        ax.set_yticklabels([])
+        if self.label_r:
+            max = round(self.bin_counts.max())
+            print(f"Max bin count: {max}")
+            rlables = [r for r in range(0, max, round(max/5))]
+            print(f"R labels: {rlables}")
+            for r in rlables:
+                ax.text(
+                    np.deg2rad(self.r_loc),
+                    r,
+                    str(r),
+                    ha="center",
+                    va="center",
+                    fontsize=10,
+                    zorder=100,
+                    color=self.label_r_color,
+                    fontweight="medium",
+                )
 
     def _polar_hist(self, ax, data: np.ndarray, heights: np.ndarray, widths: np.ndarray, 
                     bottom: float = 0.0, color: Any = None, **kwargs) -> None:
@@ -333,34 +349,185 @@ class PolarDataDistribute:
             **kwargs
         )
 
-    def _space_bins(self) -> None:
+    def _allocate_bins(self) -> None:
         # Bin edges
-        bin_edges = np.linspace(0.0, 2 * np.pi, int(self.bins) + 1)
-        bin_widths = np.diff(bin_edges)
+        self.bin_edges = np.linspace(0.0, 2 * np.pi, self.bins + 1)
+        bin_width = np.diff(self.bin_edges)
 
         # Gaps between bars
-        self.bin_locs = bin_edges[:-1] + (bin_widths * self.gap / 2.0)
-        self.bin_widths = bin_widths * (1.0 - self.gap)
+        self.bin_locs = self.bin_edges[:-1] + (bin_width * self.gap / 2.0)
+        self.bin_widths = bin_width * (1.0 - self.gap)
 
-    def _color_bins(self) -> None:
-        # TODO: upgrade the tile coloring options. 
-        #       A. single color => color the bins with single color
-        #       B. colormap => divide bins into tiles
-        #           - no mapping 
-        #               -> color bin tiles solely based on their order
-        #                  and distance from the center
-        #               -> allow the user to set the number of bin tiles created
-        #           - mapping to conditions / replicates [differentiate conditions / differentiate replicates]
-        #               -> each condition / replicate inherrits its own color from:
-        #                  a) a qualitative colormap
-        #                  b) user-defined colors'
-        #               -> create a cbar legend indicating which color corresponds to which condition / replicate
-        #           - mapping to quantiles of weight values
-        #               -> divide the bins and  the weight values into the corresponding number of quantiles (based on user selection)
-        #               -> map bin tile proportions and colors to the values in quantiles of weight values 
-        #               -> create a cbar legend indicating which color corresponds to which weight value range
+        self.bin_counts, _ = np.histogram(self.angles, bins=self.bin_edges, weights=self.weights)
 
-        ...
+    def _plot_bins(self, ax, i, color, height: float, seat: float = 0.0) -> None:
+
+        ax.bar(
+            self.bin_locs[i],
+            height,
+            width=self.bin_widths[i],
+            bottom=seat,
+            color=color,
+            edgecolor=self.outline_color,
+            linewidth=self.outline_width if self.outline else 0,
+            align=self.alignment,
+            zorder=10,
+        )
+
+    def _plot(self, ax) -> None:
+
+        match self.c_mode:
+
+            case 'single color':
+                color = self.single_color
+
+                for i in range(self.bins):
+                    abs_height = float(self.bin_counts[i])
+                    if abs_height <= 0:
+                        continue
+
+                    self._plot_bins(ax, i, color=color, height=abs_height)
+
+
+            case 'level-based':
+                colors = self._slice_cmap(self.levels)
+                max_height = max(self.bin_counts)
+                level_height = max_height / self.levels
+
+                for i in range(self.bins):
+
+                    abs_height = float(self.bin_counts[i])
+                    if abs_height <= 0:
+                        continue
+
+                    for lvl in range(self.levels):
+                        color = colors[lvl]
+                        seat = lvl * level_height
+                        height = min((lvl + 1) * level_height, abs_height) - seat
+                        if height <= 0:
+                            continue
+
+                        self._plot_bins(ax, i, color=color, height=height, seat=seat)
+                    
+
+            case 'n-tiles':
+                colors = self._slice_cmap(self.ntiles)
+                max_height = max(self.bin_counts)
+                tile_height = max_height / self.ntiles
+
+                discretize = self.data[self.discretize]
+                
+
+                bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
+                bin_idx = np.clip(bin_idx, 0, self.bins - 1)
+ 
+                qs = np.linspace(0.0, 1.0, self.ntiles + 1)
+                global_edges = np.quantile(discretize, qs)
+
+                # If all weights are (effectively) identical, put everything in first tile
+                if np.allclose(global_edges, global_edges[0]):
+                    weights_tile_id = np.zeros(discretize.size, dtype=int)
+                else:
+                    # digitize against inner edges -> ids 0..ntiles-1
+                    weights_tile_id = np.digitize(discretize, global_edges[1:-1], right=False)
+
+                for i in range(self.bins):
+
+                    print(f"Processing bin {i}")
+
+                    m = bin_idx == i
+                    if not np.any(m):
+                        continue
+
+                    # Use the globally-derived tile ids, then count composition within this direction bin
+                    tile_id = weights_tile_id[m]
+                    if tile_id.size == 0:
+                        continue
+
+                    tile_counts = np.bincount(tile_id, minlength=self.ntiles).astype(float)
+
+                    # Draw stacked bars; drop empty levels
+                    seat = 0.0
+                    for t in range(self.ntiles):
+
+                        print(f"Bin {i}, tile {t}, count {tile_counts[t]}")
+
+                        color=colors[t]
+                        height = tile_counts[t]
+                        if height <= 0:
+                            continue
+
+                        self._plot_bins(ax, i, color, height=height, seat=seat)
+                        seat += height
+
+
+            case 'differentiate conditions':
+                unique_cond, cond_idx = np.unique(self.data['Condition'], return_inverse=True)
+                print(f"Unique conditions: {unique_cond}")
+                print(f"Condition indices: {cond_idx}")
+                
+                if self.default_colors:
+                    colors = self._slice_cmap(len(unique_cond))
+                    print(f"Assigned colors for conditions: {colors}")
+                else:
+                    colors = [self.data[self.data['Condition'] == cond].iloc[0]['Condition color'] for cond in unique_cond]
+                    print(f"Using provided colors for conditions: {colors}")
+                
+                bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
+                bin_idx = np.clip(bin_idx, 0, self.bins - 1)
+                
+                for i in range(self.bins):
+                    m = bin_idx == i
+                    if not np.any(m):
+                        continue
+
+                    counts_per_cond = np.bincount(cond_idx[m], minlength=unique_cond.size).astype(float)
+
+                    seat = 0.0
+                    for c in range(len(unique_cond)):
+                        color = colors[c]
+                        height = counts_per_cond[c]
+                        if height <= 0:
+                            continue
+
+                        self._plot_bins(ax, i, color, height=height, seat=seat)
+                        seat += height
+
+                
+            case 'differentiate replicates':
+                unique_repl, repl_idx = np.unique(self.data['Replicate'], return_inverse=True)
+                print(f"Unique replicates: {unique_repl}")
+                print(f"Replicate indices: {repl_idx}")
+                
+                if self.default_colors:
+                    colors = self._slice_cmap(len(unique_repl))
+                    print(f"Assigned colors for replicates: {colors}")
+                else:
+                    colors = [self.data[self.data['Replicate'] == repl].iloc[0]['Replicate color'] for repl in unique_repl]
+                    print(f"Using provided colors for replicates: {colors}")
+                
+                bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
+                bin_idx = np.clip(bin_idx, 0, self.bins - 1)
+                
+                for i in range(self.bins):
+                    m = bin_idx == i
+                    if not np.any(m):
+                        continue
+
+                    counts_per_repl = np.bincount(repl_idx[m], minlength=unique_repl.size).astype(float)
+
+                    seat = 0.0
+                    for r in range(len(unique_repl)):
+                        color = colors[r]
+                        height = counts_per_repl[r]
+                        if height <= 0:
+                            continue
+
+                        self._plot_bins(ax, i, color, height=height, seat=seat)
+                        seat += height
+
+    def _slice_cmap(self, slices: int) -> list:
+        return self.cmap(np.linspace(0.05, 0.95, slices))
 
     def _bandwidth_to_kappa(self, kappa_min=0, kappa_max=1e4):
         return np.clip(1.0 / (self.bw ** 2), kappa_min, kappa_max)

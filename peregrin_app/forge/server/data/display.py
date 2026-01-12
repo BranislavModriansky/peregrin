@@ -16,7 +16,7 @@ def mount_data_display(input, output, session, S):
         fig.add_trace(
             go.Histogram(
                 x=data.dropna(), nbinsx=15,
-                marker_color='#337ab7',
+                marker_color='#337ab7' if app_theme == "Shiny" else '#a15c5c',
                 marker_line_width=0,
                 hovertemplate="Range: %{x}<br>Count: %{y}<extra></extra>",
             )
@@ -48,7 +48,7 @@ def mount_data_display(input, output, session, S):
                 data.dropna(), 
                 bins=15,
                 align='left',
-                color='#337ab7', 
+                color='#337ab7' if app_theme == "Shiny" else '#a15c5c', 
                 edgecolor='#fafafa' if app_theme == "Shiny" else '#2b2b2b',
             )
             plt.xticks([])

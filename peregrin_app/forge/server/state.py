@@ -6,6 +6,7 @@ def build_state():
         "PLAY": reactive.Value(False),
         "BG_SWITCH": reactive.Value(False),
         "BG_ENABLED": reactive.Value(True),
+        "IMPORT_MODE": reactive.Value("raw"),
         "READYTORUN": reactive.Value(False),
         "INPUTS": reactive.Value(1),
         "THRESHOLDS": reactive.Value(None),

@@ -4,7 +4,7 @@ import warnings
 import pandas as pd
 from datetime import date
 from shiny import ui, reactive, req, render
-from src.code import SwarmsAndBeyond, Superviolins, Debounce, Styles
+from src.code import SwarmsAndBeyond, Superviolins, DebounceCalc, Styles
 
 
 def mount_superplots(input, output, session, S, noticequeue):
@@ -202,33 +202,33 @@ def mount_superplots(input, output, session, S, noticequeue):
                     use_stock_palette=use_stock_palette,
                     show_swarm=show_swarm,
                     swarm_size=swarm_size,
-                    swarm_outline_color=Styles.Colors[swarm_outline_color],
+                    swarm_outline_color=swarm_outline_color,
                     swarm_alpha=swarm_alpha,
                     show_violin=show_violin,
-                    violin_fill_color=Styles.Colors[violin_fill_color],
-                    violin_edge_color=Styles.Colors[violin_edge_color],
+                    violin_fill_color=violin_fill_color,
+                    violin_edge_color=violin_edge_color,
                     violin_alpha=violin_alpha,
                     violin_outline_width=violin_outline_width,
                     show_mean=show_mean,
                     mean_span=mean_span,
-                    mean_color=Styles.Colors[mean_color],
+                    mean_color=mean_color,
                     show_median=show_median,
                     median_span=median_span,
-                    median_color=Styles.Colors[median_color],
+                    median_color=median_color,
                     line_width=line_width,
                     show_error_bars=show_error_bars,
                     errorbar_capsize=errorbar_capsize,
-                    errorbar_color=Styles.Colors[errorbar_color],
+                    errorbar_color=errorbar_color,
                     errorbar_lw=errorbar_lw,
                     errorbar_alpha=errorbar_alpha,
                     show_mean_balls=show_mean_balls,
                     mean_ball_size=mean_ball_size,
-                    mean_ball_outline_color=Styles.Colors[mean_ball_outline_color],
+                    mean_ball_outline_color=mean_ball_outline_color,
                     mean_ball_outline_width=mean_ball_outline_width,
                     mean_ball_alpha=mean_ball_alpha,
                     show_median_balls=show_median_balls,
                     median_ball_size=median_ball_size,
-                    median_ball_outline_color=Styles.Colors[median_ball_outline_color],
+                    median_ball_outline_color=median_ball_outline_color,
                     median_ball_outline_width=median_ball_outline_width,
                     median_ball_alpha=median_ball_alpha,
                     show_kde=show_kde,

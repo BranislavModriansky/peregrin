@@ -1,7 +1,9 @@
+import traceback
+from unittest import case
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render   
-from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals
+from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals, Metrics, Level
 
 # from utils import emit_warning
 
@@ -10,8 +12,72 @@ from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals
 
 def mount_data_input(input, output, session, S, noticequeue):
 
-    
 
+    @output
+    @render.ui
+    def input_panel():
+
+        if S.IMPORT_MODE.get() == "raw":
+            return [
+                ui.div(
+                    {"id": "data-inputs"},
+
+                    # _ Label settings (secondary sidebar) _
+                    ui.layout_sidebar(
+                        ui.sidebar(
+                            ui.div(
+                                ui.markdown(""" <br><h4><b>  Label settings:  </h4></b> """), 
+                                style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center;"
+                            ),
+                            ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
+                            ui.div(  
+                                # ui.tags.style(Customize.Link1),
+                                ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
+                                ui.input_checkbox("auto_label", "Auto-label", False),
+                                
+                                ui.output_ui("data_labeling_ui"),
+
+                            ), 
+                            ui.output_ui('task_btn_labeling_sidebar'),
+                            width="300px",
+                            id="labeling_sidebar",
+                        ), 
+                        # File inputs
+                        ui.div(
+                            {"id": "input_file_container_1"},
+                            ui.input_text(id=f"condition_label1", label=f"Label:", placeholder="Condition 1"),
+                            ui.input_file(id=f"input_file1", label="Upload files:", placeholder="Drag and drop here!", multiple=True),
+                            ui.markdown(""" <hr style="border: none; border-top: 1px dotted" /> """),
+                        ), 
+                        id="labeling_sidebar_n_data_input_layout",
+                    ),
+
+                    # _ Draggable accordion panel - columns selection _
+                    ui.panel_absolute(
+                        ui.card(
+                            ui.accordion(
+                                ui.accordion_panel(
+                                    "Select columns",
+                                    ui.input_selectize("select_id", "Track identifier:", ["e.g. TRACK_ID"]),
+                                    ui.input_selectize("select_t", "Time point:", ["e.g. POSITION_T"]),
+                                    ui.row(
+                                        ui.column(6,
+                                            ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.Units.TimeUnits.keys()), selected="seconds"),
+                                            style_="margin-bottom: 5px;",
+                                        )
+                                    ),
+                                    ui.input_selectize("select_x", "X coordinate:", ["e.g. POSITION_X"]),
+                                    ui.input_selectize("select_y", "Y coordinate:", ["e.g. POSITION_Y"]),
+                                    ui.markdown("<span style='color:darkgrey; font-style:italic;'>You can drag me around!</span>"), #TODO - define this style inside of the css and remove it from here
+                                ), 
+                                open=False, class_="draggable-accordion", id="draggable_column_selector_panel"
+                            ),
+                        ), 
+                        width="350px", right="450px", top="130px", draggable=True, class_="elevated-panel"
+                    )
+                )
+            ]
+        
     # _ _ _ _ RAW DATA INPUT CONTAINERS CONTROL _ _ _ _
 
     @reactive.Effect
@@ -181,7 +247,7 @@ def mount_data_input(input, output, session, S, noticequeue):
     def load_processed_data():
         fileinfo = input.already_processed_input()
         try:
-            df = DataLoader.GetDataFrame(fileinfo[0]["datapath"])
+            df = DataLoader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
 
             S.UNFILTERED_SPOTSTATS.set(df)
             S.UNFILTERED_TRACKSTATS.set(Tracks(df))
@@ -196,6 +262,6 @@ def mount_data_input(input, output, session, S, noticequeue):
             ui.update_action_button(id="append_threshold", disabled=False)
             
         except Exception as e:
-            print(e)
+            error_trace = traceback.format_exc()
+            noticequeue.Report(Level.error, "Error in loading processed data", error_trace)
 
-    

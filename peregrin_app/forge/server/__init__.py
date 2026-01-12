@@ -63,7 +63,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
 
 
     mount_loaders(*args)
-    mount_tasks(S)
+    mount_tasks(*args, **kwargs)
 
 
     
