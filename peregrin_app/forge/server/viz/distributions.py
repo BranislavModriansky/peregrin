@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import PolarDataDistribute, Metrics
+from src.code import PolarDataDistribute
 
 import numpy as np
 from io import BytesIO
@@ -78,9 +78,10 @@ def MountDistributions(input, output, session, S, noticequeue):
             _kwargs.pop(key, None)
 
         return _kwargs
-
+    
+    
     def _density_caps_kwargs() -> dict:
-        if input.dd_kde_colormesh_auto_scale_lut():
+        if not input.dd_kde_colormesh_auto_scale_lut():
             min_density=input.dd_kde_colormesh_lutmap_scale_min()
             max_density=input.dd_kde_colormesh_lutmap_scale_max()
         else:
@@ -89,16 +90,18 @@ def MountDistributions(input, output, session, S, noticequeue):
 
         return dict(
             **_common_kwargs(),
+            bandwidth=input.dd_kde_colormesh_bandwidth(),
             auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
             cmap=input.dd_kde_colormesh_lut_map(),
             min_density=min_density,
             max_density=max_density,
         )
 
+     
     def _distribution_kde_colormesh_kwargs() -> dict:
         if input.dd_kde_colormesh_auto_scale_lut():
-            min_density=0.0
-            max_density=1.0
+            min_density=None
+            max_density=None
         else:
             min_density=input.dd_kde_colormesh_lutmap_scale_min()
             max_density=input.dd_kde_colormesh_lutmap_scale_max()
@@ -114,6 +117,7 @@ def MountDistributions(input, output, session, S, noticequeue):
             min_density=min_density,
             max_density=max_density,
         )
+        
     
     def _distribution_kde_line_kwargs() -> dict:
         return dict(
@@ -124,7 +128,7 @@ def MountDistributions(input, output, session, S, noticequeue):
             label_r=input.dd_kde_line_r_labels(),
             label_r_color=input.dd_kde_line_r_label_color(),
             r_loc=input.dd_kde_line_r_axis_position(),
-            outline=True,
+            outline=input.dd_kde_line_outline(),
             outline_color=input.dd_kde_line_outline_color(),
             outline_width=input.dd_kde_line_outline_width(),
             kde_fill=input.dd_kde_line_fill(),
@@ -141,16 +145,19 @@ def MountDistributions(input, output, session, S, noticequeue):
             **_common_kwargs(),
             bins=input.dd_rosechart_bins(),
             text_color='black' if input.app_theme() == "Shiny" else 'white',
+            alignment=input.dd_rosechart_alignment(),
+            gap=input.dd_rosechart_gap(),
+            levels=input.dd_rosechart_levels(),
+            ntiles=input.dd_rosechart_ntiles(),
+            discretize=input.dd_rosechart_discretize(),
             c_mode=input.dd_rosechart_cmode(),
-            ntiles=input.dd_rosechart_ntiles() if input.dd_rosechart_cmode() == "n-tiles" else None,
-            discretize=input.dd_rosechart_partition_selector() if input.dd_rosechart_cmode() == "n-tiles" else None,
-            # outline=True,
-            # outline_color=input.dd_rosechart_outline_color(),
-            # outline_width=input.dd_rosechart_outline_width(),
-            # c_mode=input.dd_rosechart_color_mode(),
-            # single_color=input.dd_rosechart_single_color(),
-            # ntiles=input.dd_rosechart_ntiles(),
-            # background=input.dd_rosechart_bg_color(),
+            cmap=input.dd_rosechart_lut_map(),
+            single_color=input.dd_rosechart_single_color(),
+            default_colors=not input.dd_rosechart_custom_colors(),
+            outline=input.dd_rosechart_outline(),
+            outline_color=input.dd_rosechart_outline_color(),
+            outline_width=input.dd_rosechart_outline_width(),
+            background=input.dd_rosechart_bg_color(),
         )
     
     ui.bind_task_button(button_id="generate_dd_kde_colormesh")
@@ -187,17 +194,17 @@ def MountDistributions(input, output, session, S, noticequeue):
     def dd_plot_kde_colormesh():
         return output_data_distribution_colormesh.result()
     
-    @reactive.Effect
-    def _get_density_range():
+    @render.text
+    def dd_kde_colormesh_density_range():
+
         if (S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
             and noticequeue is not None):
 
             kwargs = _density_caps_kwargs()
-            min, max = PolarDataDistribute(**kwargs).get_density_caps()
+
+            min, max = PolarDataDistribute(**kwargs).get_density_range()
             S.MIN_DENSITY.set(f'{min:.4f}'); S.MAX_DENSITY.set(f'{max:.4f}')
-    
-    @render.text
-    def dd_kde_colormesh_density_range():
+
         if (
             S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty
             or S.MIN_DENSITY.get() is None
