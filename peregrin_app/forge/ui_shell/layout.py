@@ -463,7 +463,7 @@ app_ui = ui.page_sidebar(
                                         "Compose",
                                         ui.row(
                                             ui.input_numeric("dd_kde_colormesh_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                                            ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.025, min=0.0001, step=0.001, width="115px"),
+                                            ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.05, min=0.0001, step=0.001, width="115px"),
                                         ),
                                         ui.row(
                                             ui.input_checkbox("dd_kde_colormesh_auto_scale_lut", "Auto scale LUT to min/max density", value=True),
