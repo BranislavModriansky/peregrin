@@ -367,11 +367,15 @@ app_ui = ui.page_sidebar(
                                 ),
                                 ui.br(),
                                 ui.row(
-                                    ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories"}, selected="globally"),
+                                    ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories", "none": "No normalization"}, selected="globally"),
                                     ui.column(
                                         2, 
                                         ui.input_checkbox(id="dd_add_weights", label="Add weights", value=False),
-                                        offset=1,
+                                        ui.panel_conditional(
+                                            "input.dd_add_weights == true",
+                                            ui.div("does not apply on rose chart", style="font-size: 0.8em; font-style: italic; margin-left: 2x; margin-top: -12px; alpha: 0.5;"),
+                                        ),
+                                        offset=2,
                                     ),
                                     ui.panel_conditional(
                                         "input.dd_add_weights == true",
@@ -390,16 +394,56 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=24, min=2, step=1, width="150px"),
+                                        ui.input_numeric("dd_rosechart_bins", "Number of bins:", value=24, min=2, step=1, width="125px"),
+                                        ui.row(
+                                            ui.input_selectize("dd_rosechart_alignment", "Align bins:", choices=["center", "edge"], selected="edge", width="115px"),
+                                            ui.input_numeric("dd_rosechart_gap", "Bin gaps:", value=0, min=0, max=10, step=0.1, width="100px"),
+                                        ),
+                                        ui.row(
+                                            ui.panel_conditional(
+                                                "input.dd_rosechart_line_r_labels == true",
+                                                ui.div(ui.markdown("Label Color:"), style="margin-left: 50px;"),
+                                                ui.div(ui.input_selectize("dd_rosechart_line_r_label_color", label=None, choices=Styles.Color, selected="#ffffff", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
+                                                ui.div(ui.markdown("Position [°]:"), style="margin-left: 24px;"),
+                                                ui.div(ui.input_numeric("dd_rosechart_line_r_axis_position", label=None, value=75, min=0, max=360, step=1, width="75px"), style="margin-left: 10px; margin-top: -6px;"),
+                                            )
+                                        )
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ui.input_selectize(id="dd_rosechart_cmode", label="Color mode:", choices=["single color", "level-based", "n-tiles", "differentiate conditions", "differentiate replicates"], selected="single color", width="200px"),
+                                        ui.input_selectize(id="dd_rosechart_cmode", label="Color mode:", choices=["single color", "level-based", "n-tiles", "differentiate conditions", "differentiate replicates"], selected="n-tiles", width="215px"),
+                                        ui.panel_conditional(
+                                            "input.dd_rosechart_cmode == 'level-based'",
+                                            ui.input_numeric("dd_rosechart_levels", "Levels:", value=8, min=2, step=1, width="90px"),
+                                        ),
                                         ui.panel_conditional(
                                             "input.dd_rosechart_cmode == 'n-tiles'",
-                                            ui.input_numeric("dd_rosechart_ntiles", "n-tiles:", value=5, min=2, step=1, width="150px"),
-                                            ui.input_selectize("dd_rosechart_partition_selector", "Discretize:", choices=Metrics.Track, selected="Confinement ratio", width="215px"),
-                                        )
+                                            ui.row(
+                                                ui.input_numeric("dd_rosechart_ntiles", "n-tiles:", value=6, min=2, step=1, width="90px"),
+                                                ui.input_selectize("dd_rosechart_discretize", "Discretize:", choices=Metrics.Track, selected="Track displacement", width="210px"),
+                                            )
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.dd_rosechart_cmode == 'single color'",
+                                            ui.input_selectize("dd_rosechart_single_color", "Color:", Styles.Color, selected="#536267", width="150px"),
+                                        ),
+                                        ui.panel_conditional(
+                                            "['differentiate conditions', 'differentiate replicates'].includes(input.dd_rosechart_cmode)",
+                                            ui.input_checkbox("dd_rosechart_custom_colors", "Use custom colors", False),
+                                        ),
+                                        ui.panel_conditional(
+                                            "['level-based', 'n-tiles', 'differentiate conditions', 'differentiate replicates'].includes(input.dd_rosechart_cmode) && input.dd_rosechart_custom_colors == false",
+                                            ui.input_selectize("dd_rosechart_lut_map", "Select LUT map:", choices=Styles.LUTOptions, selected="plasma LUT", width="200px"),
+                                        ),
+                                        ui.row(
+                                            ui.column(4, ui.div(ui.input_checkbox("dd_rosechart_outline", "Outline bins", False), style="margin-left: 18px; margin-top: 12px;")),
+                                            ui.panel_conditional(
+                                                "input.dd_rosechart_outline == true",
+                                                ui.column(4, ui.input_selectize("dd_rosechart_outline_color", "Outline color:", Styles.Color, selected="#1a1a1a", width="210px")),
+                                                ui.column(4, ui.div(ui.input_numeric("dd_rosechart_outline_width", "Outline width:", value=2, min=0, step=0.5, width="120px"), style="margin-left: 18px;")),
+                                            )
+                                        ),
+                                        ui.column(4, ui.div(ui.input_selectize(id="dd_rosechart_bg_color", label="Background color:", choices=Styles.Color, selected="#3c4142", width="175px"), style="margin-left: -4px;"), offset=4),
                                     ),
                                     class_="accordion02"
                                 ),
@@ -407,7 +451,7 @@ app_ui = ui.page_sidebar(
                                 ui.input_task_button(id="generate_dd_rosechart", label="Generate", class_="btn-secondary task-btn", width="100%"),
                             ),
                             ui.br(),
-                            ui.output_plot("dd_plot_rosechart"),
+                            ui.output_plot("dd_plot_rosechart", height="500px"),
                             ui.br(),
                             ui.download_button("download_dd_rosechart", "Download Rose Chart", width="100%")
                         ),
@@ -419,13 +463,12 @@ app_ui = ui.page_sidebar(
                                         "Compose",
                                         ui.row(
                                             ui.input_numeric("dd_kde_colormesh_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                                            ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.025, min=0.001, step=0.001, width="150px"),
+                                            ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.025, min=0.0001, step=0.001, width="115px"),
                                         ),
-                                        # ui.br(),
                                         ui.row(
                                             ui.input_checkbox("dd_kde_colormesh_auto_scale_lut", "Auto scale LUT to min/max density", value=True),
                                             ui.panel_conditional(
-                                                "input.dd_kde_colormesh_auto_scale_lut == true",
+                                                "input.dd_kde_colormesh_auto_scale_lut == true || input.dd_kde_colormesh_auto_scale_lut == false",
                                                 ui.div(ui.output_text_verbatim(id="dd_kde_colormesh_density_range", placeholder=True), style="margin-left: 20px; margin-right: 30px; margin-top: -6px;"),
                                             ),
                                         ),
@@ -451,7 +494,7 @@ app_ui = ui.page_sidebar(
                                 ui.input_task_button(id="generate_dd_kde_colormesh", label="Generate", class_="btn-secondary task-btn", width="100%"),
                             ),
                             ui.br(),
-                            ui.output_plot("dd_plot_kde_colormesh"),
+                            ui.output_plot("dd_plot_kde_colormesh", height="500px"),
                             ui.download_button("download_dd_kde_colormesh", "Download Colormesh", width="100%")
                         ),
                         ui.card(
@@ -460,7 +503,7 @@ app_ui = ui.page_sidebar(
                                 ui.accordion(
                                     ui.accordion_panel(
                                         "Compose",
-                                        ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.05, min=0.0001, step=0.001, width="150px"),
+                                        ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.05, min=0.0, step=0.001, width="90px"),
                                         ui.input_checkbox(id="dd_kde_line_dial", label="Display direction mean dial", value=True),
                                         ui.row(
                                             ui.column(6,
@@ -472,7 +515,7 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_r_labels == true",
                                                 ui.div(ui.markdown("Label Color:"), style="margin-left: 50px;"),
-                                                ui.div(ui.input_selectize("dd_kde_line_r_label_color", label=None, choices=Styles.Color, selected="#ffffff", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
+                                                ui.div(ui.input_selectize("dd_kde_line_r_label_color", label=None, choices=Styles.Color, selected="#985e2b", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
                                                 ui.div(ui.markdown("Position [°]:"), style="margin-left: 24px;"),
                                                 ui.div(ui.input_numeric("dd_kde_line_r_axis_position", label=None, value=75, min=0, max=360, step=1, width="75px"), style="margin-left: 10px; margin-top: -6px;"),
                                             )
@@ -483,29 +526,29 @@ app_ui = ui.page_sidebar(
                                     ui.accordion_panel(
                                         "Color",
                                         ui.row(
-                                            ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_outline", label="Show KDE outline area", value=True), style="margin-left: 18px; margin-top: 12px;")),
+                                            ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_outline", label="Show line", value=True), style="margin-left: 18px; margin-top: 12px;")),
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_outline == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_outline_color", label="Line color:", choices=Styles.Color, selected="#d7fffe", width="175px")),
-                                                ui.column(4, ui.input_numeric(id="dd_kde_line_outline_width", label="Line width:", value=2, min=0.1, step=0.5, width="150px")),
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_outline_color", label="Line color:", choices=Styles.Color, selected="#ffffff", width="175px")),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_outline_width", label="Line width:", value=2, min=0.0, step=0.1, width="150px")),
                                             ),
                                         ),
                                         ui.row(
                                             ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_fill", label="Fill KDE area", value=True), style="margin-left: 18px; margin-top: 12px;")),
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_fill == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_fill_color", label="Fill color:", choices=Styles.Color, selected="#738595", width="175px")),
-                                                ui.column(4, ui.input_numeric(id="dd_kde_line_fill_alpha", label="Fill opacity:", value=0.5, min=0, max=1, step=0.1, width="150px"))
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_fill_color", label="Fill color:", choices=Styles.Color, selected="#ffffff", width="175px")),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_fill_alpha", label="Fill opacity:", value=0.3, min=0, max=1, step=0.1, width="150px"))
                                             )
                                         ),
                                         ui.row(
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_dial == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_dial_color", label="Dial color:", choices=Styles.Color, selected="#ffffe4", width="175px"), offset=4),
-                                                ui.column(4, ui.input_numeric(id="dd_kde_line_dial_width", label="Dial width:", value=3, min=0.1, step=0.5, width="150px")),
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_dial_color", label="Dial color:", choices=Styles.Color, selected="#f7022a", width="175px"), offset=4),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_dial_width", label="Dial width:", value=3, min=0.0, step=0.1, width="150px")),
                                             )
                                         ),
-                                        ui.column(4, ui.div(ui.input_selectize(id="dd_kde_line_bg_color", label="Background color:", choices=Styles.Color, selected="#1a1a1a", width="175px"), style="margin-left: -4px;"), offset=4),
+                                        ui.column(4, ui.div(ui.input_selectize(id="dd_kde_line_bg_color", label="Background color:", choices=Styles.Color, selected="#1e488f", width="175px"), style="margin-left: -4px;"), offset=4),
                                     ),
                                     class_="accordion02"
                                 ),
@@ -513,7 +556,7 @@ app_ui = ui.page_sidebar(
                                 ui.input_task_button(id="generate_dd_kde_line", label="Generate", class_="btn-secondary task-btn", width="100%"),
                             ),
                             ui.br(),
-                            ui.output_plot("dd_plot_kde_line"),
+                            ui.output_plot("dd_plot_kde_line", height="450px"),
                             ui.download_button("download_dd_kde_line", "Download Line Plot", width="100%")
                         ),
                         width=1/2,

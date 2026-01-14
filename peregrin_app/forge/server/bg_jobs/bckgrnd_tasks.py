@@ -16,8 +16,6 @@ def mount_tasks(input, output, session, S, noticequeue):
     @render.ui
     def import_mode():
 
-        print("IMPORT MODE:", S.IMPORT_MODE.get())
-
         match S.IMPORT_MODE.get():
             case "raw":
                 
