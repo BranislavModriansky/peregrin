@@ -18,6 +18,8 @@ import base64
 
 def MountDistributions(input, output, session, S, noticequeue):
 
+    # _ _ _ UPDATE CATEGORY SELECTION _ _ _
+
     @reactive.Effect
     def update_choices():
 
@@ -59,18 +61,14 @@ def MountDistributions(input, output, session, S, noticequeue):
             )
 
 
-    def _common_kwargs(remove: list = []) -> dict:
-        if input.dd_add_weights():
-            weight=input.dd_weight()
-        else: 
-            weight=None
+    # _ _ _ FUNCTIONS FOR DRAWING KWARGS _ _ _
 
+    def _common_kwargs(remove: list = []) -> dict:
         _kwargs =  dict(
             data=S.TRACKSTATS.get(),
             conditions=input.conditions_dd(),
             replicates=input.replicates_dd(),
             normalization=input.dd_normalization(),
-            weight=weight,
             noticequeue=noticequeue,
         )
 
@@ -116,6 +114,7 @@ def MountDistributions(input, output, session, S, noticequeue):
             auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
             min_density=min_density,
             max_density=max_density,
+            title=input.dd_kde_colormesh_title(),
         )
         
     
@@ -134,10 +133,14 @@ def MountDistributions(input, output, session, S, noticequeue):
             kde_fill=input.dd_kde_line_fill(),
             kde_fill_color=input.dd_kde_line_fill_color(),
             kde_fill_alpha=input.dd_kde_line_fill_alpha(),
-            show_abs_average=input.dd_kde_line_dial(),
-            mean_angle_color=input.dd_kde_line_dial_color(),
-            mean_angle_width=input.dd_kde_line_dial_width(),
+            show_abs_average=input.dd_kde_line_mean(),
+            mean_angle_color=input.dd_kde_line_mean_color(),
+            mean_angle_width=input.dd_kde_line_mean_width(),
+            peak_direction_trend=input.dd_kde_line_peak_direction_trend(),
+            peak_direction_trend_color=input.dd_kde_line_peak_direction_trend_color(),
+            peak_direction_trend_width=input.dd_kde_line_peak_direction_trend_width(),
             background=input.dd_kde_line_bg_color(),
+            title=input.dd_kde_line_title(),
         )
     
     def _distribution_rose_chart_kwargs() -> dict:
@@ -158,7 +161,30 @@ def MountDistributions(input, output, session, S, noticequeue):
             outline_color=input.dd_rosechart_outline_color(),
             outline_width=input.dd_rosechart_outline_width(),
             background=input.dd_rosechart_bg_color(),
+            title=input.dd_rosechart_title(),
         )
+    
+
+    # _ _ _ KDE COLORMESH _ _ _
+    
+    @render.text
+    def dd_kde_colormesh_density_range():
+
+        if (S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
+            and noticequeue is not None):
+
+            kwargs = _density_caps_kwargs()
+
+            min, max = PolarDataDistribute(**kwargs).get_density_range()
+            S.MIN_DENSITY.set(f'{min:.4f}'); S.MAX_DENSITY.set(f'{max:.4f}')
+
+        if (
+            S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty
+            or S.MIN_DENSITY.get() is None
+            or S.MAX_DENSITY.get() is None
+        ): return "No data."
+
+        return f"min: {S.MIN_DENSITY.get()}; max: {S.MAX_DENSITY.get()}"
     
     ui.bind_task_button(button_id="generate_dd_kde_colormesh")
     @reactive.extended_task
@@ -194,25 +220,27 @@ def MountDistributions(input, output, session, S, noticequeue):
     def dd_plot_kde_colormesh():
         return output_data_distribution_colormesh.result()
     
-    @render.text
-    def dd_kde_colormesh_density_range():
+    @render.download(filename=f"KDE Colormesh {date.today()}.svg")
+    def download_dd_kde_colormesh():
+        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
 
-        if (S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and noticequeue is not None):
+        _kwargs = _distribution_kde_colormesh_kwargs()
 
-            kwargs = _density_caps_kwargs()
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                category=UserWarning,
+            )
+            fig = PolarDataDistribute(**_kwargs).GaussianKDEColormesh()
 
-            min, max = PolarDataDistribute(**kwargs).get_density_range()
-            S.MIN_DENSITY.set(f'{min:.4f}'); S.MAX_DENSITY.set(f'{max:.4f}')
-
-        if (
-            S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty
-            or S.MIN_DENSITY.get() is None
-            or S.MAX_DENSITY.get() is None
-        ): return "No data."
-
-        return f"min: {S.MIN_DENSITY.get()}; max: {S.MAX_DENSITY.get()}"
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
     
+
+    # _ _ _ KDE LINE PLOT _ _ _
 
     ui.bind_task_button(button_id="generate_dd_kde_line")
     @reactive.extended_task
@@ -248,6 +276,28 @@ def MountDistributions(input, output, session, S, noticequeue):
     def dd_plot_kde_line():
         return output_data_distribution_kde_line.result()
     
+    @render.download(filename=f"KDE Line Plot {date.today()}.svg")
+    def download_dd_kde_line():
+        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
+
+        _kwargs = _distribution_kde_line_kwargs()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                category=UserWarning,
+            )
+            fig = PolarDataDistribute(**_kwargs).KDELinePlot()
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    
+    # _ _ _ ROSE CHART _ _ _
+
     ui.bind_task_button(button_id="generate_dd_rosechart")
     @reactive.extended_task
     async def output_data_distribution_rose_chart(kwargs: dict):
@@ -281,4 +331,23 @@ def MountDistributions(input, output, session, S, noticequeue):
     @render.plot
     def dd_plot_rosechart():
         return output_data_distribution_rose_chart.result()
+    
+    @render.download(filename=f"Rose Chart {date.today()}.svg")
+    def download_dd_rosechart():
+        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
+
+        _kwargs = _distribution_rose_chart_kwargs()
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                category=UserWarning,
+            )
+            fig = PolarDataDistribute(**_kwargs).RoseChart()
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
     

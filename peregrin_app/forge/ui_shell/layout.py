@@ -368,19 +368,19 @@ app_ui = ui.page_sidebar(
                                 ui.br(),
                                 ui.row(
                                     ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories", "none": "No normalization"}, selected="globally"),
-                                    ui.column(
-                                        2, 
-                                        ui.input_checkbox(id="dd_add_weights", label="Add weights", value=False),
-                                        ui.panel_conditional(
-                                            "input.dd_add_weights == true",
-                                            ui.div("does not apply on rose chart", style="font-size: 0.8em; font-style: italic; margin-left: 2x; margin-top: -12px; alpha: 0.5;"),
-                                        ),
-                                        offset=2,
-                                    ),
-                                    ui.panel_conditional(
-                                        "input.dd_add_weights == true",
-                                        ui.div(ui.input_selectize(id="dd_weight", label=None, choices=[p for p in Metrics.Track if p not in ["Direction mean"]], selected=None, width="200px"), style="margin-top: -5px;"),
-                                    ),
+                                #     ui.column(
+                                #         2, 
+                                #         ui.input_checkbox(id="dd_add_weights", label="Add weights", value=False),
+                                #         ui.panel_conditional(
+                                #             "input.dd_add_weights == true",
+                                #             ui.div("does not apply on rose chart", style="font-size: 0.8em; font-style: italic; margin-left: 2x; margin-top: -12px; alpha: 0.5;"),
+                                #         ),
+                                #         offset=2,
+                                #     ),
+                                #     ui.panel_conditional(
+                                #         "input.dd_add_weights == true",
+                                #         ui.div(ui.input_selectize(id="dd_weight", label=None, choices=[p for p in Metrics.Track if p not in ["Direction mean"]], selected=None, width="200px"), style="margin-top: -5px;"),
+                                #     ),
                                 )
                             ),
                             class_="accordion02"
@@ -504,7 +504,8 @@ app_ui = ui.page_sidebar(
                                     ui.accordion_panel(
                                         "Compose",
                                         ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.05, min=0.0, step=0.001, width="90px"),
-                                        ui.input_checkbox(id="dd_kde_line_dial", label="Display direction mean dial", value=True),
+                                        ui.input_checkbox(id="dd_kde_line_mean", label="Display circular mean", value=True),
+                                        ui.input_checkbox(id="dd_kde_line_peak_direction_trend", label="Display peak dial", value=False),
                                         ui.row(
                                             ui.column(6,
                                                 ui.input_checkbox("dd_kde_line_theta_labels", "Theta axis annotation", value=True),
@@ -543,9 +544,16 @@ app_ui = ui.page_sidebar(
                                         ),
                                         ui.row(
                                             ui.panel_conditional(
-                                                "input.dd_kde_line_dial == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_dial_color", label="Dial color:", choices=Styles.Color, selected="#f7022a", width="175px"), offset=4),
-                                                ui.column(4, ui.input_numeric(id="dd_kde_line_dial_width", label="Dial width:", value=3, min=0.0, step=0.1, width="150px")),
+                                                "input.dd_kde_line_mean == true",
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_mean_color", label="Mean dial color:", choices=Styles.Color, selected="#f7022a", width="175px"), offset=4),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_mean_width", label="Mean dial width:", value=3, min=0.0, step=0.1, width="150px")),
+                                            )
+                                        ),
+                                        ui.row(
+                                            ui.panel_conditional(
+                                                "input.dd_kde_line_peak_direction_trend == true",
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_peak_direction_trend_color", label="Peak dial color:", choices=Styles.Color, selected="#1e488f", width="175px"), offset=4),
+                                                ui.column(4, ui.input_numeric(id="dd_kde_line_peak_direction_trend_width", label="Peak dial width:", value=3, min=0.0, step=0.1, width="150px")),
                                             )
                                         ),
                                         ui.column(4, ui.div(ui.input_selectize(id="dd_kde_line_bg_color", label="Background color:", choices=Styles.Color, selected="#1e488f", width="175px"), style="margin-left: -4px;"), offset=4),

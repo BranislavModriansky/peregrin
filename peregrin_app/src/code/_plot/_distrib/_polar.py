@@ -4,7 +4,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from typing import Any
-from scipy.stats import vonmises
+from scipy.stats import vonmises 
+from scipy.special import i0, i1
 
 from .._common import Colors, Categorizer, Values
 from ..._handlers._reports import Level
@@ -14,7 +15,7 @@ from ..._handlers._reports import Level
 class PolarDataDistribute:
 
     def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
-                 *args, normalization: str = 'globally', weight: str = None, 
+                 *args, normalization: str = 'globally', 
                  cmap: str = 'plasma LUT', face: str = 'none', 
                  text_color: str = 'black', title: str = None, 
                  label_theta: bool = True, label_r: bool = True, 
@@ -29,7 +30,6 @@ class PolarDataDistribute:
         self.replicates = replicates
         
         self.normalization = normalization
-        self.weight = weight
 
         self.cmap = Colors.GetCmap(cmap, noticequeue=self.noticequeue)
         self.face = face
@@ -74,6 +74,9 @@ class PolarDataDistribute:
         self.show_abs_average = kwargs.get('show_abs_average', True)
         self.mean_angle_color = kwargs.get('mean_angle_color', 'black')
         self.mean_angle_width = kwargs.get('mean_angle_width', 3)
+        self.peak_direction_trend = kwargs.get('peak_direction_trend', False)
+        self.peak_direction_trend_color = kwargs.get('peak_direction_trend_color', 'red')
+        self.peak_direction_trend_width = kwargs.get('peak_direction_trend_width', 1)
         self.r_loc = kwargs.get('r_loc', 75)
 
         # - Keyword arguments and constants for Gaussian KDE Colormesh
@@ -92,7 +95,7 @@ class PolarDataDistribute:
         self.kappa = self._bandwidth_to_kappa()
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self.theta, self.density = self._theta_density(self.angles)
         self._density_norm()
 
         self._plot_tiles(
@@ -119,7 +122,7 @@ class PolarDataDistribute:
         cbar.set_ticks([])
         for cap in ('min', 'max'):
             cbar.ax.text(0.035 if cap == 'min' else 0.965, -0.5, cap, va='center', ha='center', color=self.text_color, transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
-        cbar.set_label("Density" + (f" weighted by {self.weight}" if self.weight else ""), labelpad=10, color=self.text_color)
+        cbar.set_label("Density", labelpad=10, color=self.text_color)
         
         fig.set_facecolor(self.face)
 
@@ -134,7 +137,7 @@ class PolarDataDistribute:
 
         self._arrange_data()
 
-        self.theta, self.density = self._theta_density(self.angles, self.weights, num_points=num_points)
+        self.theta, self.density = self._theta_density(self.angles, num_points=num_points)
         self._density_norm(num_points=num_points)
 
         if self.outline:
@@ -142,7 +145,8 @@ class PolarDataDistribute:
                 self.theta, 
                 self.normalized_density, 
                 color=self.outline_color,
-                linewidth=self.outline_width  
+                linewidth=self.outline_width,
+                zorder=9 
             )
         
         if self.kde_fill:
@@ -189,12 +193,12 @@ class PolarDataDistribute:
         self.kappa = self._bandwidth_to_kappa()
         
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, self.weights)
+        self.theta, self.density = self._theta_density(self.angles)
         self._density_norm()
 
         return self._min_density, self._max_density
     
-
+    # TODO: Extend this method to check input parameters
     def _check_input(self) -> None:
 
         if 'Direction mean' not in self.data.columns:
@@ -227,17 +231,12 @@ class PolarDataDistribute:
 
         # self.data = data
         self.angles = self.data['Direction mean'] % (2 * np.pi) if wrap else self.data['Direction mean']
-        self.weights = self.data[self.weight] if self.weight else None
 
-    def _theta_density(self, a: np.ndarray, weights: np.ndarray, wrap: bool = True, 
+    def _theta_density(self, a: np.ndarray, wrap: bool = True, 
                        num_points: int = None) -> tuple[np.ndarray, np.ndarray]:
         
-        if weights is not None:
-            check = np.isfinite(a) & np.isfinite(weights)
-            angles, weights = a[check], weights[check] 
-        else:
-            check = np.isfinite(a)
-            angles = a[check]
+        check = np.isfinite(a)
+        angles = a[check]
 
         if angles.size < 2:
             theta, density = np.linspace(0, 2 * np.pi, self.bins if num_points is None else num_points, endpoint=False), np.zeros(self.bins if num_points is None else num_points, dtype=float)
@@ -245,7 +244,6 @@ class PolarDataDistribute:
             theta = np.linspace(0, 2 * np.pi, self.bins if num_points is None else num_points, endpoint=False)
         
             density = np.mean(
-                (weights if weights is not None else 1) *
                 vonmises.pdf(theta[:, None], self.kappa, loc=angles),
                 axis=1
             )
@@ -260,8 +258,7 @@ class PolarDataDistribute:
         elif self.normalization == 'globally':
             angles_total = np.asarray(self.data['Direction mean'], dtype=float)
             angles_total = angles_total
-            weights_total = np.asarray(self.data[self.weight], dtype=float) if self.weight else None
-            _, all_density = self._theta_density(angles_total, weights_total, wrap=wrap, num_points=num_points)
+            _, all_density = self._theta_density(angles_total, wrap=wrap, num_points=num_points)
             _min_density = np.min(all_density)
             _max_density = np.max(all_density)
         else:
@@ -284,8 +281,6 @@ class PolarDataDistribute:
         
         self._min_density = _min_density
         self._max_density = _max_density
-
-        print(f"Density range: {_min_density} to {_max_density}")
             
         self.norm = Normalize(self._min_density, self._max_density)
         self.normalized_density = self.density / _max_density
@@ -684,6 +679,33 @@ class PolarDataDistribute:
             **kwargs
     )
 
+    def _define_bins(self) -> None:
+        # Bin edges
+        self.bin_edges = np.linspace(0.0, 2 * np.pi, self.bins + 1)
+        bin_width = np.diff(self.bin_edges)
+
+        # Gaps between bars
+        self.bin_locs = self.bin_edges[:-1] + (bin_width * self.gap / 2.0)
+        self.bin_widths = bin_width * (1.0 - self.gap)
+
+        self.bin_counts, _ = np.histogram(self.angles, bins=self.bin_edges)
+
+    def _mean_dir_dial(self, ax) -> None:
+        if self.show_abs_average:
+            sin_sum = np.sum(np.sin(self.angles))
+            cos_sum = np.sum(np.cos(self.angles))
+
+            prominent_angle = np.arctan2(sin_sum, cos_sum)
+
+            length = np.interp(prominent_angle, self.theta, self.normalized_density)
+
+            ax.vlines(prominent_angle, 0, length, color=self.mean_angle_color, linewidth=self.mean_angle_width, zorder=7)
+        
+        if self.peak_direction_trend:
+            peak_angle = self.theta[np.argmax(self.normalized_density)]
+
+            ax.vlines(peak_angle, 0, self.normalized_density[np.argmax(self.normalized_density)], color=self.peak_direction_trend_color, linewidth=self.peak_direction_trend_width, zorder=6)
+
     def _plot_legend(self, ax, handles: list) -> None:
 
         ax.legend(
@@ -754,25 +776,6 @@ class PolarDataDistribute:
             cbar.outline.set_edgecolor(self.outline_color)
             cbar.outline.set_linewidth(self.outline_width)
 
-    def _mean_dir_dial(self, ax) -> None:
-        if self.show_abs_average:
-            mean_angle = np.arctan2(np.sum(np.sin(self.angles)), np.sum(np.cos(self.angles)))
-            mean_angle_wrapped = mean_angle % (2 * np.pi)
-            density_at_mean = np.interp(mean_angle_wrapped, self.theta, self.normalized_density)
-
-        ax.vlines(mean_angle_wrapped, 0, density_at_mean, color=self.mean_angle_color, linewidth=self.mean_angle_width, zorder=11)
-    
-    def _define_bins(self) -> None:
-        # Bin edges
-        self.bin_edges = np.linspace(0.0, 2 * np.pi, self.bins + 1)
-        bin_width = np.diff(self.bin_edges)
-
-        # Gaps between bars
-        self.bin_locs = self.bin_edges[:-1] + (bin_width * self.gap / 2.0)
-        self.bin_widths = bin_width * (1.0 - self.gap)
-
-        self.bin_counts, _ = np.histogram(self.angles, bins=self.bin_edges, weights=self.weights)
-
     def _annotate_theta_axis(self, ax, create: bool = False) -> None:
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
@@ -835,3 +838,4 @@ class PolarDataDistribute:
 
     def _bandwidth_to_kappa(self, kappa_min=0, kappa_max=1e4) -> float:
         return np.clip(1.0 / (self.bw ** 2), kappa_min, kappa_max)
+
