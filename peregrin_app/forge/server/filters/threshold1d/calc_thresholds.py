@@ -117,6 +117,7 @@ def mount_thresholds_calc(input, output, session, S):
             _color = 'black' if input.app_theme() == "Shiny" else 'white'
             _marker_color = '#337ab7' if input.app_theme() == "Shiny" else '#a15c5c'
 
+            thresholds = S.THRESHOLDS.get()
             data = thresholds.get(id)
             req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
 
@@ -125,8 +126,7 @@ def mount_thresholds_calc(input, output, session, S):
             else:
                 data = data.get("tracks")
 
-            if data is None or data.empty:
-                return
+            req(data is not None and not data.empty)
             
             property = input[f"threshold_property_{id}"]()
             threshold_type = input[f"threshold_type_{id}"]()
@@ -143,6 +143,9 @@ def mount_thresholds_calc(input, output, session, S):
 
                 fig, ax = plt.subplots()
                 n, bins, patches = ax.hist(values, bins=bins, density=False)
+                print(n)
+                print(bins)
+                print(patches)
 
                 # Color threshold
                 for i in range(len(patches)):
@@ -295,14 +298,14 @@ def mount_thresholds_calc(input, output, session, S):
             return fig
 
     @reactive.Effect
-    @reactive.event(input.append_threshold, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
+    @reactive.event(input.append_threshold, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, S.THRESHOLDS)
     def render_threshold():
         threshold_id = S.THRESHOLDS_ID.get()
-        with reactive.isolate():
-            try:
-                thresholds = S.THRESHOLDS.get()
-            except Exception:
-                return
+        
+        try:
+            thresholds = S.THRESHOLDS.get()
+        except Exception:
+            return
         if not threshold_id or not thresholds:
             return
 
@@ -313,7 +316,7 @@ def mount_thresholds_calc(input, output, session, S):
 
     def sync_threshold_values(id):
 
-        @DebounceEffect(1)
+        @DebounceEffect(0.5)
         @reactive.Effect
         @reactive.event(
             input[f"floor_threshold_value_{id}"],
@@ -344,7 +347,7 @@ def mount_thresholds_calc(input, output, session, S):
                 if cur_floor != existing[0] or cur_ceil != existing[1]:
                     ui.update_slider(f"threshold_slider_{id}", value=(cur_floor, cur_ceil))
 
-        @DebounceEffect(1)
+        @DebounceEffect(0.5)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def sync_with_threshold_slider():
@@ -385,7 +388,7 @@ def mount_thresholds_calc(input, output, session, S):
     
     def update_thresholds_wired(id):
 
-        @DebounceEffect(1)
+        @DebounceEffect(0.5)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def pass_thresholded_data():
@@ -417,7 +420,7 @@ def mount_thresholds_calc(input, output, session, S):
 # --------------------------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------------------------
 
-        @DebounceEffect(1)
+        @DebounceEffect(0.5)
         @reactive.Effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def update_next_threshold():
@@ -490,8 +493,9 @@ def mount_thresholds_calc(input, output, session, S):
                     max=new_max,
                     value=float(new_high)
                 )
-# ...existing code...
-    @DebounceEffect(1)
+                
+
+    @DebounceEffect(0.5)
     @reactive.Effect
     def update_thresholds():
         try:
