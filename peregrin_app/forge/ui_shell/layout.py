@@ -407,7 +407,8 @@ app_ui = ui.page_sidebar(
                                                 ui.div(ui.markdown("Position [°]:"), style="margin-left: 24px;"),
                                                 ui.div(ui.input_numeric("dd_rosechart_line_r_axis_position", label=None, value=75, min=0, max=360, step=1, width="75px"), style="margin-left: 10px; margin-top: -6px;"),
                                             )
-                                        )
+                                        ),
+                                        ui.input_text("dd_rosechart_title", label=None, placeholder="Title me!", width="100%")
                                     ),
                                     ui.accordion_panel(
                                         "Color",

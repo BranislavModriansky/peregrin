@@ -211,13 +211,11 @@ class TimeIntervals:
     def __init__(self, df: pd.DataFrame) -> None:
         self.df = df
 
-    @staticmethod
-    def _wrap_pi(a: np.ndarray) -> np.ndarray:
+    def _wrap_pi(self, a: np.ndarray) -> np.ndarray:
         # Wrap to (-pi, pi]
         return (a + np.pi) % (2*np.pi) - np.pi
 
-    @staticmethod
-    def _circ_mean(a: np.ndarray) -> float:
+    def _circ_mean(self, a: np.ndarray) -> float:
         a = np.asarray(a, dtype=float)
         if a.size == 0:
             return np.nan
@@ -227,7 +225,6 @@ class TimeIntervals:
             return np.nan
         return float(np.arctan2(s, c))
 
-    # @staticmethod
     def _circ_median(self, a: np.ndarray) -> float:
         # Approximate circular median by unwrapping around the circular mean
         a = np.asarray(a, dtype=float)
@@ -240,7 +237,6 @@ class TimeIntervals:
         med = np.median(shifted)
         return float(self._wrap_pi(mu + med))
 
-    # @staticmethod
     def ComputeTimeIntervals(self) -> pd.DataFrame:
         """
         MSD across lags for each Condition×Replicate.
@@ -269,19 +265,24 @@ class TimeIntervals:
         df = self.df.copy()
 
         # Ensure numeric coords
-        df['X coordinate'] = pd.to_numeric(df['X coordinate'], errors='coerce')
-        df['Y coordinate'] = pd.to_numeric(df['Y coordinate'], errors='coerce')
+        # df['X coordinate'] = pd.to_numeric(df['X coordinate'], errors='coerce')
+        # df['Y coordinate'] = pd.to_numeric(df['Y coordinate'], errors='coerce')
 
         # Time step from unique diffs; use median to resist irregular sampling
         t_unique = np.sort(df['Time point'].unique())
+        print(t_unique)
         if t_unique.size < 2:
             return pd.DataFrame(columns=cols)
-        t_step = float(np.median(np.diff(t_unique)))
+        t_step = float(np.diff(t_unique)[0])
+        print(f"time diffs: {np.diff(t_unique)}")
+        print(f"medidan time diff: {np.median(np.diff(t_unique))}")
+        print(f"Time step: {t_step}")
+
+
 
         # Collect per-track metrics at each lag
         per_track_msd = defaultdict(list)       # (cond, rep, lag) -> [msd_track, ...]
         per_track_turn_mean = defaultdict(list) # (cond, rep, lag) -> [circ_mean_track, ...]
-        per_track_turn_med  = defaultdict(list) # (cond, rep, lag) -> [circ_median_track, ...]
 
         # Iterate tracks
         # Accept either ordinary column or index; group by column to avoid index requirements
@@ -311,7 +312,7 @@ class TimeIntervals:
                 dx = x[lag:] - x[:-lag]
                 dy = y[lag:] - y[:-lag]
                 if dx.size > 0:
-                    msd_track = float((dx*dx + dy*dy).mean())
+                    msd_track = float((dx**2 + dy**2).mean())
                     per_track_msd[(cond, rep, lag)].append(msd_track)
 
                 # Turning angles for this lag, using headings separated by 'lag'
@@ -319,14 +320,12 @@ class TimeIntervals:
                     dtheta = self._wrap_pi(theta[lag:] - theta[:-lag])  # length (n-1 - lag)
                     if dtheta.size > 0:
                         per_track_turn_mean[(cond, rep, lag)].append(self._circ_mean(dtheta))
-                        per_track_turn_med[(cond, rep, lag)].append(self._circ_median(dtheta))
 
-        if not per_track_msd and not per_track_turn_mean and not per_track_turn_med:
+        if not per_track_msd and not per_track_turn_mean:
             return pd.DataFrame(columns=cols)
 
         # Summarize across tracks
-        keys = set(per_track_msd.keys()) | set(per_track_turn_mean.keys()) | set(per_track_turn_med.keys())
-
+        keys = set(per_track_msd.keys()) | set(per_track_turn_mean.keys())
         rows = []
         for (cond, rep, lag) in sorted(keys, key=lambda k: (k[0], k[1], k[2])):
             # MSD across tracks (linear)
@@ -339,16 +338,14 @@ class TimeIntervals:
 
             # Turning angle across tracks (circular)
             turn_means = np.asarray(per_track_turn_mean.get((cond, rep, lag), []), dtype=float)
-            turn_meds  = np.asarray(per_track_turn_med.get((cond, rep, lag), []), dtype=float)
             turn_mean_agg = self._circ_mean(turn_means) if turn_means.size else np.nan
-            turn_med_agg  = self._circ_median(turn_meds) if turn_meds.size else np.nan
 
             rows.append({
                 'Condition': cond,
                 'Replicate': rep,
                 'Frame lag': lag,
                 'Time lag': lag * t_step,
-                'Tracks contributing': int(max(n_tracks, turn_means.size, turn_meds.size)),
+                'Tracks contributing': int(max(n_tracks, turn_means.size)),
 
                 'MSD mean': mean,
                 'MSD sem': sem,
@@ -356,7 +353,6 @@ class TimeIntervals:
                 'MSD median': median,
 
                 'Turn mean': np.rad2deg(np.abs(turn_mean_agg)),
-                'Turn median': np.rad2deg(np.abs(turn_med_agg)),
             })
 
         out = pd.DataFrame(rows).sort_values(
