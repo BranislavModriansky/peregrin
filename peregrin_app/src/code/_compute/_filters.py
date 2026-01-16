@@ -15,7 +15,6 @@ class Threshold:
     def __init__(self, eps: float = 1e-12):
         self.EPS = eps
 
-
     def compute_reference_and_span(self, values_series: pd.Series, reference: str, my_value: float | None):
         """
         Returns (reference_value, max_delta) for the 'Relative to...' mode.
@@ -40,8 +39,7 @@ class Threshold:
 
     def get_threshold_params(
         self,
-        spot_data: pd.DataFrame, 
-        track_data: pd.DataFrame, 
+        data: pd.DataFrame, 
         property_name: str, 
         threshold_type: str, 
         quantile: int = None,
@@ -52,31 +50,26 @@ class Threshold:
         # instance method; use self and helpers
         self = self  # no-op to emphasize instance usage
         if threshold_type == "Literal":
-            if property_name in Metrics.Thresholding.SpotProperties:
-                minimal = spot_data[property_name].min()
-                maximal = spot_data[property_name].max()
-            elif property_name in Metrics.Thresholding.TrackProperties:
-                minimal = track_data[property_name].min()
-                maximal = track_data[property_name].max()
+            if property_name in data.columns:
+                min = data[property_name].min()
+                max = data[property_name].max()
             else:
-                minimal, maximal = 0, 100
-
-            steps = self.get_steps(maximal)
-            minimal, maximal = floor(minimal), ceil(maximal)
+                min, max = 0, 100
+            
+            steps = self._get_steps(max)
+            min, max = floor(min), ceil(max)
 
         elif threshold_type == "Normalized 0-1":
-            minimal, maximal = 0, 1
+            min, max = 0, 1
             steps = 0.01
 
         elif threshold_type == "Quantile":
-            minimal, maximal = 0, 100
+            min, max = 0, 100
             steps = 100/float(quantile)
 
         elif threshold_type == "Relative to...":
-            if property_name in Metrics.Thresholding.SpotProperties:
-                series = spot_data[property_name]
-            elif property_name in Metrics.Thresholding.TrackProperties:
-                series = track_data[property_name]
+            if property_name in data.columns:
+                series = data[property_name]
             else:
                 series = pd.Series(dtype=float)
 
@@ -85,28 +78,29 @@ class Threshold:
 
             min = 0
             max = ceil(max_delta) if np.isfinite(max_delta) else 0
-            min, max = self.format_numeric_pair(min, max)
-            steps = self.get_steps(maximal)
+
+            min, max = self._format_numeric_pair((min, max))
+            steps = self._get_steps(max)
 
         return min, max, steps, reference_value
 
-    def get_global_range(self, data: pd.DataFrame, property_name: str):
+    def get_range(self, data: pd.DataFrame, property_name: str):
         """
         Get the global min and max for a given property across data.
         """
-        mins = []
-        maxs = []
-
+        
+        if property_name not in data.columns:
+            return 0, 100
         
         series = data[property_name].dropna()
         if not series.empty:
-            mins.append(series.min())
-            maxs.append(series.max())
+            min, max = series.min(), series.max()
+        else:
+            min, max = 0, 100
 
-        global_min = self.int_if_whole(min(mins)) if mins else None
-        global_max = self.int_if_whole(max(maxs)) if maxs else None
+        min, max = self._format_numeric_pair((min, max))
 
-        return global_min, global_max
+        return min, max
 
     def filter_data(self, df, threshold: tuple, property: str, threshold_type: str, reference: str = None, reference_value: float = None):
         if df is None or df.empty:
@@ -166,25 +160,25 @@ class Threshold:
         except Exception:
             return False
 
-    def is_whole_number(self, x) -> bool:
+    def _is_whole_number(self, x) -> bool:
         try:
             fx = float(x)
         except Exception:
             return False
         return abs(fx - round(fx)) < self.EPS
 
-    def int_if_whole(self, x):
+    def _int_if_whole(self, x):
         if x is None:
             return None
         try:
             fx = float(x)
         except Exception:
             return x
-        if self.is_whole_number(fx):
+        if self._is_whole_number(fx):
             return int(round(fx))
         return fx
 
-    def format_numeric_pair(self, values):
+    def _format_numeric_pair(self, values: tuple) -> tuple:
         """
         Normalize `values` into a (low, high) numeric pair.
 
@@ -196,42 +190,42 @@ class Threshold:
         """
 
         if values is None:
-            return None, None
+            return (None, None)
         if np.isscalar(values):
             v = values.item() if hasattr(values, "item") else float(values)
-            v = self.int_if_whole(v)
-            return v, v
+            v = self._int_if_whole(v)
+            return (v, v)
         try:
             seq = list(values)
         except Exception:
             try:
                 v = float(values)
-                v = self.int_if_whole(v)
-                return v, v
+                v = self._int_if_whole(v)
+                return (v, v)
             except Exception:
-                return None, None
+                return (None, None)
         if len(seq) == 0:
-            return None, None
+            return (None, None)
         if len(seq) == 1:
             v = seq[0]
             try:
                 fv = float(v)
-                fv = self.int_if_whole(fv)
-                return fv, fv
+                fv = self._int_if_whole(fv)
+                return (fv, fv)
             except Exception:
-                return v, v
+                return (v, v)
         a, b = seq[0], seq[1]
         try:
             fa = float(a)
             fb = float(b)
             if fa <= fb:
-                return self.int_if_whole(fa), self.int_if_whole(fb)
+                return (self._int_if_whole(fa), self._int_if_whole(fb))
             else:
-                return self.int_if_whole(fb), self.int_if_whole(fa)
+                return (self._int_if_whole(fb), self._int_if_whole(fa))
         except Exception:
-            return self.int_if_whole(a), self.int_if_whole(b)
+            return (self._int_if_whole(a), self._int_if_whole(b))
     
-    def get_steps(self, highest):
+    def _get_steps(self, highest):
         """
         Returns the step size for the slider based on the range.
         """
@@ -300,7 +294,7 @@ class Threshold:
         # numeric, datetime, bool, etc.
         if not is_object_dtype(s.dtype):
             return False
-        # Fallback for object-dtype (mixed types): minimal Python loop over NumPy array
+        # Fallback for object-dtype (mixed types): min Python loop over NumPy array
         arr = s.to_numpy(dtype=object, copy=False)
         return any(isinstance(v, (str, np.str_)) for v in arr)
 

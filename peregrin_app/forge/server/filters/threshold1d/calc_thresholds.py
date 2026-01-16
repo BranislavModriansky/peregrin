@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -25,26 +26,26 @@ def mount_thresholds_calc(input, output, session, S):
         @render.ui
         def manual_threshold_value_setting():
 
-            if input["threshold_property_id"]() in S.SPOTSTATS_COLUMNS.get():
-                data = thresholds.get(id).get("spots")
-            else:
-                data = thresholds.get(id).get("tracks")
-
-            global_min, global_max = THRESH.get_global_range(data, input[f"threshold_property_{id}"]())
-            
             filt_data = thresholds.get(id)
             req(filt_data is not None and filt_data.get("spots") is not None and filt_data.get("tracks") is not None)
 
-            spot_data = data.get("spots")
-            track_data = data.get("tracks")
+            
 
             property_name = input[f"threshold_property_{id}"]()
             threshold_type = input[f"threshold_type_{id}"]()
             req(property_name and threshold_type)
+
+            if property_name in S.SPOTSTATS_COLUMNS.get():
+                data = thresholds.get(id).get("spots")
+                filt_data = filt_data.get("spots")
+            else:
+                data = thresholds.get(id).get("tracks")
+                filt_data = filt_data.get("tracks")
+
+            global_min, global_max = THRESH.get_range(data, input[f"threshold_property_{id}"]())
             
             local_min, local_max, steps, _ = THRESH.get_threshold_params(
-                spot_data=spot_data,
-                track_data=track_data,
+                data=filt_data,
                 property_name=property_name,
                 threshold_type=threshold_type,
                 quantile=input[f"threshold_quantile_{id}"](),
@@ -75,19 +76,24 @@ def mount_thresholds_calc(input, output, session, S):
         @render.ui
         def threshold_slider():
             
-            data = thresholds.get(id)
-            req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
-
-            spot_data = data.get("spots")
-            track_data = data.get("tracks")
+            filt_data = thresholds.get(id)
+            req(filt_data is not None and filt_data.get("spots") is not None and filt_data.get("tracks") is not None)
 
             property_name = input[f"threshold_property_{id}"]()
             threshold_type = input[f"threshold_type_{id}"]()
             req(property_name and threshold_type)
+
+            if property_name in S.SPOTSTATS_COLUMNS.get():
+                data = thresholds.get(id).get("spots")
+                filt_data = filt_data.get("spots")
+            else:
+                data = thresholds.get(id).get("tracks")
+                filt_data = filt_data.get("tracks")
+
+            global_min, global_max = THRESH.get_range(data, property_name)
             
             local_min, local_max, steps, _ = THRESH.get_threshold_params(
-                spot_data=spot_data,
-                track_data=track_data,
+                data=filt_data,
                 property_name=property_name,
                 threshold_type=threshold_type,
                 quantile=input[f"threshold_quantile_{id}"](),
@@ -114,10 +120,11 @@ def mount_thresholds_calc(input, output, session, S):
             data = thresholds.get(id)
             req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
 
-            if input[f"threshold_property_{id}"]() in Metrics.Thresholding.SpotProperties:
+            if input[f"threshold_property_{id}"]() in S.SPOTSTATS_COLUMNS.get():
                 data = data.get("spots")
-            if input[f"threshold_property_{id}"]() in Metrics.Thresholding.TrackProperties:
+            else:
                 data = data.get("tracks")
+
             if data is None or data.empty:
                 return
             
@@ -393,7 +400,7 @@ def mount_thresholds_calc(input, output, session, S):
                 track_data = data.get("tracks")
 
                 filter = THRESH.filter_data(
-                    df=spot_data if input[f"threshold_property_{id}"]() in Metrics.Thresholding.SpotProperties else track_data,
+                    df=spot_data if input[f"threshold_property_{id}"]() in S.SPOTSTATS_COLUMNS.get() else track_data,
                     threshold=input[f"threshold_slider_{id}"](),
                     property=input[f"threshold_property_{id}"](),
                     threshold_type=input[f"threshold_type_{id}"](),
@@ -407,48 +414,83 @@ def mount_thresholds_calc(input, output, session, S):
                 thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
                 S.THRESHOLDS.set(thresholds)
 
-        # @DebounceEffect(1)
-        # @reactive.Effect
-        # @reactive.event(input[f"threshold_slider_{id}"])
-        # def update_next_threshold():
-        #     """
-        #     Updating the slider updates the manual threshold values setting as well as the filte histogram.
-        #     """
+# --------------------------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------------
 
-        #     with reactive.isolate():
-        #         thresholds = S.THRESHOLDS.get()
+        @DebounceEffect(1)
+        @reactive.Effect
+        @reactive.event(input[f"threshold_slider_{id}"])
+        def update_next_threshold():
+            """
+            Updating the slider updates the manual threshold values setting as well as the filte histogram.
+            """
+
+            with reactive.isolate():
+                thresholds = S.THRESHOLDS.get()
                 
-        #         try:
-        #             data = thresholds.get(id+1)
-        #         except Exception:
-        #             return
-        #         req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
+                try:
+                    data = thresholds.get(id+1)
+                except Exception:
+                    return
 
-        #         spot_data = data.get("spots")
-        #         track_data = data.get("tracks")
+                req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
 
-        #         property_name = input[f"threshold_property_{id+1}"]()
-        #         threshold_type = input[f"threshold_type_{id+1}"]()
-        #         req(property_name and threshold_type)
+                property_name = input[f"threshold_property_{id+1}"]()
+                threshold_type = input[f"threshold_type_{id+1}"]()
+                req(property_name and threshold_type)
+
+                if property_name in S.SPOTSTATS_COLUMNS.get():
+                    data = data.get("spots")
+                else:
+                    data = data.get("tracks")
                 
-        #         local_min, local_max, steps, _ = THRESH.get_threshold_params(
-        #             spot_data=spot_data,
-        #             track_data=track_data,
-        #             property_name=property_name,
-        #             threshold_type=threshold_type,
-        #             quantile=input[f"threshold_quantile_{id+1}"](),
-        #             reference=input[f"reference_value_{id+1}"](),
-        #             reference_value=input[f"my_own_value_{id+1}"]()
-        #         )
+                new_min, new_max, steps, _ = THRESH.get_threshold_params(
+                    data=data,
+                    property_name=property_name,
+                    threshold_type=threshold_type,
+                    quantile=input[f"threshold_quantile_{id+1}"](),
+                    reference=input[f"reference_value_{id+1}"](),
+                    reference_value=input[f"my_own_value_{id+1}"]()
+                )
 
-        #         return ui.update_slider(
-        #             f"threshold_slider_{id+1}",
-        #             min=minimal,
-        #             max=maximal,
-        #             value=(minimal,maximal),
-        #             step=steps
-        #         )   
+                # Preserve existing selection if present; clamp to new bounds
+                try:
+                    cur_low, cur_high = input[f"threshold_slider_{id+1}"]()
+                except Exception:
+                    cur_low, cur_high = (None, None)
 
+                if not isinstance(cur_low, (int, float)) or not isinstance(cur_high, (int, float)):
+                    new_low, new_high = (new_min, new_max)
+                else:
+                    if cur_low > cur_high:
+                        cur_low, cur_high = cur_high, cur_low
+                    new_low = max(new_min, cur_low)
+                    new_high = min(new_max, cur_high)
+                    if new_low > new_high:
+                        new_low, new_high = (new_min, new_max)
+
+                ui.update_slider(
+                    f"threshold_slider_{id+1}",
+                    min=new_min,
+                    max=new_max,
+                    value=(new_low, new_high),
+                    step=steps
+                )
+
+                # Keep numeric inputs in sync without resetting user selection
+                ui.update_numeric(
+                    f"floor_threshold_value_{id+1}",
+                    min=new_min,
+                    max=new_max,
+                    value=float(new_low)
+                )
+                ui.update_numeric(
+                    f"ceil_threshold_value_{id+1}",
+                    min=new_min,
+                    max=new_max,
+                    value=float(new_high)
+                )
+# ...existing code...
     @DebounceEffect(1)
     @reactive.Effect
     def update_thresholds():
