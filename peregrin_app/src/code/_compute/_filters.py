@@ -7,39 +7,6 @@ from math import floor, ceil
 from src.code import Metrics
 
 
-
-def _has_strings(s: pd.Series) -> bool:
-    # pandas "string" dtype (pyarrow/python)
-    if isinstance(s.dtype, pd.StringDtype):
-        return s.notna().any()
-    # categorical of strings?
-    if isinstance(s.dtype, pd.CategoricalDtype):
-        return isinstance(s.dtype.categories.dtype, pd.StringDtype) and s.notna().any()
-    # numeric, datetime, bool, etc.
-    if not is_object_dtype(s.dtype):
-        return False
-    # Fallback for object-dtype (mixed types): minimal Python loop over NumPy array
-    arr = s.to_numpy(dtype=object, copy=False)
-    return any(isinstance(v, (str, np.str_)) for v in arr)
-
-
-def _try_float(x: Any) -> Any:
-        """
-        Try to convert a string to an int or float, otherwise return the original value.
-        """
-        try:
-            if isinstance(x, str):
-                num = float(x.strip())
-                if num.is_integer():
-                    return float(num)
-                else:
-                    return num
-            else:
-                return x
-        except ValueError:
-            return x
-
-
 class Threshold:
     """
     Utility functions for data filtering and normalization.
@@ -48,6 +15,147 @@ class Threshold:
     def __init__(self, eps: float = 1e-12):
         self.EPS = eps
 
+
+    def compute_reference_and_span(self, values_series: pd.Series, reference: str, my_value: float | None):
+        """
+        Returns (reference_value, max_delta) for the 'Relative to...' mode.
+        max_delta is the farthest absolute distance from reference to any data point.
+        """
+
+        vals = values_series.dropna()
+        if vals.empty:
+            return 0.0, 0.0
+
+        if reference == "Mean":
+            ref = float(vals.mean())
+        elif reference == "Median":
+            ref = float(vals.median())
+        elif reference == "My own value":
+            ref = float(my_value) if isinstance(my_value, (int, float)) else 0.0
+        else:
+            ref = float(vals.mean())
+
+        max_delta = float(np.max(np.abs(vals - ref)))
+        return ref, max_delta
+
+    def get_threshold_params(
+        self,
+        spot_data: pd.DataFrame, 
+        track_data: pd.DataFrame, 
+        property_name: str, 
+        threshold_type: str, 
+        quantile: int = None,
+        reference: str = None,
+        reference_value: float = None
+    ):
+        
+        # instance method; use self and helpers
+        self = self  # no-op to emphasize instance usage
+        if threshold_type == "Literal":
+            if property_name in Metrics.Thresholding.SpotProperties:
+                minimal = spot_data[property_name].min()
+                maximal = spot_data[property_name].max()
+            elif property_name in Metrics.Thresholding.TrackProperties:
+                minimal = track_data[property_name].min()
+                maximal = track_data[property_name].max()
+            else:
+                minimal, maximal = 0, 100
+
+            steps = self.get_steps(maximal)
+            minimal, maximal = floor(minimal), ceil(maximal)
+
+        elif threshold_type == "Normalized 0-1":
+            minimal, maximal = 0, 1
+            steps = 0.01
+
+        elif threshold_type == "Quantile":
+            minimal, maximal = 0, 100
+            steps = 100/float(quantile)
+
+        elif threshold_type == "Relative to...":
+            if property_name in Metrics.Thresholding.SpotProperties:
+                series = spot_data[property_name]
+            elif property_name in Metrics.Thresholding.TrackProperties:
+                series = track_data[property_name]
+            else:
+                series = pd.Series(dtype=float)
+
+            # Compute reference and span
+            reference_value, max_delta = self.compute_reference_and_span(series, reference, reference_value)
+
+            min = 0
+            max = ceil(max_delta) if np.isfinite(max_delta) else 0
+            min, max = self.format_numeric_pair(min, max)
+            steps = self.get_steps(maximal)
+
+        return min, max, steps, reference_value
+
+    def get_global_range(self, data: pd.DataFrame, property_name: str):
+        """
+        Get the global min and max for a given property across data.
+        """
+        mins = []
+        maxs = []
+
+        
+        series = data[property_name].dropna()
+        if not series.empty:
+            mins.append(series.min())
+            maxs.append(series.max())
+
+        global_min = self.int_if_whole(min(mins)) if mins else None
+        global_max = self.int_if_whole(max(maxs)) if maxs else None
+
+        return global_min, global_max
+
+    def filter_data(self, df, threshold: tuple, property: str, threshold_type: str, reference: str = None, reference_value: float = None):
+        if df is None or df.empty:
+            return df
+        
+        try:
+            working_df = df[property].dropna()
+        except Exception:
+            return df
+        
+        _floor, _roof = threshold
+        if (
+            _floor is None or _roof is None
+            or not isinstance(_floor, (int, float)) or not isinstance(_roof, (int, float))
+        ):
+            return working_df
+
+        if threshold_type == "Literal":
+            return working_df[(working_df >= _floor) & (working_df <= _roof)]
+
+        elif threshold_type == "Normalized 0-1":
+            normalized = self.Normalize_01(df, property)
+            return normalized[(normalized >= _floor) & (normalized <= _roof)]
+
+        elif threshold_type == "Quantile":
+            
+            q_floor, q_roof = _floor / 100, _roof / 100
+            if not 0 <= q_floor <= 1 or not 0 <= q_roof <= 1:
+                q_floor, q_roof = 0, 1
+
+            lower_bound = np.quantile(working_df, q_floor)
+            upper_bound = np.quantile(working_df, q_roof)
+            return working_df[(working_df >= lower_bound) & (working_df <= upper_bound)]
+
+        elif threshold_type == "Relative to...":
+            # req(reference is not None)
+            if reference is None:
+                reference = 0.0
+            ref, _ = self.compute_reference_and_span(working_df, reference, reference_value)
+
+            return working_df[
+                (working_df >= (ref + _floor)) 
+                & (working_df <= (ref + _roof))
+                | (working_df <= (ref - _floor)) 
+                & (working_df >= (ref - _roof))    
+            ]
+
+        return df
+    
 
     def nearly_equal_pair(self, a, b) -> bool:
         try:
@@ -144,137 +252,16 @@ class Threshold:
         else:
             steps = 1
         return steps
-
-    def compute_reference_and_span(self, values_series: pd.Series, reference: str, my_value: float | None):
-        """
-        Returns (reference_value, max_delta) for the 'Relative to...' mode.
-        max_delta is the farthest absolute distance from reference to any data point.
-        """
-        vals = values_series.dropna()
-        if vals.empty:
-            return 0.0, 0.0
-
-        if reference == "Mean":
-            ref = float(vals.mean())
-        elif reference == "Median":
-            ref = float(vals.median())
-        elif reference == "My own value":
-            ref = float(my_value) if isinstance(my_value, (int, float)) else 0.0
-        else:
-            ref = float(vals.mean())
-
-        max_delta = float(np.max(np.abs(vals - ref)))
-        return ref, max_delta
-
-    def get_threshold_value_params(
-        self,
-        spot_data: pd.DataFrame, 
-        track_data: pd.DataFrame, 
-        property_name: str, 
-        threshold_type: str, 
-        quantile: int = None,
-        reference: str = None,
-        reference_value: float = None
-    ):
-        
-        # instance method; use self and helpers
-        self = self  # no-op to emphasize instance usage
-        if threshold_type == "Literal":
-            if property_name in Metrics.Thresholding.SpotProperties:
-                minimal = spot_data[property_name].min()
-                maximal = spot_data[property_name].max()
-            elif property_name in Metrics.Thresholding.TrackProperties:
-                minimal = track_data[property_name].min()
-                maximal = track_data[property_name].max()
-            else:
-                minimal, maximal = 0, 100
-
-            steps = self.get_steps(maximal)
-            minimal, maximal = floor(minimal), ceil(maximal)
-
-        elif threshold_type == "Normalized 0-1":
-            minimal, maximal = 0, 1
-            steps = 0.01
-
-        elif threshold_type == "Quantile":
-            minimal, maximal = 0, 100
-            steps = 100/float(quantile)
-
-        elif threshold_type == "Relative to...":
-            if property_name in Metrics.Thresholding.SpotProperties:
-                series = spot_data[property_name]
-            elif property_name in Metrics.Thresholding.TrackProperties:
-                series = track_data[property_name]
-            else:
-                series = pd.Series(dtype=float)
-
-            # Compute reference and span
-            reference_value, max_delta = self.compute_reference_and_span(series, reference, reference_value)
-
-            minimal = 0
-            maximal = ceil(max_delta) if np.isfinite(max_delta) else 0
-            steps = self.get_steps(maximal)
-
-        return minimal, maximal, steps, reference_value
-
-    def filter_data(self, df, threshold: tuple, property: str, threshold_type: str, reference: str = None, reference_value: float = None):
-        if df is None or df.empty:
-            return df
-        
-        try:
-            working_df = df[property].dropna()
-        except Exception:
-            return df
-        
-        _floor, _roof = threshold
-        if (
-            _floor is None or _roof is None
-            or not isinstance(_floor, (int, float)) or not isinstance(_roof, (int, float))
-        ):
-            return working_df
-
-        if threshold_type == "Literal":
-            return working_df[(working_df >= _floor) & (working_df <= _roof)]
-
-        elif threshold_type == "Normalized 0-1":
-            normalized = self.Normalize_01(df, property)
-            return normalized[(normalized >= _floor) & (normalized <= _roof)]
-
-        elif threshold_type == "Quantile":
-            
-            q_floor, q_roof = _floor / 100, _roof / 100
-            if not 0 <= q_floor <= 1 or not 0 <= q_roof <= 1:
-                q_floor, q_roof = 0, 1
-
-            lower_bound = np.quantile(working_df, q_floor)
-            upper_bound = np.quantile(working_df, q_roof)
-            return working_df[(working_df >= lower_bound) & (working_df <= upper_bound)]
-
-        elif threshold_type == "Relative to...":
-            # req(reference is not None)
-            if reference is None:
-                reference = 0.0
-            ref, _ = self.compute_reference_and_span(working_df, reference, reference_value)
-
-            return working_df[
-                (working_df >= (ref + _floor)) 
-                & (working_df <= (ref + _roof))
-                | (working_df <= (ref - _floor)) 
-                & (working_df >= (ref - _roof))    
-            ]
-
-        return df
     
-
-    @staticmethod   
-    def Normalize_01(df, col) -> pd.Series:
+  
+    def Normalize_01(self, df, col) -> pd.Series:
         """
         Normalize a column to the [0, 1] range.
         """
         # s = pd.to_numeric(df[col], errors='coerce')
         try:
-            s = pd.Series(_try_float(df[col]), dtype=float)
-            if _has_strings(s):
+            s = pd.Series(self._try_float(df[col]), dtype=float)
+            if self._has_strings(s):
                 normalized = pd.Series(0.0, index=s.index, name=col)
             lo, hi = s.min(), s.max()
             if lo == hi:
@@ -303,3 +290,33 @@ class Threshold:
         return df
 
 
+    def _has_strings(self, s: pd.Series) -> bool:
+        # pandas "string" dtype (pyarrow/python)
+        if isinstance(s.dtype, pd.StringDtype):
+            return s.notna().any()
+        # categorical of strings?
+        if isinstance(s.dtype, pd.CategoricalDtype):
+            return isinstance(s.dtype.categories.dtype, pd.StringDtype) and s.notna().any()
+        # numeric, datetime, bool, etc.
+        if not is_object_dtype(s.dtype):
+            return False
+        # Fallback for object-dtype (mixed types): minimal Python loop over NumPy array
+        arr = s.to_numpy(dtype=object, copy=False)
+        return any(isinstance(v, (str, np.str_)) for v in arr)
+
+
+    def _try_float(self, x: Any) -> Any:
+            """
+            Try to convert a string to an int or float, otherwise return the original value.
+            """
+            try:
+                if isinstance(x, str):
+                    num = float(x.strip())
+                    if num.is_integer():
+                        return float(num)
+                    else:
+                        return num
+                else:
+                    return x
+            except ValueError:
+                return x

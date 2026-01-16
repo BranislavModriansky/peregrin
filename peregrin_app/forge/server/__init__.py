@@ -16,11 +16,10 @@ from .viz.superplots import mount_superplots
 from .viz.msd import mount_plot_msd
 
 from .bg_jobs.loaders import mount_loaders
-from .bg_jobs.bckgrnd_tasks import mount_tasks
-
+from .bg_jobs.buttons import mount_buttons
 from .bg_jobs.notify import mount_notifier
-
 from .bg_jobs.theme import set_theme
+from .bg_jobs.statcols import mount_statcols
 
     
 
@@ -63,7 +62,8 @@ def Server(input: Inputs, output: Outputs, session: Session):
 
 
     mount_loaders(*args)
-    mount_tasks(*args, **kwargs)
+    mount_buttons(*args, **kwargs)
+    mount_statcols(*args, **kwargs)
 
 
     

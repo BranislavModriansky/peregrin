@@ -8,7 +8,7 @@ from src.code import Frames, TimeIntervals, Metrics, Threshold, DebounceCalc, Th
 
 
 
-# one shared instance (tune eps if needed)
+# shared instance
 THRESH = Threshold(eps=1e-12)
 
 
@@ -24,9 +24,16 @@ def mount_thresholds_calc(input, output, session, S):
         @output(id=f"manual_threshold_value_setting_placeholder_{id}")
         @render.ui
         def manual_threshold_value_setting():
+
+            if input["threshold_property_id"]() in S.SPOTSTATS_COLUMNS.get():
+                data = thresholds.get(id).get("spots")
+            else:
+                data = thresholds.get(id).get("tracks")
+
+            global_min, global_max = THRESH.get_global_range(data, input[f"threshold_property_{id}"]())
             
-            data = thresholds.get(id)
-            req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
+            filt_data = thresholds.get(id)
+            req(filt_data is not None and filt_data.get("spots") is not None and filt_data.get("tracks") is not None)
 
             spot_data = data.get("spots")
             track_data = data.get("tracks")
@@ -35,7 +42,7 @@ def mount_thresholds_calc(input, output, session, S):
             threshold_type = input[f"threshold_type_{id}"]()
             req(property_name and threshold_type)
             
-            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
+            local_min, local_max, steps, _ = THRESH.get_threshold_params(
                 spot_data=spot_data,
                 track_data=track_data,
                 property_name=property_name,
@@ -45,24 +52,21 @@ def mount_thresholds_calc(input, output, session, S):
                 reference_value=input[f"my_own_value_{id}"]()
             )
             
-            v_lo, v_hi = THRESH.format_numeric_pair((minimal,maximal))
-            min_fmt, max_fmt = THRESH.int_if_whole(minimal), THRESH.int_if_whole(maximal)
-
             return ui.row(
                 ui.column(6, ui.input_numeric(
                     f"floor_threshold_value_{id}",
                     label="min",
-                    value=v_lo,
-                    min=min_fmt,
-                    max=max_fmt,
+                    value=local_min,
+                    min=global_min,
+                    max=global_max,
                     step=steps
                 )),
                 ui.column(6, ui.input_numeric(
                     f"ceil_threshold_value_{id}",
                     label="max",
-                    value=v_hi,
-                    min=min_fmt,
-                    max=max_fmt,
+                    value=local_max,
+                    min=global_min,
+                    max=global_max,
                     step=steps
                 )),
             )
@@ -81,7 +85,7 @@ def mount_thresholds_calc(input, output, session, S):
             threshold_type = input[f"threshold_type_{id}"]()
             req(property_name and threshold_type)
             
-            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
+            local_min, local_max, steps, _ = THRESH.get_threshold_params(
                 spot_data=spot_data,
                 track_data=track_data,
                 property_name=property_name,
@@ -94,9 +98,9 @@ def mount_thresholds_calc(input, output, session, S):
             return ui.input_slider(
                 f"threshold_slider_{id}",
                 label=None,
-                min=minimal,
-                max=maximal,
-                value=(minimal,maximal),
+                min=global_min,
+                max=global_max,
+                value=(local_min, local_max),
                 step=steps
             )
 
@@ -403,47 +407,47 @@ def mount_thresholds_calc(input, output, session, S):
                 thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
                 S.THRESHOLDS.set(thresholds)
 
-        @DebounceEffect(1)
-        @reactive.Effect
-        @reactive.event(input[f"threshold_slider_{id}"])
-        def update_next_threshold():
-            """
-            Updating the slider updates the manual threshold values setting as well as the filte histogram.
-            """
+        # @DebounceEffect(1)
+        # @reactive.Effect
+        # @reactive.event(input[f"threshold_slider_{id}"])
+        # def update_next_threshold():
+        #     """
+        #     Updating the slider updates the manual threshold values setting as well as the filte histogram.
+        #     """
 
-            with reactive.isolate():
-                thresholds = S.THRESHOLDS.get()
+        #     with reactive.isolate():
+        #         thresholds = S.THRESHOLDS.get()
                 
-                try:
-                    data = thresholds.get(id+1)
-                except Exception:
-                    return
-                req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
+        #         try:
+        #             data = thresholds.get(id+1)
+        #         except Exception:
+        #             return
+        #         req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
 
-                spot_data = data.get("spots")
-                track_data = data.get("tracks")
+        #         spot_data = data.get("spots")
+        #         track_data = data.get("tracks")
 
-                property_name = input[f"threshold_property_{id+1}"]()
-                threshold_type = input[f"threshold_type_{id+1}"]()
-                req(property_name and threshold_type)
+        #         property_name = input[f"threshold_property_{id+1}"]()
+        #         threshold_type = input[f"threshold_type_{id+1}"]()
+        #         req(property_name and threshold_type)
                 
-                minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
-                    spot_data=spot_data,
-                    track_data=track_data,
-                    property_name=property_name,
-                    threshold_type=threshold_type,
-                    quantile=input[f"threshold_quantile_{id+1}"](),
-                    reference=input[f"reference_value_{id+1}"](),
-                    reference_value=input[f"my_own_value_{id+1}"]()
-                )
+        #         local_min, local_max, steps, _ = THRESH.get_threshold_params(
+        #             spot_data=spot_data,
+        #             track_data=track_data,
+        #             property_name=property_name,
+        #             threshold_type=threshold_type,
+        #             quantile=input[f"threshold_quantile_{id+1}"](),
+        #             reference=input[f"reference_value_{id+1}"](),
+        #             reference_value=input[f"my_own_value_{id+1}"]()
+        #         )
 
-                return ui.update_slider(
-                    f"threshold_slider_{id+1}",
-                    min=minimal,
-                    max=maximal,
-                    value=(minimal,maximal),
-                    step=steps
-                )   
+        #         return ui.update_slider(
+        #             f"threshold_slider_{id+1}",
+        #             min=minimal,
+        #             max=maximal,
+        #             value=(minimal,maximal),
+        #             step=steps
+        #         )   
 
     @DebounceEffect(1)
     @reactive.Effect

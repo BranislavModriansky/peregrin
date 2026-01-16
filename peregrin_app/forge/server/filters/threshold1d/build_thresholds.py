@@ -21,7 +21,7 @@ def mount_thresholds_build(input, output, session, S):
             ui.accordion_panel(
                 f"Threshold 1",
                 ui.panel_well(
-                    ui.input_selectize(f"threshold_property_1", "Property", choices=Metrics.Thresholding.Properties),
+                    ui.input_selectize(f"threshold_property_1", "Property", choices=S.SPOTSTATS_COLUMNS.get() + S.TRACKSTATS_COLUMNS.get()),
                     ui.input_selectize(f"threshold_type_1", "Threshold type", choices=Modes.Thresholding),
                     ui.panel_conditional(
                         f"input.threshold_type_1 == 'Quantile'",
@@ -48,7 +48,7 @@ def mount_thresholds_build(input, output, session, S):
         return ui.accordion_panel(
             f"Threshold {id}",
             ui.panel_well(
-                ui.input_selectize(f"threshold_property_{id}", "Property", choices=Metrics.Thresholding.Properties),
+                ui.input_selectize(f"threshold_property_{id}", "Property", choices=S.SPOTSTATS_COLUMNS.get() + S.TRACKSTATS_COLUMNS.get()),
                 ui.input_selectize(f"threshold_type_{id}", "Threshold type", choices=Modes.Thresholding),
                 ui.panel_conditional(
                     f"input.threshold_type_{id} == 'Quantile'",
