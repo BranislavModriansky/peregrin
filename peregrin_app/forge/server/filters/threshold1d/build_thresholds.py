@@ -1,5 +1,5 @@
 import shiny.ui as ui
-from shiny import reactive, render
+from shiny import reactive, render, req
 from src.code import Metrics, Modes
 
 
@@ -81,11 +81,13 @@ def mount_thresholds_build(input, output, session, S):
     @reactive.event(input.append_threshold)
     def append_threshold():
         thresholds = S.THRESHOLDS.get()
-        if not thresholds:
-            return
+        req(thresholds)
 
         S.THRESHOLDS_ID.set(S.THRESHOLDS_ID.get() + 1)
+
         thresholds |= {S.THRESHOLDS_ID.get(): thresholds.get(S.THRESHOLDS_ID.get() - 1)}
+        # thresholds.update({S.THRESHOLDS_ID.get(): thresholds.get(S.THRESHOLDS_ID.get() - 1)})
+
         S.THRESHOLDS.set(thresholds)
 
         if S.THRESHOLDS_ID.get() > 1:
@@ -95,7 +97,8 @@ def mount_thresholds_build(input, output, session, S):
             id="threshold_accordion",
             panel=render_threshold_accordion_panel(S.THRESHOLDS_ID.get()),
             position="after"
-        ) 
+        )
+
 
     @reactive.Effect
     @reactive.event(input.remove_threshold)
@@ -115,18 +118,10 @@ def mount_thresholds_build(input, output, session, S):
 
         S.THRESHOLDS_ID.set(S.THRESHOLDS_ID.get() - 1)
 
-    @reactive.Effect
-    @reactive.event(input.run, input.already_processed_input)
-    def refresh_sidebar():
-        thresholds = S.THRESHOLDS.get()
-        if not thresholds:
-            return
-        for id in range(1, S.THRESHOLDS_ID.get() + 1):
-            if id not in list(thresholds.keys()):
-                ui.remove_accordion_panel(
-                    id="threshold_accordion",
-                    target=f"Threshold {id}"
-                )
-        session.send_input_message("remove_threshold", {"disabled": True})
-        S.THRESHOLDS_ID.set(1)
-        
+    @reactive.effect
+    @reactive.event(S.THRESHOLDS_ID)
+    def threshold_limit():
+        if S.THRESHOLDS_ID.get() >= 10:
+            ui.update_action_button("append_threshold", disabled=True)
+        else:
+            ui.update_action_button("append_threshold", disabled=False)

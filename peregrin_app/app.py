@@ -3,9 +3,12 @@ from shiny import App
 from forge import app_ui
 from forge import Server
 
+
 ROOT = Path(__file__).resolve().parent
 
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
+
+
 
 # TODO: Fix the already processesd data input and perhaps move it to the Input menu tab
 

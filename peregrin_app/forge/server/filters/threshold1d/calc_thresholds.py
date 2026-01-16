@@ -8,17 +8,16 @@ from shiny import render, reactive, req, ui
 from src.code import Frames, TimeIntervals, Metrics, Threshold, DebounceCalc, ThrottleCalc, DebounceEffect
 
 
-
-# shared instance
 THRESH = Threshold(eps=1e-12)
 
 
 def mount_thresholds_calc(input, output, session, S):
 
-    @DebounceCalc(0.1)
+    @DebounceCalc(0.5)
     @reactive.calc
     def get_bins():
         return input.bins() if input.bins() is not None and input.bins() != 0 else 15
+
 
     def render_threshold_container(id, thresholds):
         
@@ -109,7 +108,7 @@ def mount_thresholds_calc(input, output, session, S):
                 value=(local_min, local_max),
                 step=steps
             )
-
+        
         @output(id=f"thresholding_histogram_placeholder_{id}")
         @render.plot
         def threshold_histogram():
@@ -117,7 +116,6 @@ def mount_thresholds_calc(input, output, session, S):
             _color = 'black' if input.app_theme() == "Shiny" else 'white'
             _marker_color = '#337ab7' if input.app_theme() == "Shiny" else '#a15c5c'
 
-            thresholds = S.THRESHOLDS.get()
             data = thresholds.get(id)
             req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
 
@@ -137,15 +135,12 @@ def mount_thresholds_calc(input, output, session, S):
             
             bins = get_bins()
 
+            fig, ax = plt.subplots()
+
             if threshold_type == "Literal":
                 
                 values = data[property].dropna()
-
-                fig, ax = plt.subplots()
                 n, bins, patches = ax.hist(values, bins=bins, density=False)
-                print(n)
-                print(bins)
-                print(patches)
 
                 # Color threshold
                 for i in range(len(patches)):
@@ -166,7 +161,6 @@ def mount_thresholds_calc(input, output, session, S):
                 ax.set_yticks([])  # Remove y-axis ticks
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
-                # return fig
             
             if threshold_type == "Normalized 0-1":
 
@@ -176,7 +170,7 @@ def mount_thresholds_calc(input, output, session, S):
                 except ZeroDivisionError:
                     normalized = 0
 
-                fig, ax = plt.subplots()
+                
                 n, bins, patches = ax.hist(normalized, bins=bins, density=False)
 
                 # Color threshold
@@ -198,13 +192,10 @@ def mount_thresholds_calc(input, output, session, S):
                 ax.set_yticks([])  # Remove y-axis ticks
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
-                # return fig
 
             if threshold_type == "Quantile":
 
                 values = data[property].dropna()
-                
-                fig, ax = plt.subplots()
                 n, bins, patches = ax.hist(values, bins=bins, density=False)
 
                 # Get slider quantile values, 0-100 scale
@@ -235,7 +226,7 @@ def mount_thresholds_calc(input, output, session, S):
                 ax.set_xticks([])
                 ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
-                # return fig
+                
 
             if threshold_type == "Relative to...":
                 reference = input[f"reference_value_{id}"]()
@@ -254,8 +245,6 @@ def mount_thresholds_calc(input, output, session, S):
 
                 # Build histogram in "shifted" space (centered at 0 = reference)
                 shifted = data[property].dropna() - reference_value
-
-                fig, ax = plt.subplots()
                 n, bins, patches = ax.hist(shifted, bins=bins, density=False)
 
                 # Slider gives distances [low, high] away from the reference
@@ -288,24 +277,24 @@ def mount_thresholds_calc(input, output, session, S):
 
                 ax.axvline(0, linestyle="--", linewidth=1, color=_color)
 
-
                 ax.set_xticks([]); ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
-
             fig.set_facecolor('none')
             ax.set_facecolor('none')
+            
             return fig
 
     @reactive.Effect
-    @reactive.event(input.append_threshold, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, S.THRESHOLDS)
+    @reactive.event(input.append_threshold, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
     def render_threshold():
         threshold_id = S.THRESHOLDS_ID.get()
         
-        try:
-            thresholds = S.THRESHOLDS.get()
-        except Exception:
-            return
+        with reactive.isolate():
+            try:
+                thresholds = S.THRESHOLDS.get()
+            except Exception:
+                return
         if not threshold_id or not thresholds:
             return
 
@@ -493,6 +482,7 @@ def mount_thresholds_calc(input, output, session, S):
                     max=new_max,
                     value=float(new_high)
                 )
+
                 
 
     @DebounceEffect(0.5)
@@ -554,4 +544,6 @@ def mount_thresholds_calc(input, output, session, S):
         S.TRACKSTATS.set(tracks_filtered)
         S.FRAMESTATS.set(frames_filtered)
         S.TINTERVALSTATS.set(tintervals_filtered)
+
+
 
