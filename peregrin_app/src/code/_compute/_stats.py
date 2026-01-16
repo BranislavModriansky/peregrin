@@ -270,13 +270,9 @@ class TimeIntervals:
 
         # Time step from unique diffs; use median to resist irregular sampling
         t_unique = np.sort(df['Time point'].unique())
-        print(t_unique)
         if t_unique.size < 2:
             return pd.DataFrame(columns=cols)
         t_step = float(np.diff(t_unique)[0])
-        print(f"time diffs: {np.diff(t_unique)}")
-        print(f"medidan time diff: {np.median(np.diff(t_unique))}")
-        print(f"Time step: {t_step}")
 
 
 

@@ -58,7 +58,7 @@ def mount_tasks(input, output, session, S, noticequeue):
             @reactive.effect
             @reactive.event(input.import_mode_btn)
             def _():
-                time.sleep(0.025)  # small delay to avoid double triggering
+                time.sleep(0.02)  # small delay to avoid double triggering
                 match S.IMPORT_MODE.get():
                     case "raw":
                         S.IMPORT_MODE.set("processed")
