@@ -1,84 +1,399 @@
-from dataclasses import dataclass
+import time
+import traceback
+from dataclasses import dataclass, field
+from unittest import case
 
 import pandas as pd
 import numpy as np
-from typing import Any
+from typing import Any, Literal
 from pandas.api.types import is_object_dtype
 from math import floor, ceil
 
-from src.code import Metrics
+from .._handlers._reports import Level
+from .._general import clock, is_empty
+
+
 
 @dataclass
-class DataInventory1:
-    idx: np.ndarray = np.array([1])
-    array: np.ndarray[np.ndarray] = np.array([])
-    property: np.ndarray[str] = np.array([])
-    series: np.ndarray[pd.Series] = np.array([])
-    threshold: np.ndarray[str] = np.array(["Literal"])
+class Inventory2D:
+    ...
 
-# @dataclass
-# class DataInventory2:
-#     id: np.ndarray = np.array([1])
-#     idx_x: np.ndarray[np.ndarray] = np.array([])
-#     idx_y: np.ndarray[np.ndarray] = np.array([])
-#     property_x: np.ndarray[str] = np.array([])
-#     property_y: np.ndarray[str] = np.array([])
-#     series_x: np.ndarray[pd.Series] = np.array([])
-#     series_y: np.ndarray[pd.Series] = np.array([])
-#     threshold_x: np.ndarray[str] = np.array(["Literal"])
-#     threshold_y: np.ndarray[str] = np.array(["Literal"])
+    id: np.ndarray = np.array([1])
+    idx_x: np.ndarray[np.ndarray] = np.array([])
+    idx_y: np.ndarray[np.ndarray] = np.array([])
+    property_x: np.ndarray[str] = np.array([])
+    property_y: np.ndarray[str] = np.array([])
+    series_x: np.ndarray[pd.Series] = np.array([])
+    series_y: np.ndarray[pd.Series] = np.array([])
+    threshold_x: np.ndarray[str] = np.array(["Literal"])
+    threshold_y: np.ndarray[str] = np.array(["Literal"])
 
 
 
+@dataclass
+class Inventory1D:
+    id_idx = np.array([0])
+    property = np.array([None])
+
+    filter = [None]
+    selection = [None]
+    mask = [None]
+    series = [None]
+    ambit = [None]
+
+    spot_data = pd.DataFrame()
+    track_data = pd.DataFrame()
 
 
-class Dimension1:
-    """
-    Utility functions for data filtering and normalization.
-    """
+class Filter1D:
+
+    # include: str = "include_at_least_one"
+
+    noticequeue: Any = None
 
     def __init__(self, eps: float = 1e-12):
         self.EPS = eps
 
-    def Recover(self):
+
+
+    # def Recover(self, idx: int):
+    #     """
+    #     Recover series and limits for a given threshold index.
+    #     """
+
+    # def _dirty_call(self):
+        
+
+    @clock
+    def Initialize(self, property=[], filter=[], selection=[]):
         """
-        Gets 
+        Initializes the filter inventory.
         """
 
-    def FlowDownstream(self):
+        print("")
+        print("Initializing Filter1D Inventory...")
+        print(property)
+        print(filter)
+        print(selection)
+        print("")
+
+        data = Inventory1D.track_data
+
+        if is_empty(data):
+            return
+
+        n = len(Inventory1D.id_idx)
+
+        Inventory1D.selection = [None] * n
+        Inventory1D.ambit = [None] * n
+        Inventory1D.mask = [None] * n
+        Inventory1D.series = [None] * n
+        
+
+        for idx in Inventory1D.id_idx:
+                
+            self._stream(idx, data)
+
+            if idx == 0:
+                Inventory1D.selection[idx] = Inventory1D.ambit[idx][:2]
+
+            print(f"Threshold {idx} initialized.")
+            print("Selection:", Inventory1D.selection[idx])
+
+    @clock
+    def Downstream(self, idx: int):
         """
-        Passes data downstream 
+        Passes data downstream.
+        """
+        for _idx in Inventory1D.id_idx[idx:]:
+
+            def missing_inventory():
+                return (
+                    len(Inventory1D.property) <= _idx
+                    or len(Inventory1D.filter) <= _idx
+                    or len(Inventory1D.selection) <= _idx
+                )
+
+            if missing_inventory():
+                return
+
+            data = self._choose_data(_idx)
+
+            if is_empty(data):
+                return
+            
+            self._stream(_idx, data)
+
+
+        print(" ")
+        print(" ")
+        print("__________________________________________________________")
+        print(f"Inventory1D.property: {Inventory1D.property}")
+        print("------------------------------------")
+        print(f"all masks: {Inventory1D.mask}")
+        print("------------------------------------")
+        print(f"all filters: {Inventory1D.filter}")
+        print("------------------------------------")
+        print(f"all selections: {Inventory1D.selection}")
+        print("------------------------------------")
+        print(f"all series: {Inventory1D.series}")
+        print("------------------------------------")
+        print(f"all ambit: {Inventory1D.ambit}")
+        print("------------------------------------")
+        print(" ")
+        print(" ")
+    
+
+    def PopLast(self):
+        """
+        Removes the last threshold from the inventory.
+        """
+        Inventory1D.id_idx = Inventory1D.id_idx[:-1]
+        Inventory1D.property = Inventory1D.property[:-1]
+        Inventory1D.filter = Inventory1D.filter[:-1]
+        Inventory1D.selection = Inventory1D.selection[:-1]
+        Inventory1D.mask = Inventory1D.mask[:-1]
+        Inventory1D.series = Inventory1D.series[:-1]
+        Inventory1D.ambit = Inventory1D.ambit[:-1]
+
+
+    def _stream(self, _idx: int, data: pd.DataFrame):
+        if _idx == 0:
+            Inventory1D.mask[_idx] = data.index.to_numpy()
+            Inventory1D.series[_idx] = self._get_series(_idx, data)
+        else:
+            Inventory1D.mask[_idx] = self._get_mask(_idx)
+            Inventory1D.series[_idx] = self._get_series(_idx, data)
+        Inventory1D.ambit[_idx] = self._ambit(_idx)
+
+        if _idx == Inventory1D.id_idx[-1]:
+            Inventory1D.property = np.append(Inventory1D.property, Inventory1D.property[_idx])
+            Inventory1D.filter.append(Inventory1D.filter[_idx])
+            Inventory1D.selection.append(Inventory1D.selection[_idx])
+            Inventory1D.mask.append(Inventory1D.mask[_idx])
+            Inventory1D.series.append(Inventory1D.series[_idx])
+            Inventory1D.ambit.append(Inventory1D.ambit[_idx])
+
+
+    def _choose_data(self, idx: int) -> pd.DataFrame:
+        """
+        Chooses between spot and track data for the given threshold index.
         """
 
-        for id in DataInventory1.id:
-            if id = 0
-            if DataInventory1.idx[id] == DataInventory1.idx[id - 1]:
-                break
+        if Inventory1D.property[idx] in Inventory1D.track_data.columns.tolist():
+            return Inventory1D.track_data
+        elif Inventory1D.property[idx] in Inventory1D.spot_data.columns.tolist():
+            return Inventory1D.spot_data
+        else:
+            return pd.DataFrame()
+
+
+    def _get_mask(self, idx: int) -> np.ndarray:
+        """
+        Creates a mask from the previous threshold.
+        """        
+
+        mask = Inventory1D.mask[idx - 1]
+        series = Inventory1D.series[idx - 1]
+        selected = Inventory1D.selection[idx - 1]
+
+        if not isinstance(selected, (list, tuple)) or len(selected) != 2:
+            return mask
+        
+        if not isinstance(series, pd.Series) or series.empty:
+            return mask
+
+        new_mask = series.loc[mask][
+            (series.loc[mask] >= selected[0]) 
+            & (series.loc[mask] <= selected[1])
+        ].index.to_numpy()
+
+        return new_mask
+
+
+    def _get_series(self, idx: int, data: pd.DataFrame) -> pd.Series:
+        """
+        Extracts a pandas series for the given threshold based on its mask.
+        """
+    
+        mask = Inventory1D.mask[idx]
+        if mask is None:
+            return pd.Series(dtype=float)
+
+        # Use intersection to avoid KeyError if some labels are not present in this df
+        idx_ok = data.index.intersection(mask)
+        if idx_ok.empty or Inventory1D.property[idx] not in data.columns:
+            return pd.Series(dtype=float)
+
+        series = data.loc[idx_ok, Inventory1D.property[idx]].dropna()
+        min, max = series.min(), series.max()
+
+        match Inventory1D.filter[idx][0]:
+
+            case "Normalized 0-1":
+
+                if min == max:
+                    series = pd.Series(0.0, index=series.index)
+                else:
+                    series = series.apply(lambda v: (v - min) / (max - min))
+
+        return series
+
+
+                
+
+
+
+
+    def _ambit(self, idx: int) -> tuple[int | float, int | float, int | float]:
+        """
+        Returns min, max and step size.
+        """
+        
+        if not isinstance(Inventory1D.property[idx], str):
+            return (0, 100, 1)
+        
+        if not isinstance(Inventory1D.filter[idx], (list, tuple)):
+            return (0, 100, 1)
+
+        match Inventory1D.filter[idx][0]:
+
+            case "Literal":
+                min, max = self._get_range(idx)
+                step = self._get_steps(max)
+            
+            case "Normalized 0-1":
+                min, max, step = 0, 1, 0.01
+
+            case "N-tile":
+                min, max = 0, 100
+                step = 100/float(Inventory1D.filter[idx][1])
+
+            case "Relative to...":
+                reference = Inventory1D.filter[idx][1]
+                min, max = self._reference_delta(idx, reference)
+                step = self._get_steps(max)
+
+            case _:
+                min, max = 0, 100
+                step = 1
+
+        return (min, max, step)
+    
+
+    def _get_range(self, idx: int) -> tuple[int, int]:
+        """
+        Gets the min and max values for a given data property.
+        """
+        
+        if Inventory1D.series[idx] is not None and not Inventory1D.series[idx].empty:
+            min, max = Inventory1D.series[idx].min(), Inventory1D.series[idx].max()
+            if max > 1:
+                min, max = self._clamp(min, max)
             else:
-                DataInventory1.idx[id] = DataInventory1.idx[id - 1]
+                min, max =round(min, 2), round(max, 2)
+                
+        else:
+            min, max = 0, 100
+
+        return (min, max)
+    
+
+    def _clamp(self, min: int | float, max: int | float) -> tuple[int, int]:
+        """
+        Clamps given min and max values to whole numbers.
+        """
+
+        if min is None or not isinstance(min, (int, float)):
+            min = 0
+        if max is None or not isinstance(max, (int, float)):
+            max = 100
+        if min > max:
+            min, max = max, min
+
+        min = floor(min)
+        max = ceil(max)
+
+        return (min, max)
+    
+
+    def _get_steps(self, max: int | float) -> int | float:
+        """
+        Finds the adequate step size based on the highest value of the range.
+        """
+
+        if max < 0.01:
+            step = 0.0001
+        elif 0.01 <= max < 0.1:
+            step = 0.001
+        elif 0.1 <= max < 1:
+            step = 0.01
+        elif 1 <= max < 10:
+            step = 0.1
+        elif 10 <= max < 1000:
+            step = 1
+        elif 1000 <= max < 100000:
+            step = 10
+        elif 100000 < max:
+            step = 100
+        else:
+            step = 1
+        return step
 
 
-#     def compute_reference_and_span(self, values_series: pd.Series, reference: str, my_value: float | None):
-#         """
-#         Returns (reference_value, max_delta) for the 'Relative to...' mode.
-#         max_delta is the farthest absolute distance from reference to any data point.
-#         """
+    def _reference_delta(self, idx: int, reference: str | int | float):
+        """
+        Returns (min_delta, max_delta) for the 'Relative to...' mode.
+        max_delta is the farthest absolute distance from reference to any data point.
+        """
 
-#         vals = values_series.dropna()
-#         if vals.empty:
-#             return 0.0, 0.0
+        series = Inventory1D.series[idx]
+        if series.empty:
+            return 0.0, 1.0
+        
+        try:
+            match reference:
+                case "Mean":
+                    ref = np.mean(series)
+                case "Median":
+                    ref = np.median(series)
+                case _:
+                    ref = reference if isinstance(reference, (int, float)) else np.mean(series)
 
-#         if reference == "Mean":
-#             ref = float(vals.mean())
-#         elif reference == "Median":
-#             ref = float(vals.median())
-#         elif reference == "My own value":
-#             ref = float(my_value) if isinstance(my_value, (int, float)) else 0.0
-#         else:
-#             ref = float(vals.mean())
+            max_delta = ceil(np.max(np.abs(series - ref)))
+            ref = round(ref, 2)
+            
+            Inventory1D.filter[idx] = [Inventory1D.filter[idx][0], ref]  # store computed reference value
 
-#         max_delta = float(np.max(np.abs(vals - ref)))
-#         return ref, max_delta
+            # return ref, max_delta
+            return 0.0, max_delta
+        
+        except Exception as e:
+            print(f"Error computing reference and span: {e}, {traceback.format_exc()}")
+            self.noticequeue.Report(Level.error, f"Error computing reference and span: {e}", traceback.format_exc())
+
+            return 0.0, 1.0
+
+
+
+    @staticmethod
+    def intersects_symmetric(i, bins, bottom, top, reference) -> bool:
+        # interval A: [-b, -a], interval B: [a, b]
+        left_hit  = (bins[i+1] >= reference - top) and (bins[i] <= reference - bottom) # far left to near left
+        right_hit = (bins[i+1] >= reference + bottom) and (bins[i] <= reference + top) # near right to far right
+        return left_hit or right_hit
+
+    @staticmethod
+    def bin_bounds(i, bins, bottom, top):
+        return not(bins[i] < bottom or bins[i+1] > top)
+
+
+
+
+
+
+
+
 
 #     def get_threshold_params(
 #         self,
@@ -106,7 +421,7 @@ class Dimension1:
 #             min, max = 0, 1
 #             steps = 0.01
 
-#         elif threshold_type == "Quantile":
+#         elif threshold_type == "N-tile":
 #             min, max = 0, 100
 #             steps = 100/float(quantile)
 
@@ -117,7 +432,7 @@ class Dimension1:
 #                 series = pd.Series(dtype=float)
 
 #             # Compute reference and span
-#             reference_value, max_delta = self.compute_reference_and_span(series, reference, reference_value)
+#             reference_value, max_delta = self._compute_reference_and_span(series, reference, reference_value)
 
 #             min = 0
 #             max = ceil(max_delta) if np.isfinite(max_delta) else 0
@@ -145,6 +460,9 @@ class Dimension1:
 
 #         return min, max
 
+
+
+
 #     def filter_data(self, df, threshold: tuple, property: str, threshold_type: str, reference: str = None, reference_value: float = None):
 #         if df is None or df.empty:
 #             return df
@@ -168,7 +486,7 @@ class Dimension1:
 #             normalized = self.Normalize_01(df, property)
 #             return normalized[(normalized >= _floor) & (normalized <= _roof)]
 
-#         elif threshold_type == "Quantile":
+#         elif threshold_type == "N-tile":
             
 #             q_floor, q_roof = _floor / 100, _roof / 100
 #             if not 0 <= q_floor <= 1 or not 0 <= q_roof <= 1:
@@ -193,6 +511,9 @@ class Dimension1:
 
 #         return df
     
+
+
+
 
 #     def nearly_equal_pair(self, a, b) -> bool:
 #         try:
@@ -220,8 +541,10 @@ class Dimension1:
 #         if self._is_whole_number(fx):
 #             return int(round(fx))
 #         return fx
+    
 
-#     def _format_numeric_pair(self, values: tuple) -> tuple:
+    
+#     def _format_numeric_pair(self, values):
 #         """
 #         Normalize `values` into a (low, high) numeric pair.
 
@@ -233,62 +556,66 @@ class Dimension1:
 #         """
 
 #         if values is None:
-#             return (None, None)
+#             return None, None
 #         if np.isscalar(values):
 #             v = values.item() if hasattr(values, "item") else float(values)
 #             v = self._int_if_whole(v)
-#             return (v, v)
+#             return v, v
 #         try:
 #             seq = list(values)
 #         except Exception:
 #             try:
 #                 v = float(values)
 #                 v = self._int_if_whole(v)
-#                 return (v, v)
+#                 return v, v
 #             except Exception:
-#                 return (None, None)
+#                 return None, None
 #         if len(seq) == 0:
-#             return (None, None)
+#             return None, None
 #         if len(seq) == 1:
 #             v = seq[0]
 #             try:
 #                 fv = float(v)
 #                 fv = self._int_if_whole(fv)
-#                 return (fv, fv)
+#                 return fv, fv
 #             except Exception:
-#                 return (v, v)
+#                 return v, v
 #         a, b = seq[0], seq[1]
 #         try:
 #             fa = float(a)
 #             fb = float(b)
 #             if fa <= fb:
-#                 return (self._int_if_whole(fa), self._int_if_whole(fb))
+#                 return self._int_if_whole(fa), self._int_if_whole(fb)
 #             else:
-#                 return (self._int_if_whole(fb), self._int_if_whole(fa))
+#                 return self._int_if_whole(fb), self._int_if_whole(fa)
 #         except Exception:
-#             return (self._int_if_whole(a), self._int_if_whole(b))
+#             return self._int_if_whole(a), self._int_if_whole(b)
+        
+
     
-#     def _get_steps(self, highest):
+#     def compute_reference_and_span(self, values_series: pd.Series, reference: str, my_value: float | None):
 #         """
-#         Returns the step size for the slider based on the range.
+#         Returns (reference_value, max_delta) for the 'Relative to...' mode.
+#         max_delta is the farthest absolute distance from reference to any data point.
 #         """
-#         if highest < 0.01:
-#             steps = 0.0001
-#         elif 0.01 <= highest < 0.1:
-#             steps = 0.001
-#         elif 0.1 <= highest < 1:
-#             steps = 0.01
-#         elif 1 <= highest < 10:
-#             steps = 0.1
-#         elif 10 <= highest < 1000:
-#             steps = 1
-#         elif 1000 <= highest < 100000:
-#             steps = 10
-#         elif 100000 < highest:
-#             steps = 100
+#         vals = values_series.dropna()
+#         if vals.empty:
+#             return 0.0, 0.0
+
+#         if reference == "Mean":
+#             ref = float(vals.mean())
+#         elif reference == "Median":
+#             ref = float(vals.median())
+#         elif reference == "My own value":
+#             ref = float(my_value) if isinstance(my_value, (int, float)) else 0.0
 #         else:
-#             steps = 1
-#         return steps
+#             ref = float(vals.mean())
+
+#         max_delta = float(np.max(np.abs(vals - ref)))
+#         return ref, max_delta
+    
+    
+    
     
   
 #     def Normalize_01(self, df, col) -> pd.Series:
@@ -359,5 +686,6 @@ class Dimension1:
 #                 return x
 
 
-# class Dimension2:
-#     ...
+class Filter2D:
+    ...
+

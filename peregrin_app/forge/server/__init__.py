@@ -46,7 +46,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_data_display(*args)
     mount_data_labeling(*args, **kwargs)
     mount_thresholds_build(*args)
-    mount_thresholds_calc(*args)
+    mount_thresholds_calc(*args, **kwargs)
     mount_thresholds_info_export(*args)
 
 

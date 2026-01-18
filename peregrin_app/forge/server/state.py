@@ -9,8 +9,17 @@ def build_state():
         "IMPORT_MODE": reactive.Value("raw"),
         "READYTORUN": reactive.Value(False),
         "INPUTS": reactive.Value(1),
-        "THRESHOLDS": reactive.Value(None),
         "THRESHOLDS_ID": reactive.Value(1),
+        "THRESHOLDS": reactive.Value({
+            0: {
+                "property": reactive.Value(),
+                "filter": reactive.Value(),
+                "selection": reactive.Value(),
+                "mask": reactive.Value(),
+                "serises": reactive.Value(),
+                "ambit": reactive.Value(),
+            }
+        }),
         "RAWDATA": reactive.Value(pd.DataFrame()),
         "UNITS": reactive.Value(),
         "UNFILTERED_SPOTSTATS": reactive.Value(pd.DataFrame()),
@@ -31,6 +40,7 @@ def build_state():
         "TINTERVALSTATS_COLUMNS": reactive.Value([]),
         "REPLAY_ANIMATION": reactive.Value(None),
         "MIN_DENSITY": reactive.Value(None),
-        "MAX_DENSITY": reactive.Value(None)
+        "MAX_DENSITY": reactive.Value(None),
+        "DIRTY_CALL": reactive.Value(0),
     })
 
