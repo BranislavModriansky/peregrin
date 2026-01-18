@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent
 
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
-
+#TODO: add details about the condition and replicate plotted to the file name, and perhaps a title too. 
 
 # TODO: Fix the already processesd data input and perhaps move it to the Input menu tab
 
