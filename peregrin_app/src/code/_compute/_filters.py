@@ -11,6 +11,7 @@ from math import floor, ceil
 
 from .._handlers._reports import Level
 from .._general import clock, is_empty
+from ._stats import MainDataInventory, Frames, TimeIntervals
 
 
 
@@ -47,107 +48,103 @@ class Inventory1D:
 
 class Filter1D:
 
-    # include: str = "include_at_least_one"
-
     noticequeue: Any = None
 
     def __init__(self, eps: float = 1e-12):
         self.EPS = eps
 
 
+    def Apply(self) -> pd.DataFrame:
+        """
+        Returns:
+            tuple: (spotstats, trackstats, framestats, tintervalstats)
+        """
 
-    # def Recover(self, idx: int):
-    #     """
-    #     Recover series and limits for a given threshold index.
-    #     """
+        spotstats = MainDataInventory.Spots
+        trackstats = MainDataInventory.Tracks
+        framestats = MainDataInventory.Frames
+        tintervalstats = MainDataInventory.TimeIntervals
 
-    # def _dirty_call(self):
+        # Return empty dataframes if any input is empty
+        if any(is_empty(df) for df in [spotstats, trackstats, framestats, tintervalstats]):
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+        print("_______________________________________________")
+        print(f"spotstats index: {spotstats.index}")
+        print(f"Inventory1D.mask[-1]: {Inventory1D.mask[-1]}")
         
+        # Get the mask and ensure it's valid
+        mask = Inventory1D.mask[-1]
+        if mask is None or len(mask) == 0:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        
+        print(f"Applying filter with mask of length: {len(mask)}")
+        
+        # Filter using index intersection to avoid KeyError
+        valid_spot_indices = spotstats.index.intersection(mask)
+        valid_track_indices = trackstats.index.intersection(mask)
+        
+        spotstats = spotstats.loc[valid_spot_indices]
+        trackstats = trackstats.loc[valid_track_indices]
+        
+        # Regenerate frame and time interval stats from filtered spots
+        framestats = Frames(spotstats)
+        tintervalstats = TimeIntervals(spotstats)()
 
-    @clock
-    def Initialize(self, property=[], filter=[], selection=[]):
+        print(f"Filtered spotstats index: {len(spotstats)}")
+
+        return spotstats, trackstats, framestats, tintervalstats
+
+    def Initialize(self):
         """
         Initializes the filter inventory.
         """
-
-        print("")
-        print("Initializing Filter1D Inventory...")
-        print(property)
-        print(filter)
-        print(selection)
-        print("")
 
         data = Inventory1D.track_data
 
         if is_empty(data):
             return
 
-        n = len(Inventory1D.id_idx)
+        Inventory1D.selection = [None]
+        Inventory1D.ambit = [None]
+        Inventory1D.mask = [None]
+        Inventory1D.series = [None]
 
-        Inventory1D.selection = [None] * n
-        Inventory1D.ambit = [None] * n
-        Inventory1D.mask = [None] * n
-        Inventory1D.series = [None] * n
-        
+        self._stream(0, data)
+        Inventory1D.selection[0] = Inventory1D.ambit[0][:2]
 
-        for idx in Inventory1D.id_idx:
-                
-            self._stream(idx, data)
 
-            if idx == 0:
-                Inventory1D.selection[idx] = Inventory1D.ambit[idx][:2]
-
-            print(f"Threshold {idx} initialized.")
-            print("Selection:", Inventory1D.selection[idx])
-
-    @clock
-    def Downstream(self, idx: int):
+    def Downstream(self, start: int):
         """
         Passes data downstream.
         """
-        for _idx in Inventory1D.id_idx[idx:]:
+        for idx in Inventory1D.id_idx[:-1]:
+            if idx < start:
+                continue
 
             def missing_inventory():
                 return (
-                    len(Inventory1D.property) <= _idx
-                    or len(Inventory1D.filter) <= _idx
-                    or len(Inventory1D.selection) <= _idx
+                    len(Inventory1D.property) <= idx
+                    or len(Inventory1D.filter) <= idx
+                    or len(Inventory1D.selection) <= idx
                 )
 
             if missing_inventory():
                 return
 
-            data = self._choose_data(_idx)
+            data = self._choose_data(idx)
 
             if is_empty(data):
                 return
             
-            self._stream(_idx, data)
-
-
-        print(" ")
-        print(" ")
-        print("__________________________________________________________")
-        print(f"Inventory1D.property: {Inventory1D.property}")
-        print("------------------------------------")
-        print(f"all masks: {Inventory1D.mask}")
-        print("------------------------------------")
-        print(f"all filters: {Inventory1D.filter}")
-        print("------------------------------------")
-        print(f"all selections: {Inventory1D.selection}")
-        print("------------------------------------")
-        print(f"all series: {Inventory1D.series}")
-        print("------------------------------------")
-        print(f"all ambit: {Inventory1D.ambit}")
-        print("------------------------------------")
-        print(" ")
-        print(" ")
+            self._stream(idx, data)
     
 
     def PopLast(self):
         """
         Removes the last threshold from the inventory.
         """
+
         Inventory1D.id_idx = Inventory1D.id_idx[:-1]
         Inventory1D.property = Inventory1D.property[:-1]
         Inventory1D.filter = Inventory1D.filter[:-1]
@@ -156,23 +153,51 @@ class Filter1D:
         Inventory1D.series = Inventory1D.series[:-1]
         Inventory1D.ambit = Inventory1D.ambit[:-1]
 
-
-    def _stream(self, _idx: int, data: pd.DataFrame):
-        if _idx == 0:
-            Inventory1D.mask[_idx] = data.index.to_numpy()
-            Inventory1D.series[_idx] = self._get_series(_idx, data)
+        if len(Inventory1D.id_idx) == 1:
+            self._safe_end(0)
         else:
-            Inventory1D.mask[_idx] = self._get_mask(_idx)
-            Inventory1D.series[_idx] = self._get_series(_idx, data)
-        Inventory1D.ambit[_idx] = self._ambit(_idx)
+            self._safe_end(Inventory1D.id_idx[-2])
+        
 
-        if _idx == Inventory1D.id_idx[-1]:
-            Inventory1D.property = np.append(Inventory1D.property, Inventory1D.property[_idx])
-            Inventory1D.filter.append(Inventory1D.filter[_idx])
-            Inventory1D.selection.append(Inventory1D.selection[_idx])
-            Inventory1D.mask.append(Inventory1D.mask[_idx])
-            Inventory1D.series.append(Inventory1D.series[_idx])
-            Inventory1D.ambit.append(Inventory1D.ambit[_idx])
+
+    def _stream(self, idx: int, data: pd.DataFrame):
+
+        if idx == 0:
+            Inventory1D.mask[idx] = data.index.to_numpy()
+            Inventory1D.series[idx] = self._get_series(idx, data)
+
+        else:
+            Inventory1D.mask[idx] = self._get_mask(idx)
+            Inventory1D.series[idx] = self._get_series(idx, data)
+            
+        Inventory1D.ambit[idx] = self._ambit(idx)
+
+        if idx == Inventory1D.id_idx[-2]:
+            self._safe_end(idx)
+
+   
+
+    def _safe_end(self, idx: int) -> None:
+        """
+        Sets the inventory at idx to None/empty.
+        """
+        new = idx + 1
+
+        try:
+            Inventory1D.property[new] = Inventory1D.property[idx]
+            Inventory1D.filter[new] = Inventory1D.filter[idx]
+            Inventory1D.selection[new] = Inventory1D.ambit[idx][:2]
+            Inventory1D.mask[new] = self._get_mask(new)
+            Inventory1D.series[new] = Inventory1D.series[idx]
+            Inventory1D.ambit[new] = Inventory1D.ambit[idx]
+
+        except Exception:
+            Inventory1D.property.append(Inventory1D.property[idx])
+            Inventory1D.filter.append(Inventory1D.filter[idx])
+            Inventory1D.selection.append(Inventory1D.ambit[idx][:2])
+            Inventory1D.mask.append(self._get_mask(new))
+            Inventory1D.series.append(Inventory1D.series[idx])
+            Inventory1D.ambit.append(Inventory1D.ambit[idx])
 
 
     def _choose_data(self, idx: int) -> pd.DataFrame:
@@ -191,21 +216,31 @@ class Filter1D:
     def _get_mask(self, idx: int) -> np.ndarray:
         """
         Creates a mask from the previous threshold.
-        """        
+        """
 
-        mask = Inventory1D.mask[idx - 1]
-        series = Inventory1D.series[idx - 1]
+        print(Inventory1D.spot_data.index)
+        print(Inventory1D.track_data.index)
+        
+
+        prev_mask = Inventory1D.mask[idx - 1]
+        prev_series = Inventory1D.series[idx - 1]
         selected = Inventory1D.selection[idx - 1]
 
         if not isinstance(selected, (list, tuple)) or len(selected) != 2:
-            return mask
-        
-        if not isinstance(series, pd.Series) or series.empty:
-            return mask
+            return prev_mask
 
-        new_mask = series.loc[mask][
-            (series.loc[mask] >= selected[0]) 
-            & (series.loc[mask] <= selected[1])
+        if not isinstance(prev_series, pd.Series) or prev_series.empty:
+            return prev_mask
+
+        # Get valid indices that exist in the series
+        valid_mask = prev_series.index.intersection(prev_mask)
+
+        if valid_mask.empty:
+            return np.array([], dtype=prev_mask.dtype)
+
+        new_mask = prev_series.loc[valid_mask][
+            (prev_series.loc[valid_mask] >= selected[0]) 
+            & (prev_series.loc[valid_mask] <= selected[1])
         ].index.to_numpy()
 
         return new_mask
@@ -238,11 +273,6 @@ class Filter1D:
                     series = series.apply(lambda v: (v - min) / (max - min))
 
         return series
-
-
-                
-
-
 
 
     def _ambit(self, idx: int) -> tuple[int | float, int | float, int | float]:
@@ -365,11 +395,9 @@ class Filter1D:
             
             Inventory1D.filter[idx] = [Inventory1D.filter[idx][0], ref]  # store computed reference value
 
-            # return ref, max_delta
             return 0.0, max_delta
         
         except Exception as e:
-            print(f"Error computing reference and span: {e}, {traceback.format_exc()}")
             self.noticequeue.Report(Level.error, f"Error computing reference and span: {e}", traceback.format_exc())
 
             return 0.0, 1.0

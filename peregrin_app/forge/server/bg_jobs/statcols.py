@@ -10,10 +10,10 @@ def mount_statcols(input, output, session, S, noticequeue):
     def update_statcols():
 
         try:
-            spot_cols = S.SPOTSTATS.get().columns
-            track_cols = S.TRACKSTATS.get().columns
-            frame_cols = S.FRAMESTATS.get().columns
-            tinterval_cols = S.TINTERVALSTATS.get().columns
+            spot_cols = S.UNFILTERED_SPOTSTATS.get().columns
+            track_cols = S.UNFILTERED_TRACKSTATS.get().columns
+            frame_cols = S.UNFILTERED_FRAMESTATS.get().columns
+            tinterval_cols = S.UNFILTERED_TINTERVALSTATS.get().columns
 
             try:
                 spot_cols = spot_cols.drop(['Track ID', 'Track UID', 'Condition', 'Replicate'])

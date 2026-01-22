@@ -313,8 +313,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
                     if not df_tintervals.equals(S.TINTERVALSTATS.get()): S.TINTERVALSTATS.set(df_tintervals)
-                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
-                    #         and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
 
 
             @reactive.Effect
@@ -346,10 +344,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
                     if not df_tintervals.equals(S.TINTERVALSTATS.get()): S.TINTERVALSTATS.set(df_tintervals)
-                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
-                    #         and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
-
-
 
 
         # _ Condition Colors and Order _
@@ -404,8 +398,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
                     if not df_tintervals.equals(S.TINTERVALSTATS.get()): S.TINTERVALSTATS.set(df_tintervals)
-                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
-                    #         and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
 
 
             @reactive.Effect
@@ -430,6 +422,4 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
-                    # if not (df_unfiltered_spots.equals(S.UNFILTERED_SPOTSTATS.get()) 
-                            # and df_unfiltered_tracks.equals(S.UNFILTERED_TRACKSTATS.get())): S.THRESHOLDS.set({1: {"spots": df_unfiltered_spots, "tracks": df_unfiltered_tracks}})
-            
+                    

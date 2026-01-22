@@ -15,10 +15,10 @@ def mount_thresholds_build(input, output, session, S):
     def sidebar_accordion_placeholder():
 
         if all(not is_empty(df) 
-               for df in [S.SPOTSTATS.get(), 
-                          S.TRACKSTATS.get(), 
-                          S.FRAMESTATS.get(), 
-                          S.TINTERVALSTATS.get()]):
+               for df in [S.UNFILTERED_SPOTSTATS.get(), 
+                          S.UNFILTERED_TRACKSTATS.get(), 
+                          S.UNFILTERED_FRAMESTATS.get(), 
+                          S.UNFILTERED_TINTERVALSTATS.get()]):
             
             threshold_1 = [
                 ui.panel_well(
@@ -115,13 +115,14 @@ def mount_thresholds_build(input, output, session, S):
             _sync_threshold_buttons(thresholds)
             return
 
-        ui.insert_accordion_panel(
-            id="threshold_accordion",
-            panel=render_threshold_accordion_panel(thresholds + 1),
-            position="after"
-        )
-
-        S.THRESHOLDS_ID.set(thresholds + 1)
+        with reactive.isolate():
+            ui.insert_accordion_panel(
+                id="threshold_accordion",
+                panel=render_threshold_accordion_panel(thresholds + 1),
+                position="after"
+            )
+        
+            S.THRESHOLDS_ID.set(thresholds + 1)
         _sync_threshold_buttons(thresholds + 1)
 
     @reactive.Effect
@@ -134,21 +135,21 @@ def mount_thresholds_build(input, output, session, S):
             _sync_threshold_buttons(thresholds)
             return
 
-        ui.remove_accordion_panel(
-            id="threshold_accordion",
-            target=f"Threshold {thresholds}"
-        )
+        with reactive.isolate():
+            ui.remove_accordion_panel(
+                id="threshold_accordion",
+                target=f"Threshold {thresholds}"
+            )
 
-        S.THRESHOLDS_ID.set(thresholds - 1)
+            S.THRESHOLDS_ID.set(thresholds - 1)
         _sync_threshold_buttons(thresholds - 1)
 
     @reactive.Effect
     def initialize_append():
         if all(not is_empty(df) 
-            for df in [S.SPOTSTATS.get(), 
-                        S.TRACKSTATS.get(), 
-                        S.FRAMESTATS.get(), 
-                        S.TINTERVALSTATS.get()]):
-            _sync_threshold_buttons(S.THRESHOLDS_ID.get())
+               for df in [S.UNFILTERED_SPOTSTATS.get(), 
+                          S.UNFILTERED_TRACKSTATS.get(), 
+                          S.UNFILTERED_FRAMESTATS.get(), 
+                          S.UNFILTERED_TINTERVALSTATS.get()]): _sync_threshold_buttons(S.THRESHOLDS_ID.get())
 
 

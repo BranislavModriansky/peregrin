@@ -135,18 +135,3 @@ def clock(f):
     
     return wrap
 
-
-# def dirty_call() -> int:
-#     call = 0
-
-#     def ringing(number=_sentinel := object()) -> int:
-#         nonlocal call
-#         call += 1
-#         if number is _sentinel:
-#             return call
-#         return call, number
-
-#     return ringing
-
-
-# phone = dirty_call()

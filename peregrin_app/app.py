@@ -8,6 +8,15 @@ ROOT = Path(__file__).resolve().parent
 
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
+# TODO: MAKE A PACKAGE OUT OF THE PLOTTING FUNCTIONS + other useful utility functions
+
+# TODO: Add option to load export the data in other formats, e.g. xml (adding metadata)
+
+# TODO: Add a checkbox control to enable/disable y-mirroring when loading data 
+
+# TODO: Fix the already processed data input and perhaps move it to the Input menu tab
+
+
 #TODO: add details about the condition and replicate plotted to the file name, and perhaps a title too. 
 
 # TODO: Fix the already processesd data input and perhaps move it to the Input menu tab

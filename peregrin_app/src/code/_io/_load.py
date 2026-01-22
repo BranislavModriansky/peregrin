@@ -39,19 +39,14 @@ class DataLoader:
             noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx.")
             return None
 
-        try:
-            if ext == '.csv':
-                return _try_reading(filepath, noticequeue=noticequeue)
-            elif ext in ['.xls', '.xlsx']:
-                return pd.read_excel(filepath)
-        except ValueError as e:
-            noticequeue.Report(Level.error, f"Unsupported file format: {ext}", f"{filepath} <- {str(e)}")
-            return None
-        except Exception as e:
-            noticequeue.Report(Level.error, f"Failed to load files", f"'{filepath}' <- {str(e)}")
-            return None
+        if ext == '.csv':
+            return _try_reading(filepath, noticequeue=noticequeue)
+        elif ext in ['.xls', '.xlsx']:
+            return pd.read_excel(filepath)
+        elif ext == '.xml':
+            return pd.read_xml(filepath)
         
-    
+
 
     # @staticmethod
     def ExtractStripped(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
