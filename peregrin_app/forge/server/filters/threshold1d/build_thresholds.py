@@ -91,9 +91,27 @@ def mount_thresholds_build(input, output, session, S):
     @output()
     @render.text
     def sidebar_label():
-        return ui.markdown(
-            f""" <h3> <b>  Data threshold  </b> </h3> """
-        )
+        return ui.markdown(f""" <h3> <b>  Data threshold  </b> </h3> """)
+    
+
+    # ________ THRESHOLD SETTINGS IMPORT / EXPORT ________
+
+    # TODO: add new import / export features for threshold settings
+
+    # @output()
+    # @render.ui
+    # def threshold_settings_imex():
+    #     if all(not is_empty(df) 
+    #            for df in [S.UNFILTERED_SPOTSTATS.get(), 
+    #                       S.UNFILTERED_TRACKSTATS.get(), 
+    #                       S.UNFILTERED_FRAMESTATS.get(), 
+    #                       S.UNFILTERED_TINTERVALSTATS.get()]):
+            
+    #         return ui.row(
+    #             ui.input_file(id="upload_threshold_settings", label="📂", width="33%"),
+    #             ui.download_button(id="download_threshold_settings", label="💾", width="33%", _class="btn-noframe"),
+    #             ui.download_button(id="download_threshold_info", label="📝", width="33%", _class="btn-noframe")
+    #         )
     
 
     # ________ ADD / REMOVE THRESHOLDS BUTTONS ________
