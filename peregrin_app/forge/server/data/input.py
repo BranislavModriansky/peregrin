@@ -237,8 +237,6 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.FRAMESTATS.set(S.UNFILTERED_FRAMESTATS.get())
             S.TINTERVALSTATS.set(S.UNFILTERED_TINTERVALSTATS.get())
 
-            S.THRESHOLDS.set({1: {"spots": S.UNFILTERED_SPOTSTATS.get(), "tracks": S.UNFILTERED_TRACKSTATS.get()}})
-
             ui.update_sidebar(id="sidebar", show=True)
             ui.update_action_button(id="append_threshold", disabled=False)
 
@@ -267,8 +265,7 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.TRACKSTATS.set(Tracks(df))
             S.FRAMESTATS.set(Frames(df))
             S.TINTERVALSTATS.set(TimeIntervals(df)())
-            S.THRESHOLDS.set({1: {"spots": S.UNFILTERED_SPOTSTATS.get(), "tracks": S.UNFILTERED_TRACKSTATS.get()}})
-
+            
             ui.update_action_button(id="append_threshold", disabled=False)
             
         except Exception as e:

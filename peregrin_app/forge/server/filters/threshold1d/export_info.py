@@ -11,6 +11,7 @@ def mount_thresholds_info_export(input, output, session, S):
     @output()
     @render.ui
     def threshold_info():
+        return None
 
         try:
             blocks = []
@@ -107,6 +108,7 @@ def mount_thresholds_info_export(input, output, session, S):
         Build an SVG 'Info' panel using current Shiny reactives.
         Works for both 1D and 2D thresholding like in your filter_info().
         """
+        return
         
         # ---------- helpers ----------
         pad = 16
