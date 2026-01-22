@@ -32,7 +32,8 @@ app_ui = ui.page_sidebar(
         ui.input_task_button(id="set_threshold", label="Set threshold", label_busy="Applying...", class_="btn-secondary task-btn", disabled=True),
         ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
         ui.output_ui(id="threshold_info"),
-        ui.download_button(id="download_threshold_info", label="Info SVG", width="100%", _class="space-x-2"),
+        # ui.download_button(id="download_threshold_info", label="Info SVG", width="100%", _class="space-x-2"),
+        ui.output_ui(id="threshold_settings_imex"),
         id="sidebar", open="closed", position="right", width="300px"
     ),
 

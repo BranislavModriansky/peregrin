@@ -5,13 +5,10 @@ import shiny.ui as ui
 from shiny import reactive, render   
 from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals, Metrics, Level
 
-# from utils import emit_warning
-
 
 
 
 def mount_data_input(input, output, session, S, noticequeue):
-
 
     @output
     @render.ui
@@ -78,13 +75,20 @@ def mount_data_input(input, output, session, S, noticequeue):
                 )
             ]
         
+
+    # _ _ _ _ STABILIZE DATA INPUT PANEL _ _ _ _
+
+    @reactive.calc
+    def stabilize_input():
+        ui.update_action_button(id="import_mode_btn", disabled=True)
+
+        
     # _ _ _ _ RAW DATA INPUT CONTAINERS CONTROL _ _ _ _
 
     @reactive.Effect
     @reactive.event(input.add_input)
     def add_input():
         id = S.INPUTS.get()
-        # emit_warning(report="Warning", message=f"Missing colors in {1} data: {2}. Generating random colors instead.")
         S.INPUTS.set(id + 1)
         session.send_input_message("remove_input", {"disabled": id < 1})
 
@@ -144,19 +148,22 @@ def mount_data_input(input, output, session, S, noticequeue):
 
 
 
-    # _ _ _ _ RUN - COMPUTE RAW INPUT _ _ _ _
+    # _ _ _ _ RAW DATA INPUT => RUN -> COMPUTE _ _ _ _
 
+    def is_busy(val):
+            return isinstance(val, list) and len(val) > 0
     
     @reactive.Effect
     def run_btn_toggle():
         files_uploaded = [input[f"input_file{idx}"]() for idx in range(1, S.INPUTS.get()+1)]
-        def is_busy(val):
-            return isinstance(val, list) and len(val) > 0
-        all_busy = all(is_busy(f) for f in files_uploaded)
-        if all_busy:
+        
+        if all(is_busy(f) for f in files_uploaded):
             S.READYTORUN.set(True)
         else:
             S.READYTORUN.set(False)
+
+        if any(is_busy(f) for f in files_uploaded):
+            stabilize_input()
 
     @output()
     @render.ui
@@ -177,13 +184,13 @@ def mount_data_input(input, output, session, S, noticequeue):
 
             files = input[f"input_file{idx}"]()
 
+            if not files:
+                break
+
             if input.auto_label():
                 cond_label = files[0].get("name").split("#")[1] if len(files[0].get("name").split("#")) >= 2 else None #TODO: display an error if the file label is incorrect
             else:
                 cond_label = input[f"condition_label{idx}"]()
-
-            if not files:
-                break
 
             for file_idx, fileinfo in enumerate(files, start=1):
                 try:
@@ -230,8 +237,6 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.FRAMESTATS.set(S.UNFILTERED_FRAMESTATS.get())
             S.TINTERVALSTATS.set(S.UNFILTERED_TINTERVALSTATS.get())
 
-            S.THRESHOLDS.set({1: {"spots": S.UNFILTERED_SPOTSTATS.get(), "tracks": S.UNFILTERED_TRACKSTATS.get()}})
-
             ui.update_sidebar(id="sidebar", show=True)
             ui.update_action_button(id="append_threshold", disabled=False)
 
@@ -246,7 +251,10 @@ def mount_data_input(input, output, session, S, noticequeue):
     @reactive.event(input.already_processed_input)
     def load_processed_data():
         fileinfo = input.already_processed_input()
+
         try:
+            stabilize_input()
+
             df = DataLoader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
 
             S.UNFILTERED_SPOTSTATS.set(df)
@@ -257,8 +265,7 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.TRACKSTATS.set(Tracks(df))
             S.FRAMESTATS.set(Frames(df))
             S.TINTERVALSTATS.set(TimeIntervals(df)())
-            S.THRESHOLDS.set({1: {"spots": S.UNFILTERED_SPOTSTATS.get(), "tracks": S.UNFILTERED_TRACKSTATS.get()}})
-
+            
             ui.update_action_button(id="append_threshold", disabled=False)
             
         except Exception as e:

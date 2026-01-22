@@ -1,9 +1,17 @@
 from __future__ import annotations
+from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from scipy import stats
 from collections import defaultdict
 
+
+@dataclass
+class MainDataInventory:
+    Spots: pd.DataFrame
+    Tracks: pd.DataFrame
+    Frames: pd.DataFrame
+    TimeIntervals: pd.DataFrame
 
 
 @staticmethod
@@ -60,6 +68,8 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
     df['Cumulative confinement ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
     df['Frame'] = grp['Time point'].rank(method='dense').astype(int)
+
+    MainDataInventory.Spots = df
 
     return df
 
@@ -139,6 +149,9 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     result = agg.merge(dir_agg, left_index=True, right_index=True).reset_index()
     result['Track UID'] = np.arange(len(result))
     result.set_index('Track UID', drop=True, inplace=True, verify_integrity=True)
+    
+    MainDataInventory.Tracks = result
+
     return result
 
 
@@ -200,6 +213,8 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
         'Cumulative confinement ratio median': 'Confinement ratio median',
     })
     time_stats = time_stats.reset_index()
+
+    MainDataInventory.Frames = time_stats
 
     return time_stats
 
@@ -270,13 +285,9 @@ class TimeIntervals:
 
         # Time step from unique diffs; use median to resist irregular sampling
         t_unique = np.sort(df['Time point'].unique())
-        print(t_unique)
         if t_unique.size < 2:
             return pd.DataFrame(columns=cols)
         t_step = float(np.diff(t_unique)[0])
-        print(f"time diffs: {np.diff(t_unique)}")
-        print(f"medidan time diff: {np.median(np.diff(t_unique))}")
-        print(f"Time step: {t_step}")
 
 
 
@@ -361,7 +372,9 @@ class TimeIntervals:
         return out
     
     def __call__(self) -> pd.DataFrame:
-        return self.ComputeTimeIntervals()
+        tintervalstats = self.ComputeTimeIntervals()
+        MainDataInventory.TimeIntervals = tintervalstats
+        return tintervalstats
 
 
 class Summarize:

@@ -1,462 +1,466 @@
+import time
+import traceback
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 import shiny.ui as ui
 from shiny import render, reactive, req, ui
-from src.code import Frames, TimeIntervals, Metrics, Threshold, DebounceCalc, ThrottleCalc, DebounceEffect
+
+from peregrin_app.src.code._general import clock
+from src.code import Frames, TimeIntervals, Inventory1D, Filter1D, DebounceCalc, is_empty
 
 
 
-# one shared instance (tune eps if needed)
-THRESH = Threshold(eps=1e-12)
+def mount_thresholds_calc(input, output, session, S, noticequeue):
 
+    Filter1D.noticequeue = noticequeue
 
-def mount_thresholds_calc(input, output, session, S):
+    at_idx = reactive.Value()
 
-    @DebounceCalc(0.1)
+    @DebounceCalc(0.5)
     @reactive.calc
     def get_bins():
         return input.bins() if input.bins() is not None and input.bins() != 0 else 15
+    
+    
+    @reactive.Effect
+    @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
+    def initialize_inventory():
 
-    def render_threshold_container(id, thresholds):
+        Inventory1D.spot_data = S.UNFILTERED_SPOTSTATS.get()
+        Inventory1D.track_data = S.UNFILTERED_TRACKSTATS.get()
+
+        thresholds_id = S.THRESHOLDS_ID.get()
+        idxes = thresholds_id + 1
+
+        Inventory1D.id_idx = np.arange(idxes)
+
+        property = [None] * thresholds_id
+        filter = [None] * thresholds_id
+        selection = [None] * thresholds_id
+
+        for idx in range(thresholds_id):
+            id = idx + 1
+
+            try:
+                property[idx] = input[f"threshold_property_{id}"]()
+                ttype = input[f"threshold_type_{id}"]()
+
+                match ttype:
+
+                    case "Literal":
+                        filter[idx] = ttype, None
+
+                    case "Normalized 0-1":
+                        filter[idx] = ttype, None
+
+                    case "N-tile":
+                        filter[idx] = ttype, input[f"threshold_ntile_{id}"]()
+
+                    case "Relative to...":
+
+                        ref = input[f"reference_value_{id}"]()
+
+                        if ref == "My own value":
+                            ref = input[f"my_own_value_{id}"]()
+
+                        filter[idx] = ttype, ref
+
+                selection[idx] = input[f"threshold_slider_{id}"]()
+
+            except Exception:
+                pass
+
+            if property[idx] is None:
+                property[idx] = 'Track displacement'
+
+            if filter[idx] is None:
+                filter[idx] = ('Literal', None)
+
+        Inventory1D.property = property
+        Inventory1D.filter = filter
+        Inventory1D.selection = selection
+
+        Filter1D().Initialize()
+
+        try:
+            S.THRESHOLDS.set({
+                idx: {
+                    "property": Inventory1D.property[idx],
+                    "filter": Inventory1D.filter[idx],
+                    "selection": Inventory1D.selection[idx],
+                    "mask": Inventory1D.mask[idx],
+                    "series": Inventory1D.series[idx],
+                    "ambit": Inventory1D.ambit[idx],
+                } for idx in Inventory1D.id_idx
+            })
+
+        except Exception:
+            pass
+
+
+
+    def render_threshold_controls(inventory, idx, id, min=0, max=100, step=1):
         
         @output(id=f"manual_threshold_value_setting_placeholder_{id}")
         @render.ui
         def manual_threshold_value_setting():
-            
-            data = thresholds.get(id)
-            req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
-
-            spot_data = data.get("spots")
-            track_data = data.get("tracks")
-
-            property_name = input[f"threshold_property_{id}"]()
-            threshold_type = input[f"threshold_type_{id}"]()
-            req(property_name and threshold_type)
-            
-            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
-                spot_data=spot_data,
-                track_data=track_data,
-                property_name=property_name,
-                threshold_type=threshold_type,
-                quantile=input[f"threshold_quantile_{id}"](),
-                reference=input[f"reference_value_{id}"](),
-                reference_value=input[f"my_own_value_{id}"]()
-            )
-            
-            v_lo, v_hi = THRESH.format_numeric_pair((minimal,maximal))
-            min_fmt, max_fmt = THRESH.int_if_whole(minimal), THRESH.int_if_whole(maximal)
 
             return ui.row(
                 ui.column(6, ui.input_numeric(
                     f"floor_threshold_value_{id}",
                     label="min",
-                    value=v_lo,
-                    min=min_fmt,
-                    max=max_fmt,
-                    step=steps
+                    value=min,
+                    min=min,
+                    max=max,
+                    step=step
                 )),
                 ui.column(6, ui.input_numeric(
                     f"ceil_threshold_value_{id}",
                     label="max",
-                    value=v_hi,
-                    min=min_fmt,
-                    max=max_fmt,
-                    step=steps
+                    value=max,
+                    min=min,
+                    max=max,
+                    step=step
                 )),
             )
 
         @output(id=f"threshold_slider_placeholder_{id}")
         @render.ui
         def threshold_slider():
-            
-            data = thresholds.get(id)
-            req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
-
-            spot_data = data.get("spots")
-            track_data = data.get("tracks")
-
-            property_name = input[f"threshold_property_{id}"]()
-            threshold_type = input[f"threshold_type_{id}"]()
-            req(property_name and threshold_type)
-            
-            minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
-                spot_data=spot_data,
-                track_data=track_data,
-                property_name=property_name,
-                threshold_type=threshold_type,
-                quantile=input[f"threshold_quantile_{id}"](),
-                reference=input[f"reference_value_{id}"](),
-                reference_value=input[f"my_own_value_{id}"]()
-            )
 
             return ui.input_slider(
                 f"threshold_slider_{id}",
                 label=None,
-                min=minimal,
-                max=maximal,
-                value=(minimal,maximal),
-                step=steps
+                min=min,
+                max=max,
+                value=(min, max),
+                step=step
             )
-
-        @output(id=f"thresholding_histogram_placeholder_{id}")
-        @render.plot
-        def threshold_histogram():
-
-            _color = 'black' if input.app_theme() == "Shiny" else 'white'
-            _marker_color = '#337ab7' if input.app_theme() == "Shiny" else '#a15c5c'
-
-            data = thresholds.get(id)
-            req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
-
-            if input[f"threshold_property_{id}"]() in Metrics.Thresholding.SpotProperties:
-                data = data.get("spots")
-            if input[f"threshold_property_{id}"]() in Metrics.Thresholding.TrackProperties:
-                data = data.get("tracks")
-            if data is None or data.empty:
-                return
+        
+        # Sync slider to numeric inputs
+        @reactive.effect
+        @reactive.event(input[f"floor_threshold_value_{id}"], input[f"ceil_threshold_value_{id}"])
+        def _sync_slider_from_numeric():
+            floor_val = input[f"floor_threshold_value_{id}"]()
+            ceil_val = input[f"ceil_threshold_value_{id}"]()
             
-            property = input[f"threshold_property_{id}"]()
-            threshold_type = input[f"threshold_type_{id}"]()
-            try:
-                slider_low_pct, slider_high_pct = input[f"threshold_slider_{id}"]()
-            except Exception:
-                return
+            if floor_val is not None and ceil_val is not None:
+                with reactive.isolate():
+                    current_slider = input[f"threshold_slider_{id}"]()
+                    if current_slider != (floor_val, ceil_val):
+                        ui.update_slider(
+                            f"threshold_slider_{id}",
+                            value=(floor_val, ceil_val)
+                        )
+        
+        # Sync numeric inputs to slider
+        @reactive.effect
+        @reactive.event(input[f"threshold_slider_{id}"])
+        def _sync_numeric_from_slider():
+            slider_val = input[f"threshold_slider_{id}"]()
             
-            bins = get_bins()
+            if slider_val is not None:
+                with reactive.isolate():
+                    current_floor = input[f"floor_threshold_value_{id}"]()
+                    current_ceil = input[f"ceil_threshold_value_{id}"]()
+                    
+                    if current_floor != slider_val[0]:
+                        ui.update_numeric(
+                            f"floor_threshold_value_{id}",
+                            value=slider_val[0]
+                        )
+                    
+                    if current_ceil != slider_val[1]:
+                        ui.update_numeric(
+                            f"ceil_threshold_value_{id}",
+                            value=slider_val[1]
+                        )
 
-            if threshold_type == "Literal":
-                
-                values = data[property].dropna()
+    def update_threshold_controls(inventory, idx, id):
 
-                fig, ax = plt.subplots()
-                n, bins, patches = ax.hist(values, bins=bins, density=False)
+        min, max, step = inventory["ambit"]
+        selection = inventory["selection"]
 
-                # Color threshold
-                for i in range(len(patches)):
-                    if bins[i] < slider_low_pct or bins[i+1] > slider_high_pct:
-                        patches[i].set_facecolor("grey")
-                    else:
-                        patches[i].set_facecolor(_marker_color)
-
-                # Add KDE curve (scaled to match histogram)
-                kde = gaussian_kde(values)
-                x_kde = np.linspace(bins[0], bins[-1], 500)
-                y_kde = kde(x_kde)
-                # Scale KDE to histogram
-                y_kde_scaled = y_kde * (n.max() / y_kde.max())
-                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
-
-                ax.set_xticks([])  # Remove x-axis ticks
-                ax.set_yticks([])  # Remove y-axis ticks
-                ax.spines[["top", "left", "right"]].set_visible(False)
-
-                # return fig
-            
-            if threshold_type == "Normalized 0-1":
-
-                values = data[property].dropna()
-                try:
-                    normalized = (values - values.min()) / (values.max() - values.min())
-                except ZeroDivisionError:
-                    normalized = 0
-
-                fig, ax = plt.subplots()
-                n, bins, patches = ax.hist(normalized, bins=bins, density=False)
-
-                # Color threshold
-                for i in range(len(patches)):
-                    if bins[i] < slider_low_pct or bins[i+1] > slider_high_pct:
-                        patches[i].set_facecolor("grey")
-                    else:
-                        patches[i].set_facecolor(_marker_color)
-
-                # Add KDE curve (scaled to match histogram)
-                kde = gaussian_kde(normalized)
-                x_kde = np.linspace(bins[0], bins[-1], 500)
-                y_kde = kde(x_kde)
-                # Scale KDE to histogram
-                y_kde_scaled = y_kde * (n.max() / y_kde.max())
-                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
-
-                ax.set_xticks([])  # Remove x-axis ticks
-                ax.set_yticks([])  # Remove y-axis ticks
-                ax.spines[["top", "left", "right"]].set_visible(False)
-
-                # return fig
-
-            if threshold_type == "Quantile":
-
-                values = data[property].dropna()
-                
-                fig, ax = plt.subplots()
-                n, bins, patches = ax.hist(values, bins=bins, density=False)
-
-                # Get slider quantile values, 0-100 scale
-                slider_low, slider_high = slider_low_pct / 100, slider_high_pct / 100
-
-                if not 0 <= slider_low <= 1 or not 0 <= slider_high <= 1:
-                    slider_low, slider_high = 0, 1
-
-                # Convert slider percentiles to actual values
-                lower_bound = np.quantile(values, slider_low)
-                upper_bound = np.quantile(values, slider_high)
-
-                # Color histogram based on slider quantile bounds
-                for i in range(len(patches)):
-                    bin_start, bin_end = bins[i], bins[i + 1]
-                    if bin_end < lower_bound or bin_start > upper_bound:
-                        patches[i].set_facecolor("grey")
-                    else:
-                        patches[i].set_facecolor(_marker_color)
-
-                # KDE curve
-                kde = gaussian_kde(values)
-                x_kde = np.linspace(values.min(), values.max(), 500)
-                y_kde = kde(x_kde)
-                y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
-
-                ax.set_xticks([])
-                ax.set_yticks([])
-                ax.spines[["top", "left", "right"]].set_visible(False)
-                # return fig
-
-            if threshold_type == "Relative to...":
-                reference = input[f"reference_value_{id}"]()
-                if reference == "Mean":
-                    reference_value = float(data[property].dropna().mean())
-                elif reference == "Median":
-                    reference_value = float(data[property].dropna().median())
-                elif reference == "My own value":
-                    try:
-                        mv = input[f"my_own_value_{id}"]() if input[f"my_own_value_{id}"]() is not None else 0.0
-                        reference_value = float(mv) if isinstance(mv, (int, float)) else 0.0
-                    except Exception:
-                        reference_value = 0.0
-                else:
-                    return
-
-                # Build histogram in "shifted" space (centered at 0 = reference)
-                shifted = data[property].dropna() - reference_value
-
-                fig, ax = plt.subplots()
-                n, bins, patches = ax.hist(shifted, bins=bins, density=False)
-
-                # Slider gives distances [low, high] away from the reference
-                sel_low, sel_high = input[f"threshold_slider_{id}"]()
-                # Normalize order just in case
-                if sel_low > sel_high:
-                    sel_low, sel_high = sel_high, sel_low
-
-                # Utility: does [bin_start, bin_end] intersect either [-sel_high, -sel_low] or [sel_low, sel_high]?
-                def _intersects_symmetric(b0, b1, a, b):
-                    # interval A: [-b, -a], interval B: [a, b]
-                    left_hit  = (b1 >= -b) and (b0 <= -a)
-                    right_hit = (b1 >=  a) and (b0 <=  b)
-                    return left_hit or right_hit
-
-                # Color threshold bands: keep bars whose centers fall within the selected annulus
-                for i in range(len(patches)):
-                    bin_start, bin_end = bins[i], bins[i+1]
-                    if _intersects_symmetric(bin_start, bin_end, sel_low, sel_high):
-                        patches[i].set_facecolor(_marker_color)
-                    else:
-                        patches[i].set_facecolor("grey")
-
-                # KDE on shifted values (optional but matches your style)
-                kde = gaussian_kde(shifted)
-                x_kde = np.linspace(bins[0], bins[-1], 500)
-                y_kde = kde(x_kde)
-                y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
-
-                ax.axvline(0, linestyle="--", linewidth=1, color=_color)
-
-
-                ax.set_xticks([]); ax.set_yticks([])
-                ax.spines[["top", "left", "right"]].set_visible(False)
-
-
-            fig.set_facecolor('none')
-            ax.set_facecolor('none')
-            return fig
-
-    @reactive.Effect
-    @reactive.event(input.append_threshold, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
-    def render_threshold():
-        threshold_id = S.THRESHOLDS_ID.get()
         with reactive.isolate():
-            try:
-                thresholds = S.THRESHOLDS.get()
-            except Exception:
-                return
-        if not threshold_id or not thresholds:
-            return
 
-        render_threshold_container(threshold_id, thresholds)
-
-
-    # _ _ _ _ SYNCING SLIDER/MANUAL-SETTING VALUES _ _ _ _
-
-    def sync_threshold_values(id):
-
-        @DebounceEffect(1)
-        @reactive.Effect
-        @reactive.event(
-            input[f"floor_threshold_value_{id}"],
-            input[f"ceil_threshold_value_{id}"],
+            ui.update_slider(
+                f"threshold_slider_{id}",
+                min=min,
+                max=max,
+                step=step,
+                value=selection
             )
-        def sync_with_manual_threshold_value_setting():
+
+            ui.update_numeric(
+                f"floor_threshold_value_{id}",
+                min=min,
+                max=max,
+                step=step,
+                value=selection[0]
+            )
+
+            ui.update_numeric(
+                f"ceil_threshold_value_{id}",
+                min=min,
+                max=max,
+                step=step,
+                value=selection[1]
+            )
+
+
+    @reactive.calc
+    def update_histogram():
+        idx = at_idx.get()
+
+        if idx is not None:
             
-            # Read without creating extra reactive deps
-            with reactive.isolate():
-                try:
-                    slider_vals = input[f"threshold_slider_{id}"]()
-                except Exception:
-                    slider_vals = (None, None)
-                try:
-                    cur_floor = input[f"floor_threshold_value_{id}"]()
-                    cur_ceil  = input[f"ceil_threshold_value_{id}"]()
-                except Exception:
-                    return
+            id = idx + 1
 
-                # Validate + normalize
-                if not isinstance(cur_floor, (int, float)) or not isinstance(cur_ceil, (int, float)):
-                    return
-                if cur_floor > cur_ceil:
-                    cur_floor, cur_ceil = cur_ceil, cur_floor
+            @output(id=f"thresholding_histogram_placeholder_{id}")
+            @render.plot
+            def threshold_histogram():
 
-                # Only push if changed
-                existing = slider_vals if (isinstance(slider_vals, (tuple, list)) and len(slider_vals) == 2) else (None, None)
-                if cur_floor != existing[0] or cur_ceil != existing[1]:
-                    ui.update_slider(f"threshold_slider_{id}", value=(cur_floor, cur_ceil))
+                inventory = S.THRESHOLDS.get()[idx]
 
-        @DebounceEffect(1)
-        @reactive.Effect
-        @reactive.event(input[f"threshold_slider_{id}"])
-        def sync_with_threshold_slider():
-            
-            # Read without creating extra reactive deps
-            with reactive.isolate():
-                try:
-                    cur_floor = input[f"floor_threshold_value_{id}"]()
-                    cur_ceil  = input[f"ceil_threshold_value_{id}"]()
-                except Exception:
-                    return
-                try:
-                    slider_vals = input[f"threshold_slider_{id}"]()
-                except Exception:
-                    slider_vals = (None, None)
+                _color = 'black' if input.app_theme() == "Shiny" else 'white'
+                _marker_color = '#337ab7' if input.app_theme() == "Shiny" else '#a15c5c'
 
-                # Validate + normalize
-                if not isinstance(slider_vals[0], (int, float)) or not isinstance(slider_vals[1], (int, float)):
-                    return
-                if slider_vals[0] > slider_vals[1]:
-                    slider_vals = (slider_vals[1], slider_vals[0])
+                series = inventory["series"]
+
+                req(not is_empty(series))
+
+                req(not None in [
+                    inventory["filter"][0], 
+                    inventory["selection"]
+                ])
+
+                filter = inventory["filter"]
+                
+                bottom, top = inventory["selection"]
+                
+                bins = get_bins()
+
+                fig, ax = plt.subplots()
+                    
+                n, bins, patches = ax.hist(series, bins=bins, density=False)
+
+                relative = False
+
+                match filter[0]:
+
+                    case "Literal":
+                        relative = False
+
+                    case "Normalized 0-1":
+                        relative = False
+
+                    case "N-tile":
+                        bottom, top = bottom/100, top/100
+                        if not 0 <= bottom <= 1 or not 0 <= top <= 1:
+                            bottom, top = 0, 1
+
+                        # Convert n-tile values to actual data values
+                        bottom = np.quantile(series, bottom)
+                        top = np.quantile(series, top)
+
+                        relative = False
+
+                    case "Relative to...":
+                        relative = True
+                        reference = filter[1]
+                        try:
+                            bottom, top = sorted([abs(bottom), abs(top)])
+                        except Exception:
+                            bottom, top = 0, 0
 
 
-                # Only push if changed
-                existing = (cur_floor, cur_ceil) if (isinstance(cur_floor, (int, float)) and isinstance(cur_ceil, (int, float))) else (None, None)
-                if slider_vals != existing:
-                    ui.update_numeric(f"floor_threshold_value_{id}", value=float(slider_vals[0]))
-                    ui.update_numeric(f"ceil_threshold_value_{id}", value=float(slider_vals[1]))
+                for i in range(len(patches)):
 
-    # @ThrottleCalc(50)
-    @reactive.Effect
-    def sync_thresholds():
-        for id in range(1, S.THRESHOLDS_ID.get()+1):
-            sync_threshold_values(id)
+                    if filter[0] == "Relative to...":
+                        bounds = Filter1D.intersects_symmetric(i, bins, bottom, top, reference)
+                    else:
+                        bounds = Filter1D.bin_bounds(i, bins, bottom, top)
 
+                    if bounds:
+                        patches[i].set_facecolor(_marker_color)
+                    else:
+                        patches[i].set_facecolor("grey")
 
-    # _ _ _ _ UPDATING THRESHOLDS ON CHANGE _ _ _ _
+                kde = gaussian_kde(series)
+                x_kde = np.linspace(bins[0], bins[-1], 500)
+                y_kde = kde(x_kde)
+                y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
+                
+                ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
+
+                if relative: 
+                    ax.axvline(reference, linestyle="--", linewidth=1, color=_color)
+
+                ax.set_xticks([]); ax.set_yticks([])  
+                ax.spines[["top", "left", "right"]].set_visible(False)
+
+                fig.set_facecolor('none')
+                ax.set_facecolor('none')
+                
+                return fig
+
     
-    def update_thresholds_wired(id):
 
-        @DebounceEffect(1)
-        @reactive.Effect
-        @reactive.event(input[f"threshold_slider_{id}"])
-        def pass_thresholded_data():
+    @reactive.calc
+    def render_threshold():
 
-            with reactive.isolate():
-                thresholds = S.THRESHOLDS.get()
+        id = S.THRESHOLDS_ID.get()
+        idx = id - 1
 
-                data = thresholds.get(id)
-                req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
+        inventory = S.THRESHOLDS.get()
+        inventory = inventory.get(idx)
 
-                spot_data = data.get("spots")
-                track_data = data.get("tracks")
-
-                filter = THRESH.filter_data(
-                    df=spot_data if input[f"threshold_property_{id}"]() in Metrics.Thresholding.SpotProperties else track_data,
-                    threshold=input[f"threshold_slider_{id}"](),
-                    property=input[f"threshold_property_{id}"](),
-                    threshold_type=input[f"threshold_type_{id}"](),
-                    reference=input[f"reference_value_{id}"](),
-                    reference_value=input[f"my_own_value_{id}"]()
-                )
-
-                spots_output = spot_data.loc[filter.index.intersection(spot_data.index)]
-                tracks_output = track_data.loc[filter.index.intersection(track_data.index)]
-
-                thresholds |= {id+1: {"spots": spots_output, "tracks": tracks_output}}
-                S.THRESHOLDS.set(thresholds)
-
-        @DebounceEffect(1)
-        @reactive.Effect
-        @reactive.event(input[f"threshold_slider_{id}"])
-        def update_next_threshold():
-            """
-            Updating the slider updates the manual threshold values setting as well as the filte histogram.
-            """
-
-            with reactive.isolate():
-                thresholds = S.THRESHOLDS.get()
-                
-                try:
-                    data = thresholds.get(id+1)
-                except Exception:
-                    return
-                req(data is not None and data.get("spots") is not None and data.get("tracks") is not None)
-
-                spot_data = data.get("spots")
-                track_data = data.get("tracks")
-
-                property_name = input[f"threshold_property_{id+1}"]()
-                threshold_type = input[f"threshold_type_{id+1}"]()
-                req(property_name and threshold_type)
-                
-                minimal, maximal, steps, _ = THRESH.get_threshold_value_params(
-                    spot_data=spot_data,
-                    track_data=track_data,
-                    property_name=property_name,
-                    threshold_type=threshold_type,
-                    quantile=input[f"threshold_quantile_{id+1}"](),
-                    reference=input[f"reference_value_{id+1}"](),
-                    reference_value=input[f"my_own_value_{id+1}"]()
-                )
-
-                return ui.update_slider(
-                    f"threshold_slider_{id+1}",
-                    min=minimal,
-                    max=maximal,
-                    value=(minimal,maximal),
-                    step=steps
-                )   
-
-    @DebounceEffect(1)
-    @reactive.Effect
-    def update_thresholds():
-        try:
-            thresholds = S.THRESHOLDS.get()
-        except Exception:
-            return
-        if not thresholds:
+        if inventory is None or any(v is None for v in inventory.values()):
             return
         
-        for id in range(1, S.THRESHOLDS_ID.get()+1):
-            update_thresholds_wired(id)
+        render_threshold_controls(inventory, idx, id, *inventory["ambit"])
+        update_histogram()
+
+
+    @reactive.Effect
+    @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
+    def _():
+        if is_empty(S.UNFILTERED_SPOTSTATS.get()) and is_empty(S.UNFILTERED_TRACKSTATS.get()):
+            return
+        
+        if S._init_thresh.get():
+            render_threshold()
+            S._init_thresh.set(False)
+
+
+    @reactive.Effect
+    @reactive.event(input.append_threshold)
+    def _():
+        render_threshold()
+
+
+
+    @reactive.calc
+    def update_thresholds():
+
+        req(at_idx.is_set())
+        idx = at_idx.get()
+
+        inventory = S.THRESHOLDS.get()[idx]
+
+        update_threshold_controls(inventory, idx, idx + 1)
+        update_histogram()
+
+
+    @reactive.Effect
+    def _():
+
+        print(f"input.remove_threshold(): {input.remove_threshold()}")
+        print(f"len(Inventory1D.id_idx): {len(Inventory1D.id_idx)}")
+        print(f"S.THRESHOLDS_ID.get(): {S.THRESHOLDS_ID.get()}")
+
+        if (input.remove_threshold() > 0
+            and len(Inventory1D.id_idx) > S.THRESHOLDS_ID.get()):
+
+            Inventory1D.id_idx = np.arange(S.THRESHOLDS_ID.get() + 1)
+
+            return
+        
+        Inventory1D.id_idx = np.arange(S.THRESHOLDS_ID.get() + 1)
+
+        for idx in Inventory1D.id_idx[:-1]:
+            id = idx + 1
+
+            @reactive.Effect
+            @reactive.event(
+                input[f"threshold_property_{id}"],
+                input[f"threshold_type_{id}"],
+                    input[f"threshold_ntile_{id}"],
+                    input[f"reference_value_{id}"],
+                    input[f"my_own_value_{id}"],
+                input[f"threshold_slider_{id}"],
+                input.app_theme,
+            )
+            def _():
+
+                if idx not in Inventory1D.id_idx[:-1]:
+                    return
+
+                if None in [
+                    input[f"threshold_property_{id}"](),
+                    input[f"threshold_type_{id}"](),
+                    input[f"threshold_slider_{id}"](),
+                ]: return
+
+                p = input[f"threshold_property_{id}"]()
+                t = input[f"threshold_type_{id}"]()
+                s = input[f"threshold_slider_{id}"]()
+
+                match t:
+                    case "Literal":
+                        f = t, None
+                    case "Normalized 0-1":
+                        f = t, None
+
+                    case "N-tile":
+                        f = t, input[f"threshold_ntile_{id}"]()
+
+                    case "Relative to...":
+
+                        ref = input[f"reference_value_{id}"]()
+
+                        if ref == "My own value":
+                            ref = input[f"my_own_value_{id}"]()
+
+                        f = t, ref
+                print(f"Updating threshold idx {idx}:")
+                print(f"  - Inventory1D.property = {Inventory1D.property}")
+                Inventory1D.property[idx] = p
+                Inventory1D.filter[idx] = f
+                Inventory1D.selection[idx] = s
+
+                Filter1D().Downstream(idx)
+
+                S.THRESHOLDS.set({
+                    idx: {
+                        "property": Inventory1D.property[idx],
+                        "filter": Inventory1D.filter[idx],
+                        "selection": Inventory1D.selection[idx],
+                        "mask": Inventory1D.mask[idx],
+                        "series": Inventory1D.series[idx],
+                        "ambit": Inventory1D.ambit[idx],
+                    } for idx in Inventory1D.id_idx
+                })
+                
+                at_idx.set(idx)
+
+                update_thresholds()
+
+
+
+    @reactive.Effect
+    @reactive.event(input.remove_threshold)
+    def _():
+
+        with reactive.isolate():
+
+            Filter1D().PopLast()
+
+            S.THRESHOLDS.set({
+                idx: {
+                    "property": Inventory1D.property[idx],
+                    "filter": Inventory1D.filter[idx],
+                    "selection": Inventory1D.selection[idx],
+                    "mask": Inventory1D.mask[idx],
+                    "series": Inventory1D.series[idx],
+                    "ambit": Inventory1D.ambit[idx],
+                } for idx in Inventory1D.id_idx
+            })
+            
+
+
     
 
     # _ _ _ _ SETTING THE THRESHOLDS _ _ _ _
@@ -464,44 +468,25 @@ def mount_thresholds_calc(input, output, session, S):
     @reactive.Effect
     @reactive.event(input.set_threshold)
     def threshold_data():
-        try: 
-            thresholds = S.THRESHOLDS.get()
-            latest = thresholds.get(list(thresholds.keys())[-1])
-            req(latest is not None and latest.get("spots") is not None and latest.get("tracks") is not None)
-        except Exception:
-            return
+    
+        try:
 
-        spots_filtered = pd.DataFrame(
-            latest.get("spots") if latest is not None and isinstance(latest, dict) else S.UNFILTERED_SPOTSTATS.get()
-        )
-        tracks_filtered = pd.DataFrame(
-            latest.get("tracks") if latest is not None and isinstance(latest, dict) else S.UNFILTERED_TRACKSTATS.get()
-        )
-        frames_filtered = Frames(spots_filtered)
-        tintervals_filtered = TimeIntervals(spots_filtered)()
+            spotstats, trackstats, framestats, tintervalstats = Filter1D().Apply()
+            # Set all stats at once to trigger reactive updates
+            S.SPOTSTATS.set(spotstats)
+            S.TRACKSTATS.set(trackstats)
+            S.FRAMESTATS.set(framestats)
+            S.TINTERVALSTATS.set(tintervalstats)
 
-        # --- keep labeling-derived columns (e.g., colors) even if threshold snapshots were created before labeling ---
-        color_cols = ("Replicate color", "Condition color")
-        
-        base_spots = S.UNFILTERED_SPOTSTATS.get()
-        base_tracks = S.UNFILTERED_TRACKSTATS.get()
-        base_frames = S.UNFILTERED_FRAMESTATS.get()
-        base_tintervals = S.UNFILTERED_TINTERVALSTATS.get()
+            print(f"Thresholds set successfully:")
+            print(f"  - Spots: {len(spotstats)} rows")
+            print(f"  - Tracks: {len(trackstats)} rows")
+            print(f"  - Frames: {len(framestats)} rows")
+            print(f"  - Intervals: {len(tintervalstats)} rows")
 
-        req(df.empty and df is None for df in [base_spots, base_tracks, base_frames, base_tintervals])
-        for c in color_cols:
-            try: spots_filtered[c] = base_spots.reindex(spots_filtered.index)[c].to_numpy()
-            except Exception: pass
-            try: tracks_filtered[c] = base_tracks.reindex(tracks_filtered.index)[c].to_numpy()
-            except Exception: pass
-            try: frames_filtered[c] = base_frames.reindex(frames_filtered.index)[c].to_numpy()
-            except Exception: pass
-            try: tintervals_filtered[c] = base_tintervals.reindex(tintervals_filtered.index)[c].to_numpy()
-            except Exception: pass
-        
+        except Exception as e:
+            print(f"Error setting thresholds: {e}")
+            traceback.print_exc()
 
-        S.SPOTSTATS.set(spots_filtered)
-        S.TRACKSTATS.set(tracks_filtered)
-        S.FRAMESTATS.set(frames_filtered)
-        S.TINTERVALSTATS.set(tintervals_filtered)
+
 
