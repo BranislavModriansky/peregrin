@@ -8,6 +8,9 @@ ROOT = Path(__file__).resolve().parent
 
 app = App(app_ui, Server, static_assets=ROOT / "src" / "styles")
 
+# TODO: make two options for chart downloads - an svg with no background and a png
+#       -> the buttons can have width 50% each and be side by side
+
 # TODO: MAKE A PACKAGE OUT OF THE PLOTTING FUNCTIONS + other useful utility functions
 
 # TODO: Add option to load export the data in other formats, e.g. xml (adding metadata)
