@@ -390,9 +390,9 @@ class Summarize:
 
     @staticmethod
     def column_summary(series: pd.Series) -> dict:
-        if pd.api.types.is_numeric_dtype(series):
+        if pd.api.types.is_numeric_dtype(series) and not all(np.isnan(series)):
             return {
-                "type": "numeric",
+                "type": "type_one",
                 "missing": int(series.isna().sum()),
                 "distinct": series.nunique(dropna=True),
                 "min": series.min(),
@@ -406,7 +406,7 @@ class Summarize:
         else:
             value_counts = series.value_counts(dropna=True, normalize=True).head(3)
             return {
-                "type": "categorical",
+                "type": "type_zero",
                 "missing": int(series.isna().sum()),
                 "distinct": series.nunique(dropna=True),
                 "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],   

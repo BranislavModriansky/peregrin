@@ -82,7 +82,7 @@ def mount_data_display(input, output, session, S):
         for col, stats in column_stats.items():
             if col not in ["Track ID", "Track UID"]:
                 
-                if (stats["type"] == "numeric" 
+                if (stats["type"] == "type_one" 
                     and col not in ["Condition", "Replicate", "Condition color", "Replicate color", 
                                     "Frame", "Time point", "Frame lag", "Time lag"]):
                     stat = col.strip().lower().replace(" ", "_")
@@ -97,7 +97,6 @@ def mount_data_display(input, output, session, S):
                         ui.div(ui.tags.b("sd: "), str(Values.RoundSigFigs(stats['sd'], 5))),
                         ui.div(ui.tags.b("variance: "), str(Values.RoundSigFigs(stats['variance'], 5))),
                         ui.div(ui.tags.b("mode: "), str(Values.RoundSigFigs(stats['mode'], 5))),
-                        ui.div("numeric", style="font-size: 0.9em; font-weight: 300; font-style: italic; text-align: right;"),
                         class_="column-body"
                     )
 
@@ -105,11 +104,11 @@ def mount_data_display(input, output, session, S):
                     body = ui.div(
                         ui.div(ui.tags.b("missing: "), str(stats['missing'])),
                         ui.div(ui.tags.b("distinct: "), str(stats['distinct'])),
+                        ui.div(ui.tags.b("top values:")) if stats.get("top") else None,
                         *[
-                            ui.div(ui.tags.b(f"{val}: "), f"{pct}%")
+                            ui.div(ui.tags.b(f"{val} "), f" {pct}%")
                             for val, pct in stats.get("top", [])
                         ],
-                        ui.div("categorical", style="font-size: 0.9em; font-weight: 300; font-style: italic; text-align: right;"),
                         class_="column-body"
                     )
                     
@@ -242,7 +241,7 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.SPOTSUMMARY)
     def _():
         for col, stats in S.SPOTSUMMARY.get()["columns"].items():
-            if stats["type"] == "numeric" and col not in ["Condition", "Replicate"]:
+            if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_")
                 
                 @output(id=f"hist_spots_{stat_id}")
@@ -256,7 +255,7 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.TRACKSUMMARY)
     def _():
         for col, stats in S.TRACKSUMMARY.get()["columns"].items():
-            if stats["type"] == "numeric" and col not in ["Condition", "Replicate"]:
+            if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_")
 
                 @output(id=f"hist_tracks_{stat_id}")
@@ -270,7 +269,7 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.FRAMESUMMARY)
     def _():
         for col, stats in S.FRAMESUMMARY.get()["columns"].items():
-            if stats["type"] == "numeric" and col not in ["Condition", "Replicate"]:
+            if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_")
 
                 @output(id=f"hist_frames_{stat_id}")
@@ -284,7 +283,7 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.TINTERVALSUMMARY)
     def _():
         for col, stats in S.TINTERVALSUMMARY.get()["columns"].items():
-            if stats["type"] == "numeric" and col not in ["Condition", "Replicate"]:
+            if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_")
 
                 @output(id=f"hist_tintervals_{stat_id}")
