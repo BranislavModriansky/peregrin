@@ -3,6 +3,7 @@ import asyncio
 import warnings
 
 from datetime import date
+from matplotlib.pyplot import text
 import pandas as pd
 
 from shiny import render, reactive, ui, req
@@ -88,6 +89,12 @@ def MountTracks(input, output, session, S, noticequeue):
         IMPORTANT: Call only from a reactive context (main thread).
         Do NOT call from inside an extended_task.
         """
+
+        if input.tracks_annotate_r():
+            annotate_r = input.tracks_r_annotstyle()
+        else:
+            annotate_r = None
+
         return dict(
             Spots_df=S.SPOTSTATS.get(),
             Tracks_df=S.TRACKSTATS.get(),
@@ -114,6 +121,9 @@ def MountTracks(input, output, session, S, noticequeue):
             dpi=input.tar_dpi(),
             units_time=S.UNITS.get().get("Time point", "s"),
             noticequeue=noticequeue,
+            text_color='whitesmoke' if input.theme() == 'dark' else 'dimgrey',
+            annotate_r=annotate_r,
+            annotate_theta=input.tracks_annotate_theta()
         )
     
     
