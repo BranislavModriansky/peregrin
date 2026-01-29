@@ -179,7 +179,7 @@ app_ui = ui.page_sidebar(
                         ),
 
                         # _ _ SETTINGS _ _
-                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Polar", "Animated"], selected="Realistic", width="200px"),
+                        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Normalized", "Animated"], selected="Normalized", width="200px"),
 
                         ui.accordion(
                             ui.accordion_panel(
@@ -217,11 +217,21 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.accordion_panel(
                                         "Decoratives",
-                                        ui.input_checkbox("tracks_show_grid", "Show grid", True),
-                                        ui.panel_conditional(
-                                            "input.tracks_show_grid && input.track_reconstruction_method == 'Polar'",
-                                            ui.input_selectize("tracks_grid_style", "Grid style:", ["simple-1", "simple-2", "spindle", "radial", "dartboard-1", "dartboard-2"], width="140px"),
+                                        ui.row(
+                                            ui.column(2, ui.input_checkbox("tracks_show_grid", "Show grid", True)),
+                                            ui.panel_conditional(
+                                                "input.tracks_show_grid && input.track_reconstruction_method == 'Normalized'",
+                                                ui.input_selectize("tracks_grid_style", "Grid style:", ["simple-1", "simple-2", "spindle", "radial", "dartboard-1", "dartboard-2"], width="140px"),
+                                            ), 
                                         ),
+                                        ui.row(
+                                            ui.column(2, ui.input_checkbox("tracks_annotate_r", "Annotate r axis", True)),
+                                            ui.panel_conditional(
+                                                "input.tracks_annotate_r && input.track_reconstruction_method == 'Normalized'",
+                                                ui.column(2, ui.input_selectize("tracks_r_annotstyle", "R axis annotation:", ["minimal", "detailed"], width="140px"))
+                                            )
+                                        ),
+                                        ui.column(2, ui.input_checkbox("tracks_annotate_theta", "Annotate theta axis", False)),                                        
                                     ),
                                 )
                             ),
@@ -280,7 +290,7 @@ app_ui = ui.page_sidebar(
                             ui.input_task_button(id="trr_generate", label="Generate", class_="btn-secondary task-btn", width="100%"),
                         ),
                         ui.panel_conditional(
-                            "input.track_reconstruction_method == 'Polar'",
+                            "input.track_reconstruction_method == 'Normalized'",
                             ui.input_task_button(id="tnr_generate", label="Generate", class_="btn-secondary task-btn", width="100%"),
                         ),
                         ui.panel_conditional(
@@ -308,7 +318,7 @@ app_ui = ui.page_sidebar(
                         ui.download_button("trr_download", "Download", width="100%")
                     ),
                     ui.panel_conditional(
-                        "input.track_reconstruction_method == 'Polar'",
+                        "input.track_reconstruction_method == 'Normalized'",
                         ui.card(
                             ui.output_plot("track_reconstruction_normalized"),
                             full_screen=False,
@@ -369,19 +379,6 @@ app_ui = ui.page_sidebar(
                                 ui.br(),
                                 ui.row(
                                     ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories", "none": "No normalization"}, selected="globally"),
-                                #     ui.column(
-                                #         2, 
-                                #         ui.input_checkbox(id="dd_add_weights", label="Add weights", value=False),
-                                #         ui.panel_conditional(
-                                #             "input.dd_add_weights == true",
-                                #             ui.div("does not apply on rose chart", style="font-size: 0.8em; font-style: italic; margin-left: 2x; margin-top: -12px; alpha: 0.5;"),
-                                #         ),
-                                #         offset=2,
-                                #     ),
-                                #     ui.panel_conditional(
-                                #         "input.dd_add_weights == true",
-                                #         ui.div(ui.input_selectize(id="dd_weight", label=None, choices=[p for p in Metrics.Track if p not in ["Direction mean"]], selected=None, width="200px"), style="margin-top: -5px;"),
-                                #     ),
                                 )
                             ),
                             class_="accordion02"
@@ -1208,6 +1205,8 @@ app_ui = ui.page_sidebar(
                 options={"hideSelected": True, },
             ),
             ui.output_ui("custom_theme_url"),
+
+            ui.input_dark_mode(id="theme", mode='light'),
         ),
         title=ui.tags.span(
             ui.a(
@@ -1215,7 +1214,6 @@ app_ui = ui.page_sidebar(
             href="https://github.com/BranislavModriansky/Peregrin/tree/main",
             class_="peregrin-logo",
             ),
-            
         ),
         # title=ui.nav_panel
         

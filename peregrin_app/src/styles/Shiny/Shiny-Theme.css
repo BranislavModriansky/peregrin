@@ -5,6 +5,11 @@
     text-decoration: none !important;
 }
 
+.navbar-brand {
+    margin-top: -20px !important;
+    padding-right: 10px !important;
+}
+
 /* data input labeling sidebar */
 #labeling_sidebar {
     background-color: #f8f8f8 !important;
