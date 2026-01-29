@@ -114,7 +114,7 @@ class Colors:
     def BuildQualPalette(data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        data.reset_index(drop=False, inplace=True)
+        # data.reset_index(drop=False, inplace=True)
         tags = data[tag].unique().tolist() if not which else which
 
         mp = {}
