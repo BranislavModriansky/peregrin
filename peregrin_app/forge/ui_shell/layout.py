@@ -1193,7 +1193,7 @@ app_ui = ui.page_sidebar(
 
         ui.nav_control(
             ui.output_ui("theme_css_injector"),
-            ui.input_dark_mode(id="app_theme", mode='dark')
+            ui.input_dark_mode(id="app_theme")
         ),
         
         title=ui.tags.span(
