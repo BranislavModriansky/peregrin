@@ -121,7 +121,7 @@ def MountTracks(input, output, session, S, noticequeue):
             dpi=input.tar_dpi(),
             units_time=S.UNITS.get().get("Time point", "s"),
             noticequeue=noticequeue,
-            text_color='whitesmoke' if input.theme() == 'dark' else 'dimgrey',
+            text_color='whitesmoke' if input.app_theme() == 'dark' else 'dimgrey',
             annotate_r=annotate_r,
             annotate_theta=input.tracks_annotate_theta()
         )

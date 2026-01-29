@@ -64,3 +64,7 @@ token.json
 
 # Project-specific scratch
 /sketches/
+
+/peregrin_app/src/styles/Console/
+
+/peregrin_app/src/styles/Shiny/

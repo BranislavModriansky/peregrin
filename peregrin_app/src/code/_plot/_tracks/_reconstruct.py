@@ -54,6 +54,7 @@ class ReconstructTracks:
         self.gridstyle = kwargs.get('gridstyle', 'dartboard-1')
         self.annotate_r = kwargs.get('annotate_r', True)
         self.annotate_theta = kwargs.get('annotate_theta', True)
+        self.strip_backdrop = kwargs.get('strip_backdrop', True)
         
         self.Spots, self.Tracks = None, None
         self.segments, self.segment_colors = [], []
@@ -76,8 +77,8 @@ class ReconstructTracks:
             ax.set_ylim(np.nanmin(y), np.nanmax(y))
 
         ax.set_aspect('equal', adjustable='box')
-        ax.set_xlabel('X coordinate [microns]')
-        ax.set_ylabel('Y coordinate [microns]')
+        ax.set_xlabel('X coordinate [microns]', color=self.text_color)
+        ax.set_ylabel('Y coordinate [microns]', color=self.text_color)
         ax.set_title(self.title, fontsize=12, color=self.text_color)
         self._background_color(); ax.set_facecolor(self.face_color)
 
@@ -100,6 +101,9 @@ class ReconstructTracks:
         
         if self.mark_heads:
             self._head_markers(ax, polar=False)
+
+        if self.strip_backdrop:
+            fig.set_facecolor('none')
 
         return plt.gcf()
     
@@ -127,15 +131,6 @@ class ReconstructTracks:
         else:
             ax.grid(False)
 
-        print("==========================================================")
-        print("==========================================================")
-        print("==========================================================")
-        print(self.annotate_r)
-        print(self.annotate_theta)
-        print("==========================================================")
-        print("==========================================================")
-        print("==========================================================")
-
         self._annotate_r_axis(ax)
         self._annotate_theta_axis(ax)
 
@@ -144,7 +139,8 @@ class ReconstructTracks:
         if self.mark_heads:
             self._head_markers(ax, polar=True)
 
-        
+        if self.strip_backdrop:
+            fig.set_facecolor('none')
 
         return plt.gcf()
 
@@ -227,8 +223,8 @@ class ReconstructTracks:
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlim(*xlim)
             ax.set_ylim(*ylim)
-            ax.set_xlabel(f"X coordinate [{units_space}]")
-            ax.set_ylabel(f"Y coordinate [{units_space}]")
+            ax.set_xlabel(f"X coordinate [{units_space}]", color=self.text_color)
+            ax.set_ylabel(f"Y coordinate [{units_space}]", color=self.text_color)
 
             if self.title:
                 ax.set_title(f"{self.title} | Time point: {t} {units_time}", fontsize=12, text_color=self.text_color)
@@ -258,6 +254,9 @@ class ReconstructTracks:
 
             if self.mark_heads:
                 self._head_markers(ax, polar=False, spots=Spots_t)
+
+            if self.strip_backdrop:
+                fig.set_facecolor('none')
 
             buf = BytesIO()
             fig.savefig(buf, format="png", dpi=dpi, facecolor=fig.get_facecolor())
