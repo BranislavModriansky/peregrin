@@ -225,7 +225,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 inventory = S.THRESHOLDS.get()[idx]
 
                 _color = 'black' if input.app_theme() == "light" else 'white'
-                _marker_color = '#337ab7' if input.app_theme() == "light" else '#a15c5c'
+                _marker_color = '#337ab7'
 
                 series = inventory["series"]
 

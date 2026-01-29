@@ -659,7 +659,7 @@ app_ui = ui.page_sidebar(
                                             "input.c_mode_msd != 'single color' && input.palette_stock_msd == true",
                                             ui.div(
                                                 ui.input_selectize("palette_stock_type_msd", "Palette:", Styles.PaletteQualitativeMatplotlib),    
-                                                style="margin-left: -30px;"
+                                                style="margin-left: -15px;"
                                             )
                                         )
                                     ),
@@ -1191,18 +1191,18 @@ app_ui = ui.page_sidebar(
 
         ui.nav_spacer(),
 
-        
-
-        ui.nav_control(ui.input_dark_mode(id="theme", mode='light')),
+        ui.nav_control(
+            ui.output_ui("theme_css_injector"),
+            ui.input_dark_mode(id="app_theme", mode='dark')
+        ),
         
         title=ui.tags.span(
             ui.a(
-            "Peregrin",
-            href="https://github.com/BranislavModriansky/Peregrin/tree/main",
-            class_="peregrin-logo",
+                "Peregrin",
+                href="https://github.com/BranislavModriansky/Peregrin/tree/main",
+                class_="peregrin-logo",
             ),
         ),
-        # title=ui.nav_panel
         
         id="main_nav",
         selected="Input Menu",

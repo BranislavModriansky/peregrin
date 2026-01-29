@@ -6,7 +6,7 @@
 }
 
 .navbar-brand {
-    margin-top: -20px !important;
+    margin-top: -3px !important;
     padding-right: 10px !important;
 }
 
@@ -19,6 +19,14 @@
 #labeling_sidebar_n_data_input_layout {
     border: 1px solid whitesmoke !important;
     border-left: none !important
+}
+
+.checkbox * {
+    box-shadow: none !important;
+}
+
+.accordion-header.h2 *{
+    box-shadow: none !important;
 }
 
 /* sidebar customization */
@@ -68,12 +76,10 @@
     border-right: 0 !important;
 }
 
-
 /* special accordion02 class */
 .accordion02 .accordion-header .accordion-button {
     font-weight: 600;
 }
-
 
 /* special draggable-accordion class */
 .draggable-accordion .accordion-item {
@@ -82,7 +88,6 @@
 .draggable-accordion .accordion-button {
     background-color: #f8f8f8;
 }
-
 
 /* plain-link class for markdown links */
 .plain-link {

@@ -15,7 +15,7 @@ def mount_buttons(input, output, session, S, noticequeue):
                 except Exception: pass
                 
                 return [
-                    ui.input_action_button("import_mode_btn", "Import processed data", class_="btn-tertiary-css"),
+                    ui.input_action_button("import_mode_btn", "Import processed data", class_="btn-tertiary-css", width="225px"),
                     ui.input_action_button("add_input", "Add data input", class_="btn-primary"),
                     ui.input_action_button("remove_input", "Remove data input", class_="btn-primary", disabled=True),
                     ui.output_ui("run_btn_ui"),
@@ -29,7 +29,7 @@ def mount_buttons(input, output, session, S, noticequeue):
                 # Wrap button and input in a flex container to keep them in one row
                 return ui.div(
                     ui.div(
-                        ui.input_action_button("import_mode_btn", "Import raw data", class_="btn-tertiary-css"),
+                        ui.input_action_button("import_mode_btn", "Import raw data", class_="btn-tertiary-css", width="225px"),
                         style="margin-top: -32px;"
                     ),
                     ui.div(

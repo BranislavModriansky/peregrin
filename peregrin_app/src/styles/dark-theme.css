@@ -1,3 +1,104 @@
+:root {
+    --color-one: #1e1f21;
+    --color-two: #181616;
+    --color-twothree: #1d1f23;
+    --color-three: #26282d;
+    --color-threefour: #333539;
+    --color-four: #3c3f45;
+    --color-five: #9b9b9b;
+    --color-stripes-one: #2c2c2c;
+    --color-stripes-two: #252525;
+    --color-stripes-three: transparent;
+
+    --stripes-one: linear-gradient(
+        -45deg, 
+        black 5%, var(--color-stripes-one) 5%, 
+        var(--color-stripes-one) 10%, black 10%, 
+        black 15%, var(--color-stripes-one) 15%,
+        var(--color-stripes-one) 20%, black 20%, 
+        black 25%, var(--color-stripes-one) 25%,
+        var(--color-stripes-one) 30%, black 30%, 
+        black 35%, var(--color-stripes-one) 35%,
+        var(--color-stripes-one) 40%, black 40%, 
+        black 45%, var(--color-stripes-one) 45%,
+        var(--color-stripes-one) 50%, black 50%, 
+        black 55%, var(--color-stripes-one) 55%,
+        var(--color-stripes-one) 60%, black 60%, 
+        black 65%, var(--color-stripes-one) 65%,
+        var(--color-stripes-one) 70%, black 70%, 
+        black 75%, var(--color-stripes-one) 75%,
+        var(--color-stripes-one) 80%, black 80%, 
+        black 85%, var(--color-stripes-one) 85%, 
+        var(--color-stripes-one) 90%, black 90%, 
+        black 95%, var(--color-stripes-one) 95%, 
+        var(--color-stripes-one)
+    );
+
+    --stripes-two: linear-gradient(
+        -45deg,
+        black 5%, var(--color-stripes-two) 5%, 
+        var(--color-stripes-two) 10%, black 10%, 
+        black 15%, var(--color-stripes-two) 15%,
+        var(--color-stripes-two) 20%, black 20%, 
+        black 25%, var(--color-stripes-two) 25%,
+        var(--color-stripes-two) 30%, black 30%, 
+        black 35%, var(--color-stripes-two) 35%,
+        var(--color-stripes-two) 40%, black 40%, 
+        black 45%, var(--color-stripes-two) 45%,
+        var(--color-stripes-two) 50%, black 50%, 
+        black 55%, var(--color-stripes-two) 55%,
+        var(--color-stripes-two) 60%, black 60%, 
+        black 65%, var(--color-stripes-two) 65%,
+        var(--color-stripes-two) 70%, black 70%, 
+        black 75%, var(--color-stripes-two) 75%,
+        var(--color-stripes-two) 80%, black 80%, 
+        black 85%, var(--color-stripes-two) 85%, 
+        var(--color-stripes-two) 90%, black 90%, 
+        black 95%, var(--color-stripes-two) 95%, 
+        var(--color-stripes-two)
+    );
+
+    --stripes-three: linear-gradient(
+        -45deg,
+        black 5%, transparent 5%, 
+        transparent 10%, black 10%, 
+        black 15%, transparent 15%,
+        transparent 20%, black 20%, 
+        black 25%, transparent 25%,
+        transparent 30%, black 30%, 
+        black 35%, transparent 35%,
+        transparent 40%, black 40%, 
+        black 45%, transparent 45%,
+        transparent 50%, black 50%, 
+        black 55%, transparent 55%,
+        transparent 60%, black 60%, 
+        black 65%, transparent 65%,
+        transparent 70%, black 70%, 
+        black 75%, transparent 75%,
+        transparent 80%, black 80%, 
+        black 85%, transparent 85%, 
+        transparent 90%, black 90%, 
+        black 95%, transparent 95%, 
+        transparent
+    );
+}
+
+.shiny-input-select * {
+    box-shadow: none !important;
+}
+
+.shiny-input-number * {
+    box-shadow: none !important;
+}
+
+.shiny-input-container * {
+    box-shadow: none !important;
+}
+
+.form-control * {
+    box-shadow: none !important;
+}
+
 .peregrin-logo {
     font-weight: 600 !important;
     font-size: 1.8rem !important;
@@ -6,19 +107,27 @@
 }
 
 .navbar-brand {
-    margin-top: -20px !important;
+    margin-top: -3px !important;
     padding-right: 10px !important;
 }
 
 /* data input labeling sidebar */
 #labeling_sidebar {
-    background-color: #f8f8f8 !important;
+    background-color: var(--color-two) !important;
 }
 
 /* sidebar layout border */
 #labeling_sidebar_n_data_input_layout {
-    border: 1px solid whitesmoke !important;
+    border: 1px solid var(--color-three) !important;
     border-left: none !important
+}
+
+.checkbox * {
+    box-shadow: none !important;
+}
+
+.accordion-header.h2 *{
+    box-shadow: none !important;
 }
 
 /* sidebar customization */
@@ -28,7 +137,7 @@
 #sidebar .accordion .accordion-header,
 #sidebar .accordion .accordion-button,
 #sidebar .accordion .accordion-collapse {
-    background-color: #f8f8f8 !important;
+    background-color: var(--color-two) !important;
 }
 
 #sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
@@ -74,15 +183,20 @@
     font-weight: 600;
 }
 
-
 /* special draggable-accordion class */
 .draggable-accordion .accordion-item {
-    background-color: #f8f8f8;
+    background-color: var(--color-one) !important;
 }
 .draggable-accordion .accordion-button {
-    background-color: #f8f8f8;
+    background-color: var(--color-one) !important;
 }
 
+.elevated-panel .card {
+    background-color: var(--color-two) !important;
+}
+.elevated-panel .card:hover:not(:has(.accordion:hover)) {
+    border-color: var(--color-two) !important;
+}
 
 /* plain-link class for markdown links */
 .plain-link {
@@ -104,7 +218,7 @@
 }
 #order li { 
     cursor: grab; 
-    background: white; 
+    background: var(--color-one); 
 }
 #order li:active { 
     cursor: grabbing; 
@@ -158,66 +272,35 @@
 }
 
 .btn-tertiary-css {
-    background-color: #fbfbfb !important;
-    border-color: #6a6a6a !important;
-    color: #3a3a3a !important;
+    background-color: transparent !important;
+    background-image: var(--stripes-one) !important;
+    border: 1px solid var(--color-threefour) !important;
+    color: var(--color-secondary) !important;
 }
+
 .btn-tertiary-css:hover {
-    background-color: white !important;
-    border-color: black !important;
-    color: black !important;
+    /* background-image: var(--stripes-two) !important; */
+    border-color: var(--color-four) !important;
+    color: white !important;
 }
 .action-button.btn-tertiary-css:active {
-    background-color: #f0f0f0 !important;
-    border-color: black !important;
+    background-image: var(--stripes-two) !important;
+    border-color: var(--color-twothree) !important;
 }
 .action-button.btn-tertiary-css:active * {
-    color: black !important;
+    color: #ddd !important;
 }
-
-
-
-/* app theme selectize ui */
-#app_theme + .selectize-control.single .selectize-input input {
-    caret-color: transparent !important;
-}
-#app_theme + .selectize-control.single .selectize-input:after {
-    display: none !important;
-}
-#app_theme + .selectize-control.single .selectize-input {
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent;
-    border-bottom: none !important;
-}
-#app_theme + .selectize-dropdown {
-    border: none;
-    box-shadow: 0 8px 16px rgba(0,0,0,.12);
-    border-radius: 6px;
-    padding: 4px 0;
-    background-color: #ffffff;
-}
-#app_theme + .selectize-dropdown .selectize-dropdown-content {
-    max-height: 200px;
-    overflow-y: auto;
-}
-#app_theme + .selectize-dropdown .option {
-    padding: 8px 14px;
-    font-size: 14px;
-    cursor: pointer;
-    background-color: transparent;
-    color: #333;
-}
-#app_theme + .selectize-dropdown .option.active {
-    background-color: dimgrey;
-    color: white;
-}
-#app_theme + .selectize-dropdown .option.selected {
-    font-weight: 300;
+.action-button.btn-tertiary-css:disabled {
+    background-image: var(--stripes-three) !important;
+    border-color: transparent !important;
 }
 
 .card-header.bg-secondary-css {
-    background-color: #f7f7f7 !important;
+    background-color: var(--color-four) !important;
+}
+
+.card-body {
+    background-color: #17181b !important;
 }
 
 .dd-cards-wrap {
@@ -247,7 +330,7 @@
 }
 
 .navbar {
-    background-color: white !important;
+    background-color: var(--color-one) !important;
 }
 
 .layout {
@@ -258,7 +341,7 @@
 
 .df-summary {
     font-size: 12px;
-    border-right: 1px solid #ddd;
+    border-right: 1px solid var(--color-four);
 }
 
 .column-summaries {
@@ -270,10 +353,10 @@
 
 .column-card {
     min-width: 140px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-threefour);
     padding: 6px;
     font-size: 11px;
-    background: #fafafa;
+    background: var(--color-two);
 }
 
 .column-title {
@@ -297,4 +380,19 @@
                 
 .modebar-container {
     display: none !important;
+}
+
+.modal-backdrop {
+    background-color: black !important;
+    opacity: 0.5 !important;
+}
+
+* table tbody * {
+    background-color: var(--color-two) !important;
+}
+* th {
+    background-color: var(--color-five) !important;
+}
+* th * {
+    color: black !important;
 }
