@@ -1193,21 +1193,8 @@ app_ui = ui.page_sidebar(
 
         
 
-        ui.nav_control(
-            ui.input_selectize(
-                id="app_theme",
-                label=None,
-                # choices=["Shiny", "Console-0", "Console-1", "Console-2"],
-                choices=["Shiny", "Console-0"],
-                selected="Shiny",
-                # selected="Console-0",
-                width="140px",
-                options={"hideSelected": True, },
-            ),
-            ui.output_ui("custom_theme_url"),
-
-            ui.input_dark_mode(id="theme", mode='light'),
-        ),
+        ui.nav_control(ui.input_dark_mode(id="theme", mode='light')),
+        
         title=ui.tags.span(
             ui.a(
             "Peregrin",

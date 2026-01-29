@@ -1,0 +1,300 @@
+.peregrin-logo {
+    font-weight: 600 !important;
+    font-size: 1.8rem !important;
+    color: var(--color-secondary) !important;
+    text-decoration: none !important;
+}
+
+.navbar-brand {
+    margin-top: -20px !important;
+    padding-right: 10px !important;
+}
+
+/* data input labeling sidebar */
+#labeling_sidebar {
+    background-color: #f8f8f8 !important;
+}
+
+/* sidebar layout border */
+#labeling_sidebar_n_data_input_layout {
+    border: 1px solid whitesmoke !important;
+    border-left: none !important
+}
+
+/* sidebar customization */
+#sidebar,
+#sidebar .accordion,
+#sidebar .accordion-item,
+#sidebar .accordion .accordion-header,
+#sidebar .accordion .accordion-button,
+#sidebar .accordion .accordion-collapse {
+    background-color: #f8f8f8 !important;
+}
+
+#sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
+#sidebar .accordion .accordion-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-item .accordion-header .accordion-button {
+    font-size: 0.6em !important;
+    padding-left: 10px !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-collapse {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+#sidebar .accordion .accordion-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+#sidebar .accordion .accordion-item {
+    border-left: 0 !important;
+    border-right: 0 !important;
+}
+
+
+/* special accordion02 class */
+.accordion02 .accordion-header .accordion-button {
+    font-weight: 600;
+}
+
+
+/* special draggable-accordion class */
+.draggable-accordion .accordion-item {
+    background-color: #f8f8f8;
+}
+.draggable-accordion .accordion-button {
+    background-color: #f8f8f8;
+}
+
+
+/* plain-link class for markdown links */
+.plain-link {
+    color: #006ea9"";
+    text-decoration: none;
+    cursor: pointer;
+    font-style: italic;
+}
+.plain-link:hover {
+    text-decoration: underline;
+}
+
+
+/* custom order ladder ui element */
+#order {
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+#order li { 
+    cursor: grab; 
+    background: white; 
+}
+#order li:active { 
+    cursor: grabbing; 
+}
+
+
+/* image stack scroll through buttons */
+#prev, #next {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 3rem;
+}
+#prev:hover, #next:hover {
+    color: #007bff;
+    cursor: pointer;
+}
+#play, #stop {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 2rem;
+}
+#play:hover, #stop:hover {
+    color: dimgrey;
+    cursor: pointer;
+}
+
+
+/* custom button without frame */
+.btn-noframe {
+    border: none;
+    padding: 0;
+    padding-top: 17px;
+    margin-left: -15px;
+    background: none;
+    box-shadow: none;
+    color: lightgrey;
+    cursor: pointer;
+    font-size: 2.65rem;
+}
+.btn-noframe:hover {
+    color: dimgrey;
+    background: none;
+}
+.btn-noframe:active {
+    color: #58a9d6 !important;
+    background: none !important;
+}
+
+.btn-tertiary-css {
+    background-color: #fbfbfb !important;
+    border-color: #6a6a6a !important;
+    color: #3a3a3a !important;
+}
+.btn-tertiary-css:hover {
+    background-color: white !important;
+    border-color: black !important;
+    color: black !important;
+}
+.action-button.btn-tertiary-css:active {
+    background-color: #f0f0f0 !important;
+    border-color: black !important;
+}
+.action-button.btn-tertiary-css:active * {
+    color: black !important;
+}
+
+
+
+/* app theme selectize ui */
+#app_theme + .selectize-control.single .selectize-input input {
+    caret-color: transparent !important;
+}
+#app_theme + .selectize-control.single .selectize-input:after {
+    display: none !important;
+}
+#app_theme + .selectize-control.single .selectize-input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent;
+    border-bottom: none !important;
+}
+#app_theme + .selectize-dropdown {
+    border: none;
+    box-shadow: 0 8px 16px rgba(0,0,0,.12);
+    border-radius: 6px;
+    padding: 4px 0;
+    background-color: #ffffff;
+}
+#app_theme + .selectize-dropdown .selectize-dropdown-content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+#app_theme + .selectize-dropdown .option {
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: transparent;
+    color: #333;
+}
+#app_theme + .selectize-dropdown .option.active {
+    background-color: dimgrey;
+    color: white;
+}
+#app_theme + .selectize-dropdown .option.selected {
+    font-weight: 300;
+}
+
+.card-header.bg-secondary-css {
+    background-color: #f7f7f7 !important;
+}
+
+.dd-cards-wrap {
+  /* Masonry-like stacking (no row alignment) */
+  display: block !important;
+  column-count: 2;
+  column-gap: 1rem;
+}
+/* Fit cards to 1 column on smaller screens */
+@media (max-width: 991.98px) {
+  .dd-cards-wrap {
+    column-count: 1;
+  }
+}
+.dd-cards-wrap > * {
+  display: inline-block;
+  width: 100% !important;
+  max-width: 100% !important;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 1rem 0;
+}
+.dd-cards-wrap .card,
+.dd-cards-wrap .card-body {
+  height: auto !important;
+}
+
+.navbar {
+    background-color: white !important;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 135px 1fr;
+    gap: 6px;
+}
+
+.df-summary {
+    font-size: 12px;
+    border-right: 1px solid #ddd;
+}
+
+.column-summaries {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 2px;
+}
+
+.column-card {
+    min-width: 140px;
+    border: 1px solid #ddd;
+    padding: 6px;
+    font-size: 11px;
+    background: #fafafa;
+}
+
+.column-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.column-body {
+    height: 150px;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.column-body::-webkit-scrollbar {
+    display: none;
+}
+                
+.modebar-container {
+    display: none !important;
+}

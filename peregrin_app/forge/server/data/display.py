@@ -11,12 +11,12 @@ from src.code import Summarize, Values
 
 def mount_data_display(input, output, session, S):
 
-    def create_figure(data: pd.Series, app_theme: str = "Shiny") -> go.Figure:
+    def create_figure(data: pd.Series, app_theme: str = "light") -> go.Figure:
         fig = go.Figure()
         fig.add_trace(
             go.Histogram(
                 x=data.dropna(), nbinsx=15,
-                marker_color='#337ab7' if app_theme == "Shiny" else '#a15c5c',
+                marker_color='#337ab7' if app_theme == "light" else '#a15c5c',
                 marker_line_width=0,
                 hovertemplate="Range: %{x}<br>Count: %{y}<extra></extra>",
             )
@@ -32,24 +32,24 @@ def mount_data_display(input, output, session, S):
             dragmode=False,
             bargap=0.1,
             hoverlabel=dict(
-                bgcolor="white" if app_theme == "Shiny" else "#1d1d1d",
+                bgcolor="white" if app_theme == "light" else "#1d1d1d",
                 font_size=10,
-                bordercolor="#ddd" if app_theme == "Shiny" else "#2b2b2b",
-                font_color="#333" if app_theme == "Shiny" else "#dcdcdc"
+                bordercolor="#ddd" if app_theme == "light" else "#2b2b2b",
+                font_color="#333" if app_theme == "light" else "#dcdcdc"
             ),
             modebar=dict(remove=["zoom", "pan", "select", "lasso2d", "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d", "hoverClosestCartesian", "hoverCompareCartesian"])
         )
 
         return fig
     
-    def hist(data: pd.Series, app_theme: str = "Shiny") -> go.Figure:
+    def hist(data: pd.Series, app_theme: str = "light") -> go.Figure:
             fig, ax = plt.subplots(figsize=(3, 3), dpi=72)
             plt.hist(
                 data.dropna(), 
                 bins=15,
                 align='left',
-                color='#337ab7' if app_theme == "Shiny" else '#a15c5c', 
-                edgecolor='#fafafa' if app_theme == "Shiny" else '#2b2b2b',
+                color='#337ab7' if app_theme == "light" else '#a15c5c', 
+                edgecolor='#fafafa' if app_theme == "light" else '#2b2b2b',
             )
             plt.xticks([])
             plt.yticks([])
