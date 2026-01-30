@@ -84,22 +84,12 @@
 
 
     /* Main Accents */
-    --color-primary: #e0e6ed;
-    --color-hover: var(--color-five);
+    --color-primary: #f7f7f7;
+    --color-hover: #dbe5ea;
+    --color-secondary: #dbe5ea;
 
-
-    /* Text Colors */
-    --color-secondary: #e0e6ed;
-    --color-secondary-transparent: #3b7ba524;
+    --color-secondary-transparent: #5c707e24;
     --color-zero: #6f7476;
-
-    /* Button Specifics */
-    --color-action-btn-primary: #0f1621;
-    
-    --color-task-btn: #0f1621;
-    
-    --glow-text-primary: none;
-    --glow-text-hover: 0 0 18px rgba(168, 216, 151, 0.6);
     
 }
 
@@ -420,13 +410,6 @@
 
 
 
-
-/* navigation bar */
-nav {
-    background-color: var(--bg-color-firstlevel-transparent) !important;
-    border-bottom: 1px solid #3B7BA566 !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important; /* Subtle depth */
-}
 nav a {
     color: var(--color-zero) !important;
     transition: var(--transition-smooth) !important;
@@ -482,10 +465,10 @@ nav a.hover::after {
 
 
 /* Nav Pills (Sidebar) */
-.col-sm-2:has(.nav-pills) {
+/* .col-sm-2:has(.nav-pills) {
     border-right: 1px solid rgba(57, 77, 155, 0.3) !important;
     background-color: var(--bg-color-firstlevel-transparent) !important;
-}
+} */
 .nav-pills .nav-item * {
     color: var(--color-zero) !important;
 }
@@ -520,7 +503,6 @@ nav a.hover::after {
     background-size: 100% 75% !important; /* Match border height */
     background-repeat: no-repeat !important;
     background-position: left center !important;
-    /* border-left: medium solid var(--color-secondary) !important; Removed for animated border */
 }
 
 /* Active state keeps the border full height */
