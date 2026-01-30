@@ -37,7 +37,6 @@ def mount_thresholds_build(input, output, session, S):
                         ),
                     ),
                     ui.output_ui(f"manual_threshold_value_setting_placeholder_1"),
-                    ui.output_ui(f"threshold_slider_placeholder_1"),
                     ui.output_plot(f"thresholding_histogram_placeholder_1"),
                 ),
             ]
@@ -80,7 +79,6 @@ def mount_thresholds_build(input, output, session, S):
                     )
                 ),
                 ui.output_ui(f"manual_threshold_value_setting_placeholder_{id}"),
-                ui.output_ui(f"threshold_slider_placeholder_{id}"),
                 ui.output_plot(f"thresholding_histogram_placeholder_{id}"),
             )
         )

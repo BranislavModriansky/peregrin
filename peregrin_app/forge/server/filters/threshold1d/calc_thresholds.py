@@ -103,7 +103,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                             ref = input[f"my_own_value_{id}"]()
                         filter[idx] = ttype, ref
 
-                selection[idx] = input[f"threshold_slider_{id}"]()
+                selection[idx] = (input[f"floor_threshold_value_{id}"](), input[f"ceil_threshold_value_{id}"]())
 
             except Exception:
                 pass
@@ -131,10 +131,14 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         except Exception:
             pass
 
-    def render_threshold_controls(inventory, idx, id, min=0, max=100, step=1):
+    def render_threshold_controls(id, min=0, max=100, step=1):
         @output(id=f"manual_threshold_value_setting_placeholder_{id}")
         @render.ui
         def manual_threshold_value_setting():
+
+            print(f"Rendering manual threshold controls for id {id}")
+            print("")
+
             return ui.row(
                 ui.column(6, ui.input_numeric(
                     f"floor_threshold_value_{id}",
@@ -154,85 +158,63 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 )),
             )
 
-        @output(id=f"threshold_slider_placeholder_{id}")
-        @render.ui
-        def threshold_slider():
-            return ui.input_slider(
-                f"threshold_slider_{id}",
-                label=None,
-                min=min,
-                max=max,
-                value=(min, max),
-                step=step
-            )
+    @reactive.calc
+    def update_threshold_controls():
 
-        @reactive.effect
-        @reactive.event(input[f"floor_threshold_value_{id}"], input[f"ceil_threshold_value_{id}"])
-        def _sync_slider_from_numeric():
-            floor_val = input[f"floor_threshold_value_{id}"]()
-            ceil_val = input[f"ceil_threshold_value_{id}"]()
+        start = at_idx.get()
 
-            if floor_val is not None and ceil_val is not None:
-                with reactive.isolate():
-                    current_slider = input[f"threshold_slider_{id}"]()
-                    if current_slider != (floor_val, ceil_val):
-                        ui.update_slider(
-                            f"threshold_slider_{id}",
-                            value=(floor_val, ceil_val)
-                        )
+        for idx in range(start, len(Inventory1D.id_idx) - 1):
 
-        @reactive.effect
-        @reactive.event(input[f"threshold_slider_{id}"])
-        def _sync_numeric_from_slider():
-            slider_val = input[f"threshold_slider_{id}"]()
+            id = idx + 1
 
-            if slider_val is not None:
-                with reactive.isolate():
-                    current_floor = input[f"floor_threshold_value_{id}"]()
-                    current_ceil = input[f"ceil_threshold_value_{id}"]()
+            inventory = S.THRESHOLDS.get()[idx]
 
-                    if current_floor != slider_val[0]:
-                        ui.update_numeric(
-                            f"floor_threshold_value_{id}",
-                            value=slider_val[0]
-                        )
+            print(f"Updating threshold controls for id {id}")
+            print("")
 
-                    if current_ceil != slider_val[1]:
-                        ui.update_numeric(
-                            f"ceil_threshold_value_{id}",
-                            value=slider_val[1]
-                        )
+            req(not inventory is None 
+                and not any(v is None for v in inventory.values()))
 
-    def update_threshold_controls(inventory, idx, id):
+            min, max, step = inventory["ambit"]
 
-        min, max, step = inventory["ambit"]
-        selection = inventory["selection"]
+            print(f"Ambit min={min}, max={max}, step={step}")
 
-        with reactive.isolate():
+            floor, ceil = input[f"floor_threshold_value_{id}"](), input[f"ceil_threshold_value_{id}"]()
 
-            ui.update_slider(
-                f"threshold_slider_{id}",
-                min=min,
-                max=max,
-                step=step,
-                value=selection
-            )
+            req(not None in [floor, ceil])
 
-            ui.update_numeric(
-                f"floor_threshold_value_{id}",
-                min=min,
-                max=max,
-                step=step,
-                value=selection[0]
-            )
+            if floor < min or floor > max:
+                ui.update_numeric(
+                    f"floor_threshold_value_{id}",
+                    min=min,
+                    max=max,
+                    step=step,
+                    value=min
+                )
+            else:
+                ui.update_numeric(
+                    f"floor_threshold_value_{id}",
+                    min=min,
+                    max=max,
+                    step=step
+                )
 
-            ui.update_numeric(
-                f"ceil_threshold_value_{id}",
-                min=min,
-                max=max,
-                step=step,
-                value=selection[1]
-            )
+            if ceil < min or ceil > max:
+                ui.update_numeric(
+                    f"ceil_threshold_value_{id}",
+                    min=min,
+                    max=max,
+                    step=step,
+                    value=max
+                )
+            else:
+                ui.update_numeric(
+                    f"ceil_threshold_value_{id}",
+                    min=min,
+                    max=max,
+                    step=step
+                )
+
 
     @reactive.calc
     def update_histogram():
@@ -335,12 +317,12 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         idx = id - 1
 
         inventory = S.THRESHOLDS.get()
-        inventory = inventory.get(idx)
+        current_inventory = inventory.get(idx)
 
-        if inventory is None or any(v is None for v in inventory.values()):
-            return
+        req(not current_inventory is None 
+            and not any(v is None for v in current_inventory.values()))
 
-        render_threshold_controls(inventory, idx, id, *inventory["ambit"])
+        render_threshold_controls(id, *current_inventory["ambit"])
         update_histogram()
 
     @reactive.Effect
@@ -358,16 +340,25 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     def _():
         render_threshold()
 
+    @DebounceCalc(1)
     @reactive.calc
     def update_thresholds():
 
-        req(at_idx.is_set())
-        idx = at_idx.get()
+        print("Updating threshold controls...")
+        print("")
 
-        inventory = S.THRESHOLDS.get()[idx]
+        # req(at_idx.is_set())
+        # idx = at_idx.get()
 
-        update_threshold_controls(inventory, idx, idx + 1)
+        # inventory = S.THRESHOLDS.get()
+        # current_inventory = inventory.get(idx)
+        
+        # req(not current_inventory is None 
+        #     and not any(v is None for v in current_inventory.values()))
+
+        update_threshold_controls()
         update_histogram()
+            
 
     @reactive.Effect
     def _():
@@ -376,7 +367,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         _sync_id_idx_from_state()
 
         for idx in Inventory1D.id_idx[:-1]:
-            id = int(idx) + 1
+            id = idx + 1
 
             @reactive.Effect
             @reactive.event(
@@ -385,7 +376,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 input[f"threshold_ntile_{id}"],
                 input[f"reference_value_{id}"],
                 input[f"my_own_value_{id}"],
-                input[f"threshold_slider_{id}"],
+                input[f"floor_threshold_value_{id}"],
+                input[f"ceil_threshold_value_{id}"],
                 input.app_theme,
             )
             def _(idx=idx, id=id):
@@ -394,18 +386,18 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 if idx not in Inventory1D.id_idx[:-1]:
                     return
 
-                if None in [
+                req(not None in [
                     input[f"threshold_property_{id}"](),
                     input[f"threshold_type_{id}"](),
-                    input[f"threshold_slider_{id}"](),
-                ]:
-                    return
+                    input[f"floor_threshold_value_{id}"](),
+                    input[f"ceil_threshold_value_{id}"](),
+                ])
 
                 _ensure_inventory_len(len(Inventory1D.id_idx))
 
                 p = input[f"threshold_property_{id}"]()
                 t = input[f"threshold_type_{id}"]()
-                s = input[f"threshold_slider_{id}"]()
+                s = (input[f"floor_threshold_value_{id}"](), input[f"ceil_threshold_value_{id}"]())
 
                 match t:
                     case "Literal":
@@ -460,6 +452,5 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         except Exception as e:
             print(f"Error setting thresholds: {e}")
             traceback.print_exc()
-
 
 
