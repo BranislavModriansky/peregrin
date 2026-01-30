@@ -195,7 +195,7 @@
     background-color: var(--color-two) !important;
 }
 .elevated-panel .card:hover:not(:has(.accordion:hover)) {
-    border-color: var(--color-two) !important;
+    border-color: var(--color-four) !important;
 }
 
 /* plain-link class for markdown links */
@@ -293,6 +293,7 @@
 .action-button.btn-tertiary-css:disabled {
     background-image: var(--stripes-three) !important;
     border-color: transparent !important;
+    color: #727272 !important;
 }
 
 .card-header.bg-secondary-css {

@@ -1,3 +1,84 @@
+:root {
+    --color-stripes-one-base: #e8e8e8;
+    --color-stripes-one: white;
+    /* --color-stripes-one: #fbfbfb; */
+    --color-stripes-two: #f8f8f8;
+    --color-stripes-three: transparent;
+
+    --stripes-one: linear-gradient(
+        -45deg, 
+        var(--color-stripes-one-base) 5%, var(--color-stripes-one) 5%, 
+        var(--color-stripes-one) 10%, var(--color-stripes-one-base) 10%, 
+        var(--color-stripes-one-base) 15%, var(--color-stripes-one) 15%,
+        var(--color-stripes-one) 20%, var(--color-stripes-one-base) 20%, 
+        var(--color-stripes-one-base) 25%, var(--color-stripes-one) 25%,
+        var(--color-stripes-one) 30%, var(--color-stripes-one-base) 30%, 
+        var(--color-stripes-one-base) 35%, var(--color-stripes-one) 35%,
+        var(--color-stripes-one) 40%, var(--color-stripes-one-base) 40%, 
+        var(--color-stripes-one-base) 45%, var(--color-stripes-one) 45%,
+        var(--color-stripes-one) 50%, var(--color-stripes-one-base) 50%, 
+        var(--color-stripes-one-base) 55%, var(--color-stripes-one) 55%,
+        var(--color-stripes-one) 60%, var(--color-stripes-one-base) 60%, 
+        var(--color-stripes-one-base) 65%, var(--color-stripes-one) 65%,
+        var(--color-stripes-one) 70%, var(--color-stripes-one-base) 70%, 
+        var(--color-stripes-one-base) 75%, var(--color-stripes-one) 75%,
+        var(--color-stripes-one) 80%, var(--color-stripes-one-base) 80%, 
+        var(--color-stripes-one-base) 85%, var(--color-stripes-one) 85%, 
+        var(--color-stripes-one) 90%, var(--color-stripes-one-base) 90%, 
+        var(--color-stripes-one-base) 95%, var(--color-stripes-one) 95%, 
+        var(--color-stripes-one)
+    );
+
+    --stripes-two: linear-gradient(
+        -45deg,
+        white 5%, var(--color-stripes-two) 5%, 
+        var(--color-stripes-two) 10%, white 10%, 
+        white 15%, var(--color-stripes-two) 15%,
+        var(--color-stripes-two) 20%, white 20%, 
+        white 25%, var(--color-stripes-two) 25%,
+        var(--color-stripes-two) 30%, white 30%, 
+        white 35%, var(--color-stripes-two) 35%,
+        var(--color-stripes-two) 40%, white 40%, 
+        white 45%, var(--color-stripes-two) 45%,
+        var(--color-stripes-two) 50%, white 50%, 
+        white 55%, var(--color-stripes-two) 55%,
+        var(--color-stripes-two) 60%, white 60%, 
+        white 65%, var(--color-stripes-two) 65%,
+        var(--color-stripes-two) 70%, white 70%, 
+        white 75%, var(--color-stripes-two) 75%,
+        var(--color-stripes-two) 80%, white 80%, 
+        white 85%, var(--color-stripes-two) 85%, 
+        var(--color-stripes-two) 90%, white 90%, 
+        white 95%, var(--color-stripes-two) 95%, 
+        var(--color-stripes-two)
+    );
+
+    --stripes-three: linear-gradient(
+        -45deg,
+        transparent 5%, var(--color-stripes-two) 5%, 
+        var(--color-stripes-two) 10%, transparent 10%, 
+        transparent 15%, var(--color-stripes-two) 15%,
+        var(--color-stripes-two) 20%, transparent 20%, 
+        transparent 25%, var(--color-stripes-two) 25%,
+        var(--color-stripes-two) 30%, transparent 30%, 
+        transparent 35%, var(--color-stripes-two) 35%,
+        var(--color-stripes-two) 40%, transparent 40%, 
+        transparent 45%, var(--color-stripes-two) 45%,
+        var(--color-stripes-two) 50%, transparent 50%, 
+        transparent 55%, var(--color-stripes-two) 55%,
+        var(--color-stripes-two) 60%, transparent 60%, 
+        transparent 65%, var(--color-stripes-two) 65%,
+        var(--color-stripes-two) 70%, transparent 70%, 
+        transparent 75%, var(--color-stripes-two) 75%,
+        var(--color-stripes-two) 80%, transparent 80%, 
+        transparent 85%, var(--color-stripes-two) 85%, 
+        var(--color-stripes-two) 90%, transparent 90%, 
+        transparent 95%, var(--color-stripes-two) 95%, 
+        var(--color-stripes-two)
+    );
+}
+
+
 .peregrin-logo {
     font-weight: 600 !important;
     font-size: 1.8rem !important;
@@ -89,6 +170,10 @@
     background-color: #f8f8f8;
 }
 
+.elevated-panel .card:hover:not(:has(.accordion:hover)) {
+    border-color: #a9e1ff9c !important;
+}
+
 /* plain-link class for markdown links */
 .plain-link {
     color: #006ea9"";
@@ -162,7 +247,7 @@
     background: none !important;
 }
 
-.btn-tertiary-css {
+/* .btn-tertiary-css {
     background-color: #fbfbfb !important;
     border-color: #6a6a6a !important;
     color: #3a3a3a !important;
@@ -178,6 +263,31 @@
 }
 .action-button.btn-tertiary-css:active * {
     color: black !important;
+} */
+
+.btn-tertiary-css {
+    background-color: transparent !important;
+    background-image: var(--stripes-one) !important;
+    border: 1px solid #888888 !important;
+    color: #3a3a3a !important;
+}
+
+.btn-tertiary-css:hover {
+    /* background-image: var(--stripes-two) !important; */
+    border-color: #6a6a6a!important;
+    color: black !important;
+}
+.action-button.btn-tertiary-css:active {
+    background-image: var(--stripes-two) !important;
+    border-color: #9e9e9e !important;
+}
+.action-button.btn-tertiary-css:active * {
+    color: #787878 !important;
+}
+.action-button.btn-tertiary-css:disabled {
+    background-image: var(--stripes-three) !important;
+    border-color: transparent !important;
+    color: #a8a8a8 !important;
 }
 
 
