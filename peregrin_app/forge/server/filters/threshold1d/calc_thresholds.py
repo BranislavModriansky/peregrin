@@ -11,19 +11,61 @@ from peregrin_app.src.code._general import clock
 from src.code import Frames, TimeIntervals, Inventory1D, Filter1D, DebounceCalc, is_empty
 
 
-
 def mount_thresholds_calc(input, output, session, S, noticequeue):
 
     Filter1D.noticequeue = noticequeue
 
     at_idx = reactive.Value()
 
+    def _ensure_inventory_len(n: int) -> None:
+        """
+        Ensure Inventory1D's list-like fields are exactly length n.
+        Prevents IndexError when id_idx changes (append/remove thresholds).
+        """
+        for name in ("property", "filter", "selection", "mask", "series", "ambit"):
+            cur = getattr(Inventory1D, name)
+
+            # Normalize to python list
+            if isinstance(cur, np.ndarray):
+                cur = cur.tolist()
+            elif not isinstance(cur, list):
+                cur = list(cur) if cur is not None else []
+
+            if len(cur) < n:
+                cur.extend([None] * (n - len(cur)))
+            elif len(cur) > n:
+                cur = cur[:n]
+
+            setattr(Inventory1D, name, cur)
+
+    def _sync_id_idx_from_state() -> None:
+        n = int(S.THRESHOLDS_ID.get()) + 1  # +1 for safe_end slot
+        Inventory1D.id_idx = np.arange(n, dtype=int)
+        _ensure_inventory_len(n)
+
+    def _build_thresholds_payload() -> dict:
+        """
+        Build S.THRESHOLDS payload safely, assuming Inventory1D lists are synced.
+        """
+        _ensure_inventory_len(len(Inventory1D.id_idx))
+        payload = {}
+        for idx in Inventory1D.id_idx:
+            idx = int(idx)
+            payload[idx] = {
+                "property": Inventory1D.property[idx],
+                "filter": Inventory1D.filter[idx],
+                "selection": Inventory1D.selection[idx],
+                "mask": Inventory1D.mask[idx],
+                "series": Inventory1D.series[idx],
+                "ambit": Inventory1D.ambit[idx],
+            }
+        return payload
+
     @DebounceCalc(0.5)
     @reactive.calc
     def get_bins():
         return input.bins() if input.bins() is not None and input.bins() != 0 else 15
-    
-    
+
     @reactive.Effect
     @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
     def initialize_inventory():
@@ -31,14 +73,15 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         Inventory1D.spot_data = S.UNFILTERED_SPOTSTATS.get()
         Inventory1D.track_data = S.UNFILTERED_TRACKSTATS.get()
 
-        thresholds_id = S.THRESHOLDS_ID.get()
-        idxes = thresholds_id + 1
+        _sync_id_idx_from_state()
 
-        Inventory1D.id_idx = np.arange(idxes)
+        thresholds_id = int(S.THRESHOLDS_ID.get())
+        idxes = thresholds_id + 1  # includes safe_end slot
 
-        property = [None] * thresholds_id
-        filter = [None] * thresholds_id
-        selection = [None] * thresholds_id
+        # Allocate lists to match id_idx length
+        property = [None] * idxes
+        filter = [None] * idxes
+        selection = [None] * idxes
 
         for idx in range(thresholds_id):
             id = idx + 1
@@ -48,23 +91,16 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 ttype = input[f"threshold_type_{id}"]()
 
                 match ttype:
-
                     case "Literal":
                         filter[idx] = ttype, None
-
                     case "Normalized 0-1":
                         filter[idx] = ttype, None
-
                     case "N-tile":
                         filter[idx] = ttype, input[f"threshold_ntile_{id}"]()
-
                     case "Relative to...":
-
                         ref = input[f"reference_value_{id}"]()
-
                         if ref == "My own value":
                             ref = input[f"my_own_value_{id}"]()
-
                         filter[idx] = ttype, ref
 
                 selection[idx] = input[f"threshold_slider_{id}"]()
@@ -73,40 +109,32 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 pass
 
             if property[idx] is None:
-                property[idx] = 'Track displacement'
-
+                property[idx] = "Track displacement"
             if filter[idx] is None:
-                filter[idx] = ('Literal', None)
+                filter[idx] = ("Literal", None)
+
+        # Reasonable defaults for safe_end slot (will be overwritten by Filter1D._safe_end anyway)
+        if property[-1] is None:
+            property[-1] = property[-2] if idxes >= 2 and property[-2] is not None else "Track displacement"
+        if filter[-1] is None:
+            filter[-1] = filter[-2] if idxes >= 2 and filter[-2] is not None else ("Literal", None)
 
         Inventory1D.property = property
         Inventory1D.filter = filter
         Inventory1D.selection = selection
+        _ensure_inventory_len(len(Inventory1D.id_idx))
 
         Filter1D().Initialize()
 
         try:
-            S.THRESHOLDS.set({
-                idx: {
-                    "property": Inventory1D.property[idx],
-                    "filter": Inventory1D.filter[idx],
-                    "selection": Inventory1D.selection[idx],
-                    "mask": Inventory1D.mask[idx],
-                    "series": Inventory1D.series[idx],
-                    "ambit": Inventory1D.ambit[idx],
-                } for idx in Inventory1D.id_idx
-            })
-
+            S.THRESHOLDS.set(_build_thresholds_payload())
         except Exception:
             pass
 
-
-
     def render_threshold_controls(inventory, idx, id, min=0, max=100, step=1):
-        
         @output(id=f"manual_threshold_value_setting_placeholder_{id}")
         @render.ui
         def manual_threshold_value_setting():
-
             return ui.row(
                 ui.column(6, ui.input_numeric(
                     f"floor_threshold_value_{id}",
@@ -129,7 +157,6 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         @output(id=f"threshold_slider_placeholder_{id}")
         @render.ui
         def threshold_slider():
-
             return ui.input_slider(
                 f"threshold_slider_{id}",
                 label=None,
@@ -138,14 +165,13 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 value=(min, max),
                 step=step
             )
-        
-        # Sync slider to numeric inputs
+
         @reactive.effect
         @reactive.event(input[f"floor_threshold_value_{id}"], input[f"ceil_threshold_value_{id}"])
         def _sync_slider_from_numeric():
             floor_val = input[f"floor_threshold_value_{id}"]()
             ceil_val = input[f"ceil_threshold_value_{id}"]()
-            
+
             if floor_val is not None and ceil_val is not None:
                 with reactive.isolate():
                     current_slider = input[f"threshold_slider_{id}"]()
@@ -154,24 +180,23 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                             f"threshold_slider_{id}",
                             value=(floor_val, ceil_val)
                         )
-        
-        # Sync numeric inputs to slider
+
         @reactive.effect
         @reactive.event(input[f"threshold_slider_{id}"])
         def _sync_numeric_from_slider():
             slider_val = input[f"threshold_slider_{id}"]()
-            
+
             if slider_val is not None:
                 with reactive.isolate():
                     current_floor = input[f"floor_threshold_value_{id}"]()
                     current_ceil = input[f"ceil_threshold_value_{id}"]()
-                    
+
                     if current_floor != slider_val[0]:
                         ui.update_numeric(
                             f"floor_threshold_value_{id}",
                             value=slider_val[0]
                         )
-                    
+
                     if current_ceil != slider_val[1]:
                         ui.update_numeric(
                             f"ceil_threshold_value_{id}",
@@ -209,13 +234,12 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 value=selection[1]
             )
 
-
     @reactive.calc
     def update_histogram():
         idx = at_idx.get()
 
         if idx is not None:
-            
+
             id = idx + 1
 
             @output(id=f"thresholding_histogram_placeholder_{id}")
@@ -232,18 +256,18 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 req(not is_empty(series))
 
                 req(not None in [
-                    inventory["filter"][0], 
+                    inventory["filter"][0],
                     inventory["selection"]
                 ])
 
                 filter = inventory["filter"]
-                
+
                 bottom, top = inventory["selection"]
-                
+
                 bins = get_bins()
 
                 fig, ax = plt.subplots()
-                    
+
                 n, bins, patches = ax.hist(series, bins=bins, density=False)
 
                 relative = False
@@ -261,7 +285,6 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                         if not 0 <= bottom <= 1 or not 0 <= top <= 1:
                             bottom, top = 0, 1
 
-                        # Convert n-tile values to actual data values
                         bottom = np.quantile(series, bottom)
                         top = np.quantile(series, top)
 
@@ -274,7 +297,6 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                             bottom, top = sorted([abs(bottom), abs(top)])
                         except Exception:
                             bottom, top = 0, 0
-
 
                 for i in range(len(patches)):
 
@@ -292,21 +314,19 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 x_kde = np.linspace(bins[0], bins[-1], 500)
                 y_kde = kde(x_kde)
                 y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
-                
+
                 ax.plot(x_kde, y_kde_scaled, color=_color, linewidth=1.5)
 
-                if relative: 
+                if relative:
                     ax.axvline(reference, linestyle="--", linewidth=1, color=_color)
 
-                ax.set_xticks([]); ax.set_yticks([])  
+                ax.set_xticks([]); ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
                 fig.set_facecolor('none')
                 ax.set_facecolor('none')
-                
-                return fig
 
-    
+                return fig
 
     @reactive.calc
     def render_threshold():
@@ -319,28 +339,24 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
 
         if inventory is None or any(v is None for v in inventory.values()):
             return
-        
+
         render_threshold_controls(inventory, idx, id, *inventory["ambit"])
         update_histogram()
-
 
     @reactive.Effect
     @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
     def _():
         if is_empty(S.UNFILTERED_SPOTSTATS.get()) and is_empty(S.UNFILTERED_TRACKSTATS.get()):
             return
-        
+
         if S._init_thresh.get():
             render_threshold()
             S._init_thresh.set(False)
-
 
     @reactive.Effect
     @reactive.event(input.append_threshold)
     def _():
         render_threshold()
-
-
 
     @reactive.calc
     def update_thresholds():
@@ -353,37 +369,27 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         update_threshold_controls(inventory, idx, idx + 1)
         update_histogram()
 
-
     @reactive.Effect
     def _():
 
-        print(f"input.remove_threshold(): {input.remove_threshold()}")
-        print(f"len(Inventory1D.id_idx): {len(Inventory1D.id_idx)}")
-        print(f"S.THRESHOLDS_ID.get(): {S.THRESHOLDS_ID.get()}")
-
-        if (input.remove_threshold() > 0
-            and len(Inventory1D.id_idx) > S.THRESHOLDS_ID.get()):
-
-            Inventory1D.id_idx = np.arange(S.THRESHOLDS_ID.get() + 1)
-
-            return
-        
-        Inventory1D.id_idx = np.arange(S.THRESHOLDS_ID.get() + 1)
+        # Always sync sizes; remove/add effects can run in different order.
+        _sync_id_idx_from_state()
 
         for idx in Inventory1D.id_idx[:-1]:
-            id = idx + 1
+            id = int(idx) + 1
 
             @reactive.Effect
             @reactive.event(
                 input[f"threshold_property_{id}"],
                 input[f"threshold_type_{id}"],
-                    input[f"threshold_ntile_{id}"],
-                    input[f"reference_value_{id}"],
-                    input[f"my_own_value_{id}"],
+                input[f"threshold_ntile_{id}"],
+                input[f"reference_value_{id}"],
+                input[f"my_own_value_{id}"],
                 input[f"threshold_slider_{id}"],
                 input.app_theme,
             )
-            def _():
+            def _(idx=idx, id=id):
+                idx = int(idx)
 
                 if idx not in Inventory1D.id_idx[:-1]:
                     return
@@ -392,7 +398,10 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                     input[f"threshold_property_{id}"](),
                     input[f"threshold_type_{id}"](),
                     input[f"threshold_slider_{id}"](),
-                ]: return
+                ]:
+                    return
+
+                _ensure_inventory_len(len(Inventory1D.id_idx))
 
                 p = input[f"threshold_property_{id}"]()
                 t = input[f"threshold_type_{id}"]()
@@ -403,86 +412,50 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                         f = t, None
                     case "Normalized 0-1":
                         f = t, None
-
                     case "N-tile":
                         f = t, input[f"threshold_ntile_{id}"]()
-
                     case "Relative to...":
-
                         ref = input[f"reference_value_{id}"]()
-
                         if ref == "My own value":
                             ref = input[f"my_own_value_{id}"]()
-
                         f = t, ref
-                print(f"Updating threshold idx {idx}:")
-                print(f"  - Inventory1D.property = {Inventory1D.property}")
+
                 Inventory1D.property[idx] = p
                 Inventory1D.filter[idx] = f
                 Inventory1D.selection[idx] = s
 
                 Filter1D().Downstream(idx)
 
-                S.THRESHOLDS.set({
-                    idx: {
-                        "property": Inventory1D.property[idx],
-                        "filter": Inventory1D.filter[idx],
-                        "selection": Inventory1D.selection[idx],
-                        "mask": Inventory1D.mask[idx],
-                        "series": Inventory1D.series[idx],
-                        "ambit": Inventory1D.ambit[idx],
-                    } for idx in Inventory1D.id_idx
-                })
-                
+                S.THRESHOLDS.set(_build_thresholds_payload())
+
                 at_idx.set(idx)
-
                 update_thresholds()
-
-
 
     @reactive.Effect
     @reactive.event(input.remove_threshold)
     def _():
 
         with reactive.isolate():
-
             Filter1D().PopLast()
 
-            S.THRESHOLDS.set({
-                idx: {
-                    "property": Inventory1D.property[idx],
-                    "filter": Inventory1D.filter[idx],
-                    "selection": Inventory1D.selection[idx],
-                    "mask": Inventory1D.mask[idx],
-                    "series": Inventory1D.series[idx],
-                    "ambit": Inventory1D.ambit[idx],
-                } for idx in Inventory1D.id_idx
-            })
-            
+            # Keep id_idx + lists consistent with state
+            _sync_id_idx_from_state()
 
-
-    
+            S.THRESHOLDS.set(_build_thresholds_payload())
 
     # _ _ _ _ SETTING THE THRESHOLDS _ _ _ _
 
     @reactive.Effect
     @reactive.event(input.set_threshold)
     def threshold_data():
-    
+
         try:
 
             spotstats, trackstats, framestats, tintervalstats = Filter1D().Apply()
-            # Set all stats at once to trigger reactive updates
             S.SPOTSTATS.set(spotstats)
             S.TRACKSTATS.set(trackstats)
             S.FRAMESTATS.set(framestats)
             S.TINTERVALSTATS.set(tintervalstats)
-
-            print(f"Thresholds set successfully:")
-            print(f"  - Spots: {len(spotstats)} rows")
-            print(f"  - Tracks: {len(trackstats)} rows")
-            print(f"  - Frames: {len(framestats)} rows")
-            print(f"  - Intervals: {len(tintervalstats)} rows")
 
         except Exception as e:
             print(f"Error setting thresholds: {e}")
