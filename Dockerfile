@@ -34,6 +34,6 @@ USER appuser
 
 COPY ./peregrin_app .
 
-EXPOSE 56269
+EXPOSE 53787
 
-CMD ["shiny", "run", "--port", "56269", "app.py"]
+CMD ["shiny", "run", "--port", "53787", "app.py"]

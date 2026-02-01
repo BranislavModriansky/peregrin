@@ -704,7 +704,9 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             class_="accordion02"
-                        )
+                        ),
+                        ui.br(),
+                        ui.div(" 🏗️ ", style="font-size: 360px"),
                     )
                 ),
 
@@ -941,15 +943,10 @@ app_ui = ui.page_sidebar(
                                 )
                             ),
                             class_="accordion02"
-                        )
-                    ),
-                    ui.markdown(""" <p> """),
-                    ui.card(
-                        ui.output_plot("time_series_poly_fit_chart"),
-                        ui.download_button("download_time_series_poly_fit_chart__html", "Download Time Series Poly Fit Chart HTML"),
-                        ui.download_button("download_time_series_poly_fit_chart_svg", "Download Time Series Poly Fit Chart SVG"),
-                    ),
-                    # ... more cards for line chart and errorband
+                        ),
+                        ui.br(),
+                        ui.div(" 🏗️ ", style="font-size: 360px"),
+                    )
                 ),
 
                 # _ _ _ SUPERPLOTS _ _ _
@@ -1171,19 +1168,21 @@ app_ui = ui.page_sidebar(
                         ui.panel_conditional(
                             "input.superplot_type == 'Violins'",
                             ui.input_task_button(id="vp_generate", label="Generate", class_="btn-secondary task-btn", width="100%")
-                        )
+                        ),
+                        ui.br(),
+                        ui.div(" 🏗️ ", style="font-size: 360px"),
                     ),
-                    ui.markdown(""" <br> """),
-                    ui.panel_conditional(
-                        "input.superplot_type == 'Swarms'",
-                        ui.output_ui("sp_plot_card"),
-                        ui.download_button(id="sp_download_svg", label="Download SVG", width="100%"),
-                    ),
-                    ui.panel_conditional(
-                        "input.superplot_type == 'Violins'",
-                        ui.output_ui("vp_plot_card"),
-                        ui.download_button(id="vp_download_svg", label="Download SVG", width="100%"),
-                    )
+                    # ui.markdown(""" <br> """),
+                    # ui.panel_conditional(
+                    #     "input.superplot_type == 'Swarms'",
+                    #     ui.output_ui("sp_plot_card"),
+                    #     ui.download_button(id="sp_download_svg", label="Download SVG", width="100%"),
+                    # ),
+                    # ui.panel_conditional(
+                    #     "input.superplot_type == 'Violins'",
+                    #     ui.output_ui("vp_plot_card"),
+                    #     ui.download_button(id="vp_download_svg", label="Download SVG", width="100%"),
+                    # )
                 ),
                 widths = (2, 10)
             ),
