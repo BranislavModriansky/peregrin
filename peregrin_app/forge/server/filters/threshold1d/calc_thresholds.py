@@ -95,8 +95,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                         filter[idx] = ttype, None
                     case "Normalized 0-1":
                         filter[idx] = ttype, None
-                    case "N-tile":
-                        filter[idx] = ttype, input[f"threshold_ntile_{id}"]()
+                    case "Percentile":
+                        filter[idx] = ttype, 100
                     case "Relative to...":
                         ref = input[f"reference_value_{id}"]()
                         if ref == "My own value":
@@ -136,9 +136,6 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         @render.ui
         def manual_threshold_value_setting():
 
-            print(f"Rendering manual threshold controls for id {id}")
-            print("")
-
             return ui.row(
                 ui.column(6, ui.input_numeric(
                     f"floor_threshold_value_{id}",
@@ -169,15 +166,10 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
 
             inventory = S.THRESHOLDS.get()[idx]
 
-            print(f"Updating threshold controls for id {id}")
-            print("")
-
             req(not inventory is None 
                 and not any(v is None for v in inventory.values()))
 
             min, max, step = inventory["ambit"]
-
-            print(f"Ambit min={min}, max={max}, step={step}")
 
             floor, ceil = input[f"floor_threshold_value_{id}"](), input[f"ceil_threshold_value_{id}"]()
 
@@ -262,7 +254,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                     case "Normalized 0-1":
                         relative = False
 
-                    case "N-tile":
+                    case "Percentile":
                         bottom, top = bottom/100, top/100
                         if not 0 <= bottom <= 1 or not 0 <= top <= 1:
                             bottom, top = 0, 1
@@ -343,19 +335,6 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     @DebounceCalc(1)
     @reactive.calc
     def update_thresholds():
-
-        print("Updating threshold controls...")
-        print("")
-
-        # req(at_idx.is_set())
-        # idx = at_idx.get()
-
-        # inventory = S.THRESHOLDS.get()
-        # current_inventory = inventory.get(idx)
-        
-        # req(not current_inventory is None 
-        #     and not any(v is None for v in current_inventory.values()))
-
         update_threshold_controls()
         update_histogram()
             
@@ -373,7 +352,6 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
             @reactive.event(
                 input[f"threshold_property_{id}"],
                 input[f"threshold_type_{id}"],
-                input[f"threshold_ntile_{id}"],
                 input[f"reference_value_{id}"],
                 input[f"my_own_value_{id}"],
                 input[f"floor_threshold_value_{id}"],
@@ -404,8 +382,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                         f = t, None
                     case "Normalized 0-1":
                         f = t, None
-                    case "N-tile":
-                        f = t, input[f"threshold_ntile_{id}"]()
+                    case "Percentile":
+                        f = t, 100
                     case "Relative to...":
                         ref = input[f"reference_value_{id}"]()
                         if ref == "My own value":
@@ -423,6 +401,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 at_idx.set(idx)
                 update_thresholds()
 
+
     @reactive.Effect
     @reactive.event(input.remove_threshold)
     def _():
@@ -434,6 +413,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
             _sync_id_idx_from_state()
 
             S.THRESHOLDS.set(_build_thresholds_payload())
+
 
     # _ _ _ _ SETTING THE THRESHOLDS _ _ _ _
 

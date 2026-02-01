@@ -283,7 +283,7 @@ class Filter1D:
             case "Normalized 0-1":
                 min, max, step = 0, 1, 0.01
 
-            case "N-tile":
+            case "Percentile":
                 min, max = 0, 100
                 step = 100/float(Inventory1D.filter[idx][1])
 

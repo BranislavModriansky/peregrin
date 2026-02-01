@@ -79,8 +79,8 @@ class MSD:
                     colors_list = Colors.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
                     if colors_list:
                         return dict(zip(tags, colors_list))
-                except Exception as e:
-                    print(f"Error generating colormap: {str(e)}")
+                except Exception:
+                    pass
 
             else:
                 mp = Colors.BuildQualPalette(

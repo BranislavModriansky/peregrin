@@ -821,7 +821,7 @@ class Modes:
     Thresholding = [
         "Literal",
         "Normalized 0-1",
-        "N-tile",
+        "Percentile",
         "Relative to..."
     ]
 

@@ -30,7 +30,6 @@ class CheckData:
         """
 
         if isempty:
-            print("\nData structure is empty.\n")
             return
 
         if isinstance(data, pd.DataFrame):
