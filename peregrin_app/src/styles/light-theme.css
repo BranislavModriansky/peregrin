@@ -256,23 +256,6 @@
     background: none !important;
 }
 
-/* .btn-tertiary-css {
-    background-color: #fbfbfb !important;
-    border-color: #6a6a6a !important;
-    color: #3a3a3a !important;
-}
-.btn-tertiary-css:hover {
-    background-color: white !important;
-    border-color: black !important;
-    color: black !important;
-}
-.action-button.btn-tertiary-css:active {
-    background-color: #f0f0f0 !important;
-    border-color: black !important;
-}
-.action-button.btn-tertiary-css:active * {
-    color: black !important;
-} */
 
 .btn-tertiary-css {
     background-color: transparent !important;
@@ -440,13 +423,13 @@ nav a.nav-link:hover {
 }
 
 /* animated bottom border */
-nav a {
+nav a:not(.peregrin-logo) {
     position: relative;
     overflow: hidden;
     border-bottom: none !important; /* prevent default bottom border */
 }
 
-nav a::after {
+nav a:not(.peregrin-logo)::after {
     content: "";
     position: absolute;
     left: 0%;
@@ -458,31 +441,24 @@ nav a::after {
 }
 
 /* Active state now uses the pseudo-element for consistent positioning */
-nav a.active::after {
+nav a.active:not(.peregrin-logo)::after {
     width: 100%;
     left: 0;
     background-color: var(--color-primary);
 }
 
 /* Change active border color on hover */
-nav a.active:hover::after {
+nav a.active:not(.peregrin-logo):hover::after {
     background-color: var(--color-hover);
 }
 
-
-nav a:hover::after,
-nav a.hover::after {
+nav a:not(.peregrin-logo):hover::after,
+nav a.hover:not(.peregrin-logo)::after {
     width: 100%;
     left: 0;
 }
 
 
-
-/* Nav Pills (Sidebar) */
-/* .col-sm-2:has(.nav-pills) {
-    border-right: 1px solid rgba(57, 77, 155, 0.3) !important;
-    background-color: var(--bg-color-firstlevel-transparent) !important;
-} */
 .nav-pills .nav-item * {
     color: var(--color-zero) !important;
 }
@@ -532,4 +508,8 @@ nav a.hover::after {
 
 .nav-pills a.nav-link:hover {
     color: var(--color-hover) !important;
+}
+
+.nav a .peregrin-logo * {
+    border: none !important;
 }
