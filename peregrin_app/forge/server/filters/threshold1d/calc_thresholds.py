@@ -7,8 +7,8 @@ from scipy.stats import gaussian_kde
 import shiny.ui as ui
 from shiny import render, reactive, req, ui
 
-from peregrin_app.src.code._general import clock
-from src.code import Frames, TimeIntervals, Inventory1D, Filter1D, DebounceCalc, is_empty
+
+from src.code import Frames, Inventory1D, Filter1D, DebounceCalc, is_empty
 
 
 def mount_thresholds_calc(input, output, session, S, noticequeue):
