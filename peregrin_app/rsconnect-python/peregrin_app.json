@@ -1,0 +1,12 @@
+{
+    "https://api.shinyapps.io": {
+        "server_url": "https://api.shinyapps.io",
+        "filename": "C:\\Users\\modri\\Desktop\\python\\peregrin\\peregrin_app",
+        "app_url": "https://branislavmodriansky.shinyapps.io/peregrin/",
+        "app_id": "16563804",
+        "app_guid": null,
+        "title": "Peregrin",
+        "app_mode": "python-shiny",
+        "app_store_version": 1
+    }
+}
