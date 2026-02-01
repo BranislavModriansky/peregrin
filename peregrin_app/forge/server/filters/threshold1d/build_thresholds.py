@@ -25,10 +25,6 @@ def mount_thresholds_build(input, output, session, S):
                     ui.input_selectize(f"threshold_property_1", "Property", choices=S.SPOTSTATS_COLUMNS.get() + S.TRACKSTATS_COLUMNS.get(), selected='Track displacement'),
                     ui.input_selectize(f"threshold_type_1", "Threshold type", choices=Modes.Thresholding),
                     ui.panel_conditional(
-                        f"input.threshold_type_1 == 'N-tile'",
-                        ui.input_selectize(f"threshold_ntile_1", "N-tile", choices=[200, 100, 50, 25, 20, 10, 5, 4, 2], selected=100),
-                    ),
-                    ui.panel_conditional(
                         f"input.threshold_type_1 == 'Relative to...'",
                         ui.input_selectize(f"reference_value_1", "Reference value", choices=["Mean", "Median", "My own value"]),
                         ui.panel_conditional(
@@ -37,7 +33,6 @@ def mount_thresholds_build(input, output, session, S):
                         ),
                     ),
                     ui.output_ui(f"manual_threshold_value_setting_placeholder_1"),
-                    ui.output_ui(f"threshold_slider_placeholder_1"),
                     ui.output_plot(f"thresholding_histogram_placeholder_1"),
                 ),
             ]
@@ -68,10 +63,6 @@ def mount_thresholds_build(input, output, session, S):
                 ui.input_selectize(f"threshold_property_{id}", "Property", choices=S.SPOTSTATS_COLUMNS.get() + S.TRACKSTATS_COLUMNS.get(), selected='Track displacement'),
                 ui.input_selectize(f"threshold_type_{id}", "Threshold type", choices=Modes.Thresholding),
                 ui.panel_conditional(
-                    f"input.threshold_type_{id} == 'N-tile'",
-                    ui.input_selectize(f"threshold_ntile_{id}", "N-tile", choices=[200, 100, 50, 25, 20, 10, 5, 4, 2], selected=100),
-                ),
-                ui.panel_conditional(
                     f"input.threshold_type_{id} == 'Relative to...'",
                     ui.input_selectize(f"reference_value_{id}", "Reference value", choices=["Mean", "Median", "My own value"]),
                     ui.panel_conditional(
@@ -80,7 +71,6 @@ def mount_thresholds_build(input, output, session, S):
                     )
                 ),
                 ui.output_ui(f"manual_threshold_value_setting_placeholder_{id}"),
-                ui.output_ui(f"threshold_slider_placeholder_{id}"),
                 ui.output_plot(f"thresholding_histogram_placeholder_{id}"),
             )
         )

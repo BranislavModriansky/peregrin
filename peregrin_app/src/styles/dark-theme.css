@@ -425,14 +425,32 @@ nav a.nav-link:hover {
     color: var(--color-hover) !important;
 }
 
+/* animated bottom border (nav links only; excludes .peregrin-logo) */
+nav a.nav-link {
+    color: var(--color-zero) !important;
+    transition: var(--transition-smooth) !important;
+    font-weight: 500 !important;
+}
+
+nav a.nav-link.active {
+    color: var(--color-primary) !important;
+    /* Removed border-bottom to align with hover effect height */
+    background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
+}
+
+nav a.nav-link.hover,
+nav a.nav-link:hover {
+    color: var(--color-hover) !important;
+}
+
 /* animated bottom border */
-nav a {
+nav a.nav-link {
     position: relative;
     overflow: hidden;
     border-bottom: none !important; /* prevent default bottom border */
 }
 
-nav a::after {
+nav a.nav-link::after {
     content: "";
     position: absolute;
     left: 0%;
@@ -444,31 +462,23 @@ nav a::after {
 }
 
 /* Active state now uses the pseudo-element for consistent positioning */
-nav a.active::after {
+nav a.nav-link.active::after {
     width: 100%;
     left: 0;
     background-color: var(--color-primary);
 }
 
 /* Change active border color on hover */
-nav a.active:hover::after {
+nav a.nav-link.active:hover::after {
     background-color: var(--color-hover);
 }
 
-
-nav a:hover::after,
-nav a.hover::after {
+nav a.nav-link:hover::after,
+nav a.nav-link.hover::after {
     width: 100%;
     left: 0;
 }
 
-
-
-/* Nav Pills (Sidebar) */
-/* .col-sm-2:has(.nav-pills) {
-    border-right: 1px solid rgba(57, 77, 155, 0.3) !important;
-    background-color: var(--bg-color-firstlevel-transparent) !important;
-} */
 .nav-pills .nav-item * {
     color: var(--color-zero) !important;
 }

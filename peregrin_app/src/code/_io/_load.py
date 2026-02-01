@@ -95,8 +95,6 @@ class DataLoader:
         - Keeps all other columns intact.
         - Normalizes column labels (e.g. 'CONTRAST_CH' → 'Contrast ch').
         """
-
-        print("Extracting full data...")
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         try: 
