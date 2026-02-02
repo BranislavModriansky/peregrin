@@ -7,7 +7,8 @@ from typing import Any
 from scipy.stats import vonmises 
 from scipy.special import i0, i1
 
-from .._common import Colors, Categorizer, Values
+from .._common import Colors, Categorizer
+from ..._general import Values
 from ..._handlers._reports import Level
 
 

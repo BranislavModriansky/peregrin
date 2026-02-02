@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from .._common import Colors, Categorizer, Values
+from .._common import Colors, Categorizer
+from ..._general import Values
 from io import BytesIO
 from ..._handlers._reports import Level
 from ..._infra._selections import Metrics

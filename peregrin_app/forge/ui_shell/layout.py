@@ -88,7 +88,22 @@ app_ui = ui.page_sidebar(
             # _ Data display _
             ui.layout_columns(
                 ui.card(
-                    ui.card_header("Spot stats", class_="bg-blue"),
+                    ui.card_header(
+                        ui.div(
+                            ui.span("Spot stats", style="font-size:18px;"), 
+                            ui.div(
+                                ui.div("Significant figures:", style="margin-right:8px; font-weight: normal;"),
+                                ui.input_numeric(
+                                    id="significant_figures",
+                                    label=None,
+                                    value=5,
+                                    min=1,
+                                    step=1,
+                                    width="60px"
+                                ), style="margin-left:auto; display:flex; align-items:center;",
+                            ), style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:12px;",
+                        ), class_="bg-blue dataframe-card-header",
+                    ),
                     ui.div(
                         ui.div(
                             ui.output_ui("spots_summary"),
@@ -105,7 +120,7 @@ app_ui = ui.page_sidebar(
                     full_screen=True
                 ),
                 ui.card(
-                    ui.card_header("Track stats", class_="bg-secondary-css"),
+                    ui.card_header(ui.span("Track stats", style="font-size:18px;"), class_="bg-secondary-css dataframe-card-header"),
                     ui.div(
                         ui.div(
                             ui.output_ui("tracks_summary"),
@@ -122,7 +137,7 @@ app_ui = ui.page_sidebar(
                     full_screen=True
                 ),
                 ui.card(
-                    ui.card_header("Frame stats", class_="bg-secondary-css"),
+                    ui.card_header(ui.span("Frame stats", style="font-size:18px;"), class_="bg-secondary-css dataframe-card-header"),
                     ui.div(
                         ui.div(
                             ui.output_ui("frames_summary"),
@@ -141,7 +156,7 @@ app_ui = ui.page_sidebar(
             ),
             ui.layout_columns(
                 ui.card(
-                    ui.card_header("Time interval stats", class_="bg-secondary-css"),
+                    ui.card_header(ui.span("Time interval stats", style="font-size:18px;"), class_="bg-secondary-css dataframe-card-header", style="padding-top: 11.5px; padding-bottom: 11px;"),
                     ui.div(
                         ui.div(
                             ui.output_ui("tintervals_summary"),
@@ -739,7 +754,7 @@ app_ui = ui.page_sidebar(
 
                             ui.accordion_panel(
                                 "Metric",
-                                ui.input_selectize("tch_metric", label=None, choices=Metrics.Time, selected="Confinement ratio mean"),
+                                ui.input_selectize("tch_metric", label=None, choices=Metrics.Time, selected="Straightness index mean"),
                                 ui.row(
                                     ui.column(2,
                                         ui.input_radio_buttons("tch_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
@@ -972,7 +987,7 @@ app_ui = ui.page_sidebar(
                                 ),
                                 ui.accordion_panel(
                                     "Metric",
-                                    ui.input_selectize("sp_metric", label=None, choices=Metrics.Track, selected="Confinement ratio", width="200px"),
+                                    ui.input_selectize("sp_metric", label=None, choices=Metrics.Track, selected="Straightness index", width="200px"),
                                     # TODO: ui.input_radio_buttons("sp_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
                                 ),
                                 ui.accordion_panel(
@@ -1112,7 +1127,7 @@ app_ui = ui.page_sidebar(
                             ui.accordion(
                                 ui.accordion_panel(
                                     "Metric",
-                                    ui.input_selectize("vp_metric", label=None, choices=Metrics.Track, selected="Confinement ratio"),
+                                    ui.input_selectize("vp_metric", label=None, choices=Metrics.Track, selected="Straightness index"),
                                     # TODO: ui.input_radio_buttons("vp_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
                                 ),
                                 ui.accordion_panel(

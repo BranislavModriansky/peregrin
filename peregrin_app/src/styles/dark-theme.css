@@ -310,6 +310,17 @@
     background-color: var(--color-four) !important;
 }
 
+.card-header:not(.bg-blue).dataframe-card-header {
+    padding-top: 12.29px !important;
+    padding-bottom: 10.6px !important;
+}
+
+input#significant_figures {
+    box-shadow: none !important;
+    padding: 0.2rem 0.75rem; 
+    border-radius: 0.75rem;
+}
+
 .card-body {
     background-color: #17181b !important;
 }
@@ -374,9 +385,10 @@
     font-weight: 600;
     font-size: 14px;
     margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    /* overflow-wrap: normal; */
+    /* text-overflow: clip; */
 }
 
 .column-body {
@@ -396,6 +408,11 @@
 .modal-backdrop {
     background-color: black !important;
     opacity: 0.5 !important;
+}
+
+div#bslib-full-screen-overlay {
+    background-color: black !important;
+    opacity: 0.85 !important;
 }
 
 * table tbody * {
@@ -529,3 +546,4 @@ nav a.nav-link.hover::after {
 .nav-pills a.nav-link:hover {
     color: var(--color-hover) !important;
 }
+

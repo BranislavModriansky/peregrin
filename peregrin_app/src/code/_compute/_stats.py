@@ -23,7 +23,7 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
     - Direction: direction of travel in radians
     - Track length: cumulative distance along the track
     - Track displacement: straight-line distance from track start
-    - Confinement ratio: Track displacement / Track length
+    - Straightness index: Track displacement / Track length
 
     Expects columns: Condition, Replicate, Track ID, X coordinate, Y coordinate, Time point
     Returns a DataFrame sorted by Condition, Replicate, Track ID, Time point with new metric columns.
@@ -63,9 +63,9 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
         (df['Y coordinate'] - start['Y coordinate'])
     ).replace(0, np.nan)
 
-    # Confinement ratio: Track displacement vs. actual path length
+    # Straightness index: Track displacement vs. actual path length
     # Avoid division by zero by replacing zeros with NaN, then fill
-    df['Cumulative confinement ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
+    df['Cumulative straightness index'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
     df['Frame'] = grp['Time point'].rank(method='dense').astype(int)
 
@@ -78,16 +78,16 @@ def Spots(df: pd.DataFrame) -> pd.DataFrame:
 def Tracks(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute comprehensive track-level metrics for each cell track in the DataFrame, including:
-    - Track length, displacement, confinement ratio
-    - Speed stats: min, max, mean, std, var, median, quantiles, IQR, SEM, CI95
-    - Circular direction stats (mean/median in rad/deg; 'std' via resultant length proxy)
+    - Track length, displacement, straightness index
+    - Speed stats: min, max, mean, sd, var, median, quantiles, IQR, SEM, CI95
+    - Circular direction stats (mean/median in rad/deg; 'sd' via resultant length proxy)
     Expects columns: Condition, Replicate, Track ID, Distance, X coordinate, Y coordinate, Direction
     """
     if df.empty:
         cols = [
             'Condition','Replicate','Track ID', 'Track points',
-            'Track length','Track displacement','Confinement ratio',
-            'Speed min','Speed max','Speed mean','Speed std','Speed median',
+            'Track length','Track displacement','Straightness index',
+            'Speed min','Speed max','Speed mean','Speed sd','Speed median',
             'Speed q10','Speed q25','Speed q50','Speed q75','Speed q95','Speed IQR',
             'Speed SEM','Speed CI95 low','Speed CI95 high',
             'Direction mean','Direction sd','Direction median',
@@ -116,9 +116,9 @@ def Tracks(df: pd.DataFrame) -> pd.DataFrame:
         colors = grp['Replicate color'].first()
         agg = agg.merge(colors, left_index=True, right_index=True)
 
-    # Displacement and confinement
+    # Displacement and straightness
     agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
-    agg['Confinement ratio'] = (agg['Track displacement'] / agg['Track length'].replace(0, np.nan)).fillna(0)
+    agg['Straightness index'] = (agg['Track displacement'] / agg['Track length'].replace(0, np.nan)).fillna(0)
     agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
     # Points per track
@@ -161,7 +161,7 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         # define columns
         cols = ['Condition','Replicate','Time point','Frame'] + \
-            [f'{metric} {stat}' for metric in ['Track length','Track displacement','Confinement ratio'] for stat in ['min','max','mean','sd','median']] + \
+            [f'{metric} {stat}' for metric in ['Track length','Track displacement','Straightness index'] for stat in ['min','max','mean','sd','median']] + \
             [f'Speed {stat}' for stat in ['min','max','mean','sd','median']] + \
             ['Direction mean','Direction sd']
         return pd.DataFrame(columns=cols)
@@ -169,7 +169,7 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     group_cols = ['Condition','Replicate','Time point','Frame']
 
     # 1) stats on track metrics per frame
-    metrics = ['Cumulative track length','Cumulative track displacement','Cumulative confinement ratio']
+    metrics = ['Cumulative track length','Cumulative track displacement','Cumulative straightness index']
     agg_funcs = ['min','max','mean','std','median']
     # build agg dict
     agg_dict = {m: agg_funcs for m in metrics}
@@ -187,8 +187,8 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
     dir_frame = tmp.groupby(group_cols).agg({'_sin':'mean','_cos':'mean','Direction':'count'})
     # mean direction
     dir_frame['Direction mean'] = np.arctan2(dir_frame['_sin'], dir_frame['_cos'])
-    # circular std: R = sqrt(mean_sin^2+mean_cos^2)
-    dir_frame['Direction sd'] = np.hypot(dir_frame['_sin'], dir_frame['_cos'])
+    # circular var: 1 - R = 1 - sqrt(mean_sin^2+mean_cos^2)
+    dir_frame['Direction var'] = 1.0 - np.hypot(dir_frame['_sin'], dir_frame['_cos'])
     
     dir_frame = dir_frame.drop(columns=['_sin','_cos','Direction'], errors='ignore')
 
@@ -206,11 +206,11 @@ def Frames(df: pd.DataFrame) -> pd.DataFrame:
         'Cumulative track displacement mean': 'Track displacement mean',
         'Cumulative track displacement sd': 'Track displacement sd',
         'Cumulative track displacement median': 'Track displacement median',
-        'Cumulative confinement ratio min': 'Confinement ratio min',
-        'Cumulative confinement ratio max': 'Confinement ratio max',
-        'Cumulative confinement ratio mean': 'Confinement ratio mean',
-        'Cumulative confinement ratio sd': 'Confinement ratio sd',
-        'Cumulative confinement ratio median': 'Confinement ratio median',
+        'Cumulative straightness index min': 'Straightness index min',
+        'Cumulative straightness index max': 'Straightness index max',
+        'Cumulative straightness index mean': 'Straightness index mean',
+        'Cumulative straightness index sd': 'Straightness index sd',
+        'Cumulative straightness index median': 'Straightness index median',
     })
     time_stats = time_stats.reset_index()
 
@@ -411,3 +411,7 @@ class Summarize:
                 "distinct": series.nunique(dropna=True),
                 "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],   
             }
+        
+
+
+

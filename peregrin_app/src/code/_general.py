@@ -1,6 +1,12 @@
+import math
 import time
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from typing import *
 from itertools import zip_longest
+
+from ._handlers._reports import Level
 
 
 class CheckData:
@@ -134,3 +140,117 @@ def clock(f):
     
     return wrap
 
+
+
+class Values:
+
+    SIG_FIGS: int = 5
+
+    @staticmethod
+    def Clamp01(value: float, **kwargs) -> float:
+        """
+        Clamp a value between 0 and 1.
+        """
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        if not (0.0 <= value <= 1.0):    
+
+            if value < 0.0:
+                clamped = 0
+            else:
+                clamped = 1
+
+            if noticequeue:
+                noticequeue.Report(Level.warning, f"{value} out of 0-1 range. Clamping to {clamped}.")
+
+            return clamped
+        
+        return value
+    
+
+    def RoundSigFigs(self, x, sigfigs: int = SIG_FIGS, **kwargs) -> float:
+        """
+        Round a number to a given number of significant figures.
+
+        Parameters
+        ----------
+        x : any
+            The value to round.
+        sig : int
+            Number of significant figures (default = 5).
+
+        Returns
+        -------
+        int, float, or None
+            Rounded value, or None if input is None.
+        """
+
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        if x is None:
+            return None
+
+        try:
+            x = float(x)
+
+        except (TypeError, ValueError) as e:
+            if noticequeue: noticequeue.Report(Level.Error, f"Cannot convert {type(x)}: {x} to float.", str(e))
+            return None
+        
+        except Exception as e:
+            if noticequeue: noticequeue.Report(Level.Error, f"Error converting {type(x)}: {x} to float.", str(e))
+            return None
+
+        if math.isnan(x) or math.isinf(x):
+            return x
+
+        if x == 0.0:
+            return 0.0
+
+        return round(x, sigfigs - int(math.floor(math.log10(abs(x)))) - 1)
+    
+
+    @staticmethod
+    def LutMapper(data: pd.DataFrame, stat: str, *args, min: float = None, max: float = None, **kwargs) -> Tuple[Any, Any]:
+
+        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        try:
+            if min is None: 
+                min = float(data[stat].min())
+
+            if max is None: 
+                max = float(data[stat].max())
+
+            if not (np.isfinite(max) or np.isfinite(min)):
+                if noticequeue:
+                    noticequeue.Report(
+                        Level.warning, 
+                        f"Invalid LUT range. Minimum and maximum values must be finite numbers. Removing infinite values.", 
+                        f"min is finite: {np.isfinite(min)}; max is finite: {np.isfinite(max)}. \
+                        min: {min} {'-> 0.0' if not np.isfinite(min) else ''}; max: {max} {'-> 100.0' if not np.isfinite(max) else ''}."
+                    )
+                if not np.isfinite(min):
+                    min = 0.0
+                if not np.isfinite(max):
+                    max = 100.0
+                    
+            if max <= min:
+                if noticequeue:
+                    noticequeue.Report(
+                        Level.warning, 
+                        f"Invalid LUT range. Max value must be greater than min value. Using default range (0.0, 100.0).", 
+                        f"Provided min: {min}; max: {max}."
+                )
+                min = 0.0
+                max = 100.0
+            
+            norm = plt.Normalize(min, max)
+            vals = data[stat].to_numpy()
+
+            return norm, vals
+        
+        except Exception as e:
+            if noticequeue:
+                noticequeue.Report(Level.error, f"Error computing LUT map. No LUT applied.", f"LUT map error: {str(e)}.")
+            return None, None
