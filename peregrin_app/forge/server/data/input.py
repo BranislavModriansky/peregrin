@@ -3,7 +3,7 @@ from unittest import case
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render   
-from src.code import DataLoader, Spots, Tracks, Frames, TimeIntervals, Metrics, Level
+from src.code import DataLoader, Stats, Metrics, Level
 
 
 
@@ -28,10 +28,22 @@ def mount_data_input(input, output, session, S, noticequeue):
                             ),
                             ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
                             ui.div(  
-                                # ui.tags.style(Customize.Link1),
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
-                                
+
+                                # TODO: COMPUTE OPTIONS
+                                #        -> ARE TO BE ADDED LATER !
+                                #        -> USER DECIDES WHICH STATS TO COMPUTE AFTER DATA IS LOADED
+                                #
+                                # ui.br(),
+                                # ui.div("Compute:", style="font-size: 18px; font-weight: 550; margin-bottom: 12px;"),
+                                # ui.div(
+                                #     ui.input_checkbox("compute_spotstats", "Spotstats", True),
+                                #     ui.input_checkbox_group("auto_label_metrics", None, ["Trackstats", "Framestats", "TimeIntervals"], inline=False, selected=["Trackstats", "Framestats", "TimeIntervals"]),
+                                #     style="margin-left: 10px;"
+                                # ),
+
+                                ui.br(),
                                 ui.output_ui("data_labeling_ui"),
 
                             ), 
@@ -227,15 +239,19 @@ def mount_data_input(input, output, session, S, noticequeue):
         if all_data:
             all_data = pd.concat(all_data, axis=0)
             S.RAWDATA.set(all_data)
-            S.UNFILTERED_SPOTSTATS.set(Spots(all_data))
-            S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
-            S.UNFILTERED_TRACKSTATS.set(Tracks(all_data))
-            S.UNFILTERED_FRAMESTATS.set(Frames(all_data))
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(all_data)())
-            S.SPOTSTATS.set(S.UNFILTERED_SPOTSTATS.get())
-            S.TRACKSTATS.set(S.UNFILTERED_TRACKSTATS.get())
-            S.FRAMESTATS.set(S.UNFILTERED_FRAMESTATS.get())
-            S.TINTERVALSTATS.set(S.UNFILTERED_TINTERVALSTATS.get())
+
+            # Compute
+            Spots, Tracks, Frames, TimeIntervals = Stats(noticequeue=noticequeue).GetAllStats(all_data)
+
+            S.UNFILTERED_SPOTSTATS.set(Spots)
+            S.UNFILTERED_TRACKSTATS.set(Tracks)
+            S.UNFILTERED_FRAMESTATS.set(Frames)
+            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
+
+            S.SPOTSTATS.set(Spots)
+            S.TRACKSTATS.set(Tracks)
+            S.FRAMESTATS.set(Frames)
+            S.TINTERVALSTATS.set(TimeIntervals)
 
             ui.update_sidebar(id="sidebar", show=True)
             ui.update_action_button(id="append_threshold", disabled=False)
@@ -257,14 +273,22 @@ def mount_data_input(input, output, session, S, noticequeue):
 
             df = DataLoader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
 
+            stats = Stats(noticequeue=noticequeue)
+
+            Tracks, Frames, TimeIntervals =  \
+                stats.Tracks(df),            \
+                stats.Frames(df),            \
+                stats.TimeIntervals(df)
+            
             S.UNFILTERED_SPOTSTATS.set(df)
-            S.UNFILTERED_TRACKSTATS.set(Tracks(df))
-            S.UNFILTERED_FRAMESTATS.set(Frames(df))
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals(df)())
+            S.UNFILTERED_TRACKSTATS.set(Tracks)
+            S.UNFILTERED_FRAMESTATS.set(Frames)
+            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
+
             S.SPOTSTATS.set(df)
-            S.TRACKSTATS.set(Tracks(df))
-            S.FRAMESTATS.set(Frames(df))
-            S.TINTERVALSTATS.set(TimeIntervals(df)())
+            S.TRACKSTATS.set(Tracks)
+            S.FRAMESTATS.set(Frames)
+            S.TINTERVALSTATS.set(TimeIntervals)
             
             ui.update_action_button(id="append_threshold", disabled=False)
             

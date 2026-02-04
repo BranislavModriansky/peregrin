@@ -547,3 +547,11 @@ nav a.nav-link.hover::after {
     color: var(--color-hover) !important;
 }
 
+div.checkbox:has(#compute_spotstats) {
+    cursor: not-allowed !important;
+}
+
+div.checkbox:has(#compute_spotstats) * {
+    pointer-events: none !important;
+    color: grey !important;
+}

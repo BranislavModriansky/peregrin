@@ -11,7 +11,7 @@ from math import floor, ceil
 
 from .._handlers._reports import Level
 from .._general import clock, is_empty
-from ._stats import MainDataInventory, Frames, TimeIntervals
+from ._stats import BaseDataInventory, Stats
 
 
 
@@ -60,10 +60,10 @@ class Filter1D:
             tuple: (spotstats, trackstats, framestats, tintervalstats)
         """
 
-        spotstats = MainDataInventory.Spots
-        trackstats = MainDataInventory.Tracks
-        framestats = MainDataInventory.Frames
-        tintervalstats = MainDataInventory.TimeIntervals
+        spotstats = BaseDataInventory.Spots
+        trackstats = BaseDataInventory.Tracks
+        framestats = BaseDataInventory.Frames
+        tintervalstats = BaseDataInventory.TimeIntervals
 
         # Return empty dataframes if any input is empty
         if any(is_empty(df) for df in [spotstats, trackstats, framestats, tintervalstats]):
@@ -82,8 +82,10 @@ class Filter1D:
         trackstats = trackstats.loc[valid_track_indices]
         
         # Regenerate frame and time interval stats from filtered spots
-        framestats = Frames(spotstats)
-        tintervalstats = TimeIntervals(spotstats)()
+        # stats = Stats(noticequeue=self.noticequeue)
+
+        framestats = Stats(noticequeue=self.noticequeue).Frames(spotstats)
+        tintervalstats = Stats(noticequeue=self.noticequeue).TimeIntervals(spotstats)
 
         return spotstats, trackstats, framestats, tintervalstats
 

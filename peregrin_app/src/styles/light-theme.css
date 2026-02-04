@@ -528,3 +528,12 @@ nav a.hover:not(.peregrin-logo)::after {
 .nav a .peregrin-logo * {
     border: none !important;
 }
+
+div.checkbox:has(#compute_spotstats) {
+    cursor: not-allowed !important;
+}
+
+div.checkbox:has(#compute_spotstats) * {
+    pointer-events: none !important;
+    color: grey !important;
+}

@@ -168,7 +168,7 @@ class Values:
         return value
     
 
-    def RoundSigFigs(self, x, sigfigs: int = SIG_FIGS, **kwargs) -> float:
+    def RoundSigFigs(self, x, *, sigfigs: int = SIG_FIGS, **kwargs) -> float:
         """
         Round a number to a given number of significant figures.
 
@@ -176,7 +176,7 @@ class Values:
         ----------
         x : any
             The value to round.
-        sig : int
+        sigfigs : int
             Number of significant figures (default = 5).
 
         Returns
