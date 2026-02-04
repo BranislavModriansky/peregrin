@@ -8,7 +8,8 @@ import shiny.ui as ui
 from shiny import render, reactive, req, ui
 
 
-from src.code import Frames, Inventory1D, Filter1D, DebounceCalc, is_empty
+from peregrin_app.src.code._handlers._reports import Level
+from src.code import Inventory1D, Filter1D, DebounceCalc, is_empty
 
 
 def mount_thresholds_calc(input, output, session, S, noticequeue):
@@ -65,6 +66,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     @reactive.calc
     def get_bins():
         return input.bins() if input.bins() is not None and input.bins() != 0 else 15
+        
 
     @reactive.Effect
     @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
@@ -422,15 +424,18 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     def threshold_data():
 
         try:
-
             spotstats, trackstats, framestats, tintervalstats = Filter1D().Apply()
+
             S.SPOTSTATS.set(spotstats)
             S.TRACKSTATS.set(trackstats)
             S.FRAMESTATS.set(framestats)
             S.TINTERVALSTATS.set(tintervalstats)
 
         except Exception as e:
-            print(f"Error setting thresholds: {e}")
-            traceback.print_exc()
+            noticequeue.Report(
+                Level.error,
+                "Error applying threshold(s).",
+                traceback.format_exc(),
+            )
 
 

@@ -11,13 +11,13 @@ class Metrics:
         "Direction"
         "Cumulative length",
         "Cumulative displacement",
-        "Cumulative confinement ratio",
+        "Cumulative straightness index",
     ]
 
     Track = [
         "Track length",
         "Track displacement",
-        "Confinement ratio",
+        "Straightness index",
         "Track points",
         "Speed mean",
         "Speed median",
@@ -31,7 +31,7 @@ class Metrics:
     Time = [
         "Track length",
         "Track displacement",
-        "Confinement ratio",
+        "Straightness index",
         "Speed"
     ]
 
@@ -45,14 +45,14 @@ class Metrics:
     Lut = [
         "Track length", 
         "Track displacement", 
-        "Confinement ratio",
+        "Straightness index",
         "Track points",
         "Speed instantaneous",
         "Speed mean",
         "Speed median",
         "Speed max",
         "Speed min",
-        "Speed std",
+        "Speed  sd",
         "Direction mean",
         "Direction sd",
     ]
@@ -74,7 +74,7 @@ class Metrics:
             return {
                 "Track length": "(µm)",
                 "Track displacement": "(µm)",
-                "Confinement ratio": "",
+                "Straightness index": "",
                 "Track points": "",
                 "Time point": f"({t})",
                 "X coordinate": "(µm)",
@@ -83,7 +83,7 @@ class Metrics:
                 "Speed median": f"(µm·{t}⁻¹)",
                 "Speed max": f"(µm·{t}⁻¹)",
                 "Speed min": f"(µm·{t}⁻¹)",
-                "Speed std": f"(µm·{t}⁻¹)",
+                "Speed  sd": f"(µm·{t}⁻¹)",
                 "Speed instantaneous": f"(µm·{t}⁻¹)",
                 "Direction mean": "",
                 "Direction sd": "",
@@ -101,10 +101,10 @@ class Metrics:
         TrackProperties = [
             "Track length",
             "Track displacement",
-            "Confinement ratio",
+            "Straightness index",
             "Track points",
             "Speed mean",
-            "Speed std",
+            "Speed  sd",
             "Direction mean",
         ]
 

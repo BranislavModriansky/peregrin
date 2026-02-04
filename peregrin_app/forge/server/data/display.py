@@ -6,41 +6,22 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from shiny import render, reactive, ui, req
 from shinywidgets import output_widget, render_widget
-from src.code import Summarize, Values
+from src.code import Summarize, Values, DebounceCalc
 
 
 def mount_data_display(input, output, session, S):
 
-    # def create_figure(data: pd.Series, app_theme: str = "light") -> go.Figure:
-    #     fig = go.Figure()
-    #     fig.add_trace(
-    #         go.Histogram(
-    #             x=data.dropna(), nbinsx=15,
-    #             marker_color='#337ab7',
-    #             marker_line_width=0,
-    #             hovertemplate="Range: %{x}<br>Count: %{y}<extra></extra>",
-    #         )
-    #     )
+    @DebounceCalc(2)
+    @reactive.calc
+    def significant_figures_update():
+        ...
 
-    #     fig.update_layout(
-    #         margin=dict(l=0, r=0, t=0, b=240),
-    #         xaxis=dict(visible=False, fixedrange=True),
-    #         yaxis=dict(visible=False, fixedrange=True),
-    #         paper_bgcolor='rgba(0,0,0,0)',
-    #         plot_bgcolor='rgba(0,0,0,0)',
-    #         showlegend=False,
-    #         dragmode=False,
-    #         bargap=0.1,
-    #         hoverlabel=dict(
-    #             bgcolor="white" if app_theme == "light" else "#1d1d1d",
-    #             font_size=10,
-    #             bordercolor="#ddd" if app_theme == "light" else "#2b2b2b",
-    #             font_color="#333" if app_theme == "light" else "#dcdcdc"
-    #         ),
-    #         modebar=dict(remove=["zoom", "pan", "select", "lasso2d", "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d", "hoverClosestCartesian", "hoverCompareCartesian"])
-    #     )
 
-    #     return fig
+    @reactive.Effect
+    @reactive.event(input.significant_figures, ignore_init=True, ignore_none=True)
+    def update_significant_figures():
+        significant_figures_update()
+        
     
     def hist(data: pd.Series, app_theme: str = "light") -> plt.Figure:
             fig, ax = plt.subplots(figsize=(3, 3), dpi=72)
