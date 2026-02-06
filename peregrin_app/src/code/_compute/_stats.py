@@ -10,19 +10,44 @@ from .._general import Values
 
 @dataclass
 class BaseDataInventory:
+    """
+    #### *Data inventory of trajectory statistics Dataframes.*
+
+    This class serves as a centralized inventory for the DataFrames that store trajectory statistics at different planes of aggregation. 
+    Each attribute is intended to store a DataFrame (one of Spots, Tracks, Frames, TimeIntervals) after any of the computation methods in the Stats class are called.
+    """
+
     Spots: pd.DataFrame
     Tracks: pd.DataFrame
     Frames: pd.DataFrame
     TimeIntervals: pd.DataFrame
 
 
-class Stats:
 
-    SIG_FIGS = 5
-    DECIMALS = 5
+class Stats:
+    """
+    #### *Class for computing trajectory statistics at various levels of aggregation.*
+
+    This class provides methods to compute trajectory statistics at multiple levels of aggregation: 
+    per-spot (Spots), per-track (Tracks), per-frame/time point (Frames), and per-time interval/lag (TimeIntervals). 
+    Each method processes the input DataFrame and updates the corresponding DataFrame in the BaseDataInventory.
+
+    Attributes
+    ----------
+    SIGNIFICANT_FIGURES : int, optional
+        *If specified, during computations all values are going to be rounded to this number of significant figures.*
+
+    DECIMALS_PLACES : int, optional
+        *If specified, during computations all floating-point values are going to be normalized (rounded) to this number of decimal places.*
+    """
+
+    SIGNIFICANT_FIGURES: None | int = None
+    DECIMALS_PLACES: None | int = None
+
 
     def __init__(self, **kwargs) -> None:
         self.noticequeue = kwargs.get('noticequeue', None)
+
 
     def GetAllStats(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
@@ -38,6 +63,12 @@ class Stats:
             - ``X coordinate``
             - ``Y coordinate``
             - ``Time point``
+
+        significant_figures : int, optional
+            *If provided, rounds all values in the results to the specified number of significant figures.*
+        
+        normalize_decimals : int, optional
+            *If provided, formats all floating-point values in the results to the specified number of decimal places.*
 
         Returns
         -------
@@ -67,6 +98,12 @@ class Stats:
             - ``X coordinate``
             - ``Y coordinate``
             - ``Time point``
+
+        significant_figures : int, optional
+            *If provided, rounds all values in the results to the specified number of significant figures.*
+        
+        normalize_decimals : int, optional
+            *If provided, formats all floating-point values in the results to the specified number of decimal places.*
         
         Returns
         -------
@@ -187,8 +224,11 @@ class Stats:
         R = (np.hypot(cum_sin, cum_cos) / n_angles)
         df['Cumulative direction var'] = (1.0 - R)
 
-        df = self.Signify(df)
-        df = self.NormDecimals(df)
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
+
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
 
         BaseDataInventory.Spots = df
 
@@ -305,8 +345,11 @@ class Stats:
         df['Track UID'] = np.arange(len(df))
         df.set_index('Track UID', drop=True, inplace=True, verify_integrity=True)
         
-        df = self.Signify(df)
-        df = self.NormDecimals(df)
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
+            
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
         
         BaseDataInventory.Tracks = df
 
@@ -468,14 +511,17 @@ class Stats:
         out['Cumulative direction global var'] = (1.0 - R_cum)
 
         # Reset index to columns
-        df_out = out.reset_index()
+        df = out.reset_index()
 
-        BaseDataInventory.Frames = df_out
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
 
-        df_out = self.Signify(df_out)
-        df_out = self.NormDecimals(df_out)
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
 
-        return df_out
+        BaseDataInventory.Frames = df
+
+        return df
 
 
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -639,14 +685,30 @@ class Stats:
             ['Condition', 'Replicate', 'Frame lag'], ignore_index=True
         )
 
+        # Split MSD CI95 into two columns
         df['MSD CI95 low'] = df['MSD CI95'].apply(lambda x: x[0])
         df['MSD CI95 high'] = df['MSD CI95'].apply(lambda x: x[1])
         df = df.drop(columns=['MSD CI95'])
 
-        df = self.Signify(df)
-        df = self.NormDecimals(df)
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
+
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
 
         BaseDataInventory.TimeIntervals = df
+
+        return df
+    
+
+
+    def FormatDigits(self, df: pd.DataFrame, *, sig_figs: int = None, decimals: int = None) -> pd.DataFrame:
+        
+        if sig_figs:
+            df = self.Signify(df, sig_figs=sig_figs)
+
+        if decimals:
+            df = self.NormDecimals(df, decimals=decimals)
 
         return df
 
@@ -672,7 +734,7 @@ class Stats:
             return df.copy()
 
         if sig_figs is None:
-            sig_figs = self.SIG_FIGS
+            sig_figs = self.SIGNIFICANT_FIGURES
 
         valuer = Values()
 
@@ -702,7 +764,7 @@ class Stats:
             return df.copy()
         
         if decimals is None:
-            decimals = self.DECIMALS
+            decimals = self.DECIMALS_PLACES
 
         # Ensure all values have the same number of decimals: (round, fill)
         for col in df.select_dtypes(include=[np.number]).columns:
@@ -712,7 +774,6 @@ class Stats:
         
 
     def _wrap_pi(self, a: np.ndarray) -> np.ndarray:
-        # Wrap to (-pi, pi]
         return (a + np.pi) % (2*np.pi) - np.pi
 
 
@@ -753,25 +814,31 @@ class Summarize:
 
     @staticmethod
     def column_summary(series: pd.Series) -> dict:
-        if pd.api.types.is_numeric_dtype(series) and not all(np.isnan(series)):
-            return {
-                "type": "type_one",
-                "missing": int(series.isna().sum()),
-                "distinct": series.nunique(dropna=True),
-                "min": series.min(),
-                "max": series.max(),
-                "mean": series.mean(),
-                "median": series.median(),
-                "mode": series.mode(dropna=True).iloc[0] if not series.mode(dropna=True).empty else None,
-                "sd": series.std(),
-                "variance": series.var(),
-            }
-        else:
-            value_counts = series.value_counts(dropna=True, normalize=True).head(3)
-            return {
-                "type": "type_zero",
-                "missing": int(series.isna().sum()),
-                "distinct": series.nunique(dropna=True),
-                "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],   
-            }
-        
+        # Robust handling of pandas nullable dtypes (pd.NA) and mixed types
+        if pd.api.types.is_numeric_dtype(series):
+            s = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan)
+
+            # If there is at least one real numeric value, treat as numeric summary
+            if s.notna().any():
+                mode = s.mode(dropna=True)
+                return {
+                    "type": "type_one",
+                    "missing": int(series.isna().sum()),
+                    "distinct": int(series.nunique(dropna=True)),
+                    "min": s.min(skipna=True),
+                    "max": s.max(skipna=True),
+                    "mean": s.mean(skipna=True),
+                    "median": s.median(skipna=True),
+                    "mode": float(mode.iloc[0]) if not mode.empty else None,
+                    "sd": s.std(skipna=True),
+                    "variance": s.var(skipna=True),
+                }
+
+        value_counts = series.value_counts(dropna=True, normalize=True).head(3)
+        return {
+            "type": "type_zero",
+            "missing": int(series.isna().sum()),
+            "distinct": int(series.nunique(dropna=True)),
+            "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],
+        }
+

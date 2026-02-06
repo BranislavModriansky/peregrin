@@ -65,22 +65,6 @@ app_ui = ui.page_sidebar(
             ui.output_ui("input_panel"),
         ),
 
-        # TODO - _ _ _ _ GATING _ _ _ _
-        ui.nav_panel(
-            "Gating Panel",
-            ui.layout_sidebar(
-                ui.sidebar(
-                    "Gating_sidebar", 
-                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
-                ), 
-                ui.markdown(
-                    """ 
-                    Gates here
-                    """
-                )
-            )
-        ),
-
         # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
         ui.nav_panel(
             "Dashboard",
@@ -92,7 +76,16 @@ app_ui = ui.page_sidebar(
                         ui.div(
                             ui.span("Spot stats", style="font-size:18px;"), 
                             ui.div(
-                                ui.div("Significant figures:", style="margin-right:8px; font-weight: normal;"),
+                                ui.div("Max decimals:", style="margin-right:8px; font-weight: normal;"),
+                                ui.input_numeric(
+                                    id="decimal_places",
+                                    label=None,
+                                    value=5,
+                                    min=0,
+                                    step=1,
+                                    width="60px"
+                                ),
+                                ui.div("Significant figures:", style="margin-right:8px; margin-left:12px; font-weight: normal;"),
                                 ui.input_numeric(
                                     id="significant_figures",
                                     label=None,
@@ -174,6 +167,22 @@ app_ui = ui.page_sidebar(
                 ),
             ),
             ui.output_ui("initialize_loader2"),
+        ),
+
+        # TODO - _ _ _ _ GATING _ _ _ _
+        ui.nav_panel(
+            "Gating Panel",
+            ui.layout_sidebar(
+                ui.sidebar(
+                    "Gating_sidebar", 
+                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
+                ), 
+                ui.markdown(
+                    """ 
+                    Gates here
+                    """
+                )
+            )
         ),
 
         # _ _ _ _ VISUALIZATION PANEL _ _ _ _
@@ -616,12 +625,18 @@ app_ui = ui.page_sidebar(
                                 "Compose",
                                 ui.accordion(
                                     ui.accordion_panel(
-                                        'Line',
-                                        ui.input_checkbox("line_show_msd", "Show line", True),
-                                    ),
-                                    ui.accordion_panel(
-                                        'Scatter',
-                                        ui.input_checkbox("scatter_show_msd", "Show scatter", False),
+                                        'Line and Scatter',
+                                        ui.row(
+                                            ui.column(2, 
+                                                ui.input_selectize("statistic_msd", None, choices=['mean', 'median'], selected='mean', width="120px"),
+                                            ),
+                                            ui.column(2, 
+                                                ui.input_checkbox("line_show_msd", "Show line", True),
+                                            ),
+                                            ui.column(2,
+                                                ui.input_checkbox("scatter_show_msd", "Show scatter", False),          
+                                            )  
+                                        ),
                                     ),
                                     ui.accordion_panel(
                                         'Linear fit',
@@ -630,13 +645,13 @@ app_ui = ui.page_sidebar(
                                     ui.accordion_panel(
                                         'Error band',
                                         ui.row(
-                                            ui.column(3, 
+                                            ui.column(2, 
                                                 ui.input_checkbox("error_band_show_msd", "Show error band", True)
                                             ),
-                                            ui.column(3, 
+                                            ui.column(2, 
                                                 ui.panel_conditional(
                                                     "input.error_band_show_msd == true",
-                                                    ui.input_selectize("error_band_type_msd", None, choices=['sem', 'sd'], selected='sem'),
+                                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'CI95'], selected='sem', width="120px"),
                                                 )
                                             )
                                         )
@@ -666,7 +681,7 @@ app_ui = ui.page_sidebar(
                                             ui.div(
                                                 ui.input_checkbox("palette_stock_msd", "Use stock palette", False),
                                                 style="margin-top: 38px; margin-left: 15px;"
-                                            ),
+                                            )
                                         )
                                     ),
                                     ui.column(2, 

@@ -216,13 +216,6 @@ class Categorizer:
         if self.aggdict and self.aggby:
             return self._aggregate()
         return self._filter()
-
-
-    def _getmethods(self) -> Tuple[Any, Any, Any]:
-        """
-        Get the filter and aggregate methods.
-        """
-        return self._filter, self._aggregate, self._checkerrors
     
 
 

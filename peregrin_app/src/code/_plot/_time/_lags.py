@@ -2,7 +2,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from typing import Any, Optional, Tuple, Literal, List
+from typing import *
 
 
 from ..._handlers._reports import Level
@@ -11,11 +11,12 @@ from .._common import Categorizer, Colors
 
 class MSD:
     """
-    Mean Squared Displacement analysis and visualization class.
+    #### *Mean Squared Displacement analysis and visualization class.*
     
     Provides methods for computing and plotting MSD statistics across time lags,
     with support for multiple conditions, linear fitting, and various scaling options.
     """
+
     # Constants for color adjustments in linear fits
     SATURATION_SCALE = 0.7
     SATURATION_MIN = 0.02
@@ -24,9 +25,14 @@ class MSD:
     BRIGHTNESS_MIN = 0.06
 
     AGG_DICT = {
+        'MSD min': 'min',
+        'MSD max': 'max',
         'MSD mean': 'mean',
-        'MSD sem': 'sem',
+        'MSD sem': 'mean',
         'MSD sd': 'mean',
+        'MSD median': 'median',
+        'MSD CI95 low': 'mean',
+        'MSD CI95 high': 'mean'
     }
     
     def __init__(
@@ -36,7 +42,6 @@ class MSD:
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
-
         
         self.aggregate = group_replicates
         self.disaggregate = False
@@ -120,11 +125,12 @@ class MSD:
         ax.set_ylim(lower, upper)
     
     def plot(self,
+             statistic: str = 'mean',
              line: bool = True,
-             scatter: bool = True,
+             scatter: bool = False,
              linear_fit: bool = False,
              title: Optional[str] = None,
-             errorband: Optional[Literal['sem', 'sd', False]] = False,
+             errorband: Optional[Literal['sd', 'sem', 'min-max', 'CI95', False]] = False,
              grid: bool = True,
              figsize: tuple = (5, 3.5),
              ax: Optional[plt.Axes] = None) -> plt.Figure:
@@ -165,19 +171,28 @@ class MSD:
                     groups.append((condition, rep, rep_df))
 
             for g_idx, (cond_name, rep_name, gdata) in enumerate(groups):
+
                 x_data = gdata['Frame lag'].values
-                y_data = gdata['MSD mean'].values
+                y_data = gdata[f'MSD {statistic}'].values
+                err_anchor = gdata[f'MSD mean'].values
+              
+                match errorband:
+                    case 'sd':
+                        err_data = gdata['MSD sd'].values / 2
+                    case 'sem':
+                        err_data = gdata['MSD sem'].values
+                    case 'min-max':
+                        err_data = (gdata['MSD max'].values, gdata['MSD min'].values)
+                    case 'CI95':
+                        err_data = (gdata['MSD CI95 high'].values, gdata['MSD CI95 low'].values)
+                    case _:
+                        raise ValueError("Invalid errorband type specified.")
 
-                if errorband == 'sem':
-                    err_data = gdata['MSD sem'].values
-                elif errorband == 'sd':
-                    err_data = gdata['MSD sd'].values / 2
+                if isinstance(err_data, tuple):
+                    band_top_y, band_bottom_y = err_data
                 else:
-                    err_data = np.zeros_like(y_data)
-
-                band_bottom_y = np.maximum(y_data - err_data, 0.0)
-                band_top_y = y_data + err_data
-                
+                    band_bottom_y = np.maximum(err_anchor - err_data, 0.0)
+                    band_top_y = err_anchor + err_data
                 
                 color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
 
