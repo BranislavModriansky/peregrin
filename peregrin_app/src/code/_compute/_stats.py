@@ -44,6 +44,24 @@ class Stats:
     SIGNIFICANT_FIGURES: None | int = None
     DECIMALS_PLACES: None | int = None
 
+    COLUMNS = {
+        'SPOTS': [
+            'X coordinate','Y coordinate',
+            'Time point','Frame','Track ID','Condition','Replicate','Track UID',
+            'Distance','Cumulative track length','Cumulative track displacement',
+            'Cumulative straightness index','Cumulative speed','Direction',
+            'Cumulative direction mean','Cumulative direction var'
+        ],
+        'TRACKS': [
+            'Condition','Replicate','Track ID', 'Track points',
+            'Track length','Track displacement','Straightness index',
+            'Speed min','Speed max','Speed mean','Speed sd','Speed sem',
+            'Speed median','Speed q25','Speed q75',
+            'Speed CI95 low','Speed CI95 high',
+            'Direction mean','Direction var'
+        ]
+    }
+
 
     def __init__(self, **kwargs) -> None:
         self.noticequeue = kwargs.get('noticequeue', None)
@@ -137,7 +155,7 @@ class Stats:
         
         if df.empty:
             # self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
-            return df.copy()
+            return pd.DataFrame(columns=self.COLUMNS['SPOTS'])
 
         df.sort_values(by=['Condition', 'Replicate', 'Track ID', 'Time point'], inplace=True)
 
@@ -224,6 +242,9 @@ class Stats:
         R = (np.hypot(cum_sin, cum_cos) / n_angles)
         df['Cumulative direction var'] = (1.0 - R)
 
+        df.dropna(how='all', axis='columns', inplace=True)
+
+
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
 
@@ -273,17 +294,16 @@ class Stats:
         """
 
         if df.empty:
-            cols = [
-                'Condition','Replicate','Track ID', 'Track points',
-                'Track length','Track displacement','Straightness index',
-                'Speed min','Speed max','Speed mean','Speed sd','Speed sem',
-                'Speed median','Speed q25','Speed q75',
-                'Speed CI95 low','Speed CI95 high',
-                'Direction mean','Direction var'
-            ]
-            return pd.DataFrame(columns=cols)
+            return pd.DataFrame(columns=self.COLUMNS['TRACKS'])
 
-        grp = df.groupby(['Condition','Replicate','Track ID'], sort=False)
+        stash = df[['Condition','Replicate','Track ID']].drop_duplicates()
+        print(stash)
+
+        df = df.set_index('Track UID', drop=True, verify_integrity=False)
+        gcols = ['Track UID']
+
+        
+        grp = df.groupby(gcols, sort=False)
 
         # choose the quantiles you want; edit as needed
         agg_spec = {
@@ -310,9 +330,17 @@ class Stats:
         agg['Speed CI95 high'] = agg['Speed CI95'].apply(lambda x: x[1])
         agg = agg.drop(columns=['Speed CI95'])
 
+        # If colors were assigned, carry them over
         if 'Replicate color' in df.columns:
             colors = grp['Replicate color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
+        if 'Condition color' in df.columns:
+            colors = grp['Condition color'].first()
+            agg = agg.merge(colors, left_index=True, right_index=True)
+
+        # Other general stats
+        other = self._general_agg_stats(df, exclude=self.COLUMNS['SPOTS'])
+        # agg = agg.merge(other, left_index=True, right_index=True)
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
@@ -323,27 +351,34 @@ class Stats:
         n = grp.size().rename('Track points')
         agg = agg.merge(n, left_index=True, right_index=True)
 
-        # Circular direction stats
+        # Sin/Cos components for circular statistics
         sin_cos = df.assign(
             _sin=np.sin(df['Direction']), 
             _cos=np.cos(df['Direction'])
         )
-        
-        dir_agg = sin_cos.groupby(['Condition','Replicate','Track ID'], sort=False).agg(
+        # Group and aggregate sin/cos components along tracks
+        dir_agg = sin_cos.groupby(gcols, sort=False).agg(
             mean_sin=('_sin','mean'),
             mean_cos=('_cos','mean')
         )
 
+        # Get circular mean from the aggregated sin/cos
         dir_agg['Direction mean'] = np.arctan2(dir_agg['mean_sin'], dir_agg['mean_cos'])
 
+        # Circular variance
         R = np.hypot(dir_agg['mean_sin'], dir_agg['mean_cos'])
         dir_agg['Direction var'] = (1.0 - R)
 
+        # Remove temporary columns
         dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
 
-        df = agg.merge(dir_agg, left_index=True, right_index=True).reset_index()
-        df['Track UID'] = np.arange(len(df))
-        df.set_index('Track UID', drop=True, inplace=True, verify_integrity=True)
+        # Merge circular statistics into main agg DataFrame
+        df = agg.merge(dir_agg, left_index=True, right_index=True)
+
+        df = df.merge(other, left_index=True, right_index=True, how='right')
+
+        df = stash.merge(df, left_index=True, right_index=True, how='right')
+        
         
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -798,6 +833,57 @@ class Stats:
             return np.nan
         R = np.hypot(s, c)
         return float(1.0 - R)
+
+    
+    def _general_agg_stats(self, df: pd.DataFrame, exclude: list[str], *, group_by: list[str] = ['Track UID']) -> pd.DataFrame:
+        """
+        #### *Computes basic statistics (min, max, mean, sd, sem, median) for all numeric columns in the input DataFrame, excluding core columns.*
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            ***Unstripped Spots DataFrame** containing columns, other than the core <- ``self.COLUMNS['SPOTS']`` columns, with numeric values to be aggregated.*
+
+        exclude : list[str]
+            *List of column names to be excluded from aggregation.*
+
+        group_by : list[str], optional
+            *List of column or index names to group by. Default is ['Track UID'].*
+
+        Returns
+        -------
+        pd.DataFrame
+            *DataFrame with basic statistics for each additional numeric column which is not found in the core <- ``self.COLUMNS['SPOTS']`` columns.*
+        """
+
+        if exclude is None:
+            return pd.DataFrame()
+
+        # Keep only numeric columns and exclude core columns
+        df = df.select_dtypes(include=[np.number]).drop(columns=exclude, errors='ignore')
+
+        # Stash leftover columns
+        other_cols = df.columns.tolist()
+
+        # Group by Track UID
+        grp = df.groupby(level=group_by, sort=False)
+
+        # For each bonus column, compute basic statistics, rename columns, and merge back
+        for col in other_cols:
+            agg = grp[col].agg(['min','max','mean','std','sem','median'])
+
+            agg.columns = [f"{col} min", f"{col} max", f"{col} mean", f"{col} sd", f"{col} sem", f"{col} median"]
+
+            df = df.merge(agg, left_index=True, right_index=True)
+
+        # Drop original columns
+        df.drop(columns=other_cols, inplace=True)
+
+        # drop multiplicates if present
+        df = df.drop_duplicates()
+        
+        return df
+        
     
 
 
