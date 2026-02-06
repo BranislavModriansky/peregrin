@@ -6,6 +6,7 @@ from scipy import stats
 from collections import defaultdict
 
 from .._general import Values
+from .._handlers._reports import Level
 
 
 @dataclass
@@ -154,34 +155,25 @@ class Stats:
         """
         
         if df.empty:
-            # self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
+            self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
             return pd.DataFrame(columns=self.COLUMNS['SPOTS'])
 
         df.sort_values(by=['Condition', 'Replicate', 'Track ID', 'Time point'], inplace=True)
 
         grp = df.groupby(['Condition', 'Replicate', 'Track ID'], sort=False)
 
-        # ---- Add unique per-track index (1-based) ----
+        # Provides a completely unique identifier for each track (Track UID) that is consistent across all methods and is used for merging.
         df['Track UID'] = grp.ngroup()
         df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
-        # ---- FIX: Frame should be unique per Time point (within Condition×Replicate), not per track ----
-        # This guarantees: for each (Condition, Replicate, Time point) there is exactly one Frame value.
-        df['Frame'] = (
-            df.groupby(['Condition', 'Replicate'], sort=False)['Time point']
-            .rank(method='dense')
-            .astype('Int64')
-        )
+        # Assigns frame numbers within each data subset based on the order of time points; starts at 1 for the first point in each track.
+        df['Frame'] = df.groupby(['Condition', 'Replicate'], sort=False)['Time point'].rank(method='dense').astype('Int64')
 
         # Optional sanity warning (kept lightweight)
         try:
-            bad = (
-                df.groupby(['Condition', 'Replicate', 'Time point'], sort=False)['Frame']
-                .nunique(dropna=True)
-                .max()
-            )
+            bad = df.groupby(['Condition', 'Replicate', 'Time point'], sort=False)['Frame'].nunique(dropna=True).max()
             if bad and bad > 1:
-                # If you have noticequeue available here, you can Report; otherwise ignore.
+                self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same Condition × Replicate × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
                 pass
         except Exception:
             pass
@@ -242,12 +234,11 @@ class Stats:
         R = (np.hypot(cum_sin, cum_cos) / n_angles)
         df['Cumulative direction var'] = (1.0 - R)
 
+        # Drop (if any) present all nan columns  
         df.dropna(how='all', axis='columns', inplace=True)
-
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
-
         if self.DECIMALS_PLACES:
             df = self.NormDecimals(df)
 
