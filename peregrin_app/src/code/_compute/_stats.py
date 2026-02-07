@@ -369,6 +369,8 @@ class Stats:
         df = df.merge(other, left_index=True, right_index=True, how='right')
 
         df = stash.merge(df, left_index=True, right_index=True, how='right')
+
+        df.drop_duplicates(inplace=True)
         
         
         if self.SIGNIFICANT_FIGURES:

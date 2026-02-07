@@ -14,6 +14,7 @@ from .viz.tracks import MountTracks
 from .viz.distributions import MountDistributions
 # from .viz.superplots import mount_superplots
 from .viz.msd import mount_plot_msd
+from .viz.turnangles import mount_plot_turnangles
 
 from .bg_jobs.loaders import mount_loaders
 from .bg_jobs.buttons import mount_buttons
@@ -48,6 +49,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_thresholds_build(*args)
     mount_thresholds_calc(*args, **kwargs)
     mount_thresholds_info_export(*args)
+    mount_plot_turnangles(*args, **kwargs)
 
 
     # MountTracks.realistic_reconstruction(*args, **kwargs)

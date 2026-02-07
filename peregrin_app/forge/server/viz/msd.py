@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import MSD, Styles
+from src.code import MSD, Styles, is_empty
 
 
 
@@ -114,7 +114,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
 
         output_plot_msd.cancel()
 
-        req(S.TINTERVALSTATS() is not None and not S.TINTERVALSTATS().empty)
+        req(not is_empty(S.TINTERVALSTATS.get()))
 
         if input.error_band_show_msd():
             errorband = input.error_band_type_msd()

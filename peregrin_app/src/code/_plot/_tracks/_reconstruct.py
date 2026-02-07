@@ -589,7 +589,7 @@ class ReconstructTracks:
             self.Spots = self.Spots.join(
                 self.Tracks[['Track color']],
                 how='left',
-                validate='many_to_one',
+                # validate='many_to_one',
             )
     
     def _build_segments(self, spots: pd.DataFrame, polar: bool = False):

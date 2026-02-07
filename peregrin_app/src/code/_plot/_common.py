@@ -64,51 +64,89 @@ class Colors:
         """
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        if c_mode == 'greyscale LUT':
-            return plt.cm.gist_gray
-        elif c_mode == 'reverse grayscale LUT':
-            return plt.cm.gist_yarg
-        elif c_mode == 'jet LUT':
-            return plt.cm.jet
-        elif c_mode == 'brg LUT':
-            return plt.cm.brg
-        elif c_mode == 'cool LUT':
-            return plt.cm.cool
-        elif c_mode == 'hot LUT':
-            return plt.cm.hot
-        elif c_mode == 'inferno LUT':
-            return plt.cm.inferno
-        elif c_mode == 'plasma LUT':
-            return plt.cm.plasma
-        elif c_mode == 'CMR-map LUT':
-            return plt.cm.CMRmap
-        elif c_mode == 'gist-stern LUT':
-            return plt.cm.gist_stern
-        elif c_mode == 'gnuplot LUT':
-            return plt.cm.gnuplot
-        elif c_mode == 'viridis LUT':
-            return plt.cm.viridis
-        elif c_mode == 'cividis LUT':
-            return plt.cm.cividis
-        elif c_mode == 'rainbow LUT':
-            return plt.cm.rainbow
-        elif c_mode == 'turbo LUT':
-            return plt.cm.turbo
-        elif c_mode == 'nipy-spectral LUT':
-            return plt.cm.nipy_spectral
-        elif c_mode == 'gist-ncar LUT':
-            return plt.cm.gist_ncar
-        elif c_mode == 'twilight LUT':
-            return plt.cm.twilight
-        elif c_mode == 'seismic LUT':
-            return plt.cm.seismic
-        
-        elif c_mode == None:
-            noticequeue.Report(Level.warning, "No color mode specified. Using 'jet LUT' instead.")
-            return plt.cm.jet
-        else:
-            noticequeue.Report(Level.warning, f"Unsupported color mode: {c_mode}. Using 'jet LUT' instead.")
-            return plt.cm.jet
+        match c_mode:
+            case 'greyscale LUT':
+                return plt.cm.gist_gray
+            case 'reverse grayscale LUT':
+                return plt.cm.gist_yarg
+            case 'jet LUT':
+                return plt.cm.jet
+            case 'brg LUT':
+                return plt.cm.brg
+            case 'cool LUT':
+                return plt.cm.cool
+            case 'hot LUT':
+                return plt.cm.hot
+            case 'inferno LUT':
+                return plt.cm.inferno
+            case 'plasma LUT':
+                return plt.cm.plasma
+            case 'magma LUT':
+                return plt.cm.magma
+            case 'RdYlGn_r LUT':
+                return plt.cm.RdYlGn_r
+            case 'CMR-map LUT':
+                return plt.cm.CMRmap
+            case 'gist-stern LUT':
+                return plt.cm.gist_stern
+            case 'gist-heat LUT':
+                return plt.cm.gist_heat
+            case 'gnuplot LUT':
+                return plt.cm.gnuplot
+            case 'gnuplot2 LUT':
+                return plt.cm.gnuplot2
+            case 'viridis LUT':
+                return plt.cm.viridis
+            case 'cividis LUT':
+                return plt.cm.cividis
+            case 'copper LUT':
+                return plt.cm.copper
+            case 'rainbow LUT':
+                return plt.cm.rainbow
+            case 'turbo LUT':
+                return plt.cm.turbo
+            case 'HSV LUT':
+                return plt.cm.hsv
+            case 'nipy-spectral LUT':
+                return plt.cm.nipy_spectral
+            case 'gist-ncar LUT':
+                return plt.cm.gist_ncar
+            case 'cubehelix LUT':
+                return plt.cm.cubehelix
+            case 'winter LUT':
+                return plt.cm.winter
+            case 'spring LUT':
+                return plt.cm.spring
+            case 'summer LUT':
+                return plt.cm.summer
+            case 'autumn LUT':
+                return plt.cm.autumn
+            case 'ocean LUT':
+                return plt.cm.ocean
+            case 'pink LUT':
+                return plt.cm.pink
+            case 'twilight LUT':
+                return plt.cm.twilight
+            case 'twilight-shifted LUT':
+                return plt.cm.twilight_shifted
+            case 'seismic LUT':
+                return plt.cm.seismic
+            case 'BrBG LUT':
+                return plt.cm.BrBG
+            case 'PRGn LUT':
+                return plt.cm.PRGn
+            case 'PiYG LUT':
+                return plt.cm.PiYG
+
+            case None:
+                if noticequeue:
+                    noticequeue.Report(Level.warning, "No color mode specified. Using 'jet LUT' instead.")
+                return plt.cm.jet
+
+            case _:
+                if noticequeue:
+                    noticequeue.Report(Level.warning, f"Unsupported color mode: {c_mode}. Using 'jet LUT' instead.")
+                return plt.cm.jet
         
     @staticmethod
     def BuildQualPalette(data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
@@ -229,4 +267,4 @@ class LutScale:
         self.max_val = max_val
         self.cmap = cmap
         self.noticequeue = kwargs.get('noticequeue', None)
-        
+
