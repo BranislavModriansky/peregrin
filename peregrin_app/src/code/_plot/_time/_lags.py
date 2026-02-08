@@ -7,7 +7,7 @@ from typing import *
 
 
 from ..._handlers._reports import Level
-from .._common import Categorizer, Colors
+from .._common import Categorizer, Painter
 from ..._general import is_empty
 
 
@@ -83,14 +83,14 @@ class MSD:
         if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
             if self.palette:
                 try:
-                    colors_list = Colors.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
+                    colors_list = Painter.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
                     if colors_list:
                         return dict(zip(tags, colors_list))
                 except Exception:
                     pass
 
             else:
-                mp = Colors.BuildQualPalette(
+                mp = Painter.BuildQualPalette(
                     data=self.data,
                     tag=tag,
                     which=tags,
@@ -365,7 +365,7 @@ def TurnAnglesHeatmap(
         noticequeue.Report(Level.info, "No data. Cannot generate heatmap.")
         return None
     
-    cmap = Colors.GetCmap(cmap, noticequeue=noticequeue)
+    cmap = Painter.GetCmap(cmap, noticequeue=noticequeue)
     
     # Initialize the plot
     fig, ax = plt.subplots(figsize=(4, 3.8))

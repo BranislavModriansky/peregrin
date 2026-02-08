@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from itertools import chain
-from .._common import Colors
+from .._common import Painter
 
 
 @staticmethod
@@ -202,7 +202,7 @@ def SwarmsAndBeyond(
         _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
     else:
-        _palette = Colors.BuildQualPalette(_df, tag='Replicate', noticequeue=noticequeue)
+        _palette = Painter.BuildQualPalette(_df, tag='Replicate', noticequeue=noticequeue)
 
     print(_palette)
 

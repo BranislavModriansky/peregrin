@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde, norm
-from .._common import Colors
+from .._common import Painter
 
 @staticmethod
 def Superviolins(
@@ -452,14 +452,14 @@ def Superviolins(
         except Exception as e:
             print(e)
             print("Random colors were created for each unique replicate.")
-            # colors = {rep: Colors.GenerateRandomColor() for rep in unique_reps}
+            # colors = {rep: Painter.GenerateRandomColor() for rep in unique_reps}
             # colors = [colors[rep] for rep in unique_reps]
-            colors = {r: Colors.GenerateRandomColor() for r in unique_reps}
+            colors = {r: Painter.GenerateRandomColor() for r in unique_reps}
             colors = [colors[r] for r in unique_reps]
     else: 
         try:
             try:
-                cmap = Colors.noticequeue(df, tag='Replicate')
+                cmap = Painter.noticequeue(df, tag='Replicate')
                 cmap = cmap
                 # colors = [cmap[rep] for rep in unique_reps]
                 colors = [cmap[r] for r in unique_reps]
@@ -471,9 +471,9 @@ def Superviolins(
         except Exception as e:
             print(e)
             print("Random colors were created for each unique replicate.")
-            # colors = {rep: Colors.GenerateRandomColor() for rep in unique_reps}
+            # colors = {rep: Painter.GenerateRandomColor() for rep in unique_reps}
             # colors = [colors[rep] for rep in unique_reps]
-            colors = {r: Colors.GenerateRandomColor() for r in unique_reps}
+            colors = {r: Painter.GenerateRandomColor() for r in unique_reps}
             colors = [colors[r] for r in unique_reps]
 
     # get kde data for each subgroup

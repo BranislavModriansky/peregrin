@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from itertools import chain
 from scipy.stats import gaussian_kde, norm
-from .._common import Colors
+from .._common import Painter
 
 
 
@@ -202,7 +202,7 @@ class BeyondSwarms:
                 _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
             else:
-                _palette = Colors.BuildQualPalette(_df, tag='Replicate')
+                _palette = Painter.BuildQualPalette(_df, tag='Replicate')
 
             # === stats (single pass) ===
             # keep all categories (observed=False) so spacers appear with NaNs
@@ -515,12 +515,12 @@ class SuperViolins:
                         self.colours = [self.cm(i / self.cm.N) for i in range(len(self.unique_reps))]
                     except Exception as e:
                         print(e)
-                        colours = {rep: Colors.GenerateRandomColor() for rep in self.unique_reps}
+                        colours = {rep: Painter.GenerateRandomColor() for rep in self.unique_reps}
                         self.colours = [colours[rep] for rep in self.unique_reps]
                 else: 
                     try:
                         try:
-                            cmap = Colors.BuildQualPalette(self.df, tag='Replicate')
+                            cmap = Painter.BuildQualPalette(self.df, tag='Replicate')
                             self.cmap = cmap
                             self.colours = [cmap[rep] for rep in self.unique_reps]
                         except Exception:
@@ -529,7 +529,7 @@ class SuperViolins:
                             self.colours = [self.cm(i / self.cm.N) for i in range(len(self.unique_reps))]
                     except Exception as e:
                         print(e)
-                        colours = {rep: Colors.GenerateRandomColor() for rep in self.unique_reps}
+                        colours = {rep: Painter.GenerateRandomColor() for rep in self.unique_reps}
                         self.colours = [colours[rep] for rep in self.unique_reps]
 
 
@@ -1448,14 +1448,14 @@ def funcSuperViolins(
         except Exception as e:
             print(e)
             print("Random colors were created for each unique replicate.")
-            # colors = {rep: Colors.GenerateRandomColor() for rep in unique_reps}
+            # colors = {rep: Painter.GenerateRandomColor() for rep in unique_reps}
             # colors = [colors[rep] for rep in unique_reps]
-            colors = {r: Colors.GenerateRandomColor() for r in unique_reps}
+            colors = {r: Painter.GenerateRandomColor() for r in unique_reps}
             colors = [colors[r] for r in unique_reps]
     else: 
         try:
             try:
-                cmap = Colors.noticequeue(df, tag='Replicate')
+                cmap = Painter.noticequeue(df, tag='Replicate')
                 cmap = cmap
                 # colors = [cmap[rep] for rep in unique_reps]
                 colors = [cmap[r] for r in unique_reps]
@@ -1467,9 +1467,9 @@ def funcSuperViolins(
         except Exception as e:
             print(e)
             print("Random colors were created for each unique replicate.")
-            # colors = {rep: Colors.GenerateRandomColor() for rep in unique_reps}
+            # colors = {rep: Painter.GenerateRandomColor() for rep in unique_reps}
             # colors = [colors[rep] for rep in unique_reps]
-            colors = {r: Colors.GenerateRandomColor() for r in unique_reps}
+            colors = {r: Painter.GenerateRandomColor() for r in unique_reps}
             colors = [colors[r] for r in unique_reps]
 
     # get kde data for each subgroup

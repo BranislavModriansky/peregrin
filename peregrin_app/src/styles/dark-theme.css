@@ -565,3 +565,8 @@ div.checkbox:has(#compute_spotstats) * {
     color: grey !important;
 }
 
+
+div#colormap_showcase {
+    /* width: 75% !important; */
+    height: 1500px !important;
+}

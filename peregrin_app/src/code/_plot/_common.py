@@ -8,12 +8,16 @@ import matplotlib.colors as mcolors
 from typing import Any, List, Tuple
 
 from .._handlers._reports import Level
+from .._infra._selections import Dyes
 
 
-class Colors:
+class Painter:
 
-    @staticmethod
-    def GenerateRandomColor() -> str:
+    def __init__(self, **kwargs):
+        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+        
+
+    def GenerateRandomColor(self) -> str:
         """
         Generate a random color in hexadecimal format.
         """
@@ -24,8 +28,8 @@ class Colors:
 
         return '#{:02x}{:02x}{:02x}'.format(r, g, b)
 
-    @staticmethod
-    def GenerateRandomGrey() -> str:
+
+    def GenerateRandomGrey(self) -> str:
         """
         Generate a random grey color in hexadecimal format.
         """
@@ -34,17 +38,16 @@ class Colors:
 
         return '#{:02x}{:02x}{:02x}'.format(n, n, n)
 
-    @staticmethod
-    def StockQualPalette(elements: list, cmap: str, **kwargs) -> list:
+
+    def StockQualPalette(self, elements: list, cmap: str) -> list:
         """
         Generates a qualitative colormap for a given list of elements.
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         try:
             n = len(elements)
             if n == 0:
-                noticequeue.Report(Level.error, "No elements provided for colormap generation.")
+                self.noticequeue.Report(Level.error, "No elements provided for colormap generation.")
                 return []
             
             else:
@@ -54,105 +57,30 @@ class Colors:
             return colors
         
         except Exception as e:
-            noticequeue.Report(Level.error, f"Error generating qualitative colormap: {str(e)}")
+            self.noticequeue.Report(Level.error, f"Error generating qualitative colormap: {str(e)}")
             return None
     
-    @staticmethod
-    def GetCmap(c_mode: str, **kwargs) -> mcolors.Colormap:
+    def GetCmap(self, c_mode: str) -> mcolors.Colormap:
         """
         Get a colormap according to the selected color mode.
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        match c_mode:
-            case 'greyscale LUT':
-                return plt.cm.gist_gray
-            case 'reverse grayscale LUT':
-                return plt.cm.gist_yarg
-            case 'jet LUT':
-                return plt.cm.jet
-            case 'brg LUT':
-                return plt.cm.brg
-            case 'cool LUT':
-                return plt.cm.cool
-            case 'hot LUT':
-                return plt.cm.hot
-            case 'inferno LUT':
-                return plt.cm.inferno
-            case 'plasma LUT':
-                return plt.cm.plasma
-            case 'magma LUT':
-                return plt.cm.magma
-            case 'RdYlGn_r LUT':
-                return plt.cm.RdYlGn_r
-            case 'CMR-map LUT':
-                return plt.cm.CMRmap
-            case 'gist-stern LUT':
-                return plt.cm.gist_stern
-            case 'gist-heat LUT':
-                return plt.cm.gist_heat
-            case 'gnuplot LUT':
-                return plt.cm.gnuplot
-            case 'gnuplot2 LUT':
-                return plt.cm.gnuplot2
-            case 'viridis LUT':
-                return plt.cm.viridis
-            case 'cividis LUT':
-                return plt.cm.cividis
-            case 'copper LUT':
-                return plt.cm.copper
-            case 'rainbow LUT':
-                return plt.cm.rainbow
-            case 'turbo LUT':
-                return plt.cm.turbo
-            case 'HSV LUT':
-                return plt.cm.hsv
-            case 'nipy-spectral LUT':
-                return plt.cm.nipy_spectral
-            case 'gist-ncar LUT':
-                return plt.cm.gist_ncar
-            case 'cubehelix LUT':
-                return plt.cm.cubehelix
-            case 'winter LUT':
-                return plt.cm.winter
-            case 'spring LUT':
-                return plt.cm.spring
-            case 'summer LUT':
-                return plt.cm.summer
-            case 'autumn LUT':
-                return plt.cm.autumn
-            case 'ocean LUT':
-                return plt.cm.ocean
-            case 'pink LUT':
-                return plt.cm.pink
-            case 'twilight LUT':
-                return plt.cm.twilight
-            case 'twilight-shifted LUT':
-                return plt.cm.twilight_shifted
-            case 'seismic LUT':
-                return plt.cm.seismic
-            case 'BrBG LUT':
-                return plt.cm.BrBG
-            case 'PRGn LUT':
-                return plt.cm.PRGn
-            case 'PiYG LUT':
-                return plt.cm.PiYG
-
-            case None:
-                if noticequeue:
-                    noticequeue.Report(Level.warning, "No color mode specified. Using 'jet LUT' instead.")
+        try:
+            if c_mode.endswith('LUT'):
+                c_mode = c_mode[:-4]
+                print(f"Retrieving colormap for '{c_mode}'")
+                return plt.cm.get_cmap(c_mode)
+            else:
+                print(f"Color mode '{c_mode}' does not end with ' LUT'. Defaulting to 'jet LUT'.")
                 return plt.cm.jet
 
-            case _:
-                if noticequeue:
-                    noticequeue.Report(Level.warning, f"Unsupported color mode: {c_mode}. Using 'jet LUT' instead.")
-                return plt.cm.jet
+        except Exception as e:
+            self.noticequeue.Report(Level.error, f"Error retrieving colormap '{c_mode}': {str(e)}")
+            return plt.cm.jet
         
-    @staticmethod
-    def BuildQualPalette(data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = [], **kwargs) -> dict:
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        # data.reset_index(drop=False, inplace=True)
+    def BuildQualPalette(self, data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = []) -> dict:
+
         tags = data[tag].unique().tolist() if not which else which
 
         mp = {}
@@ -167,12 +95,72 @@ class Colors:
         missing = [t for t in tags if t not in mp]
 
         if missing:
-            noticequeue.Report(Level.warning, f"Missing colors for {tag} values. Generating random colors instead.", f"Assign colors for missing {tag} values: {', '.join(missing)} or use a stock color palette instead.")
+            self.noticequeue.Report(Level.warning, f"Missing colors for {tag} values. Generating random colors instead.", f"Assign colors for missing {tag} values: {', '.join(missing)} or use a stock color palette instead.")
             
             for t in missing:
-                mp[t] = Colors.GenerateRandomColor()
+                mp[t] = self.GenerateRandomColor()
 
         return mp
+    
+
+    def ShowcaseGradients(self, *, cmaps: list[str] = Dyes.QuantitativeCModes, **kwargs) -> plt.Figure:
+        """
+        ### *Showcase qualitative colormaps.*
+        
+        Parameters
+        ----------
+        cmaps : list[str], optional
+            List of colormaps to showcase.
+
+        Returns
+        -------
+        plt.Figure
+            A figure showcasing the gradients of qualitative colormaps.
+        """
+
+        text_color = kwargs.get('text_color', 'black')
+        strip_background = kwargs.get('strip_background', False)
+
+        n = len(cmaps)
+
+        gradient = np.linspace(0, 1, 256)
+        gradient = np.vstack((gradient, gradient))
+
+        # Calculate figure height based on the number of colormaps to display
+        height = 0.35 + 0.15 + (n + (n - 1) * 0.1) * 0.22
+        fig, axs = plt.subplots(nrows=n + 1, figsize=(6.4, height))
+
+        # Adjust subplot parameters to create space for labels
+        fig.subplots_adjust(
+            top=1 - 0.35 / height, 
+            bottom=0.15 / height,
+            left=0.2, right=0.99
+        )
+        
+        # Display the gradient for each colormap with its name as a label
+        for ax, name in zip(axs, cmaps):
+            ax.imshow(gradient, aspect='auto', cmap=self.GetCmap(name))
+            ax.text(
+                -0.02, 0.5, name[:-4] if name.endswith(' LUT') else name, 
+                va='center', ha='right', 
+                fontsize=10, color='black',
+                fontfamily='monospace',
+                transform=ax.transAxes,
+            )
+
+        # Turn off all axes and spines for a clean look
+        for ax in axs:
+            ax.set_axis_off()
+            
+        if strip_background:
+            fig.set_facecolor('none')
+                
+        return plt.gcf()
+    
+
+
+    
+
     
     
 

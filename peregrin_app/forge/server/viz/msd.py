@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import MSD, Styles, is_empty
+from src.code import MSD, Dyes, is_empty
 
 
 

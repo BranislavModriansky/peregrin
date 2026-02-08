@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from .._common import Colors, Categorizer
+from .._common import Painter, Categorizer
 from ..._general import Values
 from io import BytesIO
 from ..._handlers._reports import Level
@@ -405,7 +405,7 @@ class ReconstructTracks:
         if norm is None:
             return None
 
-        colormap = Colors.GetCmap(self.c_mode)
+        colormap = Painter.GetCmap(self.c_mode)
 
         sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
         sm.set_array([])
@@ -555,7 +555,7 @@ class ReconstructTracks:
                 category = 'condition'
 
             if self.stock_palette is None:
-                mp = Colors.BuildQualPalette(self.Tracks, tag=category.capitalize(), noticequeue=self.noticequeue)
+                mp = Painter.BuildQualPalette(self.Tracks, tag=category.capitalize(), noticequeue=self.noticequeue)
                 self.Tracks = self.Tracks.reset_index()
                 self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(mp)
                 self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
@@ -563,7 +563,7 @@ class ReconstructTracks:
 
             if self.stock_palette is not None:
                 categories = self.Tracks.reset_index()[category.capitalize()].unique().tolist()
-                palette = Colors.StockQualPalette(categories, self.stock_palette, noticequeue=self.noticequeue)
+                palette = Painter.StockQualPalette(categories, self.stock_palette, noticequeue=self.noticequeue)
                 compiled = dict(zip(categories, palette))
 
                 self.Tracks = self.Tracks.reset_index()
@@ -571,7 +571,7 @@ class ReconstructTracks:
                 self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
 
         else:
-            self.cmap = Colors.GetCmap(self.c_mode)
+            self.cmap = Painter.GetCmap(self.c_mode)
             norm, vals = Values.LutMapper(self.Tracks if self.lut_scaling_stat in self.Tracks.columns else self.Spots, self.lut_scaling_stat, min=self.lut_vmin, max=self.lut_vmax, noticequeue=self.noticequeue)
 
             if not (norm is None or vals is None):

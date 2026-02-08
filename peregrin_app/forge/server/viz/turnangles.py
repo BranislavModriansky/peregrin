@@ -8,7 +8,7 @@ import pandas as pd
 
 from shiny import render, reactive, ui, req
 from peregrin_app.src.code._handlers._reports import Level
-from src.code import TurnAnglesHeatmap, Styles, is_empty
+from src.code import TurnAnglesHeatmap, Dyes, is_empty
 
 
 
