@@ -6,7 +6,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import MSD, Styles
+from src.code import MSD, Dyes, is_empty
 
 
 
@@ -70,6 +70,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         c_mode,
         color,
         palette,
+        statistic,
         line,
         scatter,
         linear_fit,
@@ -95,6 +96,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
                     palette=palette,
                     noticequeue=noticequeue
                 ).plot(
+                    statistic=statistic,
                     line=line,
                     scatter=scatter,
                     errorband=errorband,
@@ -112,7 +114,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
 
         output_plot_msd.cancel()
 
-        req(S.TINTERVALSTATS() is not None and not S.TINTERVALSTATS().empty)
+        req(not is_empty(S.TINTERVALSTATS.get()))
 
         if input.error_band_show_msd():
             errorband = input.error_band_type_msd()
@@ -137,6 +139,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             c_mode=input.c_mode_msd(),
             color=color,
             palette=palette,
+            statistic=input.statistic_msd(),
             line=input.line_show_msd(),
             scatter=input.scatter_show_msd(),
             linear_fit=input.fit_show_msd(),
@@ -182,6 +185,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             palette=palette,
             noticequeue=noticequeue
         ).plot(
+            statistic=input.statistic_msd(),
             line=input.line_show_msd(),
             scatter=input.scatter_show_msd(),
             errorband=errorband,

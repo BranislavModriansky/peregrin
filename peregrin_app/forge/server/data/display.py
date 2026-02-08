@@ -6,23 +6,29 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from shiny import render, reactive, ui, req
 from shinywidgets import output_widget, render_widget
-from src.code import Summarize, Values, DebounceCalc
+from src.code import Summarize, Values, DebounceCalc, is_empty, Stats
 
 
 def mount_data_display(input, output, session, S):
 
-    @DebounceCalc(2)
-    @reactive.calc
-    def significant_figures_update():
-        ...
+    # stats = Stats()
 
+    # @DebounceCalc(4)
+    # @reactive.calc
+    # def significant_figures_update():
+    #     for df in [S.SPOTSTATS, S.TRACKSTATS, S.FRAMESTATS, S.TINTERVALSTATS]:
+    #         df = df.get()
+    #         if not is_empty(df):
+    #             stats_calc = stats.Signify(df, significant_figures=input.significant_figures())
+    #             df.set(stats_calc)
 
-    @reactive.Effect
-    @reactive.event(input.significant_figures, ignore_init=True, ignore_none=True)
-    def update_significant_figures():
-        significant_figures_update()
-        
+    # @reactive.Effect
+    # @reactive.event(input.significant_figures, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, S.UNFILTERED_FRAMESTATS, S.UNFILTERED_TINTERVALSTATS)
+    # def update_significant_figures():
+    #     significant_figures_update()
+
     
+
     def hist(data: pd.Series, app_theme: str = "light") -> plt.Figure:
             fig, ax = plt.subplots(figsize=(3, 3), dpi=72)
             plt.hist(
@@ -195,25 +201,25 @@ def mount_data_display(input, output, session, S):
     @render.data_frame
     def spot_stats():
         req(S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty)
-        return S.SPOTSTATS.get()
+        return Stats().FormatDigits(S.SPOTSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
 
     @output
     @render.data_frame
     def track_stats():
         req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
-        return S.TRACKSTATS.get()
+        return Stats().FormatDigits(S.TRACKSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
     
     @output
     @render.data_frame
     def frame_stats():
         req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
-        return S.FRAMESTATS.get()
+        return Stats().FormatDigits(S.FRAMESTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
 
     @output
     @render.data_frame
     def tinterval_stats():
         req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
-        return S.TINTERVALSTATS.get()
+        return Stats().FormatDigits(S.TINTERVALSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
     
 
     

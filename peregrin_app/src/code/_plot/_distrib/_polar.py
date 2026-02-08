@@ -7,7 +7,7 @@ from typing import Any
 from scipy.stats import vonmises 
 from scipy.special import i0, i1
 
-from .._common import Colors, Categorizer
+from .._common import Painter, Categorizer
 from ..._general import Values
 from ..._handlers._reports import Level
 
@@ -32,7 +32,7 @@ class PolarDataDistribute:
         
         self.normalization = normalization
 
-        self.cmap = Colors.GetCmap(cmap, noticequeue=self.noticequeue)
+        self.cmap = Painter.GetCmap(cmap, noticequeue=self.noticequeue)
         self.face = face
         self.text_color = text_color
         self.title = title

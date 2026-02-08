@@ -6,23 +6,67 @@ from scipy import stats
 from collections import defaultdict
 
 from .._general import Values
+from .._handlers._reports import Level
 
 
 @dataclass
 class BaseDataInventory:
+    """
+    #### *Data inventory of trajectory statistics Dataframes.*
+
+    This class serves as a centralized inventory for the DataFrames that store trajectory statistics at different planes of aggregation. 
+    Each attribute is intended to store a DataFrame (one of Spots, Tracks, Frames, TimeIntervals) after any of the computation methods in the Stats class are called.
+    """
+
     Spots: pd.DataFrame
     Tracks: pd.DataFrame
     Frames: pd.DataFrame
     TimeIntervals: pd.DataFrame
 
 
-class Stats:
 
-    SIG_FIGS = 5
-    DECIMALS = 5
+class Stats:
+    """
+    #### *Class for computing trajectory statistics at various levels of aggregation.*
+
+    This class provides methods to compute trajectory statistics at multiple levels of aggregation: 
+    per-spot (Spots), per-track (Tracks), per-frame/time point (Frames), and per-time interval/lag (TimeIntervals). 
+    Each method processes the input DataFrame and updates the corresponding DataFrame in the BaseDataInventory.
+
+    Attributes
+    ----------
+    SIGNIFICANT_FIGURES : int, optional
+        *If specified, during computations all values are going to be rounded to this number of significant figures.*
+
+    DECIMALS_PLACES : int, optional
+        *If specified, during computations all floating-point values are going to be normalized (rounded) to this number of decimal places.*
+    """
+
+    SIGNIFICANT_FIGURES: None | int = None
+    DECIMALS_PLACES: None | int = None
+
+    COLUMNS = {
+        'SPOTS': [
+            'X coordinate','Y coordinate',
+            'Time point','Frame','Track ID','Condition','Replicate','Track UID',
+            'Distance','Cumulative track length','Cumulative track displacement',
+            'Cumulative straightness index','Cumulative speed','Direction',
+            'Cumulative direction mean','Cumulative direction var'
+        ],
+        'TRACKS': [
+            'Condition','Replicate','Track ID', 'Track points',
+            'Track length','Track displacement','Straightness index',
+            'Speed min','Speed max','Speed mean','Speed sd','Speed sem',
+            'Speed median','Speed q25','Speed q75',
+            'Speed CI95 low','Speed CI95 high',
+            'Direction mean','Direction var'
+        ]
+    }
+
 
     def __init__(self, **kwargs) -> None:
         self.noticequeue = kwargs.get('noticequeue', None)
+
 
     def GetAllStats(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
@@ -38,6 +82,12 @@ class Stats:
             - ``X coordinate``
             - ``Y coordinate``
             - ``Time point``
+
+        significant_figures : int, optional
+            *If provided, rounds all values in the results to the specified number of significant figures.*
+        
+        normalize_decimals : int, optional
+            *If provided, formats all floating-point values in the results to the specified number of decimal places.*
 
         Returns
         -------
@@ -67,6 +117,12 @@ class Stats:
             - ``X coordinate``
             - ``Y coordinate``
             - ``Time point``
+
+        significant_figures : int, optional
+            *If provided, rounds all values in the results to the specified number of significant figures.*
+        
+        normalize_decimals : int, optional
+            *If provided, formats all floating-point values in the results to the specified number of decimal places.*
         
         Returns
         -------
@@ -99,34 +155,25 @@ class Stats:
         """
         
         if df.empty:
-            # self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
-            return df.copy()
+            self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
+            return pd.DataFrame(columns=self.COLUMNS['SPOTS'])
 
         df.sort_values(by=['Condition', 'Replicate', 'Track ID', 'Time point'], inplace=True)
 
         grp = df.groupby(['Condition', 'Replicate', 'Track ID'], sort=False)
 
-        # ---- Add unique per-track index (1-based) ----
+        # Provides a completely unique identifier for each track (Track UID) that is consistent across all methods and is used for merging.
         df['Track UID'] = grp.ngroup()
         df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
-        # ---- FIX: Frame should be unique per Time point (within Condition×Replicate), not per track ----
-        # This guarantees: for each (Condition, Replicate, Time point) there is exactly one Frame value.
-        df['Frame'] = (
-            df.groupby(['Condition', 'Replicate'], sort=False)['Time point']
-            .rank(method='dense')
-            .astype('Int64')
-        )
+        # Assigns frame numbers within each data subset based on the order of time points; starts at 1 for the first point in each track.
+        df['Frame'] = df.groupby(['Condition', 'Replicate'], sort=False)['Time point'].rank(method='dense').astype('Int64')
 
         # Optional sanity warning (kept lightweight)
         try:
-            bad = (
-                df.groupby(['Condition', 'Replicate', 'Time point'], sort=False)['Frame']
-                .nunique(dropna=True)
-                .max()
-            )
+            bad = df.groupby(['Condition', 'Replicate', 'Time point'], sort=False)['Frame'].nunique(dropna=True).max()
             if bad and bad > 1:
-                # If you have noticequeue available here, you can Report; otherwise ignore.
+                self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same Condition × Replicate × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
                 pass
         except Exception:
             pass
@@ -187,8 +234,13 @@ class Stats:
         R = (np.hypot(cum_sin, cum_cos) / n_angles)
         df['Cumulative direction var'] = (1.0 - R)
 
-        df = self.Signify(df)
-        df = self.NormDecimals(df)
+        # Drop (if any) present all nan columns  
+        df.dropna(how='all', axis='columns', inplace=True)
+
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
 
         BaseDataInventory.Spots = df
 
@@ -233,17 +285,16 @@ class Stats:
         """
 
         if df.empty:
-            cols = [
-                'Condition','Replicate','Track ID', 'Track points',
-                'Track length','Track displacement','Straightness index',
-                'Speed min','Speed max','Speed mean','Speed sd','Speed sem',
-                'Speed median','Speed q25','Speed q75',
-                'Speed CI95 low','Speed CI95 high',
-                'Direction mean','Direction var'
-            ]
-            return pd.DataFrame(columns=cols)
+            return pd.DataFrame(columns=self.COLUMNS['TRACKS'])
 
-        grp = df.groupby(['Condition','Replicate','Track ID'], sort=False)
+        stash = df[['Condition','Replicate','Track ID']].drop_duplicates()
+        print(stash)
+
+        df = df.set_index('Track UID', drop=True, verify_integrity=False)
+        gcols = ['Track UID']
+
+        
+        grp = df.groupby(gcols, sort=False)
 
         # choose the quantiles you want; edit as needed
         agg_spec = {
@@ -270,9 +321,17 @@ class Stats:
         agg['Speed CI95 high'] = agg['Speed CI95'].apply(lambda x: x[1])
         agg = agg.drop(columns=['Speed CI95'])
 
+        # If colors were assigned, carry them over
         if 'Replicate color' in df.columns:
             colors = grp['Replicate color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
+        if 'Condition color' in df.columns:
+            colors = grp['Condition color'].first()
+            agg = agg.merge(colors, left_index=True, right_index=True)
+
+        # Other general stats
+        other = self._general_agg_stats(df, exclude=self.COLUMNS['SPOTS'])
+        # agg = agg.merge(other, left_index=True, right_index=True)
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
@@ -283,30 +342,42 @@ class Stats:
         n = grp.size().rename('Track points')
         agg = agg.merge(n, left_index=True, right_index=True)
 
-        # Circular direction stats
+        # Sin/Cos components for circular statistics
         sin_cos = df.assign(
             _sin=np.sin(df['Direction']), 
             _cos=np.cos(df['Direction'])
         )
-        
-        dir_agg = sin_cos.groupby(['Condition','Replicate','Track ID'], sort=False).agg(
+        # Group and aggregate sin/cos components along tracks
+        dir_agg = sin_cos.groupby(gcols, sort=False).agg(
             mean_sin=('_sin','mean'),
             mean_cos=('_cos','mean')
         )
 
+        # Get circular mean from the aggregated sin/cos
         dir_agg['Direction mean'] = np.arctan2(dir_agg['mean_sin'], dir_agg['mean_cos'])
 
+        # Circular variance
         R = np.hypot(dir_agg['mean_sin'], dir_agg['mean_cos'])
         dir_agg['Direction var'] = (1.0 - R)
 
+        # Remove temporary columns
         dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
 
-        df = agg.merge(dir_agg, left_index=True, right_index=True).reset_index()
-        df['Track UID'] = np.arange(len(df))
-        df.set_index('Track UID', drop=True, inplace=True, verify_integrity=True)
+        # Merge circular statistics into main agg DataFrame
+        df = agg.merge(dir_agg, left_index=True, right_index=True)
+
+        df = df.merge(other, left_index=True, right_index=True, how='right')
+
+        df = stash.merge(df, left_index=True, right_index=True, how='right')
+
+        df.drop_duplicates(inplace=True)
         
-        df = self.Signify(df)
-        df = self.NormDecimals(df)
+        
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
+            
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
         
         BaseDataInventory.Tracks = df
 
@@ -468,14 +539,17 @@ class Stats:
         out['Cumulative direction global var'] = (1.0 - R_cum)
 
         # Reset index to columns
-        df_out = out.reset_index()
+        df = out.reset_index()
 
-        BaseDataInventory.Frames = df_out
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
 
-        df_out = self.Signify(df_out)
-        df_out = self.NormDecimals(df_out)
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
 
-        return df_out
+        BaseDataInventory.Frames = df
+
+        return df
 
 
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -639,14 +713,30 @@ class Stats:
             ['Condition', 'Replicate', 'Frame lag'], ignore_index=True
         )
 
+        # Split MSD CI95 into two columns
         df['MSD CI95 low'] = df['MSD CI95'].apply(lambda x: x[0])
         df['MSD CI95 high'] = df['MSD CI95'].apply(lambda x: x[1])
         df = df.drop(columns=['MSD CI95'])
 
-        df = self.Signify(df)
-        df = self.NormDecimals(df)
+        if self.SIGNIFICANT_FIGURES:
+            df = self.Signify(df)
+
+        if self.DECIMALS_PLACES:
+            df = self.NormDecimals(df)
 
         BaseDataInventory.TimeIntervals = df
+
+        return df
+    
+
+
+    def FormatDigits(self, df: pd.DataFrame, *, sig_figs: int = None, decimals: int = None) -> pd.DataFrame:
+        
+        if sig_figs:
+            df = self.Signify(df, sig_figs=sig_figs)
+
+        if decimals:
+            df = self.NormDecimals(df, decimals=decimals)
 
         return df
 
@@ -672,7 +762,7 @@ class Stats:
             return df.copy()
 
         if sig_figs is None:
-            sig_figs = self.SIG_FIGS
+            sig_figs = self.SIGNIFICANT_FIGURES
 
         valuer = Values()
 
@@ -702,7 +792,7 @@ class Stats:
             return df.copy()
         
         if decimals is None:
-            decimals = self.DECIMALS
+            decimals = self.DECIMALS_PLACES
 
         # Ensure all values have the same number of decimals: (round, fill)
         for col in df.select_dtypes(include=[np.number]).columns:
@@ -712,7 +802,6 @@ class Stats:
         
 
     def _wrap_pi(self, a: np.ndarray) -> np.ndarray:
-        # Wrap to (-pi, pi]
         return (a + np.pi) % (2*np.pi) - np.pi
 
 
@@ -737,6 +826,57 @@ class Stats:
             return np.nan
         R = np.hypot(s, c)
         return float(1.0 - R)
+
+    
+    def _general_agg_stats(self, df: pd.DataFrame, exclude: list[str], *, group_by: list[str] = ['Track UID']) -> pd.DataFrame:
+        """
+        #### *Computes basic statistics (min, max, mean, sd, sem, median) for all numeric columns in the input DataFrame, excluding core columns.*
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            ***Unstripped Spots DataFrame** containing columns, other than the core <- ``self.COLUMNS['SPOTS']`` columns, with numeric values to be aggregated.*
+
+        exclude : list[str]
+            *List of column names to be excluded from aggregation.*
+
+        group_by : list[str], optional
+            *List of column or index names to group by. Default is ['Track UID'].*
+
+        Returns
+        -------
+        pd.DataFrame
+            *DataFrame with basic statistics for each additional numeric column which is not found in the core <- ``self.COLUMNS['SPOTS']`` columns.*
+        """
+
+        if exclude is None:
+            return pd.DataFrame()
+
+        # Keep only numeric columns and exclude core columns
+        df = df.select_dtypes(include=[np.number]).drop(columns=exclude, errors='ignore')
+
+        # Stash leftover columns
+        other_cols = df.columns.tolist()
+
+        # Group by Track UID
+        grp = df.groupby(level=group_by, sort=False)
+
+        # For each bonus column, compute basic statistics, rename columns, and merge back
+        for col in other_cols:
+            agg = grp[col].agg(['min','max','mean','std','sem','median'])
+
+            agg.columns = [f"{col} min", f"{col} max", f"{col} mean", f"{col} sd", f"{col} sem", f"{col} median"]
+
+            df = df.merge(agg, left_index=True, right_index=True)
+
+        # Drop original columns
+        df.drop(columns=other_cols, inplace=True)
+
+        # drop multiplicates if present
+        df = df.drop_duplicates()
+        
+        return df
+        
     
 
 
@@ -753,25 +893,31 @@ class Summarize:
 
     @staticmethod
     def column_summary(series: pd.Series) -> dict:
-        if pd.api.types.is_numeric_dtype(series) and not all(np.isnan(series)):
-            return {
-                "type": "type_one",
-                "missing": int(series.isna().sum()),
-                "distinct": series.nunique(dropna=True),
-                "min": series.min(),
-                "max": series.max(),
-                "mean": series.mean(),
-                "median": series.median(),
-                "mode": series.mode(dropna=True).iloc[0] if not series.mode(dropna=True).empty else None,
-                "sd": series.std(),
-                "variance": series.var(),
-            }
-        else:
-            value_counts = series.value_counts(dropna=True, normalize=True).head(3)
-            return {
-                "type": "type_zero",
-                "missing": int(series.isna().sum()),
-                "distinct": series.nunique(dropna=True),
-                "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],   
-            }
-        
+        # Robust handling of pandas nullable dtypes (pd.NA) and mixed types
+        if pd.api.types.is_numeric_dtype(series):
+            s = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan)
+
+            # If there is at least one real numeric value, treat as numeric summary
+            if s.notna().any():
+                mode = s.mode(dropna=True)
+                return {
+                    "type": "type_one",
+                    "missing": int(series.isna().sum()),
+                    "distinct": int(series.nunique(dropna=True)),
+                    "min": s.min(skipna=True),
+                    "max": s.max(skipna=True),
+                    "mean": s.mean(skipna=True),
+                    "median": s.median(skipna=True),
+                    "mode": float(mode.iloc[0]) if not mode.empty else None,
+                    "sd": s.std(skipna=True),
+                    "variance": s.var(skipna=True),
+                }
+
+        value_counts = series.value_counts(dropna=True, normalize=True).head(3)
+        return {
+            "type": "type_zero",
+            "missing": int(series.isna().sum()),
+            "distinct": int(series.nunique(dropna=True)),
+            "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],
+        }
+

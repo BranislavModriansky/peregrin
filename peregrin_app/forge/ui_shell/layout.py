@@ -2,7 +2,7 @@ import warnings
 from shiny import ui
 from shiny._deprecated import ShinyDeprecationWarning
 
-from src.code import Metrics, Markers, Styles, Modes
+from src.code import Metrics, Markers, Dyes, Modes
 
 from pathlib import Path
 
@@ -41,16 +41,55 @@ app_ui = ui.page_sidebar(
     ui.navset_bar(
 
         ui.nav_panel(
-            "About",
+            # "About",
+            '&',
             ui.br(),
             ui.markdown(
                 """ 
+                    ### About Peregrin
                     ##### A tool designed for processing and interpreting tracking data, offering a user-friendly interface built with [Py-Shiny](https://shiny.posit.co/py/).
                     *Import raw or processed data.* <br>
                     *Explore them by applying filters and generating insightful visualizations.* <br>
                     *Export results.* <br>
+
+                    ___
+                    ### References
                 """
             ),
+            ui.row(
+                ui.column(6,
+                    ui.tags.details(
+                        ui.tags.summary(
+                            "Qualitative colormaps: ",
+                            ui.tags.a(
+                                "https://matplotlib.org/stable/tutorials/colors/colormaps.html",
+                                href="https://matplotlib.org/stable/tutorials/colors/colormaps.html",
+                                target="_blank",
+                                rel="noopener noreferrer",
+                            ),    
+                        ),
+                        ui.div(
+                            ui.output_image("colormap_showcase"),
+                        ), 
+                    ),
+                ),
+                ui.column(6,
+                    ui.tags.details(
+                        ui.tags.summary(
+                            "Colors: ",
+                            ui.tags.a(
+                                "https://xkcd.com/color/rgb/",
+                                href="https://xkcd.com/color/rgb/",
+                                target="_blank",
+                                rel="noopener noreferrer",
+                            ),    
+                        ),
+                        ui.div(
+                            ui.output_image("colors_showcase"),
+                        ), 
+                    ),
+                )
+            )
         ),
 
         # _ _ _ _ RAW DATA INPUT PANEL - APP INITIALIZATION _ _ _ _
@@ -65,22 +104,6 @@ app_ui = ui.page_sidebar(
             ui.output_ui("input_panel"),
         ),
 
-        # TODO - _ _ _ _ GATING _ _ _ _
-        ui.nav_panel(
-            "Gating Panel",
-            ui.layout_sidebar(
-                ui.sidebar(
-                    "Gating_sidebar", 
-                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
-                ), 
-                ui.markdown(
-                    """ 
-                    Gates here
-                    """
-                )
-            )
-        ),
-
         # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
         ui.nav_panel(
             "Dashboard",
@@ -92,7 +115,16 @@ app_ui = ui.page_sidebar(
                         ui.div(
                             ui.span("Spot stats", style="font-size:18px;"), 
                             ui.div(
-                                ui.div("Significant figures:", style="margin-right:8px; font-weight: normal;"),
+                                ui.div("Max decimals:", style="margin-right:8px; font-weight: normal;"),
+                                ui.input_numeric(
+                                    id="decimal_places",
+                                    label=None,
+                                    value=5,
+                                    min=0,
+                                    step=1,
+                                    width="60px"
+                                ),
+                                ui.div("Significant figures:", style="margin-right:8px; margin-left:12px; font-weight: normal;"),
                                 ui.input_numeric(
                                     id="significant_figures",
                                     label=None,
@@ -176,6 +208,22 @@ app_ui = ui.page_sidebar(
             ui.output_ui("initialize_loader2"),
         ),
 
+        # TODO - _ _ _ _ GATING _ _ _ _
+        ui.nav_panel(
+            "Gating Panel",
+            ui.layout_sidebar(
+                ui.sidebar(
+                    "Gating_sidebar", 
+                    ui.input_checkbox("gating_params_inputs", "Inputs for gating params here", True),
+                ), 
+                ui.markdown(
+                    """ 
+                    Gates here
+                    """
+                )
+            )
+        ),
+
         # _ _ _ _ VISUALIZATION PANEL _ _ _ _
         ui.nav_panel(
             "Visualisation",
@@ -225,7 +273,7 @@ app_ui = ui.page_sidebar(
                                             "input.tracks_mark_heads",
                                             ui.row(
                                                 ui.input_selectize("tracks_marker_type", "Marker:", list(Markers.TrackHeads.keys()), selected="hexagon-empty", width="200px"),
-                                                ui.input_selectize("tracks_marks_color", "Marker Color:", Styles.Color, selected="match", width="150px"),
+                                                ui.input_selectize("tracks_marks_color", "Marker Color:", Dyes.Colors, selected="match", width="150px"),
                                                 ui.input_numeric("tracks_marks_size", "Marker size:", 2, min=0, width="130px")
                                             )
                                         )
@@ -253,16 +301,16 @@ app_ui = ui.page_sidebar(
                             ui.accordion_panel(
                                 "Color",
                                 ui.row(
-                                    ui.input_selectize("tracks_color_mode", "Color mode:", Styles.ColorMode, width="250px"),
+                                    ui.input_selectize("tracks_color_mode", "Color mode:", Dyes.CModes, width="250px"),
                                     ui.panel_conditional(
                                         "!['single color', 'random colors', 'random greys', 'differentiate conditions', 'differentiate replicates'].includes(input.tracks_color_mode)",
                                         ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut, width="230px"),
                                     ),
                                     ui.panel_conditional(
                                         "input.tracks_color_mode == 'single color'",
-                                        ui.input_selectize("tracks_only_one_color", "Color:", Styles.Color, width="190px"),
+                                        ui.input_selectize("tracks_only_one_color", "Color:", Dyes.Colors, width="190px"),
                                     ),
-                                    ui.input_selectize("tracks_background", "Background:", Styles.Background, width="120px"),
+                                    ui.input_selectize("tracks_background", "Background:", Dyes.Background, width="120px"),
                                 ),
                                 ui.br(),
                                 ui.row(
@@ -272,7 +320,7 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.panel_conditional(
                                         "['differentiate conditions', 'differentiate replicates'].includes(input.tracks_color_mode) && input.tracks_use_stock_palette == true",
-                                        ui.div(ui.input_selectize("tracks_stock_palette", None, Styles.PaletteQualitativeMatplotlib, width="200px"), style="margin-left: 10px; margin-right: 30px;"),
+                                        ui.div(ui.input_selectize("tracks_stock_palette", None, Dyes.PaletteQualitativeMatplotlib, width="200px"), style="margin-left: 10px; margin-right: 30px;"),
                                     ),
                                     ui.panel_conditional(
                                         "!['single color', 'random colors', 'random greys', 'differentiate conditions', 'differentiate replicates'].includes(input.tracks_color_mode)",
@@ -416,7 +464,7 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.dd_rosechart_line_r_labels == true",
                                                 ui.div(ui.markdown("Label Color:"), style="margin-left: 50px;"),
-                                                ui.div(ui.input_selectize("dd_rosechart_line_r_label_color", label=None, choices=Styles.Color, selected="#ffffff", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
+                                                ui.div(ui.input_selectize("dd_rosechart_line_r_label_color", label=None, choices=Dyes.Colors, selected="#ffffff", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
                                                 ui.div(ui.markdown("Position [°]:"), style="margin-left: 24px;"),
                                                 ui.div(ui.input_numeric("dd_rosechart_line_r_axis_position", label=None, value=75, min=0, max=360, step=1, width="75px"), style="margin-left: 10px; margin-top: -6px;"),
                                             )
@@ -439,7 +487,7 @@ app_ui = ui.page_sidebar(
                                         ),
                                         ui.panel_conditional(
                                             "input.dd_rosechart_cmode == 'single color'",
-                                            ui.input_selectize("dd_rosechart_single_color", "Color:", Styles.Color, selected="#536267", width="150px"),
+                                            ui.input_selectize("dd_rosechart_single_color", "Color:", Dyes.Colors, selected="#536267", width="150px"),
                                         ),
                                         ui.panel_conditional(
                                             "['differentiate conditions', 'differentiate replicates'].includes(input.dd_rosechart_cmode)",
@@ -447,17 +495,17 @@ app_ui = ui.page_sidebar(
                                         ),
                                         ui.panel_conditional(
                                             "['level-based', 'n-tiles', 'differentiate conditions', 'differentiate replicates'].includes(input.dd_rosechart_cmode) && input.dd_rosechart_custom_colors == false",
-                                            ui.input_selectize("dd_rosechart_lut_map", "Select LUT map:", choices=Styles.LUTOptions, selected="plasma LUT", width="200px"),
+                                            ui.input_selectize("dd_rosechart_lut_map", "Select LUT map:", choices=Dyes.QuantitativeCModes, selected="plasma LUT", width="200px"),
                                         ),
                                         ui.row(
                                             ui.column(4, ui.div(ui.input_checkbox("dd_rosechart_outline", "Outline bins", False), style="margin-left: 18px; margin-top: 12px;")),
                                             ui.panel_conditional(
                                                 "input.dd_rosechart_outline == true",
-                                                ui.column(4, ui.input_selectize("dd_rosechart_outline_color", "Outline color:", Styles.Color, selected="#1a1a1a", width="210px")),
+                                                ui.column(4, ui.input_selectize("dd_rosechart_outline_color", "Outline color:", Dyes.Colors, selected="#1a1a1a", width="210px")),
                                                 ui.column(4, ui.div(ui.input_numeric("dd_rosechart_outline_width", "Outline width:", value=2, min=0, step=0.5, width="120px"), style="margin-left: 18px;")),
                                             )
                                         ),
-                                        ui.column(4, ui.div(ui.input_selectize(id="dd_rosechart_bg_color", label="Background color:", choices=Styles.Color, selected="#3c4142", width="175px"), style="margin-left: -4px;"), offset=4),
+                                        ui.column(4, ui.div(ui.input_selectize(id="dd_rosechart_bg_color", label="Background color:", choices=Dyes.Colors, selected="#3c4142", width="175px"), style="margin-left: -4px;"), offset=4),
                                     ),
                                     class_="accordion02"
                                 ),
@@ -500,7 +548,7 @@ app_ui = ui.page_sidebar(
                                     ),
                                     ui.accordion_panel(
                                         "Color",
-                                        ui.input_selectize(id="dd_kde_colormesh_lut_map", label="Select LUT map:", choices=Styles.LUTOptions, selected="plasma LUT", width="200px"),
+                                        ui.input_selectize(id="dd_kde_colormesh_lut_map", label="Select LUT map:", choices=Dyes.QuantitativeCModes, selected="plasma LUT", width="200px"),
                                     ),
                                     class_="accordion02"
                                 ),
@@ -530,7 +578,7 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_r_labels == true",
                                                 ui.div(ui.markdown("Label Color:"), style="margin-left: 50px;"),
-                                                ui.div(ui.input_selectize("dd_kde_line_r_label_color", label=None, choices=Styles.Color, selected="#985e2b", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
+                                                ui.div(ui.input_selectize("dd_kde_line_r_label_color", label=None, choices=Dyes.Colors, selected="#985e2b", width="175px"), style="margin-left: 10px; margin-top: -6px;"),
                                                 ui.div(ui.markdown("Position [°]:"), style="margin-left: 24px;"),
                                                 ui.div(ui.input_numeric("dd_kde_line_r_axis_position", label=None, value=75, min=0, max=360, step=1, width="75px"), style="margin-left: 10px; margin-top: -6px;"),
                                             )
@@ -544,7 +592,7 @@ app_ui = ui.page_sidebar(
                                             ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_outline", label="Show line", value=True), style="margin-left: 18px; margin-top: 12px;")),
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_outline == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_outline_color", label="Line color:", choices=Styles.Color, selected="#ffffff", width="175px")),
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_outline_color", label="Line color:", choices=Dyes.Colors, selected="#ffffff", width="175px")),
                                                 ui.column(4, ui.input_numeric(id="dd_kde_line_outline_width", label="Line width:", value=2, min=0.0, step=0.1, width="150px")),
                                             ),
                                         ),
@@ -552,25 +600,25 @@ app_ui = ui.page_sidebar(
                                             ui.column(4, ui.div(ui.input_checkbox(id="dd_kde_line_fill", label="Fill KDE area", value=True), style="margin-left: 18px; margin-top: 12px;")),
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_fill == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_fill_color", label="Fill color:", choices=Styles.Color, selected="#ffffff", width="175px")),
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_fill_color", label="Fill color:", choices=Dyes.Colors, selected="#ffffff", width="175px")),
                                                 ui.column(4, ui.input_numeric(id="dd_kde_line_fill_alpha", label="Fill opacity:", value=0.3, min=0, max=1, step=0.1, width="150px"))
                                             )
                                         ),
                                         ui.row(
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_mean == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_mean_color", label="Mean dial color:", choices=Styles.Color, selected="#f7022a", width="175px"), offset=4),
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_mean_color", label="Mean dial color:", choices=Dyes.Colors, selected="#f7022a", width="175px"), offset=4),
                                                 ui.column(4, ui.input_numeric(id="dd_kde_line_mean_width", label="Mean dial width:", value=3, min=0.0, step=0.1, width="150px")),
                                             )
                                         ),
                                         ui.row(
                                             ui.panel_conditional(
                                                 "input.dd_kde_line_peak_direction_trend == true",
-                                                ui.column(4, ui.input_selectize(id="dd_kde_line_peak_direction_trend_color", label="Peak dial color:", choices=Styles.Color, selected="#1e488f", width="175px"), offset=4),
+                                                ui.column(4, ui.input_selectize(id="dd_kde_line_peak_direction_trend_color", label="Peak dial color:", choices=Dyes.Colors, selected="#1e488f", width="175px"), offset=4),
                                                 ui.column(4, ui.input_numeric(id="dd_kde_line_peak_direction_trend_width", label="Peak dial width:", value=3, min=0.0, step=0.1, width="150px")),
                                             )
                                         ),
-                                        ui.column(4, ui.div(ui.input_selectize(id="dd_kde_line_bg_color", label="Background color:", choices=Styles.Color, selected="#1e488f", width="175px"), style="margin-left: -4px;"), offset=4),
+                                        ui.column(4, ui.div(ui.input_selectize(id="dd_kde_line_bg_color", label="Background color:", choices=Dyes.Colors, selected="#1e488f", width="175px"), style="margin-left: -4px;"), offset=4),
                                     ),
                                     class_="accordion02"
                                 ),
@@ -616,12 +664,18 @@ app_ui = ui.page_sidebar(
                                 "Compose",
                                 ui.accordion(
                                     ui.accordion_panel(
-                                        'Line',
-                                        ui.input_checkbox("line_show_msd", "Show line", True),
-                                    ),
-                                    ui.accordion_panel(
-                                        'Scatter',
-                                        ui.input_checkbox("scatter_show_msd", "Show scatter", False),
+                                        'Line and Scatter',
+                                        ui.row(
+                                            ui.column(2, 
+                                                ui.input_selectize("statistic_msd", None, choices=['mean', 'median'], selected='mean', width="120px"),
+                                            ),
+                                            ui.column(2, 
+                                                ui.input_checkbox("line_show_msd", "Show line", True),
+                                            ),
+                                            ui.column(2,
+                                                ui.input_checkbox("scatter_show_msd", "Show scatter", False),          
+                                            )  
+                                        ),
                                     ),
                                     ui.accordion_panel(
                                         'Linear fit',
@@ -630,13 +684,13 @@ app_ui = ui.page_sidebar(
                                     ui.accordion_panel(
                                         'Error band',
                                         ui.row(
-                                            ui.column(3, 
+                                            ui.column(2, 
                                                 ui.input_checkbox("error_band_show_msd", "Show error band", True)
                                             ),
-                                            ui.column(3, 
+                                            ui.column(2, 
                                                 ui.panel_conditional(
                                                     "input.error_band_show_msd == true",
-                                                    ui.input_selectize("error_band_type_msd", None, choices=['sem', 'sd'], selected='sem'),
+                                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'CI95'], selected='sem', width="120px"),
                                                 )
                                             )
                                         )
@@ -657,23 +711,23 @@ app_ui = ui.page_sidebar(
                                         ui.panel_conditional(
                                             "input.c_mode_msd == 'single color'",
                                             ui.div(
-                                                ui.input_selectize("only_one_color_msd", "Color:", Styles.Color),
+                                                ui.input_selectize("only_one_color_msd", "Color:", Dyes.Colors),
                                                 style="margin-left: 15px;"
                                             )
                                         ),
                                         ui.panel_conditional(
                                             "input.c_mode_msd != 'single color'",
                                             ui.div(
-                                                ui.input_checkbox("palette_stock_msd", "Use stock palette", False),
+                                                ui.input_checkbox("palette_stock_msd", "Use stock palette", True),
                                                 style="margin-top: 38px; margin-left: 15px;"
-                                            ),
+                                            )
                                         )
                                     ),
                                     ui.column(2, 
                                         ui.panel_conditional(
                                             "input.c_mode_msd != 'single color' && input.palette_stock_msd == true",
                                             ui.div(
-                                                ui.input_selectize("palette_stock_type_msd", "Palette:", Styles.PaletteQualitativeMatplotlib),    
+                                                ui.input_selectize("palette_stock_type_msd", "Palette:", Dyes.PaletteQualitativeMatplotlib),    
                                                 style="margin-left: -15px;"
                                             )
                                         )
@@ -718,11 +772,34 @@ app_ui = ui.page_sidebar(
                                     ui.column(1, ui.input_action_button(id="replicates_reset_ta", label="🗘", class_="btn-noframe")),
                                 )
                             ),
+                            ui.accordion_panel(
+                                "Compose",
+                                ui.row(
+                                    ui.div(
+                                        ui.div("Angle range [°]:", style="margin-top: 5px; padding-right: 15px;"),
+                                        ui.input_numeric("angle_range_ta", None, value=15, min=0, max=360, step=5, width="120px"),
+                                        style="display: flex;"
+                                    ),
+                                ),
+                                ui.br(),
+                                ui.input_text("title_ta", label=None, placeholder="Title me!", width="100%"),
+                            ),
+                            ui.accordion_panel(
+                                "Color",
+                                ui.input_selectize(id="cmap_ta", label="Color map:", choices=Dyes.QuantitativeCModes, selected="magma LUT", width="200px"),
+                            ),
                             class_="accordion02"
                         ),
                         ui.br(),
-                        ui.div(" 🏗️ ", style="font-size: 360px"),
-                    )
+                        ui.input_task_button(id="generate_ta", label="Generate", class_="btn-secondary task-btn", width="100%")
+                    ),
+                    ui.br(),
+                    ui.card(
+                        ui.output_plot("plot_ta"),
+                        full_screen=True,
+                        height="1000px",
+                    ),
+                    ui.download_button("download_plot_ta", "Download", width="100%")
                 ),
 
                 # _ _ _ TIME SERIES _ _ _
@@ -819,8 +896,8 @@ app_ui = ui.page_sidebar(
                                     ui.accordion(
                                         ui.accordion_panel(
                                             "Coloring",
-                                            ui.input_selectize("tch_scatter_background", "Background:", Styles.Background),
-                                            ui.input_selectize("tch_scatter_color_palette", "Color palette:", Styles.PaletteQualitativeAltair),
+                                            ui.input_selectize("tch_scatter_background", "Background:", Dyes.Background),
+                                            ui.input_selectize("tch_scatter_color_palette", "Color palette:", []),
                                         ),
 
                                         ui.accordion_panel(
@@ -840,7 +917,7 @@ app_ui = ui.page_sidebar(
                                                             ui.input_checkbox("tch_outline_bullets", "Outline bullets", False),
                                                             ui.panel_conditional(
                                                                 "input.tch_outline_bullets == true",
-                                                                ui.input_selectize("tch_bullet_outline_color", "Outline color:", Styles.Color, selected="match"),
+                                                                ui.input_selectize("tch_bullet_outline_color", "Outline color:", Dyes.Colors, selected="match"),
                                                                 ui.input_numeric("tch_bullet_outline_width", "Outline width:", 1, min=0, step=0.1),
                                                             ),
                                                         ),
@@ -866,8 +943,8 @@ app_ui = ui.page_sidebar(
                                     ui.accordion(
                                         ui.accordion_panel(
                                             "Coloring",
-                                            ui.input_selectize("tch_line_background", "Background:", Styles.Background),
-                                            ui.input_selectize("tch_line_color_palette", "Color palette:", Styles.PaletteQualitativeAltair),
+                                            ui.input_selectize("tch_line_background", "Background:", Dyes.Background),
+                                            ui.input_selectize("tch_line_color_palette", "Color palette:", []),
                                         ),
                                         ui.accordion_panel(
                                             "Elements",
@@ -890,8 +967,8 @@ app_ui = ui.page_sidebar(
                                     ui.accordion(
                                         ui.accordion_panel(
                                             "Coloring",
-                                            ui.input_selectize("tch_errorband_background", "Background:", Styles.Background),
-                                            ui.input_selectize("tch_errorband_color_palette", "Color palette:", Styles.PaletteQualitativeAltair),
+                                            ui.input_selectize("tch_errorband_background", "Background:", Dyes.Background),
+                                            ui.input_selectize("tch_errorband_color_palette", "Color palette:", []),
                                         ),
                                     
                                         ui.accordion_panel(
@@ -906,7 +983,7 @@ app_ui = ui.page_sidebar(
                                             ui.panel_conditional(
                                                 "input.tch_errorband_fill == true && input.tch_errorband_outline == true || input.tch_errorband_fill == false",
                                                 ui.input_numeric("tch_errorband_outline_width", "Outline width:", 1, min=0, step=0.1),
-                                                ui.input_selectize("tch_errorband_outline_color", "Outline color:", Styles.Color, selected="match"),
+                                                ui.input_selectize("tch_errorband_outline_color", "Outline color:", Dyes.Colors, selected="match"),
                                             ),
                                         ),
                                         ui.accordion_panel(
@@ -917,8 +994,8 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_mean", "Show mean", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_mean == true",
-                                                        ui.input_selectize("tch_errorband_mean_line_color", "Line color:", Styles.Color, selected="match"),
-                                                        ui.input_selectize("tch_errorband_mean_line_style", "Line style:", Styles.LineStyle),
+                                                        ui.input_selectize("tch_errorband_mean_line_color", "Line color:", Dyes.Colors, selected="match"),
+                                                        ui.input_selectize("tch_errorband_mean_line_style", "Line style:", Dyes.LineStyle),
                                                         ui.input_numeric("tch_errorband_mean_line_width", "Line width:", 1, min=0, step=0.1),
                                                     ),
                                                 ),
@@ -927,8 +1004,8 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_median", "Show median", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_median == true",
-                                                        ui.input_selectize("tch_errorband_median_line_color", "Line color:", Styles.Color, selected="match"),
-                                                        ui.input_selectize("tch_errorband_median_line_style", "Line style:", Styles.LineStyle),
+                                                        ui.input_selectize("tch_errorband_median_line_color", "Line color:", Dyes.Colors, selected="match"),
+                                                        ui.input_selectize("tch_errorband_median_line_style", "Line style:", Dyes.LineStyle),
                                                         ui.input_numeric("tch_errorband_median_line_width", "Line width:", 1, min=0, step=0.1),
                                                     ),
                                                 ),
@@ -937,8 +1014,8 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_min", "Show min", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_min == true",
-                                                        ui.input_selectize("tch_errorband_min_line_color", "Line color:", Styles.Color, selected="match"),
-                                                        ui.input_selectize("tch_errorband_min_line_style", "Line style:", Styles.LineStyle),
+                                                        ui.input_selectize("tch_errorband_min_line_color", "Line color:", Dyes.Colors, selected="match"),
+                                                        ui.input_selectize("tch_errorband_min_line_style", "Line style:", Dyes.LineStyle),
                                                         ui.input_numeric("tch_errorband_min_line_width", "Line width:", 1, min=0, step=0.1),
                                                     )
                                                 ),
@@ -947,8 +1024,8 @@ app_ui = ui.page_sidebar(
                                                     ui.input_checkbox("tch_errorband_show_max", "Show max", False),
                                                     ui.panel_conditional(
                                                         "input.tch_errorband_show_max == true",
-                                                        ui.input_selectize("tch_errorband_max_line_color", "Line color:", Styles.Color, selected="match"),
-                                                        ui.input_selectize("tch_errorband_max_line_style", "Line style:", Styles.LineStyle),
+                                                        ui.input_selectize("tch_errorband_max_line_color", "Line color:", Dyes.Colors, selected="match"),
+                                                        ui.input_selectize("tch_errorband_max_line_style", "Line style:", Dyes.LineStyle),
                                                         ui.input_numeric("tch_errorband_max_line_width", "Line width:", 1, min=0, step=0.1),
                                                     )
                                                 )
@@ -978,148 +1055,163 @@ app_ui = ui.page_sidebar(
 
                         ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms", width="110px"),
                         # _ _ Swarmplot settings _ _
-                        ui.panel_conditional(
-                            "input.superplot_type == 'Swarms'",
-                            ui.accordion(
-                                ui.accordion_panel(
-                                    "Pre-sets",
-                                    ui.input_selectize("sp_preset", "Choose a preset:", ["Swarms", "Swarms & Violins", "Violins & KDEs", "Swarms & Violins & KDEs"], selected="Swarms & Violins", width="230px"),
+                        # ui.panel_conditional(
+                        #     "input.superplot_type == 'Swarms'",
+                        ui.accordion(
+                            ui.accordion_panel(
+                                "Data Categories",
+                                ui.row(
+                                    ui.column(6, ui.input_selectize(id="conditions_sp", label="Conditions:", choices=[], selected=[], multiple=True, options={"placeholder": "Select conditions"})),
+                                    ui.column(1, ui.input_action_button(id="conditions_reset_sp", label="🗘", class_="btn-noframe")),
                                 ),
-                                ui.accordion_panel(
-                                    "Metric",
-                                    ui.input_selectize("sp_metric", label=None, choices=Metrics.Track, selected="Straightness index", width="200px"),
-                                    # TODO: ui.input_radio_buttons("sp_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
-                                ),
-                                ui.accordion_panel(
-                                    "Elements & Specs",
-                                    ui.accordion(
-                                        ui.accordion_panel(
-                                            "Swarms",
-                                            ui.input_checkbox(id="sp_show_swarms", label="Show swarms", value=True),
-                                            ui.panel_conditional(
-                                                "input.sp_show_swarms == true",
-                                                ui.input_numeric("sp_swarm_marker_size", "Dot size:", 1, min=0, step=0.5),
-                                                ui.input_numeric("sp_swarm_marker_alpha", "Dot opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", Styles.Color, selected="black"),
-                                            ),
-                                        ),
-                                        ui.accordion_panel(
-                                            "Violins",
-                                            ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
-                                            ui.panel_conditional(
-                                                "input.sp_show_violins == true",
-                                                ui.input_selectize("sp_violin_fill", "Fill color:", Styles.Color, selected="whitesmoke"),
-                                                ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ui.input_selectize("sp_violin_outline", "Outline color:", Styles.Color, selected="lightgrey"),
-                                                ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
-                                            ),
-                                        ),
-                                        ui.accordion_panel(
-                                            "KDE",
-                                            ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False),
-                                            ui.panel_conditional(
-                                                "input.sp_show_kde == true",
-                                                ui.input_numeric("sp_kde_line_width", "Outline width:", 1, min=0, step=0.1),
-                                                ui.input_checkbox("sp_kde_fill", "Fill area", False),
-                                                ui.panel_conditional(
-                                                    "input.sp_kde_fill == true",
-                                                    ui.input_numeric("sp_kde_fill_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                                                ),
-                                                ui.input_numeric("sp_kde_bandwidth", "KDE bandwidth:", 0.75, min=0.1, step=0.1),
-                                            ),
-                                        ),
-                                        ui.accordion_panel(
-                                            "Skeleton",
-                                            ui.input_checkbox(id="sp_show_cond_mean", label="Show condition mean lines", value=False),
-                                            ui.input_checkbox(id="sp_show_cond_median", label="Show condition median lines", value=False),
-                                            ui.input_checkbox(id="sp_show_errbars", label="Show error bars", value=False),
-                                            ui.panel_conditional(
-                                                "input.sp_show_cond_mean == true && input.sp_show_cond_median == true",
-                                                ui.input_selectize("sp_set_as_primary", label="Set as primary:", choices=["mean", "median"], selected="mean"),
-                                            ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_cond_mean == true",
-                                                ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
-                                                ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Styles.Color, selected="black"),
-                                            ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_cond_median == true",
-                                                ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
-                                                ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Styles.Color, selected="darkblue"),
-                                            ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
-                                                ui.input_numeric(id="sp_lines_lw", label="Mean/Median Line width:", value=1, min=0, step=0.5),
-                                            ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_errbars == true",
-                                                ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
-                                                ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
-                                                ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Styles.Color, selected="black"),
-                                                ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
-                                            ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_cond_means == false && input.sp_show_cond_medians == false && input.sp_show_errbars == false",
-                                                ui.markdown(
-                                                    """
-                                                    *Condition means/medians/error bars not enabled.*
-                                                    """
-                                                )
-                                            ),
-                                        ),
-                                        ui.accordion_panel(
-                                            "Bullets",
-                                            ui.input_checkbox(id="sp_show_rep_means", label="Show replicate mean bullets", value=False),
-                                            ui.input_checkbox(id="sp_show_rep_medians", label="Show replicate median bullets", value=True),
-                                            ui.panel_conditional(
-                                                "input.sp_show_rep_means == true",
-                                                ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
-                                                ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Styles.Color, selected="black"),
-                                                ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
-                                                ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
-                                            ),
-                                            ui.panel_conditional(
-                                                "input.sp_show_rep_medians == true",
-                                                ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
-                                                ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Styles.Color, selected="black"),
-                                                ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
-                                                ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
-                                            ),
-                                        ),
-                                        ui.accordion_panel(
-                                            "Plot specs",
-                                            
-                                            ui.row(
-                                                ui.column(3,
-                                                    ui.input_checkbox(id="sp_show_legend", label="Show legend", value=True),
-                                                    ui.input_checkbox(id="sp_grid", label="Show grid", value=False),
-                                                    ui.input_checkbox(id="sp_spine", label="Open axes top/right", value=True),
-                                                ),
-                                                ui.input_numeric(id="sp_fig_width", label="Fig width:", value=10, min=1, step=0.5),
-                                                ui.input_numeric(id="sp_fig_height", label="Fig height:", value=7, min=1, step=0.5)
-                                            ),
+                                ui.row(
+                                    ui.column(4, ui.input_selectize(id="replicates_sp", label="Replicates:", choices=[], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
+                                    ui.column(1, ui.input_action_button(id="replicates_reset_sp", label="🗘", class_="btn-noframe")),
+                                )
+                            ),
+                            ui.accordion_panel(
+                                "Compose",
+                                ui.input_selectize(id="metric_sp", label=None, choices=Metrics.Track, selected="Straightness index", width="200px"),
+
+                                # TODO: ui.input_radio_buttons(id="axis_sp", label="Show categories on axis:", choices=["X", "Y"], selected="X", inline=True),
+                                ui.accordion(
+                                    ui.accordion_panel(
+                                        "Central tendency skeleton",
+                                        
+                                    ),
+                                    ui.accordion_panel(
+                                        "Color",
+                                        ui.input_checkbox(id="stock_palette_sp", label="Use stock color palette", value=False),
+                                        ui.panel_conditional(
+                                            "input.stock_palette_sp == true",
+                                            ui.input_selectize(id="palette_sp", label="Color palette:", choices=Dyes.PaletteQualitativeSeaborn + Dyes.PaletteQualitativeMatplotlib, selected=2),
                                         )
                                     ),
-
-
-                                    
-                                    
-                                    # TODO: ui.input_checkbox(id="sp_flip", label="Flip axes", value=False),
-                                    
+                                    id="color_accordion_sp"
                                 ),
-                                ui.accordion_panel(
-                                    "Color",
-                                    ui.input_checkbox(id="sp_use_stock_palette", label="Use stock color palette", value=False),
-                                    ui.panel_conditional(
-                                        "input.sp_use_stock_palette == true",
-                                        ui.input_selectize(id="sp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn + Styles.PaletteQualitativeMatplotlib, selected=2),
+                                ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;")
+                            ),
+                            ui.accordion_panel(
+                                "Elements & Specs",
+                                ui.accordion(
+                                    ui.accordion_panel(
+                                        "Swarms",
+                                        ui.input_checkbox(id="sp_show_swarms", label="Show swarms", value=True),
+                                        ui.panel_conditional(
+                                            "input.sp_show_swarms == true",
+                                            ui.input_numeric("sp_swarm_marker_size", "Dot size:", 1, min=0, step=0.5),
+                                            ui.input_numeric("sp_swarm_marker_alpha", "Dot opacity:", 0.5, min=0, max=1, step=0.1),
+                                            ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", Dyes.Colors, selected="black"),
+                                        ),
+                                    ),
+                                    ui.accordion_panel(
+                                        "Violins",
+                                        ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
+                                        ui.panel_conditional(
+                                            "input.sp_show_violins == true",
+                                            ui.input_selectize("sp_violin_fill", "Fill color:", Dyes.Colors, selected="whitesmoke"),
+                                            ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
+                                            ui.input_selectize("sp_violin_outline", "Outline color:", Dyes.Colors, selected="lightgrey"),
+                                            ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
+                                        ),
+                                    ),
+                                    ui.accordion_panel(
+                                        "KDE",
+                                        ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False),
+                                        ui.panel_conditional(
+                                            "input.sp_show_kde == true",
+                                            ui.input_numeric("sp_kde_line_width", "Outline width:", 1, min=0, step=0.1),
+                                            ui.input_checkbox("sp_kde_fill", "Fill area", False),
+                                            ui.panel_conditional(
+                                                "input.sp_kde_fill == true",
+                                                ui.input_numeric("sp_kde_fill_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
+                                            ),
+                                            ui.input_numeric("sp_kde_bandwidth", "KDE bandwidth:", 0.75, min=0.1, step=0.1),
+                                        ),
+                                    ),
+                                    ui.accordion_panel(
+                                        "Skeleton",
+                                        ui.input_checkbox(id="sp_show_cond_mean", label="Show condition mean lines", value=False),
+                                        ui.input_checkbox(id="sp_show_cond_median", label="Show condition median lines", value=False),
+                                        ui.input_checkbox(id="sp_show_errbars", label="Show error bars", value=False),
+                                        ui.panel_conditional(
+                                            "input.sp_show_cond_mean == true && input.sp_show_cond_median == true",
+                                            ui.input_selectize("sp_set_as_primary", label="Set as primary:", choices=["mean", "median"], selected="mean"),
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.sp_show_cond_mean == true",
+                                            ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
+                                            ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Dyes.Colors, selected="black"),
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.sp_show_cond_median == true",
+                                            ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
+                                            ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Dyes.Colors, selected="darkblue"),
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
+                                            ui.input_numeric(id="sp_lines_lw", label="Mean/Median Line width:", value=1, min=0, step=0.5),
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.sp_show_errbars == true",
+                                            ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
+                                            ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
+                                            ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Dyes.Colors, selected="black"),
+                                            ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.sp_show_cond_means == false && input.sp_show_cond_medians == false && input.sp_show_errbars == false",
+                                            ui.markdown(
+                                                """
+                                                *Condition means/medians/error bars not enabled.*
+                                                """
+                                            )
+                                        ),
+                                    ),
+                                    ui.accordion_panel(
+                                        "Bullets",
+                                        ui.input_checkbox(id="sp_show_rep_means", label="Show replicate mean bullets", value=False),
+                                        ui.input_checkbox(id="sp_show_rep_medians", label="Show replicate median bullets", value=True),
+                                        ui.panel_conditional(
+                                            "input.sp_show_rep_means == true",
+                                            ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
+                                            ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Dyes.Colors, selected="black"),
+                                            ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
+                                            ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
+                                        ),
+                                        ui.panel_conditional(
+                                            "input.sp_show_rep_medians == true",
+                                            ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
+                                            ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Dyes.Colors, selected="black"),
+                                            ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
+                                            ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
+                                        ),
+                                    ),
+                                    ui.accordion_panel(
+                                        "Plot specs",
+                                        
+                                        ui.row(
+                                            ui.column(3,
+                                                ui.input_checkbox(id="sp_show_legend", label="Show legend", value=True),
+                                                ui.input_checkbox(id="sp_grid", label="Show grid", value=False),
+                                                ui.input_checkbox(id="sp_spine", label="Open axes top/right", value=True),
+                                            ),
+                                            ui.input_numeric(id="sp_fig_width", label="Fig width:", value=10, min=1, step=0.5),
+                                            ui.input_numeric(id="sp_fig_height", label="Fig height:", value=7, min=1, step=0.5)
+                                        ),
                                     )
                                 ),
-                                class_="accordion02"
+
+
+                                
+                                
+                                # TODO: ui.input_checkbox(id="sp_flip", label="Flip axes", value=False),
+                                
                             ),
-                            ui.markdown(""" <br> """),
-                            ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;")
+                            class_="accordion02"
                         ),
+                        ui.markdown(""" <br> """),
+                        # ),
 
                         # _ _ Violinplot settings _ _
                         ui.panel_conditional(
@@ -1150,7 +1242,7 @@ app_ui = ui.page_sidebar(
                                 ui.accordion_panel(
                                     "Aesthetics",
                                     ui.input_checkbox(id="vp_use_stock_palette", label="Use stock color palette", value=False),
-                                    ui.input_selectize(id="vp_palette", label="Color palette:", choices=Styles.PaletteQualitativeSeaborn, selected="Accent"),
+                                    ui.input_selectize(id="vp_palette", label="Color palette:", choices=Dyes.PaletteQualitativeSeaborn, selected="Accent"),
                                     ui.accordion(
                                         ui.accordion_panel(
                                             "Violins",

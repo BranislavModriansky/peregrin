@@ -7,7 +7,7 @@ from matplotlib.pyplot import text
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Styles
+from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes
 
 import numpy as np
 from io import BytesIO

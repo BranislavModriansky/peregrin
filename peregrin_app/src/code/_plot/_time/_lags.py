@@ -1,21 +1,24 @@
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
-from typing import Any, Optional, Tuple, Literal, List
+from typing import *
 
 
 from ..._handlers._reports import Level
-from .._common import Categorizer, Colors
+from .._common import Categorizer, Painter
+from ..._general import is_empty
 
 
 class MSD:
     """
-    Mean Squared Displacement analysis and visualization class.
+    #### *Mean Squared Displacement analysis and visualization class.*
     
     Provides methods for computing and plotting MSD statistics across time lags,
     with support for multiple conditions, linear fitting, and various scaling options.
     """
+
     # Constants for color adjustments in linear fits
     SATURATION_SCALE = 0.7
     SATURATION_MIN = 0.02
@@ -24,9 +27,14 @@ class MSD:
     BRIGHTNESS_MIN = 0.06
 
     AGG_DICT = {
+        'MSD min': 'min',
+        'MSD max': 'max',
         'MSD mean': 'mean',
-        'MSD sem': 'sem',
+        'MSD sem': 'mean',
         'MSD sd': 'mean',
+        'MSD median': 'median',
+        'MSD CI95 low': 'mean',
+        'MSD CI95 high': 'mean'
     }
     
     def __init__(
@@ -36,7 +44,6 @@ class MSD:
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
-
         
         self.aggregate = group_replicates
         self.disaggregate = False
@@ -76,14 +83,14 @@ class MSD:
         if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
             if self.palette:
                 try:
-                    colors_list = Colors.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
+                    colors_list = Painter.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
                     if colors_list:
                         return dict(zip(tags, colors_list))
                 except Exception:
                     pass
 
             else:
-                mp = Colors.BuildQualPalette(
+                mp = Painter.BuildQualPalette(
                     data=self.data,
                     tag=tag,
                     which=tags,
@@ -120,11 +127,12 @@ class MSD:
         ax.set_ylim(lower, upper)
     
     def plot(self,
+             statistic: str = 'mean',
              line: bool = True,
-             scatter: bool = True,
+             scatter: bool = False,
              linear_fit: bool = False,
              title: Optional[str] = None,
-             errorband: Optional[Literal['sem', 'sd', False]] = False,
+             errorband: Optional[Literal['sd', 'sem', 'min-max', 'CI95', False]] = False,
              grid: bool = True,
              figsize: tuple = (5, 3.5),
              ax: Optional[plt.Axes] = None) -> plt.Figure:
@@ -165,19 +173,28 @@ class MSD:
                     groups.append((condition, rep, rep_df))
 
             for g_idx, (cond_name, rep_name, gdata) in enumerate(groups):
+
                 x_data = gdata['Frame lag'].values
-                y_data = gdata['MSD mean'].values
+                y_data = gdata[f'MSD {statistic}'].values
+                err_anchor = gdata[f'MSD mean'].values
+              
+                match errorband:
+                    case 'sd':
+                        err_data = gdata['MSD sd'].values / 2
+                    case 'sem':
+                        err_data = gdata['MSD sem'].values
+                    case 'min-max':
+                        err_data = (gdata['MSD max'].values, gdata['MSD min'].values)
+                    case 'CI95':
+                        err_data = (gdata['MSD CI95 high'].values, gdata['MSD CI95 low'].values)
+                    case _:
+                        raise ValueError("Invalid errorband type specified.")
 
-                if errorband == 'sem':
-                    err_data = gdata['MSD sem'].values
-                elif errorband == 'sd':
-                    err_data = gdata['MSD sd'].values / 2
+                if isinstance(err_data, tuple):
+                    band_top_y, band_bottom_y = err_data
                 else:
-                    err_data = np.zeros_like(y_data)
-
-                band_bottom_y = np.maximum(y_data - err_data, 0.0)
-                band_top_y = y_data + err_data
-                
+                    band_bottom_y = np.maximum(err_anchor - err_data, 0.0)
+                    band_top_y = err_anchor + err_data
                 
                 color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
 
@@ -306,3 +323,103 @@ class MSD:
 
     def __call__(self):
         return self.plot()
+
+
+
+def TurnAnglesHeatmap(
+        data: pd.DataFrame,
+        conditions: list[str],
+        replicates: list[str],
+        *,
+        angle_range: int = 15,
+        cmap="plasma",
+        **kwargs
+    ) -> plt.Figure:
+    """
+    #### *Plots a heatmap of mean turn angles across frame lags.*
+
+    This function creates a colormesh showing the distribution of mean turn angles (0-180°) across different frame lags in the data. 
+    The x-axis represents binned mean turn angles, while the y-axis represents frame lags. 
+    The color intensity indicates the fraction of data points within each angle-lag bin.
+    """
+
+    # Keyword arguments
+    noticequeue = kwargs.get('noticequeue', None)
+    text_color = kwargs.get('text_color', 'black')
+    title = kwargs.get('title', None)
+    strip_background = kwargs.get('strip_background', True)
+    
+    # Define angle bins based on the specified range
+    angle_bin_edges = np.arange(0, 181, angle_range)
+    
+    # Get data of selected categories
+    data = Categorizer(
+        data=data,
+        conditions=conditions,
+        replicates=replicates,
+        noticequeue=noticequeue
+    )()
+
+    # Check if data is empty after categorization
+    if is_empty(data):
+        noticequeue.Report(Level.info, "No data. Cannot generate heatmap.")
+        return None
+    
+    cmap = Painter.GetCmap(cmap, noticequeue=noticequeue)
+    
+    # Initialize the plot
+    fig, ax = plt.subplots(figsize=(4, 3.8))
+
+    # X (mean turn angles - clipped to [0, 180]) and Y (frame lags) values for the heatmap
+    xvals = np.clip(data['Turn mean'].to_numpy(float), 0, 180)
+    yvals = data['Frame lag'].to_numpy(float)
+
+    # Build contiguous lag edges -> each lag becomes a row
+    lags = np.unique(yvals)
+    # Create a bin for each lag value. Lag value <- bin's center value <- boundaries halfway to the next lag value.
+    if lags.size > 1:
+        mids = (lags[1:] + lags[:-1]) / 2
+        y_edges = np.r_[lags[0]-(mids[0]-lags[0]), mids, lags[-1]+(lags[-1]-mids[-1])]
+    else:
+        y_edges = np.array([lags[0]-0.5, lags[0]+0.5])
+
+    # Compute 2D histogram of mean turn angles vs frame lags
+    H, xe, ye = np.histogram2d(xvals, yvals, bins=[angle_bin_edges, y_edges])
+
+    # Create a colormesh plot using the histogram data
+    pcm = ax.pcolormesh(
+        xe, ye, H.T, 
+        cmap=cmap, shading="auto",
+        norm=mcolors.Normalize(vmin=0, vmax=np.nanmax(H)),
+    )
+
+    # Set axis labels, limits, ticks, and title
+    ax.set_xlabel("Mean turn angle (°)", color=text_color)
+    ax.set_ylabel("Frame lag", color=text_color)
+    ax.set_xlim(angle_bin_edges[0], angle_bin_edges[-1])
+    ax.set_xticks(np.arange(0, 181, 30))
+    ax.tick_params(colors=text_color, width=0.5)
+
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_color(text_color)
+        spine.set_linewidth(0.5)
+
+    ax.set_title(title, color=text_color)
+
+    if strip_background:
+        fig.set_facecolor('none')
+
+    # Add colorbar with custom ticks and labels
+    cbar = plt.colorbar(pcm, ax=ax, aspect=25, pad=0.04)
+    cbar.set_label("Data fraction per lag", color=text_color)
+    cbar.set_ticks(np.linspace(0.0, 1.0, 5))
+    cbar.formatter = mticker.FormatStrFormatter("%.2f")
+    cbar.update_ticks()
+    cbar.ax.tick_params(colors=text_color, width=0.5)
+    
+    for spine in cbar.ax.spines.values():
+        spine.set_color(text_color)
+        spine.set_linewidth(0.5)
+
+    return plt.gcf()

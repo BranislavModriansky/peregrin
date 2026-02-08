@@ -320,6 +320,11 @@ input#significant_figures {
     padding: 0.2rem 0.75rem; 
     border-radius: 0.75rem;
 }
+input#decimal_places {
+    box-shadow: none !important;
+    padding: 0.2rem 0.75rem; 
+    border-radius: 0.75rem;
+}
 
 .card-body {
     background-color: #17181b !important;
@@ -413,6 +418,10 @@ input#significant_figures {
 div#bslib-full-screen-overlay {
     background-color: black !important;
     opacity: 0.85 !important;
+}
+
+a.bslib-full-screen-exit {
+    color: lightgrey !important;
 }
 
 * table tbody * {
@@ -554,4 +563,10 @@ div.checkbox:has(#compute_spotstats) {
 div.checkbox:has(#compute_spotstats) * {
     pointer-events: none !important;
     color: grey !important;
+}
+
+
+div#colormap_showcase {
+    /* width: 75% !important; */
+    height: 1500px !important;
 }

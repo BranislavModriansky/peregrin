@@ -4,7 +4,7 @@
 # import pandas as pd
 # from datetime import date
 # from shiny import ui, reactive, req, render
-# from src.code import SwarmsAndBeyond, Superviolins, DebounceCalc, Styles
+# from src.code import SwarmsAndBeyond, Superviolins, DebounceCalc, Dyes
 
 
 # def mount_superplots(input, output, session, S, noticequeue):
