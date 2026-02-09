@@ -1,29 +1,9 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
+### [Peregrin App:](https://branislavmodriansky.github.io/peregrin/)
 
-<!-- 
+![Peregrin screenshot](https://raw.githubusercontent.com/BranislavModriansky/peregrin/shinylive/media/Peregrin_c.png)
 
-TODO: A multiframe gif "video" compiling various screen recordings of different features 
-
-
-embed as:
-![GIF](https://github.com/BranislavModriansky/peregrin/blob/re-structure/media/data_display.gif)
-
-
--->
-
-<!-- ## Contents:
-
-1. [About](#about)
-    1. [Key Features and Flows](#key-features-and-flows)
-        1. [Data Input](#data-input)
-        2. [Filtering](#filtering)
-        3. [Visualization](#visualization)
-    2. [Documentation](#documentation)
-3. [How to Install and Launch](#how-to-install-and-launch)
-    1. [Running the App Using Docker](#running-the-app-using-docker)
-        1. [Set-up](#set-up)
-        2. [Initialization](#initialization) -->
 
 > [!IMPORTANT]
 >
