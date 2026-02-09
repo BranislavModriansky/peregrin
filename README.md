@@ -25,32 +25,46 @@ embed as:
         1. [Set-up](#set-up)
         2. [Initialization](#initialization) -->
 
+> [!IMPORTANT]
+>
+> This project is currently under active development. Many more features are planned to be implemented. Availible features may be incomplete or undatble. The goal of this project is to create a sophisticated, open source, open access tool (web app + python library of the source code) with a wide range of functionalities like data computations, filtering (1D and 2D), highest quality data visualizations. Designed by and for scientists.
+> If you are interested in working with Peregrin, I will be very happy to help you as well as listen to your feedback, so please contact me:
+> email: 548323@mail.muni.cz
+
+
 ## About
 
 Peregrin is a an application designed for researchers studying cell migration. It allows **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
 
 ### Key Features and Flows
 
-#### Data Input
+#### Import Data
 
-- Import - CSV (recommended) / XLSX / XLS - tabular data files containing information about spots of individual trajectories;
+- Import: CSV / XML / XLSX / XLS - data files containing information about spots of individual trajectories;
 - Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
 - Optionally, input may also contain other information;
+
+#### Run
+
 - Run Peregrin and compute track statistics;
 - Display computed data and download them in a CSV format.
 
-#### Filtering
+#### Apply Filters
 
-- Availible (1D) thresholding methods include: *Literal*, *Normalized 0-1*, *Percentile*, *Relative to (a selected value)*.
+- 1D filtering options include: *Literal*, *Normalized 0-1*, *Percentile*, *Relative to (a selected value)*.
 
-#### Visualization
+#### Visualize
 
-- Generate interactive and highly customizable plots, covering:
-    - Track reconstruction and animation;
-    - Time lag statistics;
-    - Time series;
-    - Superplots.
-- Export figures in SVG format and more.
+- Generate highly customizable figures, covering:
+    - Track reconstruction and animation
+    - Polar histograms
+    - Richard Martin Edler von Mises distribution lineplots and heatmaps
+    - Mean Squared Displacement charts
+    - Mean turning angles per frame lags colormesh
+    - <del> Time series </del> 🏗️
+    - <del> Superplots </del> 🏗️
+
+- Export figures in SVG format.
 
 
 
