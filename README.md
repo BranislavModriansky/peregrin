@@ -2,7 +2,7 @@
 
 ### [Peregrin App:](https://branislavmodriansky.github.io/peregrin/)
 
-![Peregrin screenshot](https://raw.githubusercontent.com/BranislavModriansky/peregrin/shinylive/media/Peregrin_c.png)
+[![Peregrin screenshot](https://raw.githubusercontent.com/BranislavModriansky/peregrin/shinylive/media/Peregrin_c.png)](https://branislavmodriansky.github.io/peregrin/)
 
 
 > [!IMPORTANT]
