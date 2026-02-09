@@ -202,7 +202,7 @@ class BeyondSwarms:
                 _palette = {r: cyc[i] for i, r in enumerate(df['Replicate'].unique())}
 
             else:
-                _palette = Painter.BuildQualPalette(_df, tag='Replicate')
+                _palette = Painter().BuildQualPalette(_df, tag='Replicate')
 
             # === stats (single pass) ===
             # keep all categories (observed=False) so spacers appear with NaNs
@@ -515,12 +515,12 @@ class SuperViolins:
                         self.colours = [self.cm(i / self.cm.N) for i in range(len(self.unique_reps))]
                     except Exception as e:
                         print(e)
-                        colours = {rep: Painter.GenerateRandomColor() for rep in self.unique_reps}
+                        colours = {rep: Painter().GenerateRandomColor() for rep in self.unique_reps}
                         self.colours = [colours[rep] for rep in self.unique_reps]
                 else: 
                     try:
                         try:
-                            cmap = Painter.BuildQualPalette(self.df, tag='Replicate')
+                            cmap = Painter().BuildQualPalette(self.df, tag='Replicate')
                             self.cmap = cmap
                             self.colours = [cmap[rep] for rep in self.unique_reps]
                         except Exception:
@@ -529,7 +529,7 @@ class SuperViolins:
                             self.colours = [self.cm(i / self.cm.N) for i in range(len(self.unique_reps))]
                     except Exception as e:
                         print(e)
-                        colours = {rep: Painter.GenerateRandomColor() for rep in self.unique_reps}
+                        colours = {rep: Painter().GenerateRandomColor() for rep in self.unique_reps}
                         self.colours = [colours[rep] for rep in self.unique_reps]
 
 
