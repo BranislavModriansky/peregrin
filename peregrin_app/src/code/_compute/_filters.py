@@ -17,17 +17,16 @@ from ._stats import BaseDataInventory, Stats
 
 @dataclass
 class Inventory2D:
-    ...
 
-    id: np.ndarray = np.array([1])
-    idx_x: np.ndarray[np.ndarray] = np.array([])
-    idx_y: np.ndarray[np.ndarray] = np.array([])
-    property_x: np.ndarray[str] = np.array([])
-    property_y: np.ndarray[str] = np.array([])
-    series_x: np.ndarray[pd.Series] = np.array([])
-    series_y: np.ndarray[pd.Series] = np.array([])
-    threshold_x: np.ndarray[str] = np.array(["Literal"])
-    threshold_y: np.ndarray[str] = np.array(["Literal"])
+    id = np.array([1])
+    idx_x = np.array([])
+    idx_y = np.array([])
+    property_x = np.array([])
+    property_y = np.array([])
+    series_x = np.array([])
+    series_y = np.array([])
+    threshold_x = np.array(["Literal"])
+    threshold_y = np.array(["Literal"])
 
 
 
