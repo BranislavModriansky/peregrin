@@ -1,9 +1,16 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-### [Peregrin App:](https://branislavmodriansky.github.io/peregrin/)
 
-[![Peregrin screenshot](https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/Peregrin_c.png)](https://branislavmodriansky.github.io/peregrin/)
+<h3 align="center">
+  <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">Launch Peregrin</a>
+</h3>
 
+<a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">
+  <img
+    alt="Peregrin screenshot"
+    src="https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/Peregrin_c.png"
+  />
+</a>
 
 > [!IMPORTANT]
 >
