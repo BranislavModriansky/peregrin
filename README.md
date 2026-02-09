@@ -28,7 +28,9 @@ embed as:
 > [!IMPORTANT]
 >
 > This project is currently under active development. Many more features are planned to be implemented. Availible features may be incomplete or undatble. The goal of this project is to create a sophisticated, open source, open access tool (web app + python library of the source code) with a wide range of functionalities like data computations, filtering (1D and 2D), highest quality data visualizations. Designed by and for scientists.
+>
 > If you are interested in working with Peregrin, I will be very happy to help you as well as listen to your feedback, so please contact me:
+>
 > email: 548323@mail.muni.cz
 
 
