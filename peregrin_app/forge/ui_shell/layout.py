@@ -1306,6 +1306,7 @@ app_ui = ui.page_sidebar(
             ui.a(
                 "Peregrin",
                 href="https://github.com/BranislavModriansky/Peregrin/tree/main",
+                target="_blank",
                 class_="peregrin-logo",
             ),
         ),
