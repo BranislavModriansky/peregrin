@@ -47,7 +47,7 @@ app_ui = ui.page_sidebar(
             ui.markdown(
                 """ 
                     ### About Peregrin
-                    ##### A tool designed for processing and interpreting tracking data, offering a user-friendly interface built with [Py-Shiny](https://shiny.posit.co/py/).
+                    ##### A tool designed for processing and interpreting tracking data, offering a user-friendly interface built with <a href="https://shiny.posit.co/py/" target="_blank" rel="noopener noreferrer">Py-Shiny</a>.
                     *Import raw or processed data.* <br>
                     *Explore them by applying filters and generating insightful visualizations.* <br>
                     *Export results.* <br>
@@ -1306,6 +1306,8 @@ app_ui = ui.page_sidebar(
             ui.a(
                 "Peregrin",
                 href="https://github.com/BranislavModriansky/Peregrin/tree/main",
+                target="_blank",
+                rel="noopener noreferrer",
                 class_="peregrin-logo",
             ),
         ),

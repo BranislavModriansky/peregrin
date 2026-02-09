@@ -144,8 +144,6 @@ def clock(f):
 
 class Values:
 
-    SIG_FIGS: int = 5
-
     @staticmethod
     def Clamp01(value: float, **kwargs) -> float:
         """
@@ -167,8 +165,8 @@ class Values:
         
         return value
     
-
-    def RoundSigFigs(self, x, *, sigfigs: int = SIG_FIGS, **kwargs) -> float:
+    @staticmethod
+    def RoundSigFigs(x, *, sigfigs: int = 5, **kwargs) -> float:
         """
         Round a number to a given number of significant figures.
 

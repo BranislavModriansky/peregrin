@@ -50,12 +50,15 @@ class ReconstructTracks:
         self.background = background
         self.grid = grid
         self.title = title
-        self.noticequeue = kwargs.get('noticequeue', None)
         self.text_color = kwargs.get('text_color', 'black')
         self.gridstyle = kwargs.get('gridstyle', 'dartboard-1')
         self.annotate_r = kwargs.get('annotate_r', True)
         self.annotate_theta = kwargs.get('annotate_theta', True)
         self.strip_backdrop = kwargs.get('strip_backdrop', True)
+
+        self.noticequeue = kwargs.get('noticequeue', None)
+        
+        self.painter = Painter(noticequeue=self.noticequeue)
         
         self.Spots, self.Tracks = None, None
         self.segments, self.segment_colors = [], []
@@ -405,7 +408,7 @@ class ReconstructTracks:
         if norm is None:
             return None
 
-        colormap = Painter.GetCmap(self.c_mode)
+        colormap = self.painter.GetCmap(self.c_mode)
 
         sm = plt.cm.ScalarMappable(norm=norm, cmap=colormap)
         sm.set_array([])
@@ -555,7 +558,7 @@ class ReconstructTracks:
                 category = 'condition'
 
             if self.stock_palette is None:
-                mp = Painter.BuildQualPalette(self.Tracks, tag=category.capitalize(), noticequeue=self.noticequeue)
+                mp = self.painter.BuildQualPalette(self.Tracks, tag=category.capitalize())
                 self.Tracks = self.Tracks.reset_index()
                 self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(mp)
                 self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
@@ -563,7 +566,7 @@ class ReconstructTracks:
 
             if self.stock_palette is not None:
                 categories = self.Tracks.reset_index()[category.capitalize()].unique().tolist()
-                palette = Painter.StockQualPalette(categories, self.stock_palette, noticequeue=self.noticequeue)
+                palette = self.painter.StockQualPalette(categories, self.stock_palette)
                 compiled = dict(zip(categories, palette))
 
                 self.Tracks = self.Tracks.reset_index()
@@ -571,7 +574,7 @@ class ReconstructTracks:
                 self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
 
         else:
-            self.cmap = Painter.GetCmap(self.c_mode)
+            self.cmap = self.painter.GetCmap(self.c_mode)
             norm, vals = Values.LutMapper(self.Tracks if self.lut_scaling_stat in self.Tracks.columns else self.Spots, self.lut_scaling_stat, min=self.lut_vmin, max=self.lut_vmax, noticequeue=self.noticequeue)
 
             if not (norm is None or vals is None):

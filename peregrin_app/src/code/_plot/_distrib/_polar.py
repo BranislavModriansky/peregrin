@@ -32,7 +32,7 @@ class PolarDataDistribute:
         
         self.normalization = normalization
 
-        self.cmap = Painter.GetCmap(cmap, noticequeue=self.noticequeue)
+        self.cmap = Painter(noticequeue=self.noticequeue).GetCmap(cmap)
         self.face = face
         self.text_color = text_color
         self.title = title

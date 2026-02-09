@@ -1,66 +1,65 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
+### [Peregrin App:](https://branislavmodriansky.github.io/peregrin/)
 
-<!-- 
-
-TODO: A multiframe gif "video" compiling various screen recordings of different features 
-
-
-embed as:
-![GIF](https://github.com/BranislavModriansky/peregrin/blob/re-structure/media/data_display.gif)
+![Peregrin screenshot](https://raw.githubusercontent.com/BranislavModriansky/peregrin/shinylive/media/Peregrin_c.png)
 
 
--->
+> [!IMPORTANT]
+>
+> This project is currently under active development. More features are going to be adde. Available features may be incomplete or unstable. 
+>
+>The goal of this project is to create a sophisticated, open source and open access tool (web app + python library of the source code) with a wide range of functionalities like data computations, filtering (1D and 2D) or highest quality data visualizations. 
+>
+>Designed by and for scientists.
+>
+> If you are interested in working with Peregrin, I will be very happy to help you as well as listen to your feedback, so please contact me:
+>
+> email: 548323@mail.muni.cz
 
-<!-- ## Contents:
-
-1. [About](#about)
-    1. [Key Features and Flows](#key-features-and-flows)
-        1. [Data Input](#data-input)
-        2. [Filtering](#filtering)
-        3. [Visualization](#visualization)
-    2. [Documentation](#documentation)
-3. [How to Install and Launch](#how-to-install-and-launch)
-    1. [Running the App Using Docker](#running-the-app-using-docker)
-        1. [Set-up](#set-up)
-        2. [Initialization](#initialization) -->
 
 ## About
 
 Peregrin is a an application designed for researchers studying cell migration. It allows **exploratory analysis of cell tracking data via an interactive, browser-based UI** built with [Py-Shiny](https://shiny.posit.co/py/) and containerized with [Docker](https://www.docker.com/) for reproducible deployment.
 
-### Key Features and Flows
+### Features and Workflow
 
-#### Data Input
+#### Import Data
 
-- Import - CSV (recommended) / XLSX / XLS - tabular data files containing information about spots of individual trajectories;
+- Import: CSV / XML / XLSX / XLS - data files containing information about spots of individual trajectories;
 - Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
 - Optionally, input may also contain other information;
+
+#### Run
+
 - Run Peregrin and compute track statistics;
 - Display computed data and download them in a CSV format.
 
-#### Filtering
+#### Apply Filters
 
-- Availible (1D) thresholding methods include: *Literal*, *Normalized 0-1*, *Percentile*, *Relative to (a selected value)*.
+- 1D filtering options include: *Literal*, *Normalized 0-1*, *Percentile*, *Relative to (a selected value)*.
 
-#### Visualization
+#### Visualize
 
-- Generate interactive and highly customizable plots, covering:
-    - Track reconstruction and animation;
-    - Time lag statistics;
-    - Time series;
-    - Superplots.
-- Export figures in SVG format and more.
+- Generate highly customizable figures, covering:
+    - Track reconstruction and animation
+    - Polar histograms
+    - Richard Martin Edler von Mises distribution lineplots and heatmaps
+    - Mean Squared Displacement charts
+    - Mean turning angles per frame lags colormesh
+    - <del> Time series </del> 🏗️
+    - <del> Superplots </del> 🏗️
+
+- Export figures in SVG format.
 
 
 
 
-
-## Documentation
+<!-- ## Documentation
 
 > [!TIP]
 >
-> See the [Current State - Road Map](https://github.com/BranislavModriansky/peregrin/wiki/Current-State-%E2%80%90-Road-Map)
+> See the [Current State - Road Map](https://github.com/BranislavModriansky/peregrin/wiki/Current-State-%E2%80%90-Road-Map) -->
 
 <!--
 
@@ -75,7 +74,7 @@ Peregrin is a an application designed for researchers studying cell migration. I
 <!-- TODO: Describe the problem this project solves, the motivation, and the goals. -->
 <!-- TODO: Current status/roadmap (optional). -->
 
-## How to Install and Launch
+<!-- ## How to Install and Launch
 
 - Use **Docker** for **quick set-up** and **easy configuration**
 
@@ -125,7 +124,7 @@ or
 
 ```bash
 docker run -p <port>:<port> branislavmodriansky/peregrin:<version> shiny run --host 0.0.0.0 --port <port>
-```
+``` -->
 
 
 <!-- Callout options: [!IMPORTANT], [!NOTE], [!TIP], [!WARNING], [!CAUTION] -->

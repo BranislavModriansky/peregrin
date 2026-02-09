@@ -56,6 +56,8 @@ class MSD:
 
         self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
+        self.painter = Painter(noticequeue=self.noticequeue)
+
         self._check_errors()
 
     def _check_errors(self) -> None:
@@ -83,18 +85,17 @@ class MSD:
         if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
             if self.palette:
                 try:
-                    colors_list = Painter.StockQualPalette(tags, self.palette, noticequeue=self.noticequeue)
+                    colors_list = self.painter.StockQualPalette(tags, self.palette)
                     if colors_list:
                         return dict(zip(tags, colors_list))
                 except Exception:
                     pass
 
             else:
-                mp = Painter.BuildQualPalette(
+                mp = self.painter.BuildQualPalette(
                     data=self.data,
                     tag=tag,
-                    which=tags,
-                    noticequeue=self.noticequeue
+                    which=tags
                 )
 
             return mp
@@ -365,7 +366,7 @@ def TurnAnglesHeatmap(
         noticequeue.Report(Level.info, "No data. Cannot generate heatmap.")
         return None
     
-    cmap = Painter.GetCmap(cmap, noticequeue=noticequeue)
+    cmap = Painter(noticequeue=noticequeue).GetCmap(cmap)
     
     # Initialize the plot
     fig, ax = plt.subplots(figsize=(4, 3.8))
