@@ -1,7 +1,6 @@
 from pathlib import Path
 from shiny import App
-from forge import app_ui
-from forge import Server
+from forge import app_ui, Server
 
 app = App(app_ui, Server)
 
@@ -25,8 +24,6 @@ app = App(app_ui, Server)
 # TODO: Add a checkbox control to enable/disable y-mirroring when loading data 
 
 # TODO: remodel the dictionary utilization so that keywords are actually hex codes instead of color names (because when inputing a dictionary into a selectize/other inputs, the items would be shown, and the keywords would be registered automatically - in this case there is no need to use list(dict.keys())) method nd later dict.get(key) method to get the values
-
-# BUG - Violinplots show inappropriate y-axis labels
 
 # TODO - make an option to convert the time units (e.g. user inputs a df in seconds but wants to see minutes/hours in the graphs and calculations)
 # TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.

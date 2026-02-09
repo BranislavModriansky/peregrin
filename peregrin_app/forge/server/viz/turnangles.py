@@ -7,8 +7,7 @@ from datetime import date
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from peregrin_app.src.code._handlers._reports import Level
-from src.code import TurnAnglesHeatmap, Dyes, is_empty
+from src.code import Level, TurnAnglesHeatmap, Dyes, is_empty
 
 
 

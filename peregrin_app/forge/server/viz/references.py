@@ -7,7 +7,7 @@ from pathlib import Path
 
 def mount_references(input, output, session, S, noticequeue):
 
-    dir = Path(__file__).resolve().parents[3] / 'src\\media'
+    dir = Path(__file__).resolve().parents[3] / 'src' / 'media'
 
     @output()
     @render.image
