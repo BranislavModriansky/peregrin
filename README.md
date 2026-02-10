@@ -1,12 +1,10 @@
 # Peregrin ~ A Py-Shiny application for exploratory analysis of cell tracking data
 
-___
+<br></br>
 
-<p align="center" style="font-size: 2.0rem; font-weight: bold;">
-  <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">
-    ▷ Launch Peregrin ◁
-  </a>
-</p>
+<h3 align="center" >
+  <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">▷ Launch Peregrin ◁</a>
+</h3>
 
 <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">
   <img
@@ -29,7 +27,7 @@ ___
 >
 > email: 548323@mail.muni.cz
 
-___
+<br></br>
 
 ## About
 
