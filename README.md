@@ -16,7 +16,7 @@
 
 > [!IMPORTANT]
 >
-> This project is currently under active development. More features are going to be adde. Available features may be incomplete or unstable. 
+> This project is currently under active development. More features are going to be added. Available features may be incomplete or unstable. 
 >
 >The goal of this project is to create a sophisticated, open source and open access tool (web app + python library of the source code) with a wide range of functionalities like data computations, filtering (1D and 2D) or highest quality data visualizations. 
 >
