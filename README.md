@@ -2,7 +2,7 @@
 
 ___
 
-<p align="center" style="font-size: 28px; font-weight: bold;">
+<p align="center" style="font-size: 2.0rem; font-weight: bold;">
   <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">
     ▷ Launch Peregrin ◁
   </a>
