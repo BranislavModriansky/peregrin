@@ -23,20 +23,28 @@ app = App(app_ui, Server)
 
 # TODO: Add a checkbox control to enable/disable y-mirroring when loading data 
 
-# TODO: remodel the dictionary utilization so that keywords are actually hex codes instead of color names (because when inputing a dictionary into a selectize/other inputs, the items would be shown, and the keywords would be registered automatically - in this case there is no need to use list(dict.keys())) method nd later dict.get(key) method to get the values
-
 # TODO - make an option to convert the time units (e.g. user inputs a df in seconds but wants to see minutes/hours in the graphs and calculations)
-# TODO - fix your shit, look into the calculations of parameters inside of the _params script and make sure they are correct.
-#      - Switch the "metric" annotations to "parameter" or "value" as that is correct
-#      - Make sure all parameter names are consistent and the logic is global: not Speed mean, Direction mean (rad), but Speed mean, Direction (rad) mean
-# TODO - Keep all the raw data (columns) - rather format them (stripping of _ and have them not all caps)
+
 # TODO - Make it possible to save/load threshold configurations
 # TODO - Time point definition
 # TODO - Mean directional change rate
 # TODO - Again add rendered text showing the total number of cells in the input and the number of output cells
 # TODO - Option to download a simple legend showing how much data was filtered out and how so
-# TODO - input_selectize for track reconstruction, renam polar to normalized / normalized start and realistic to raw or some better synonym to realistic
-# TODO - Differentiate between frame(s) annotations and time annotations
 
 # TODO - VERY IMPORTANT
 #      - Must have an option to download the whole app settings together with the data 
+
+# TODO - Add a "reset" button to reset all settings to default values
+
+# TODO - Add 2D filtering (gating) (with js) panel to filter out cells based on two parameters at once (e.g. mean speed vs. mean directional change rate)
+#      - Options for coloring the points inn the 2D plot:
+#           - a single color option
+#           - LUT map by density (e.g. using a 2D histogram)
+#           - LUT map by a parameter (which can be indepent of the two parameters being plotted)
+#           - Applyng a blur option where the points are invisible (transparent) but the background reflects the density of the points
+#               Kernel density estimation parameters will be defined by the user (e.g. kernel size and sigma).
+#               Blur options will include:
+#                 - Gaussian filter blur
+#                 - Colormesh with applied blur (where the 2D histogram is blurred with a Gaussian filter and then plotted as a heatmap in the background of the plot)
+#      - Have a kernel density estimate on the sides of the plot showing the distribution of each parameter (similar to a seaborn jointplot)
+#      - Make it possible to save/load gating configurations
