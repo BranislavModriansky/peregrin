@@ -18,7 +18,7 @@
 >
 > This project is currently under active development. More features are going to be added. Available features may be incomplete or unstable. 
 >
->The goal of this project is to create a sophisticated, open source and open access tool (web app + python library of the source code) with a wide range of functionalities like data computations, filtering (1D and 2D) or highest quality data visualizations. 
+>The goal of this project is to create a sophisticated, open source and open access tool (web application + python library) with a wide range of functionalities, such as data computations, filtering (1D and 2D) or highest quality data visualizations. 
 >
 >Designed by and for scientists.
 >
