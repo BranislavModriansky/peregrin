@@ -72,7 +72,7 @@ def mount_data_display(input, output, session, S):
                 if (stats["type"] == "type_one" 
                     and col not in ["Condition", "Replicate", "Condition color", "Replicate color", 
                                     "Frame", "Time point", "Frame lag", "Time lag"]):
-                    stat = col.strip().lower().replace(" ", "_")
+                    stat = col.strip().lower().replace(" ", "_").replace(".", "_")
                     body = ui.div(
                         ui.div(ui.output_plot(f"hist_{tag}_{stat}", height="125px"), style="width: 125px; height: 127px;"),
                         ui.div(ui.tags.b("missing: "), str(stats['missing'])),
@@ -229,7 +229,7 @@ def mount_data_display(input, output, session, S):
     def _():
         for col, stats in S.SPOTSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
                 
                 @output(id=f"hist_spots_{stat_id}")
                 @render.plot
@@ -243,7 +243,7 @@ def mount_data_display(input, output, session, S):
     def _():
         for col, stats in S.TRACKSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
 
                 @output(id=f"hist_tracks_{stat_id}")
                 @render.plot
@@ -257,7 +257,7 @@ def mount_data_display(input, output, session, S):
     def _():
         for col, stats in S.FRAMESUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
 
                 @output(id=f"hist_frames_{stat_id}")
                 @render.plot
@@ -271,7 +271,7 @@ def mount_data_display(input, output, session, S):
     def _():
         for col, stats in S.TINTERVALSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
 
                 @output(id=f"hist_tintervals_{stat_id}")
                 @render.plot

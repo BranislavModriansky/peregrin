@@ -1,7 +1,7 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
 from ...ui_shell import make_sortable_ui
-from src.code import DataLoader, Metrics, FilenameFormatExample
+from src.code import DataLoader, Metrics, FilenameFormatExample, is_empty
 
 
 def mount_data_labeling(input, output, session, S, noticequeue):
@@ -17,6 +17,9 @@ def mount_data_labeling(input, output, session, S, noticequeue):
     def data_labeling_ui():
         if input.run() > 0:
             return [
+                ui.div(ui.markdown(""" <br><h4><b>  Labeling settings:  </h4></b> """), 
+                       style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center; "),
+
                 ui.input_switch("write_replicate_colors", "Set replicate colors", False),
                 ui.output_ui("replicate_colors_inputs"),
 
@@ -24,7 +27,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                 ui.output_ui("condition_colors_inputs"),
 
                 ui.input_switch("set_condition_order", "Set condition order", False),
-                # ui.tags.style(Customize.Ladder),
                 ui.output_ui("condition_order_ladder"),
 
                 ui.input_switch("write_replicate_labels", "Re-write replicate labels", False),
@@ -372,4 +374,4 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                     if not df_spots.equals(S.SPOTSTATS.get()): S.SPOTSTATS.set(df_spots)
                     if not df_tracks.equals(S.TRACKSTATS.get()): S.TRACKSTATS.set(df_tracks)
                     if not df_frames.equals(S.FRAMESTATS.get()): S.FRAMESTATS.set(df_frames)
-                    
+    

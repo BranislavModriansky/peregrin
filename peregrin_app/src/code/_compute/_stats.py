@@ -1,4 +1,5 @@
 from __future__ import annotations
+import traceback
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
@@ -42,8 +43,18 @@ class Stats:
         *If specified, during computations all floating-point values are going to be normalized (rounded) to this number of decimal places.*
     """
 
+    
     SIGNIFICANT_FIGURES: None | int = None
     DECIMALS_PLACES: None | int = None
+    BOOTSTRAP_RESAMPLES: int = 1000
+    CONFIDENCE_LEVEL: float = 95
+    CI_STATISTIC: str = 'mean'
+    ci_method_used: str = 'BCa'
+
+    PANDAS_BUILTINS = frozenset({
+        'mean', 'median', 'std', 'count', 'sum', 'min', 'max',
+        'first', 'last', 'var', 'prod', 'size', 'nunique',
+    })
 
     COLUMNS = {
         'SPOTS': [
@@ -58,7 +69,7 @@ class Stats:
             'Track length','Track displacement','Straightness index',
             'Speed min','Speed max','Speed mean','Speed sd','Speed sem',
             'Speed median','Speed q25','Speed q75',
-            'Speed CI95 low','Speed CI95 high',
+            f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
             'Direction mean','Direction var'
         ]
     }
@@ -66,9 +77,18 @@ class Stats:
 
     def __init__(self, **kwargs) -> None:
         self.noticequeue = kwargs.get('noticequeue', None)
+        
+        self.CUSTOM_AGG_FUNCTIONS = {
+            'q25':        self._q25,
+            'q75':        self._q75,
+            'ci':         self._ci,
+            'sem':        self._sem,
+            'circ_mean':  self._circ_mean,
+            'circ_var':   self._circ_var,
+        }
 
 
-    def GetAllStats(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    def GetAllData(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
         #### *Computes all trajectory statistics (Spots, Tracks, Frames, TimeIntervals) from raw spot data.*
 
@@ -288,50 +308,65 @@ class Stats:
             return pd.DataFrame(columns=self.COLUMNS['TRACKS'])
 
         stash = df[['Condition','Replicate','Track ID']].drop_duplicates()
-        print(stash)
 
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
         gcols = ['Track UID']
 
-        
         grp = df.groupby(gcols, sort=False)
 
-        # choose the quantiles you want; edit as needed
+        # Resolve speed aggregation spec through the resolver
+        speed_agg_spec = self.resolve({
+            'Speed min':    'min',
+            'Speed max':    'max',
+            'Speed mean':   'mean',
+            'Speed sd':     'std',
+            'Speed sem':    'sem',
+            'Speed median': 'median',
+            'Speed q25':    'q25',
+            'Speed q75':    'q75',
+            f'Speed ci{self.CONFIDENCE_LEVEL}': 'ci',
+        })
+
+        # Build the named agg dict: each entry is (column, func)
         agg_spec = {
-            'Track length':     ('Distance', 'sum'),
-            'Speed min':        ('Distance', 'min'),
-            'Speed max':        ('Distance', 'max'),
-            'Speed mean':       ('Distance', 'mean'),
-            'Speed sd':         ('Distance', 'std'),
-            'Speed sem':        ('Distance', lambda x: stats.sem(x)),
-            'Speed median':     ('Distance', 'median'),
-            'Speed q25':        ('Distance', lambda x: np.nanquantile(x, 0.25)),
-            'Speed q75':        ('Distance', lambda x: np.nanquantile(x, 0.75)),
-            'Speed CI95':       ('Distance', lambda x: stats.t.interval(0.95, len(x)-1, loc=np.mean(x), scale=stats.sem(x)) if len(x) > 1 else (np.nan, np.nan)),
-            'start_x':          ('X coordinate', 'first'),
-            'end_x':            ('X coordinate', 'last'),
-            'start_y':          ('Y coordinate', 'first'),
-            'end_y':            ('Y coordinate', 'last'),
+            'Track length': ('Distance', 'sum'),
         }
-        
+        for label, func in speed_agg_spec.items():
+            agg_spec[label] = ('Distance', func)
+
+        # Add coordinate first/last for displacement calculation
+        agg_spec['start_x'] = ('X coordinate', 'first')
+        agg_spec['end_x']   = ('X coordinate', 'last')
+        agg_spec['start_y'] = ('Y coordinate', 'first')
+        agg_spec['end_y']   = ('Y coordinate', 'last')
+
         agg = grp.agg(**agg_spec)
 
-        # Split CI95 into two columns
-        agg['Speed CI95 low'] = agg['Speed CI95'].apply(lambda x: x[0])
-        agg['Speed CI95 high'] = agg['Speed CI95'].apply(lambda x: x[1])
-        agg = agg.drop(columns=['Speed CI95'])
+        # CI split into two bounds
+        if f'Speed ci{self.CONFIDENCE_LEVEL}' in agg.columns:
+            
+            print(f"Speed ci{self.CONFIDENCE_LEVEL} column found; splitting into low/high bounds.")
+            print(f"Sample of ci column values before splitting:")
+            ci_col = f'Speed ci{self.CONFIDENCE_LEVEL}'
+            print(agg[ci_col].head())
+            print("")
+
+            ci_col = f'Speed ci{self.CONFIDENCE_LEVEL}'
+            agg[f'Speed ci{self.CONFIDENCE_LEVEL} low'] = agg[ci_col].apply(lambda x: x[0] if isinstance(x, tuple) else np.nan)
+            agg[f'Speed ci{self.CONFIDENCE_LEVEL} high'] = agg[ci_col].apply(lambda x: x[1] if isinstance(x, tuple) else np.nan)
+            agg.drop(columns=[ci_col], inplace=True)
+        
 
         # If colors were assigned, carry them over
         if 'Replicate color' in df.columns:
             colors = grp['Replicate color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
-        if 'Condition color' in df.columns:
+        if 'Condition color' in df:
             colors = grp['Condition color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
 
         # Other general stats
         other = self._general_agg_stats(df, exclude=self.COLUMNS['SPOTS'])
-        # agg = agg.merge(other, left_index=True, right_index=True)
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
@@ -416,8 +451,8 @@ class Stats:
             - ***metric*``median``**:     *median value of a given metric across tracks at that time point.*
             - ***metric*``q25``**:        *25th percentile of a given metric across tracks at that time point.*
             - ***metric*``q75``**:        *75th percentile of a given metric across tracks at that time point.*
-            - ***metric*``CI95 low``**:   *lower bound of the 95% confidence interval of a given metric across tracks at that time point.*
-            - ***metric*``CI95 high``**:  *upper bound of the 95% confidence interval of a given metric across tracks at that time point.*
+            - ***metric*``ci{self.CONFIDENCE_LEVEL} low``**:   *lower bound of the {self.CONFIDENCE_LEVEL}% confidence interval of a given metric across tracks at that time point.*
+            - ***metric*``ci{self.CONFIDENCE_LEVEL} high``**:  *upper bound of the {self.CONFIDENCE_LEVEL}% confidence interval of a given metric across tracks at that time point.*
             \n
             Circular statistics:
 
@@ -453,7 +488,7 @@ class Stats:
 
         # An empty DataFrame equivalent
         if df is None or df.empty:
-            stats_cols = ['min','max','mean','sd','sem','median','q25','q75','CI95 low','CI95 high']
+            stats_cols = ['min','max','mean','sd','sem','median','q25','q75',f'ci{self.CONFIDENCE_LEVEL} low',f'ci{self.CONFIDENCE_LEVEL} high']
             cols = (
                 group_cols
                 + [f"{metric_out[m]} {s}" for m in metrics for s in stats_cols]
@@ -462,50 +497,57 @@ class Stats:
             )
             return pd.DataFrame(columns=cols)
 
-        # One groupby for basic aggregation statistics
-        g = df.groupby(group_cols, sort=False, observed=True)[metrics]
-        basic = g.agg(['min', 'max', 'mean', 'std', 'median', 'count'])  # std is sample sd (ddof=1)
+        # Resolve the aggregation spec for scalar stats via resolve()
+        scalar_agg_spec = self.resolve({
+            'min':    'min',
+            'max':    'max',
+            'mean':   'mean',
+            'std':    'std',
+            'median': 'median',
+            'count':  'count',
+            'sem':    'sem',
+            'q25':    'q25',
+            'q75':    'q75',
+            'ci':     'ci',
+        })
 
-        # Group (Condition × Replicate × Time point / Frame) quantiles
-        q25 = g.quantile(0.25)
-        q75 = g.quantile(0.75)
+        # One groupby for all metrics
+        g = df.groupby(group_cols, sort=False, observed=True)
 
         # Assemble the DataFrame
-        out = pd.DataFrame(index=basic.index)
+        out = pd.DataFrame(index=g.ngroups and g[metrics[0]].mean().index)
 
-        # Per-metric calculation of [min, max, mean, sd, std, median, IQR, CI95] statistics
+        # Per-metric calculation of statistics using resolved functions
         for m in metrics:
-            # Output metric name assembly
             mout = metric_out[m]
+            series_group = g[m]
 
-            # Extract basic per-group stats
-            vmin = basic[(m, 'min')]
-            vmax = basic[(m, 'max')]
-            vmean = basic[(m, 'mean')]
-            vsd = basic[(m, 'std')]
-            vmed = basic[(m, 'median')]
-            # Counts non-nan values only (used in mean/std calculation); <2 if all values are the same or if there are nans
-            vn = basic[(m, 'count')].astype(float)
+            # Apply each resolved aggregation function
+            results = {}
+            for label, func in scalar_agg_spec.items():
+                results[label] = series_group.agg(func)
 
-            # sem = sd / sqrt(n), requires n>=2, else is undefined
-            vsem = vsd / np.sqrt(vn)
-            vsem = vsem.where(vn >= 2, np.nan)
+            vmin    = results['min']
+            vmax    = results['max']
+            vmean   = results['mean']
+            vsd     = results['std']
+            vmed    = results['median']
+            vsem    = results['sem']
+            vq25    = results['q25']
+            vq75    = results['q75']
+            ci      = results['ci']
 
-            # CI95 = mean ± tcrit(df=n-1) * sem, requires n>=2, else is undefined
-            tcrit = stats.t.ppf(0.975, vn - 1)
-            ci_low = (vmean - tcrit * vsem).where(vn >= 2, np.nan)
-            ci_high = (vmean + tcrit * vsem).where(vn >= 2, np.nan)
+            out[f'{mout} min']      = vmin
+            out[f'{mout} max']      = vmax
+            out[f'{mout} mean']     = vmean
+            out[f'{mout} sd']       = vsd
+            out[f'{mout} sem']      = vsem
+            out[f'{mout} median']   = vmed
+            out[f'{mout} q25']      = vq25
+            out[f'{mout} q75']      = vq75
 
-            out[f'{mout} min'] = vmin
-            out[f'{mout} max'] = vmax
-            out[f'{mout} mean'] = vmean
-            out[f'{mout} sd'] = vsd
-            out[f'{mout} sem'] = vsem
-            out[f'{mout} median'] = vmed
-            out[f'{mout} q25'] = q25[m]
-            out[f'{mout} q75'] = q75[m]
-            out[f'{mout} CI95 low'] = ci_low
-            out[f'{mout} CI95 high'] = ci_high
+            out[f'{mout} ci{self.CONFIDENCE_LEVEL} low']  = ci.apply(lambda x: x[0] if isinstance(x, tuple) else np.nan)
+            out[f'{mout} ci{self.CONFIDENCE_LEVEL} high'] = ci.apply(lambda x: x[1] if isinstance(x, tuple) else np.nan)
 
         # Computes both instantaneous direction (from 'Direction') and cumulative direction (from 'Cumulative direction mean') stats
         tmp = df[group_cols + ['Direction', 'Cumulative direction mean']].copy()
@@ -590,8 +632,8 @@ class Stats:
             - **``median``**: median MSD.
             - **``q25``**: 25th percentile of MSD.
             - **``q75``**: 75th percentile of MSD.
-            - **``CI95 low``**: lower bound of the 95% confidence interval of MSD.
-            - **``CI95 high``**: upper bound of the 95% confidence interval of MSD.
+            - **``ci{self.CONFIDENCE_LEVEL} low``**: lower bound of the {self.CONFIDENCE_LEVEL}% confidence interval of MSD.
+            - **``ci{self.CONFIDENCE_LEVEL} high``**: upper bound of a {self.CONFIDENCE_LEVEL}% confidence interval of MSD.
 
             **``Turn``** statistics across circular mean of turning angles for trajectories at specific time intervals/lags:
             - **``mean``**: circular mean of turning angles.
@@ -601,7 +643,7 @@ class Stats:
         # Output columns
         cols = [
             'Condition','Replicate','Frame lag','Time lag','Tracks contributing',
-            *[f'MSD {s}' for s in ['min','max','mean','sem','sd','median','q25','q75','CI95 low','CI95 high']],
+            *[f'MSD {s}' for s in ['min','max','mean','sem','sd','median','q25','q75',f'ci{self.CONFIDENCE_LEVEL} low',f'ci{self.CONFIDENCE_LEVEL} high']],
             'Turn mean','Turn var'
         ]
 
@@ -619,7 +661,7 @@ class Stats:
         
         t_step = float(np.diff(t_unique)[0])
 
-        # Collect per-track metrics at each lag
+        # Collect per-track metrics at at lag
         per_track_msd = defaultdict(list)
         per_track_turn_mean = defaultdict(list)
 
@@ -679,44 +721,48 @@ class Stats:
         for (cond, rep, lag) in sorted(keys, key=lambda k: (k[0], k[1], k[2])):
 
             # Mean squared displacement statistics across tracks
-            # Get the array of mean squared displacement values
             arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
             n_tracks = arr.size
 
-            # Turning angle statistics across tracks
+            # Turning angle statistics across tracks (uses class circular stats methods)
             turn_means = np.asarray(per_track_turn_mean.get((cond, rep, lag), []), dtype=float)
             turn_mean_agg = self._circ_mean(turn_means) if turn_means.size else np.nan
             turn_var_agg = self._circ_var(turn_means) if turn_means.size else np.nan
 
-            rows.append({
+            # Use custom agg functions for MSD summary statistics
+            row = {
                 'Condition': cond,
                 'Replicate': rep,
                 'Frame lag': lag,
                 'Time lag': lag * t_step,
                 'Tracks contributing': int(max(n_tracks, turn_means.size)),
 
-                'MSD min': float(arr.min()) if n_tracks else np.nan,
-                'MSD max': float(arr.max()) if n_tracks else np.nan,
-                'MSD mean': float(arr.mean()) if n_tracks else np.nan,
-                'MSD sem': float(stats.sem(arr)) if n_tracks > 1 else np.nan,
-                'MSD sd': float(arr.std(ddof=1)) if n_tracks > 1 else np.nan,
+                'MSD min':    float(arr.min()) if n_tracks else np.nan,
+                'MSD max':    float(arr.max()) if n_tracks else np.nan,
+                'MSD mean':   float(arr.mean()) if n_tracks else np.nan,
+                'MSD sd':     float(arr.std()) if n_tracks > 1 else np.nan,
+                'MSD sem':    float(stats.sem(arr, nan_policy='omit')) if n_tracks > 1 else np.nan,
                 'MSD median': float(np.median(arr)) if n_tracks else np.nan,
-                'MSD q25': float(np.nanquantile(arr, 0.25)) if n_tracks else np.nan,
-                'MSD q75': float(np.nanquantile(arr, 0.75)) if n_tracks else np.nan,
-                'MSD CI95': stats.t.interval(0.95, n_tracks - 1, loc=arr.mean(), scale=stats.sem(arr)) if n_tracks > 1 else (np.nan, np.nan),
+                'MSD q25':    float(self._q25(arr)) if n_tracks else np.nan,
+                'MSD q75':    float(self._q75(arr)) if n_tracks else np.nan,
+                f'MSD ci': self._ci(arr) if n_tracks > 1 else np.nan,
 
                 'Turn mean': np.rad2deg(np.abs(turn_mean_agg)),
                 'Turn var': turn_var_agg,
-            })
+            }
+
+            # split MSD confidence interval into low/high bounds if it exists and is a tuple
+            if n_tracks > 1 and f'MSD ci' in row:
+                ci = row[f'MSD ci']
+                row[f'MSD ci{self.CONFIDENCE_LEVEL} low'] = ci[0] if isinstance(ci, tuple) else np.nan
+                row[f'MSD ci{self.CONFIDENCE_LEVEL} high'] = ci[1] if isinstance(ci, tuple) else np.nan
+                del row[f'MSD ci']
+
+            rows.append(row)
 
         df = pd.DataFrame(rows).sort_values(
             ['Condition', 'Replicate', 'Frame lag'], ignore_index=True
         )
-
-        # Split MSD CI95 into two columns
-        df['MSD CI95 low'] = df['MSD CI95'].apply(lambda x: x[0])
-        df['MSD CI95 high'] = df['MSD CI95'].apply(lambda x: x[1])
-        df = df.drop(columns=['MSD CI95'])
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -748,7 +794,7 @@ class Stats:
         Parameters
         ----------
         df : pd.DataFrame
-            Input DataFrame with numeric values to be rounded.
+            Input DataFrame with numeric values to be rounded
         sig_figs : int
             Number of significant figures to round to.
 
@@ -799,33 +845,179 @@ class Stats:
             df[col] = df[col].apply(lambda x: round(x, decimals) if pd.notnull(x) else x)
 
         return df
+    
+
+    def resolve(self, agg_spec: dict[str, str] | list[str]) -> dict[str, str | callable]:
+        """
+        ***Resolve an aggregation specification dict so that custom names
+        (e.g. 'iqr', 'ci95') are replaced with their callable implementations
+        while built-in pandas names are kept as strings.***
+
+        Parameters
+        ----------
+        agg_spec : dict[str, str] | list[str]
+            *Either a list of aggregation function names (e.g. ['mean', 'iqr', 'ci95']) or a dict mapping output labels to function names (e.g. {'Speed mean': 'mean', 'Speed iqr': 'iqr', 'Speed ci95': 'ci95'}).*
+
+        Returns
+        -------
+        dict[str, str | callable]
+            Ready to pass to ``pdpd.groupby().agg()``.
+        """
+        
+        resolved = {}
+        if isinstance(agg_spec, list):
+            for func_name in agg_spec:
+                if func_name in self.PANDAS_BUILTINS:
+                    resolved[func_name] = func_name
+                elif func_name in self.CUSTOM_AGG_FUNCTIONS:
+                    resolved[func_name] = self.CUSTOM_AGG_FUNCTIONS[func_name]
+                else:
+                    raise ValueError(
+                        f"Unknown aggregation '{func_name}'. "
+                        f"Available: {sorted(self.PANDAS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS))}"
+                    )
+
+        elif isinstance(agg_spec, dict):
+            for label, func_name in agg_spec.items():
+                if func_name in self.PANDAS_BUILTINS:
+                    resolved[label] = func_name
+                elif func_name in self.CUSTOM_AGG_FUNCTIONS:
+                    resolved[label] = self.CUSTOM_AGG_FUNCTIONS[func_name]
+                else:
+                    raise ValueError(
+                        f"Unknown aggregation '{func_name}'. "
+                        f"Available: {sorted(self.PANDAS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS))}"
+                    )
+        return resolved
         
 
     def _wrap_pi(self, a: np.ndarray) -> np.ndarray:
+        """Wrap angles in radians to the range [-π, π]."""
         return (a + np.pi) % (2*np.pi) - np.pi
 
 
     def _circ_mean(self, a: np.ndarray) -> float:
+        """Circular mean of angles in radians."""
         a = np.asarray(a, dtype=float)
         if a.size == 0:
             return np.nan
+        
         s = np.nanmean(np.sin(a))
         c = np.nanmean(np.cos(a))
         if np.isnan(s) or np.isnan(c):
             return np.nan
+        
         return float(np.arctan2(s, c))
 
 
     def _circ_var(self, a: np.ndarray) -> float:
+        """Circular variance defined as 1 - R, where R is the mean resultant length of the angles."""
         a = np.asarray(a, dtype=float)
         if a.size == 0:
             return np.nan
+        
         s = np.nanmean(np.sin(a))
         c = np.nanmean(np.cos(a))
         if np.isnan(s) or np.isnan(c):
             return np.nan
+        
         R = np.hypot(s, c)
         return float(1.0 - R)
+    
+
+    def _q25(self, a: np.ndarray) -> float:
+        """Lower bound of the interquartile range = Q1."""
+        return np.nanpercentile(a, 25)
+    
+
+    def _q75(self, a: np.ndarray) -> float:
+        """Upper bound of the interquartile range = Q3."""
+        return np.nanpercentile(a, 75)
+    
+
+    def _ci(self, a, *, n_resamples: int | None = None, confidence_level: float | None = None, **kwargs) -> tuple[float, float]:
+        """
+        ***Confidence interval via bootstrap.***
+
+        
+        Parameters
+        ----------
+        a : array-like
+            *1D array of values to compute the confidence interval for.*
+        
+        n_resamples : int, optional = ``self.BOOTSTRAP_RESAMPLES``
+            *Number of bootstrap resamples to perform. Default is ``1000``.*
+
+        confidence_level : float, optional = ``self.CONFIDENCE_LEVEL``
+            *Confidence level for the interval. Default is ``95`` (%).*
+
+        statistic : callable, optional
+            *Function for which the confidence interval is computed (e.g. ``np.mean``, ``np.median``). Default is ``np.mean``.*
+        
+        method : str, optional
+            *Method for confidence interval calculation. Default is ``'BCa'`` (bias-corrected and accelerated). 
+            If ``'BCa'`` fails, the method falls back to ``'percentile'``. The used method is stored in ``self.ci_method_used`` for reference.*
+        
+        rng : np.random.Generator, optional
+            *Random number generator for reproducibility. Default is a new generator with a fixed seed (42).*
+
+            
+        Returns
+        -------
+        tuple[float, float]
+            *A tuple containing the lower and upper bounds of the confidence interval. If computation fails, returns ``(np.nan, np.nan)``.*
+        """
+        
+        # Ensure input is a numpy array of floats for the bootstrap compatibility 
+        a = np.asarray(a, dtype=float)
+
+        # Drop NaN values, for bootstrap cannot handle them
+        a = a[~np.isnan(a)]
+
+        if a.size < 2:
+            return (np.nan, np.nan)
+
+        # Convert percentage (e.g. 95) to fraction (0.95) for scipy
+        cl = self.CONFIDENCE_LEVEL if confidence_level is None else confidence_level
+        if cl > 1:
+            cl = cl / 100.0
+
+        try:
+            result = stats.bootstrap(
+                (a,),
+                statistic=kwargs.get('statistic', getattr(np, self.CI_STATISTIC)),
+                n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
+                confidence_level=cl,
+                method=kwargs.get('method', 'BCa'),
+                rng=kwargs.get('rng', np.random.default_rng(42))
+            )
+            self.ci_method_used = kwargs.get('method', 'BCa')
+            return (float(result.confidence_interval.low), float(result.confidence_interval.high))
+        
+        except Exception:
+            # Fallback to the percentile method if previous the method fails
+            try:
+                result = stats.bootstrap(
+                    (a,),
+                    statistic=kwargs.get('statistic', getattr(np, self.CI_STATISTIC)),
+                    n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
+                    confidence_level=cl,
+                    method='percentile',
+                    rng=kwargs.get('rng', np.random.default_rng(42))
+                )
+                self.ci_method_used = 'percentile'
+                return (float(result.confidence_interval.low), float(result.confidence_interval.high))
+            
+            except Exception as e:
+                self.noticequeue.Report(Level.error, f'{e} Confidence interval computation failed', traceback.format_exc())
+                return (np.nan, np.nan)
+    
+    def _sem(self, x):
+        """Standard error of the mean."""
+        n = x.count()
+        if n < 2:
+            return np.nan
+        return x.std() / np.sqrt(n)
 
     
     def _general_agg_stats(self, df: pd.DataFrame, exclude: list[str], *, group_by: list[str] = ['Track UID']) -> pd.DataFrame:
