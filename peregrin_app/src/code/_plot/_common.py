@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from os import path
 import seaborn as sns
@@ -79,15 +81,15 @@ class Painter:
             return plt.cm.jet
         
 
-    def BuildQualPalette(self, data: pd.DataFrame, tag: str = 'Replicate', *args, which: list = []) -> dict:
+    def BuildQualPalette(self, data: pd.DataFrame, tag: str = 'Replicate', *, which: list = [], **kwargs) -> dict:
 
-        tags = data[tag].unique().tolist() if not which else which
+        tags = data[tag].unique().tolist() if which == [] else which
 
         mp = {}
         if f'{tag} color' in data.columns:
             mp = (data[[tag, f'{tag} color']]
-                    .dropna()
-                    .drop_duplicates(tag)
+                  .dropna()
+                  .drop_duplicates(tag)
             )
             
             mp = mp.set_index(tag)[f'{tag} color'].to_dict()
@@ -170,20 +172,43 @@ class Painter:
 
 
 class Categorizer:
+    """
+    #### *Categorize and aggregate data.*
 
+    Attributes
+    ----------
+    data : pd.DataFrame
+        *The input DataFrame to be categorized and aggregated*
+
+    conditions : list, optional
+        *A list of conditions to be included in the categorized DataFrame.*
+
+    replicates : list, optional
+        *A list of replicates to be included in the categorized DataFrame.*
+
+    aggby : list, optional
+        *A list of columns to group by for aggregation. Default is an empty list.*
+    
+    aggdict : dict, optional
+        *A dictionary specifying the aggregation functions to apply to each column. Default is an empty dictionary.*
+
+    noticequeue : NoticeQueue, optional
+        *An optional NoticeQueue for reporting errors and warnings.*
+    """
     def __init__(
         self,
         data: pd.DataFrame,
-        conditions: list,
-        *,
+        conditions: list = [],
         replicates: list = [],
+        *,
         aggby: list = [],
         aggdict: dict = {},
         **kwargs
     ):
         """
-        Initialize with a DataFrame containing 'Condition' and 'Replicate' columns.
+        Initialize the categorizer with data, conditions, replicates, and optional aggregation parameters.
         """
+
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
@@ -196,11 +221,11 @@ class Categorizer:
         Check for errors in the provided categories and replicates.
         """
         if self.conditions == []:
-            self.noticequeue.Report(Level.error, "Missing conditions.", "At least one condition (category) must be specified.")
-            return True
+            self.noticequeue.Report(Level.warning, "Unspecified conditions, returning input.", "Due to no conditions being specified, the original input DataFrame is returned.")
+            self.conditions = self.data['Condition'].unique().tolist()
         if self.replicates == []:
-            self.noticequeue.Report(Level.error, "Missing replicates.", "At least one replicate (category) must be specified.")
-            return True
+            self.noticequeue.Report(Level.warning, "Unspecified replicates, returning input.", "Due to no replicates being specified, the original input DataFrame is returned.")
+            self.replicates = self.data['Replicate'].unique().tolist()
         
         conds_not_found = [cond for cond in self.conditions if cond not in self.data['Condition'].values]
         reps_not_found = [rep for rep in self.replicates if rep not in self.data['Replicate'].values]

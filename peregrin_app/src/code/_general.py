@@ -166,7 +166,7 @@ class Values:
         return value
     
     @staticmethod
-    def RoundSigFigs(x, *, sigfigs: int = 5, **kwargs) -> float:
+    def RoundSigFigs(x, sigfigs: int = 5, **kwargs) -> float:
         """
         Round a number to a given number of significant figures.
 

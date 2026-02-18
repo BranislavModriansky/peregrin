@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -5,7 +8,109 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from itertools import chain
 from scipy.stats import gaussian_kde, norm
-from .._common import Painter
+
+from ..._handlers._reports import Level
+from ..._general import is_empty
+from .._common import Painter, Categorizer
+
+
+
+class SuperPlot:
+
+    def __init__(self, data: pd.DataFrame, statistic: str, conditions: list, replicates: list, **kwargs):
+
+        self.data = data
+        self.statistic = statistic
+        self.conditions = conditions
+        self.replicates = replicates
+
+        self.noticequeue = kwargs.get('noticequeue', None)
+
+        if self._guard():
+            return
+
+
+    def Swarms(self, **kwargs):
+
+        self._arrange_data()
+
+        categories = self._spacing(kde=kwargs.get('show_kde', False))
+
+        
+
+
+    def _guard(self):
+
+        if is_empty(self.data):
+            self.noticequeue.Report(Level.warning, "Empty DataFrame.", "The input DataFrame is empty. No plot will be generated.")
+            return True
+        
+        if self.statistic not in self.data.columns:
+            self.noticequeue.Report(Level.error, "Missing statistic column.", f"The specified statistic '{self.statistic}' is not a column in the input DataFrame.")
+            return True
+        
+        if self.conditions == []:
+            self.noticequeue.Report(Level.warning, "Unspecified conditions, returning input.", "Due to no conditions being specified, the original input DataFrame is returned.")
+            self.conditions = self.data['Condition'].unique().tolist()
+
+        if self.replicates == []:
+            self.noticequeue.Report(Level.warning, "Unspecified replicates, returning input.", "Due to no replicates being specified, the original input DataFrame is returned.")
+            self.replicates = self.data['Replicate'].unique().tolist()  
+        
+        return False
+    
+
+    def _arrange_data(self):
+        
+        self.data = Categorizer(self.data, self.conditions, self.replicates)()
+
+        self.condition_stats = self.data.groupby('Condition', observed=False)[self.statistic].agg(['mean', 'median', 'std', 'count']).reset_index()
+        self.replicate_stats = self.data.groupby(['Condition', 'Replicate'], observed=False)[self.statistic].agg(['mean', 'median']).reset_index()
+
+        _cond_stats = (
+            self.data.groupby('Condition', observed=False)[self.statistic]
+            .agg(mean='mean', median='median', std='std', count='count')
+            .reindex(categories_for_stats)        # align to category order
+            .reset_index()
+        )
+        _rep_stats = (
+            self.data.groupby(['Condition', 'Replicate'], observed=False)[self.statistic]
+            .agg(mean='mean', median='median')
+            .reset_index()
+        )
+
+    
+    def _spacing(self, kde: bool = False):
+
+        if kde:
+            spaced_conditions = ["spacer_0"] + list(
+                chain.from_iterable(
+                    (cond, f"spacer_{i+1}") if i < len(self.conditions) - 1 else (cond,)
+                     for i, cond in enumerate(self.conditions)
+                ))
+            
+            self.data['Condition'] = pd.Categorical(values=self.data['Condition'], categories=spaced_conditions, ordered=True)
+            return spaced_conditions
+        
+        else:
+            self.data['Condition'] = pd.Categorical(values=self.data['Condition'], categories=self.conditions, ordered=True)
+            return self.conditions
+        
+
+    def _get_statistics(self):
+        self.condition_stats = self.data.groupby('Condition', observed=False)[self.statistic].agg(['mean', 'median', 'std', 'count']).reindex().reset_index()
+        self.replicate_stats = self.data.groupby(['Condition', 'Replicate'], observed=False)[self.statistic].agg(['mean', 'median']).reset_index()
+
+
+    def _make_palette(self, use_stock_palette: bool = True, palette: str = 'tab10') -> dict:
+
+        if use_stock_palette:
+            cyc = sns.color_palette(palette, n_colors=len(self.data['Replicate'].unique()))
+            return {r: cyc[i] for i, r in enumerate(self.data['Replicate'].unique())}
+        
+        else:
+            return Painter().BuildQualPalette(self.data, tag='Replicate')
+
 
 
 
