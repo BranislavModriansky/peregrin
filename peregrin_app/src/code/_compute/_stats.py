@@ -965,6 +965,7 @@ class Stats:
         """
 
         method = kwargs.get('method', 'BCa')
+        seed = 42 # Fixed seed for reproducibility
         
         # Ensure input is a numpy array of floats for the bootstrap compatibility 
         a = np.asarray(a, dtype=float)
@@ -987,7 +988,7 @@ class Stats:
                 n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
                 confidence_level=cl,
                 method=method,
-                random_state=42  # Fixed seed for reproducibility
+                random_state=seed
             )
             self.ci_method_used = method
             return (float(result.confidence_interval.low), float(result.confidence_interval.high))
@@ -1001,7 +1002,7 @@ class Stats:
                     n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
                     confidence_level=cl,
                     method='percentile',
-                    random_state=42  # Fixed seed for reproducibility
+                    random_state=seed
                 )
                 self.ci_method_used = 'percentile'
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
