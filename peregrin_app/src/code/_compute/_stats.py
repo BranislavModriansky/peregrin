@@ -957,10 +957,6 @@ class Stats:
         method : str, optional
             *Method for confidence interval calculation. Default is ``'BCa'`` (bias-corrected and accelerated). 
             If ``'BCa'`` fails, the method falls back to ``'percentile'``. The used method is stored in ``self.ci_method_used`` for reference.*
-        
-        rng : np.random.Generator, optional
-            *Random number generator for reproducibility. Default is a new generator with a fixed seed (42).*
-
             
         Returns
         -------
@@ -969,7 +965,6 @@ class Stats:
         """
 
         method = kwargs.get('method', 'BCa')
-        rng = kwargs.get('rng', np.random.default_rng(42))
         
         # Ensure input is a numpy array of floats for the bootstrap compatibility 
         a = np.asarray(a, dtype=float)
@@ -992,7 +987,7 @@ class Stats:
                 n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
                 confidence_level=cl,
                 method=method,
-                rng=rng
+                random_state=42  # Fixed seed for reproducibility
             )
             self.ci_method_used = method
             return (float(result.confidence_interval.low), float(result.confidence_interval.high))
@@ -1006,7 +1001,7 @@ class Stats:
                     n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
                     confidence_level=cl,
                     method='percentile',
-                    rng=rng
+                    random_state=42  # Fixed seed for reproducibility
                 )
                 self.ci_method_used = 'percentile'
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
