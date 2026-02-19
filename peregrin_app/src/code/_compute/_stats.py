@@ -967,6 +967,9 @@ class Stats:
         tuple[float, float]
             *A tuple containing the lower and upper bounds of the confidence interval. If computation fails, returns ``(np.nan, np.nan)``.*
         """
+
+        method = kwargs.get('method', 'BCa')
+        rng = kwargs.get('rng', np.random.default_rng(42))
         
         # Ensure input is a numpy array of floats for the bootstrap compatibility 
         a = np.asarray(a, dtype=float)
@@ -988,10 +991,10 @@ class Stats:
                 statistic=kwargs.get('statistic', getattr(np, self.CI_STATISTIC)),
                 n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
                 confidence_level=cl,
-                method=kwargs.get('method', 'BCa'),
-                rng=kwargs.get('rng', np.random.default_rng(42))
+                method=method,
+                rng=rng
             )
-            self.ci_method_used = kwargs.get('method', 'BCa')
+            self.ci_method_used = method
             return (float(result.confidence_interval.low), float(result.confidence_interval.high))
         
         except Exception:
@@ -1003,7 +1006,7 @@ class Stats:
                     n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
                     confidence_level=cl,
                     method='percentile',
-                    rng=kwargs.get('rng', np.random.default_rng(42))
+                    rng=rng
                 )
                 self.ci_method_used = 'percentile'
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
