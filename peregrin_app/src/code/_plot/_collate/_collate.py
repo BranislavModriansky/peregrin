@@ -12,9 +12,10 @@ from scipy.stats import gaussian_kde, norm
 from ..._handlers._reports import Level
 from ..._general import is_empty
 from .._common import Painter, Categorizer
+from scipy import stats
 
 
-
+# https://www.molbiolcell.org/doi/full/10.1091/mbc.E20-09-0583
 class SuperPlot:
 
     def __init__(self, data: pd.DataFrame, statistic: str, conditions: list, replicates: list, **kwargs):
@@ -30,11 +31,63 @@ class SuperPlot:
             return
 
 
-    def Swarms(self, **kwargs):
+    def BeyondSwarms(self, **kwargs):
+
+        fig, ax = plt.subplots(figsize=(kwargs.get('plot_width', 15), kwargs.get('plot_height', 9)))
 
         self._arrange_data()
 
         categories = self._spacing(kde=kwargs.get('show_kde', False))
+
+        self._get_statistics(categories)
+
+        palette = self._make_palette(use_stock_palette=kwargs.get('use_stock_palette', True), palette=kwargs.get('palette', 'tab10'))
+
+        if kwargs.get('show_swarm', True):
+            self._swarms(ax, palette, **kwargs)
+
+        if kwargs.get('show_violin', True):
+            self._violins(ax, **kwargs)
+
+        if kwargs.get('show_kde', False):
+            self._kdes(ax, palette, categories, **kwargs)
+
+        if kwargs.get('show_rep_medians', True):
+            self._rep_markers(ax, palette, stat='median', **kwargs)
+
+        if kwargs.get('show_rep_means', False):
+            self._rep_markers(ax, palette, stat='mean', **kwargs)
+
+        if kwargs.get('show_skeleton', True):
+            self._skeleton(ax, **kwargs)
+
+        if kwargs.get('show_legend', True):
+            self._legend(ax, **kwargs)
+        else:
+            try:
+                plt.legend().remove()
+            except Exception:
+                pass
+
+        # === axes cosmetics (unchanged) ===
+        plt.title(kwargs.get('title', ''))
+        plt.xlabel("Condition")
+        plt.ylabel(f"{self.statistic} {kwargs.get('units', '')}")
+        sns.despine(top=kwargs.get('despine', True), right=kwargs.get('despine', True), bottom=False, left=False)
+        plt.tick_params(axis='y', which='major', length=7, width=1.5, direction='out', color='black')
+        plt.tick_params(axis='x', which='major', length=5, width=1.5, direction='out', color='black', rotation=345)
+        if kwargs.get('show_grid', False):
+            plt.grid(kwargs.get('show_grid', False), axis='y', color='lightgrey', linewidth=1.5, alpha=0.2)
+        else:
+            plt.grid(False)
+
+        
+        return plt.gcf()
+
+        
+
+
+
 
         
 
@@ -67,38 +120,26 @@ class SuperPlot:
         self.condition_stats = self.data.groupby('Condition', observed=False)[self.statistic].agg(['mean', 'median', 'std', 'count']).reset_index()
         self.replicate_stats = self.data.groupby(['Condition', 'Replicate'], observed=False)[self.statistic].agg(['mean', 'median']).reset_index()
 
-        _cond_stats = (
-            self.data.groupby('Condition', observed=False)[self.statistic]
-            .agg(mean='mean', median='median', std='std', count='count')
-            .reindex(categories_for_stats)        # align to category order
-            .reset_index()
-        )
-        _rep_stats = (
-            self.data.groupby(['Condition', 'Replicate'], observed=False)[self.statistic]
-            .agg(mean='mean', median='median')
-            .reset_index()
-        )
-
     
-    def _spacing(self, kde: bool = False):
+    def _spacing(self, kde: bool = False) -> list:
 
         if kde:
-            spaced_conditions = ["spacer_0"] + list(
+            categories = ["spacer_0"] + list(
                 chain.from_iterable(
                     (cond, f"spacer_{i+1}") if i < len(self.conditions) - 1 else (cond,)
                      for i, cond in enumerate(self.conditions)
                 ))
             
-            self.data['Condition'] = pd.Categorical(values=self.data['Condition'], categories=spaced_conditions, ordered=True)
-            return spaced_conditions
+            self.data['Condition'] = pd.Categorical(values=self.data['Condition'], categories=categories, ordered=True)
+            return categories
         
         else:
             self.data['Condition'] = pd.Categorical(values=self.data['Condition'], categories=self.conditions, ordered=True)
             return self.conditions
         
 
-    def _get_statistics(self):
-        self.condition_stats = self.data.groupby('Condition', observed=False)[self.statistic].agg(['mean', 'median', 'std', 'count']).reindex().reset_index()
+    def _get_statistics(self, categories: list):
+        self.condition_stats = self.data.groupby('Condition', observed=False)[self.statistic].agg(['mean', 'median', 'std', 'count', lambda x: stats.sem(x)]).reindex(categories).reset_index()
         self.replicate_stats = self.data.groupby(['Condition', 'Replicate'], observed=False)[self.statistic].agg(['mean', 'median']).reset_index()
 
 
@@ -110,6 +151,196 @@ class SuperPlot:
         
         else:
             return Painter().BuildQualPalette(self.data, tag='Replicate')
+
+
+    def _swarms(self, ax: plt.Axes, palette: dict, **kwargs):
+
+        sns.swarmplot(
+            data=self.data,
+            x="Condition",
+            y=self.statistic,
+            hue='Replicate',
+            palette=palette,
+            size=kwargs.get('swarm_size', 2),
+            edgecolor=kwargs.get('swarm_outline_color', 'black') if kwargs.get('swarm_outline', True) else None,
+            dodge=False,
+            alpha=kwargs.get('swarm_alpha', 0.75),
+            legend=False,
+            zorder=1,
+            ax=ax
+        )
+
+
+    def _violins(self, ax: plt.Axes, **kwargs):
+
+        sns.violinplot(
+            data=self.data,
+            x='Condition',
+            y=self.statistic,
+            color=kwargs.get('violin_fill_color', 'whitesmoke') if kwargs.get('violin_fill', True) else None,
+            edgecolor=kwargs.get('violin_outline_color', 'lightgrey') if kwargs.get('violin_outline', True) else None,
+            linewidth=kwargs.get('violin_outline_width', 1) if kwargs.get('violin_outline', True) else 0,
+            inner=None,
+            gap=0.1,
+            alpha=kwargs.get('violin_alpha', 0.5),
+            zorder=0,
+            ax=ax
+        )
+
+    
+    def _kdes(self, ax: plt.Axes, palette: dict, categories: list, **kwargs):
+
+        y_ax_min, y_ax_max = ax.get_ylim()
+
+        for i, cond in enumerate(self.conditions):
+            group_df = self.data[self.data['Condition'] == cond]
+            if group_df.empty:
+                continue
+
+            x_pos = 2 * i
+            offset_x = 0.25
+            inset_height = y_ax_max - (y_ax_max - group_df[self.statistic].max()) + abs(y_ax_min * 2)
+
+            inset_ax = ax.inset_axes(
+                [x_pos - offset_x, y_ax_min, kwargs.get('kde_inset_width', 0.5), inset_height],
+                transform=ax.transData, zorder=0, clip_on=True
+            )
+            sns.kdeplot(
+                data=group_df, y=self.statistic, hue='Replicate',
+                fill=kwargs.get('kde_fill', False), alpha=kwargs.get('kde_alpha', 0.5), lw=kwargs.get('kde_outline_width', 1) if kwargs.get('kde_outline', True) else 0,
+                palette=palette, ax=inset_ax, legend=False,
+                zorder=0, clip=(y_ax_min, y_ax_max)
+            )
+            inset_ax.invert_xaxis()
+            inset_ax.set_xticks([]); inset_ax.set_yticks([])
+            inset_ax.set_xlabel(''); inset_ax.set_ylabel('')
+            sns.despine(ax=inset_ax, left=True, bottom=True, top=True, right=True)
+
+        ticks = [i for i, lbl in enumerate(categories) if not str(lbl).startswith('spacer')]
+        labels = [categories[i] for i in ticks]
+        plt.xticks(ticks=ticks, labels=labels)
+        plt.xlim(-0.75, len(categories))
+
+
+    def _rep_markers(self, ax: plt.Axes, palette: dict, stat: str = 'median', **kwargs):
+
+        sns.scatterplot(
+            data=self.replicate_stats,
+            x='Condition', y=stat,
+            hue='Replicate',
+            palette=palette,
+            edgecolor=kwargs.get(f'rep_{stat}_outline_color', 'black') if kwargs.get(f'rep_{stat}_outline', True) else None,
+            s=kwargs.get(f'rep_{stat}_size', 90),
+            legend=False,
+            alpha=kwargs.get(f'rep_{stat}_alpha', 1),
+            linewidth=kwargs.get(f'rep_{stat}_outline_width', 0.75) if kwargs.get(f'rep_{stat}_outline', True) else 0,
+            zorder=4,
+            ax=ax
+        )
+
+
+    def _skeleton(self, ax: plt.Axes, categories: list, **kwargs):
+
+        # === vectorized lines & error bars (big win) ===
+        # Build x centers as 0..N-1 in category order (seaborn does the same internally)
+        n = len(categories)
+        x_centers = np.arange(n)
+
+        # Mask out spacers so we don't draw stats on them
+        is_spacer = self.condition_stats['Condition'].astype(str).str.startswith('spacer')
+        valid = ~is_spacer
+
+        y_mean = self.condition_stats.loc[valid, 'mean'].to_numpy()
+        y_median = self.condition_stats.loc[valid, 'median'].to_numpy()
+        y_sd = self.condition_stats.loc[valid, kwargs.get('error', 'std')].to_numpy()
+        y_sem = self.condition_stats.loc[valid, kwargs.get('error', 'sem')].to_numpy()
+        x_valid = x_centers[valid.to_numpy()]
+
+        if y_mean and y_mean.size:
+            xmin = x_valid - kwargs.get('mean_span', 0.16)
+            xmax = x_valid + kwargs.get('mean_span', 0.16)
+            ax.hlines(y_mean, xmin, xmax,
+                      colors=kwargs.get('mean_color', 'black'), linestyles=kwargs.get('mean_ls', '-'),
+                      linewidths=kwargs.get('line_width', 2), zorder=3, label='mean')
+            
+        if y_median and y_median.size:
+            xmin_m = x_valid - kwargs.get('median_span', 0.12)
+            xmax_m = x_valid + kwargs.get('median_span', 0.12)
+            ax.hlines(y_median, xmin_m, xmax_m,
+                      colors=kwargs.get('median_color', 'black'), linestyles=kwargs.get('median_ls', '--'),
+                      linewidths=kwargs.get('line_width', 2), zorder=3,
+                      label='median')
+            
+        if kwargs.get('show_error_bars', True) and y_mean.size:
+            if kwargs.get('error_type', 'sd') == 'sd':
+                y_err = y_sd
+            elif kwargs.get('error_type', 'sd') == 'sem':
+                y_err = y_sem
+
+            ax.errorbar(
+                x_valid, y_mean, yerr=y_err, fmt='none', 
+                color=kwargs.get('errorbar_color', 'black'), alpha=kwargs.get('errorbar_alpha', 0.8),
+                linewidth=kwargs.get('errorbar_lw', 2), capsize=kwargs.get('errorbar_capsize', 4),
+                zorder=3, label=(kwargs.get('error_type', 'sd'))
+            )
+
+
+    def _legend(self, ax: plt.Axes, palette: dict, **kwargs):
+
+        handles, labels = [], []
+
+        # Replicate entries
+        for r in self.data['Replicate'].astype(str).unique().tolist():
+            c = palette.get(r, 'grey')
+            handles.append(mlines.Line2D([], [], linestyle='None',
+                                        marker='o', markersize=8,
+                                        markerfacecolor=c,
+                                        markeredgecolor='black',
+                                        label=(str(r) + " median")))
+            labels.append(str(r) + " median")
+
+        # Stats entries (mirror your original logic)
+        if kwargs.get('show_mean', True) and not kwargs.get('show_error_bars', True):
+            handles.append(mlines.Line2D([], [], color=kwargs.get('mean_color', 'black'),
+                                        linestyle=kwargs.get('mean_ls', '-'), linewidth=kwargs.get('line_width', 2),
+                                        label='Mean'))
+            labels.append('Mean')
+        elif kwargs.get('show_error_bars', True) and not kwargs.get('show_mean', True):
+            handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
+                                        linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                        marker='_', markersize=10,
+                                        label='SD'))
+            labels.append('SD')
+        elif kwargs.get('show_mean', True) and kwargs.get('show_error_bars', True):
+            handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
+                                        linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                        marker='_', markersize=10,
+                                        label='Mean ± SD'))
+            labels.append('Mean ± SD')
+
+        if kwargs.get('show_median', True):
+            handles.append(mlines.Line2D([], [], color=kwargs.get('median_color', 'black'),
+                                        linestyle=kwargs.get('median_ls', '--'), linewidth=kwargs.get('line_width', 2),
+                                        label='Median'))
+            labels.append('Median')
+
+        ax.legend(handles, labels, title='Legend', title_fontsize=12, fontsize=10,
+                  loc='upper right', bbox_to_anchor=(1.15, 1), frameon=True)
+
+        try:
+            if plt.gca().get_legend() is not None:
+                sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1), fontsize=kwargs.get('legend_fontsize', 10) * 1.5)
+        except Exception:
+            try:
+                ax = plt.gca()
+                if plt.gca().get_legend() is not None:
+                    sns.move_legend(ax, "upper left", bbox_to_anchor=(1.05, 1), fontsize=kwargs.get('legend_fontsize', 10) * 1.5)
+            except Exception:
+                pass
+        
+    
+
+
 
 
 
@@ -522,7 +753,7 @@ class BeyondSwarms:
                     plt.legend().remove()
                 except Exception:
                     pass
-
+            
             sns.despine(top=open_spine, right=open_spine, bottom=False, left=False)
             plt.tick_params(axis='y', which='major', length=7, width=1.5, direction='out', color='black')
             plt.tick_params(axis='x', which='major', length=5, width=1.5, direction='out', color='black', rotation=345)
@@ -547,7 +778,8 @@ class BeyondSwarms:
             return plt.gcf()
 
 
-
+# https://github.com/kynnemall/superviolin/tree/master
+# https://www.molbiolcell.org/doi/10.1091/mbc.E21-03-0130
 class SuperViolins:
     def __init__(self, metric="value", filename="", data_format="tidy", units: str = None,
                  centre_val="Mean", middle_vals="Mean", error_bars="SEM",

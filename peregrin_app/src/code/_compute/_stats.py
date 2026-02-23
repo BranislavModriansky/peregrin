@@ -34,6 +34,11 @@ class Stats:
     per-spot (Spots), per-track (Tracks), per-frame/time point (Frames), and per-time interval/lag (TimeIntervals). 
     Each method processes the input DataFrame and updates the corresponding DataFrame in the BaseDataInventory.
 
+    Parameters
+    ----------
+    pool_replicates : bool, optional
+        *If True, replicates will be pooled together when calculating statistics; if False, statistics will be calculated separately for each replicate. Default is True.*
+
     Attributes
     ----------
     SIGNIFICANT_FIGURES : int, optional
@@ -41,6 +46,19 @@ class Stats:
 
     DECIMALS_PLACES : int, optional
         *If specified, during computations all floating-point values are going to be normalized (rounded) to this number of decimal places.*
+
+    BOOTSTRAP_RESAMPLES : int, optional
+        *Number of resamples to perform when calculating bootstrap confidence intervals. Default is 1000.*
+
+    CONFIDENCE_LEVEL : float, optional
+        *Confidence level to use when calculating confidence intervals (e.g. 95 for 95% confidence intervals). Default is 95.*
+    
+    CI_STATISTIC : str, optional
+        *Statistic to calculate confidence intervals for (e.g. 'mean', 'median'). Default is 'mean'.*
+
+    Methods
+    -------
+    GetAllData(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
     """
 
     
@@ -49,14 +67,14 @@ class Stats:
     BOOTSTRAP_RESAMPLES: int = 1000
     CONFIDENCE_LEVEL: float = 95
     CI_STATISTIC: str = 'mean'
-    ci_method_used: str = 'BCa'
+    _ci_method_used: str = 'BCa'
 
-    PANDAS_BUILTINS = frozenset({
+    _PANDAS_BUILTINS = frozenset({
         'mean', 'median', 'std', 'count', 'sum', 'min', 'max',
         'first', 'last', 'var', 'prod', 'size', 'nunique',
     })
 
-    COLUMNS = {
+    _COLUMNS = {
         'SPOTS': [
             'X coordinate','Y coordinate',
             'Time point','Frame','Track ID','Condition','Replicate','Track UID',
@@ -75,7 +93,9 @@ class Stats:
     }
 
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, pool_replicates: bool = True, **kwargs) -> None:
+
+        self.tier = ['Condition'] if pool_replicates else ['Condition', 'Replicate']
         self.noticequeue = kwargs.get('noticequeue', None)
         
         self.CUSTOM_AGG_FUNCTIONS = {
@@ -176,24 +196,24 @@ class Stats:
         
         if df.empty:
             self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
-            return pd.DataFrame(columns=self.COLUMNS['SPOTS'])
+            return pd.DataFrame(columns=self._COLUMNS['SPOTS'])
 
-        df.sort_values(by=['Condition', 'Replicate', 'Track ID', 'Time point'], inplace=True)
+        df.sort_values(self.tier + ['Track ID', 'Time point'], inplace=True)
 
-        grp = df.groupby(['Condition', 'Replicate', 'Track ID'], sort=False)
+        grp = df.groupby(self.tier + ['Track ID'], sort=False)
 
         # Provides a completely unique identifier for each track (Track UID) that is consistent across all methods and is used for merging.
         df['Track UID'] = grp.ngroup()
         df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
         # Assigns frame numbers within each data subset based on the order of time points; starts at 1 for the first point in each track.
-        df['Frame'] = df.groupby(['Condition', 'Replicate'], sort=False)['Time point'].rank(method='dense').astype('Int64')
+        df['Frame'] = df.groupby(self.tier, sort=False)['Time point'].rank(method='dense').astype('Int64')
 
         # Optional sanity warning (kept lightweight)
         try:
-            bad = df.groupby(['Condition', 'Replicate', 'Time point'], sort=False)['Frame'].nunique(dropna=True).max()
+            bad = df.groupby(self.tier + ['Time point'], sort=False)['Frame'].nunique(dropna=True).max()
             if bad and bad > 1:
-                self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same Condition × Replicate × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
+                self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
                 pass
         except Exception:
             pass
@@ -236,18 +256,20 @@ class Stats:
         valid = df['Frame'].gt(1) & theta_from_start.notna()
 
         # Define grouping keys
-        gkeys = [df['Condition'], df['Replicate'], df['Track ID']]
+        gkeys = self.tier + ['Track ID']
 
         # Calculate sin and cos of the cumulated direction mean for each point excluding first frame
         sinv = pd.Series(np.where(valid, np.sin(theta_from_start), np.nan), index=df.index)
         cosv = pd.Series(np.where(valid, np.cos(theta_from_start), np.nan), index=df.index)
 
+        gkeys_arrays = [df[k] for k in gkeys]
+
         # Cumulative sums of sin and cos components
-        cum_sin = sinv.groupby(gkeys, sort=False).cumsum()
-        cum_cos = cosv.groupby(gkeys, sort=False).cumsum()
+        cum_sin = sinv.groupby(gkeys_arrays, sort=False).cumsum()
+        cum_cos = cosv.groupby(gkeys_arrays, sort=False).cumsum()
 
         # Number of contributing angles so far (starts at 0 on frame 1)
-        n_angles = valid.astype(int).groupby(gkeys, sort=False).cumsum().replace(0, np.nan)
+        n_angles = valid.astype(int).groupby(gkeys_arrays, sort=False).cumsum().replace(0, np.nan)
 
         # Cumulative direction mean and variance
         df['Cumulative direction mean'] = np.arctan2(cum_sin, cum_cos)
@@ -305,9 +327,9 @@ class Stats:
         """
 
         if df.empty:
-            return pd.DataFrame(columns=self.COLUMNS['TRACKS'])
+            return pd.DataFrame(columns=self._COLUMNS['TRACKS'])
 
-        stash = df[['Condition','Replicate','Track ID']].drop_duplicates()
+        stash = df[self.tier + ['Track ID']].drop_duplicates()
 
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
         gcols = ['Track UID']
@@ -361,12 +383,12 @@ class Stats:
         if 'Replicate color' in df.columns:
             colors = grp['Replicate color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
-        if 'Condition color' in df:
+        if 'Condition color' in df.columns:
             colors = grp['Condition color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
 
         # Other general stats
-        other = self._general_agg_stats(df, exclude=self.COLUMNS['SPOTS'])
+        other = self._general_agg_stats(df, exclude=self._COLUMNS['SPOTS'])
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
@@ -407,6 +429,15 @@ class Stats:
 
         df.drop_duplicates(inplace=True)
         
+        # If 'Replicate' was not part of self.tier (pooled mode), recover it from Spots
+        if 'Replicate' not in df.columns:
+            rep_map = (
+                BaseDataInventory.Spots[['Track UID', 'Replicate']]
+                .drop_duplicates(subset=['Track UID'])
+                .set_index('Track UID')
+            )
+            df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
+        
         
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -421,7 +452,7 @@ class Stats:
 
     def Frames(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        #### *Computes time point statistics aggregated across tracks for each Condition × Replicate × Time point.*
+        #### *Computes time point statistics aggregated across tracks for each tier × Time point.*
         
         Parameters
         ----------
@@ -440,7 +471,7 @@ class Stats:
         Returns
         -------
         pd.DataFrame
-            ***A DataFrame with one row per unique Condition × Replicate × Time point. Contains following columns:***
+            ***A DataFrame with one row per unique tier × Time point. Contains following columns:***
 
             For each of **``Cumulative track length``**, **``Cumulative track displacement``**, **``Cumulative straightness index``**, **``Cumulative speed``**, **``Distance => Instantaneous speed``** ***metrics***:
             - ***metric*``min``**:        *minimum value of a given metric across tracks at that time point.*
@@ -470,7 +501,7 @@ class Stats:
         """
 
         # Keep output labels consistent with your docstring
-        group_cols = ['Condition','Replicate','Time point','Frame']
+        group_cols = self.tier + ['Time point','Frame']
 
         # Base metric names (Distance later rewritten to Instantaneous speed)
         metrics = [
@@ -583,6 +614,21 @@ class Stats:
         # Reset index to columns
         df = out.reset_index()
 
+        # If 'Replicate' was not part of self.tier (pooled mode), recover it from Spots
+        if 'Replicate' not in df.columns:
+            rep_map = (
+                BaseDataInventory.Spots[['Condition', 'Time point', 'Frame', 'Replicate']]
+                .drop_duplicates()
+            )
+            df = df.merge(rep_map, on=['Condition', 'Time point', 'Frame'], how='right')
+            # Move 'Replicate' column right next to 'Condition'
+            cols = df.columns.tolist()
+            cols.remove('Replicate')
+            cond_idx = cols.index('Condition') + 1
+            cols.insert(cond_idx, 'Replicate')
+            df = df[cols]
+
+
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
 
@@ -596,7 +642,7 @@ class Stats:
 
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        #### *Computes time interval (time lag) statistics across tracks for each Condition × Replicate × Time lag.*
+        #### *Computes time interval (time lag) statistics across tracks for each tier × Time lag.*
         
         Parameters
         ----------
@@ -612,7 +658,7 @@ class Stats:
         Returns
         -------
         pd.DataFrame
-            ***A DataFrame with one row per unique Condition × Replicate × Time lag. Contains following columns:***
+            ***A DataFrame with one row per unique tier × Time lag. Contains following columns:***
 
             - **``Frame lag``**: 
             Time lag in frames (integer).
@@ -682,7 +728,7 @@ class Stats:
             x = g['X coordinate'].to_numpy()
             y = g['Y coordinate'].to_numpy()
             cond = g['Condition'].iloc[0]
-            rep  = g['Replicate'].iloc[0]
+            rep = g['Replicate'].iloc[0]
 
             # Displacements between consecutive points -> Angles
             dx1 = x[1:] - x[:-1]
@@ -699,13 +745,19 @@ class Stats:
                 # Mean squared displacement
                 if dx.size > 0:
                     msd_track = float((dx**2 + dy**2).mean())
-                    per_track_msd[(cond, rep, lag)].append(msd_track)
+                    if rep is not None:
+                        per_track_msd[(cond, rep, lag)].append(msd_track)
+                    else:
+                        per_track_msd[(cond, lag)].append(msd_track)
 
                 # Turning angles for this lag
                 if theta.size > lag:
                     dtheta = self._wrap_pi(theta[lag:] - theta[:-lag])
                     if dtheta.size > 0:
-                        per_track_turn_mean[(cond, rep, lag)].append(self._circ_mean(dtheta))
+                        if rep is not None:
+                            per_track_turn_mean[(cond, rep, lag)].append(self._circ_mean(dtheta))
+                        else:
+                            per_track_turn_mean[(cond, lag)].append(self._circ_mean(dtheta))
 
         # If no tracks had enough points to compute any metrics, return an empty DataFrame with the correct columns.
         if not per_track_msd and not per_track_turn_mean:
@@ -717,15 +769,21 @@ class Stats:
         # Initialize list of rows for the output DataFrame
         rows = []
 
-        # Iterate through each unique Condition × Replicate × Time lag combination and compute summary statistics
+        # Iterate through each unique tier × Time lag combination and compute summary statistics
         for (cond, rep, lag) in sorted(keys, key=lambda k: (k[0], k[1], k[2])):
 
             # Mean squared displacement statistics across tracks
-            arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
+            if rep is not None:
+                arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
+            else:
+                arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
             n_tracks = arr.size
 
             # Turning angle statistics across tracks (uses class circular stats methods)
-            turn_means = np.asarray(per_track_turn_mean.get((cond, rep, lag), []), dtype=float)
+            if rep is not None:
+                turn_means = np.asarray(per_track_turn_mean.get((cond, rep, lag), []), dtype=float)
+            else:
+                turn_means = np.asarray(per_track_turn_mean.get((cond, lag), []), dtype=float)
             turn_mean_agg = self._circ_mean(turn_means) if turn_means.size else np.nan
             turn_var_agg = self._circ_var(turn_means) if turn_means.size else np.nan
 
@@ -740,7 +798,7 @@ class Stats:
                 'MSD min':    float(arr.min()) if n_tracks else np.nan,
                 'MSD max':    float(arr.max()) if n_tracks else np.nan,
                 'MSD mean':   float(arr.mean()) if n_tracks else np.nan,
-                'MSD sd':     float(arr.std()) if n_tracks > 1 else np.nan,
+                'MSD sd':     float(arr.std(ddof=1)) if n_tracks > 1 else np.nan,
                 'MSD sem':    float(stats.sem(arr, nan_policy='omit')) if n_tracks > 1 else np.nan,
                 'MSD median': float(np.median(arr)) if n_tracks else np.nan,
                 'MSD q25':    float(self._q25(arr)) if n_tracks else np.nan,
@@ -867,26 +925,26 @@ class Stats:
         resolved = {}
         if isinstance(agg_spec, list):
             for func_name in agg_spec:
-                if func_name in self.PANDAS_BUILTINS:
+                if func_name in self._PANDAS_BUILTINS:
                     resolved[func_name] = func_name
                 elif func_name in self.CUSTOM_AGG_FUNCTIONS:
                     resolved[func_name] = self.CUSTOM_AGG_FUNCTIONS[func_name]
                 else:
                     raise ValueError(
                         f"Unknown aggregation '{func_name}'. "
-                        f"Available: {sorted(self.PANDAS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS))}"
+                        f"Available: {sorted(self._PANDAS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS))}"
                     )
 
         elif isinstance(agg_spec, dict):
             for label, func_name in agg_spec.items():
-                if func_name in self.PANDAS_BUILTINS:
+                if func_name in self._PANDAS_BUILTINS:
                     resolved[label] = func_name
                 elif func_name in self.CUSTOM_AGG_FUNCTIONS:
                     resolved[label] = self.CUSTOM_AGG_FUNCTIONS[func_name]
                 else:
                     raise ValueError(
                         f"Unknown aggregation '{func_name}'. "
-                        f"Available: {sorted(self.PANDAS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS))}"
+                        f"Available: {sorted(self._PANDAS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS))}"
                     )
         return resolved
         
@@ -956,7 +1014,7 @@ class Stats:
         
         method : str, optional
             *Method for confidence interval calculation. Default is ``'BCa'`` (bias-corrected and accelerated). 
-            If ``'BCa'`` fails, the method falls back to ``'percentile'``. The used method is stored in ``self.ci_method_used`` for reference.*
+            If ``'BCa'`` fails, the method falls back to ``'percentile'``. The used method is stored in ``self._ci_method_used`` for reference.*
             
         Returns
         -------
@@ -990,7 +1048,7 @@ class Stats:
                 method=method,
                 random_state=seed
             )
-            self.ci_method_used = method
+            self._ci_method_used = method
             return (float(result.confidence_interval.low), float(result.confidence_interval.high))
         
         except Exception:
@@ -1004,7 +1062,7 @@ class Stats:
                     method='percentile',
                     random_state=seed
                 )
-                self.ci_method_used = 'percentile'
+                self._ci_method_used = 'percentile'
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
             
             except Exception as e:
@@ -1016,7 +1074,7 @@ class Stats:
         n = x.count()
         if n < 2:
             return np.nan
-        return x.std() / np.sqrt(n)
+        return x.std(ddof=1) / np.sqrt(n)
 
     
     def _general_agg_stats(self, df: pd.DataFrame, exclude: list[str], *, group_by: list[str] = ['Track UID']) -> pd.DataFrame:
@@ -1026,7 +1084,7 @@ class Stats:
         Parameters
         ----------
         df : pd.DataFrame
-            ***Unstripped Spots DataFrame** containing columns, other than the core <- ``self.COLUMNS['SPOTS']`` columns, with numeric values to be aggregated.*
+            ***Unstripped Spots DataFrame** containing columns, other than the core <- ``self._COLUMNS['SPOTS']`` columns, with numeric values to be aggregated.*
 
         exclude : list[str]
             *List of column names to be excluded from aggregation.*
@@ -1037,7 +1095,7 @@ class Stats:
         Returns
         -------
         pd.DataFrame
-            *DataFrame with basic statistics for each additional numeric column which is not found in the core <- ``self.COLUMNS['SPOTS']`` columns.*
+            *DataFrame with basic statistics for each additional numeric column which is not found in the core <- ``self._COLUMNS['SPOTS']`` columns.*
         """
 
         if exclude is None:
@@ -1100,7 +1158,7 @@ class Summarize:
                     "mean": s.mean(skipna=True),
                     "median": s.median(skipna=True),
                     "mode": float(mode.iloc[0]) if not mode.empty else None,
-                    "sd": s.std(skipna=True),
+                    "sd": s.std(ddof=1, skipna=True),
                     "variance": s.var(skipna=True),
                 }
 
