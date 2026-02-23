@@ -60,7 +60,7 @@ class Painter:
         
         except Exception as e:
             self.noticequeue.Report(Level.error, f"Error generating qualitative colormap: {str(e)}")
-            return None
+            return []
     
     def GetCmap(self, c_mode: str) -> mcolors.Colormap:
         """

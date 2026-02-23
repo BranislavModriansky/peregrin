@@ -19,7 +19,7 @@ from ._general import *
 
 __all__ = [
     "DataLoader",
-    "Stats", "Summarize",
+    "Stats", "Summarize", "resolve",
     "Inventory1D", "Filter1D", "Inventory2D", "Filter2D",
     "GetLutMap", "Animated", "ReconstructTracks",
     "PolarDataDistribute",

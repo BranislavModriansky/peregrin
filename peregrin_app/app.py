@@ -4,6 +4,17 @@ from forge import app_ui, Server
 
 app = App(app_ui, Server)
 
+# !IMPORTANT! Helge Hecht meeting:
+# Divide the UI layout code into multiple objects = navpanels and even subdivide navpanels
+# Use conda for installing packages into the environment, conda doesnt see pip installments
+# Package all source code code into a peregrin library and use that inside of the shiny framework
+# Templates for making a package in the temas chat with Helge Hecht
+
+
+
+# TODO: add an option to pool / not pool the replicates when calculating statistics
+
+
 # TODO: make two options for chart downloads - an svg with no background and a png
 #       -> the buttons can have width 50% each and be side by side
 
