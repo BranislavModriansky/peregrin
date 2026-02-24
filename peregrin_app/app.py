@@ -13,6 +13,9 @@ app = App(app_ui, Server)
 
 
 # TODO: add an option to pool / not pool the replicates when calculating statistics
+# TODO: expand the options for the turn angle heatmap to be able to create a heatmap from frame data and time interval data as well. Be able to select the dataframe for which a heatmap will be computed
+# TODO: create a plot where ticks are plotted for each frame and point to the direction of the next movement (similar to a quiver plot)
+# TODO: A quiver plot!!!! showing the direction of movement at each dxefined subare of the trajectory projection. 
 
 
 # TODO: make two options for chart downloads - an svg with no background and a png

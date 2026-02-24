@@ -38,6 +38,10 @@ def mount_data_input(input, output, session, S, noticequeue):
                             ui.div(  
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
+                                
+                                # TODO: add an option to invert both x and y coordinates independently
+                                # ui.input_checkbox_group("invert_coordinates", "Invert coordinates:", ["X", "Y"], selected=["Y"], inline=True),
+
                                 ui.br(),
                                 ui.div("Compute:", style="font-size: 18px; font-weight: 550; margin-bottom: 12px; margin-left: 2px;"),
                                 ui.div(
@@ -49,6 +53,12 @@ def mount_data_input(input, output, session, S, noticequeue):
                                     ui.markdown(""" <h5><b> Statistical Configuration: </h5></b> """), 
                                     style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
                                 ),
+                                # ui.div(
+                                #     # TODO: add an option to invert both x and y coordinates independently
+                                #     # ui.input_checkbox_group("invert_coordinates", "Invert coordinates:", ["X", "Y"], selected=["Y"], inline=True),
+                                #     ui.input_checkbox("y_mirror", "Invert Y coordinates", True),
+                                #     style="margin-left: 10px;"
+                                # ),
                                 ui.div(
                                     ui.div("Confidence interval statistic:", style="margin-top: 5px; margin-right: 5px;"),
                                     ui.tooltip(

@@ -7,7 +7,7 @@ from matplotlib.pyplot import text
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes
+from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes, is_empty
 
 import numpy as np
 from io import BytesIO
@@ -31,16 +31,26 @@ def MountTracks(input, output, session, S, noticequeue):
         @reactive.Effect
         @reactive.event(S.TRACKSTATS)
         def _():
-            if S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty:
-                return
-            ui.update_selectize(id="conditions_tr", choices=S.TRACKSTATS.get()["Condition"].unique().tolist(), selected=S.TRACKSTATS.get()["Condition"].unique().tolist()[0] if S.TRACKSTATS.get()["Condition"].unique().tolist() else None)
-            ui.update_selectize(id="replicates_tr", choices=S.TRACKSTATS.get()["Replicate"].unique().tolist(), selected=S.TRACKSTATS.get()["Replicate"].unique().tolist() if S.TRACKSTATS.get()["Replicate"].unique().tolist() else None)
+            if is_empty(S.TRACKSTATS.get()):
+                conditions = []
+                replicates = []
+
+            elif not is_empty(S.TRACKSTATS.get()) :
+                conditions = S.TRACKSTATS.get()['Condition'].unique().tolist()
+                
+                if 'Replicate' not in S.TRACKSTATS.get().columns:
+                    replicates = []
+                else:
+                    replicates = S.TRACKSTATS.get()['Replicate'].unique().tolist()
+            
+            ui.update_selectize(id="conditions_tr", choices=conditions, selected=conditions[0] if conditions else None)
+            ui.update_selectize(id="replicates_tr", choices=replicates, selected=replicates if replicates else None)
 
 
         @reactive.Effect
         @reactive.event(input.conditions_reset_tr)
         def _():
-            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
+            req(not is_empty(S.TRACKSTATS.get()))
 
             ui.update_selectize(
                 id="conditions_tr",
@@ -48,13 +58,13 @@ def MountTracks(input, output, session, S, noticequeue):
             ) if input.conditions_tr() else \
             ui.update_selectize(
                 id="conditions_tr",
-                selected=S.TINTERVALSTATS.get()["Condition"].unique().tolist()
+                selected=S.TRACKSTATS.get()["Condition"].unique().tolist()
             )
         
         @reactive.Effect
         @reactive.event(input.replicates_reset_tr)
         def _():
-            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
+            req(not is_empty(S.TRACKSTATS.get()) and "Replicate" in S.TRACKSTATS.get().columns)
 
             ui.update_selectize(
                 id="replicates_tr",
@@ -62,7 +72,7 @@ def MountTracks(input, output, session, S, noticequeue):
             ) if input.replicates_tr() else \
             ui.update_selectize(
                 id="replicates_tr",
-                selected=S.TINTERVALSTATS.get()["Replicate"].unique().tolist()
+                selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
 
     @render.text

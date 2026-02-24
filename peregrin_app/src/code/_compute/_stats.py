@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from collections import defaultdict
+from typing import *
 
 from .._general import Values
 from .._handlers._reports import Level
@@ -93,7 +94,7 @@ class Stats:
     }
 
 
-    def __init__(self, pool_replicates: bool = True, **kwargs) -> None:
+    def __init__(self, pool_replicates: bool = False, **kwargs) -> None:
 
         self.tier = ['Condition'] if pool_replicates else ['Condition', 'Replicate']
         self.noticequeue = kwargs.get('noticequeue', None)
@@ -195,7 +196,12 @@ class Stats:
         """
         
         if df.empty:
-            self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
+
+            if self.noticequeue is None: 
+                print(f"PROGRAM WARNING: Input DataFrame to Spots method is empty; no computations performed.")
+            else:
+                self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
+
             return pd.DataFrame(columns=self._COLUMNS['SPOTS'])
 
         df.sort_values(self.tier + ['Track ID', 'Time point'], inplace=True)
@@ -212,9 +218,16 @@ class Stats:
         # Optional sanity warning (kept lightweight)
         try:
             bad = df.groupby(self.tier + ['Time point'], sort=False)['Frame'].nunique(dropna=True).max()
+
             if bad and bad > 1:
-                self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
+
+                if self.noticequeue is None: 
+                    print(f"PROGRAM WARNING: Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
+                else:
+                    self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
+
                 pass
+
         except Exception:
             pass
 
@@ -429,7 +442,7 @@ class Stats:
 
         df.drop_duplicates(inplace=True)
         
-        # If 'Replicate' was not part of self.tier (pooled mode), recover it from Spots
+        # If 'Replicate' is not present in self.tier, recover it from Spots
         if 'Replicate' not in df.columns:
             rep_map = (
                 BaseDataInventory.Spots[['Track UID', 'Replicate']]
@@ -550,6 +563,8 @@ class Stats:
 
         # Per-metric calculation of statistics using resolved functions
         for m in metrics:
+
+            # Output label for the metric
             mout = metric_out[m]
             series_group = g[m]
 
@@ -613,21 +628,6 @@ class Stats:
 
         # Reset index to columns
         df = out.reset_index()
-
-        # If 'Replicate' was not part of self.tier (pooled mode), recover it from Spots
-        if 'Replicate' not in df.columns:
-            rep_map = (
-                BaseDataInventory.Spots[['Condition', 'Time point', 'Frame', 'Replicate']]
-                .drop_duplicates()
-            )
-            df = df.merge(rep_map, on=['Condition', 'Time point', 'Frame'], how='right')
-            # Move 'Replicate' column right next to 'Condition'
-            cols = df.columns.tolist()
-            cols.remove('Replicate')
-            cond_idx = cols.index('Condition') + 1
-            cols.insert(cond_idx, 'Replicate')
-            df = df[cols]
-
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -728,7 +728,7 @@ class Stats:
             x = g['X coordinate'].to_numpy()
             y = g['Y coordinate'].to_numpy()
             cond = g['Condition'].iloc[0]
-            rep = g['Replicate'].iloc[0]
+            rep  = g['Replicate'].iloc[0] if 'Replicate' in self.tier else None
 
             # Displacements between consecutive points -> Angles
             dx1 = x[1:] - x[:-1]
@@ -770,7 +770,15 @@ class Stats:
         rows = []
 
         # Iterate through each unique tier × Time lag combination and compute summary statistics
-        for (cond, rep, lag) in sorted(keys, key=lambda k: (k[0], k[1], k[2])):
+        tlag_tiers = sorted(keys, key=lambda k: (k[0], k[1], k[2])) if rep is not None else sorted(keys, key=lambda k: (k[0], k[1]))
+        for tlgtier in tlag_tiers:
+
+            # Extract condition, replicate, and lag from the tier tuple
+            cond = tlgtier[0]
+            lag = tlgtier[-1]
+            print(f"Processing Condition: {cond}, Replicate: {rep}, Frame lag: {lag}")
+
+            rep = tlgtier[1] if len(tlgtier) == 3 else None
 
             # Mean squared displacement statistics across tracks
             if rep is not None:
@@ -790,7 +798,6 @@ class Stats:
             # Use custom agg functions for MSD summary statistics
             row = {
                 'Condition': cond,
-                'Replicate': rep,
                 'Frame lag': lag,
                 'Time lag': lag * t_step,
                 'Tracks contributing': int(max(n_tracks, turn_means.size)),
@@ -809,6 +816,10 @@ class Stats:
                 'Turn var': turn_var_agg,
             }
 
+            if rep is not None:
+                print(f"Adding row {row} for Condition: {cond}, Replicate: {rep}, Frame lag: {lag}, Tracks contributing: {n_tracks}")
+                row = self._insert_at_position(row, 'Replicate', rep, where=1)
+
             # split MSD confidence interval into low/high bounds if it exists and is a tuple
             if n_tracks > 1 and f'MSD ci' in row:
                 ci = row[f'MSD ci']
@@ -819,7 +830,7 @@ class Stats:
             rows.append(row)
 
         df = pd.DataFrame(rows).sort_values(
-            ['Condition', 'Replicate', 'Frame lag'], ignore_index=True
+            self.tier + ['Frame lag'], ignore_index=True
         )
 
         if self.SIGNIFICANT_FIGURES:
@@ -1066,7 +1077,13 @@ class Stats:
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
             
             except Exception as e:
-                self.noticequeue.Report(Level.error, f'{e} Confidence interval computation failed', traceback.format_exc())
+
+                if self.noticequeue is None:
+                    print(traceback.format_exc())
+                    print(f"PROGRAM ERROR: Confidence interval computation failed: {e}. See the traceback above.")
+                else:
+                    self.noticequeue.Report(Level.error, f'{e} Confidence interval computation failed', traceback.format_exc())
+
                 return (np.nan, np.nan)
     
     def _sem(self, x):
@@ -1126,6 +1143,40 @@ class Stats:
         
         return df
         
+
+    def _insert_at_position(self, d: dict, key: Any, value: Any = None, *, where: int | str = 0) -> dict:
+        """
+        Insert a key-value pair into a dictionary at a specific position.
+
+        Parameters
+        ----------
+        d : dict
+            *The original dictionary.*
+
+        insert : tuple
+            *The key-value pair to insert.*
+
+        where : int | str, optional (default=0)
+            *The position at which to insert the new key-value pair. If an integer, it is treated as an index. If a string, it is treated as a key name.*
+        """
+
+        items = list(d.items())
+
+        if isinstance(where, int):
+            index = where
+
+        elif isinstance(where, str):
+            keys = [k for k, _ in items]
+            if where not in keys:
+                raise ValueError(f"Key '{where}' not found in dictionary.")
+            index = keys.index(where) + 1
+            
+        else:
+            raise ValueError("Parameter 'where' must be an integer index or a string key.")
+        
+        items.insert(index, (key, value))
+
+        return dict(items)
     
 
 
