@@ -19,21 +19,27 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         @reactive.Effect
         @reactive.event(S.TINTERVALSTATS)
         def _():
-            if S.TINTERVALSTATS.get() is None or S.TINTERVALSTATS.get().empty:
-                return [
-                    ui.update_selectize(id="conditions_msd", choices=[]),
-                    ui.update_selectize(id="replicates_msd", choices=[])
-                ]
-            return [
-                ui.update_selectize(id="conditions_msd", choices=S.TINTERVALSTATS.get()["Condition"].unique().tolist(), selected=S.TINTERVALSTATS.get()["Condition"].unique().tolist()),
-                ui.update_selectize(id="replicates_msd", choices=S.TINTERVALSTATS.get()["Replicate"].unique().tolist(), selected=S.TINTERVALSTATS.get()["Replicate"].unique().tolist())
-            ]
+            if is_empty(S.TINTERVALSTATS.get()):
+                conditions = []
+                replicates = []
+
+            elif not is_empty(S.TINTERVALSTATS.get()) :
+                conditions = S.TINTERVALSTATS.get()['Condition'].unique().tolist()
+                
+                if 'Replicate' not in S.TINTERVALSTATS.get().columns:
+                    replicates = []
+                else:
+                    replicates = S.TINTERVALSTATS.get()['Replicate'].unique().tolist()
+            
+            ui.update_selectize(id="conditions_msd", choices=conditions, selected=conditions[0] if conditions else None)
+            ui.update_selectize(id="replicates_msd", choices=replicates, selected=replicates if replicates else None)
+            
         
         @reactive.Effect
         @reactive.event(input.conditions_reset_msd)
         def _():
 
-            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
+            req(not is_empty(S.TINTERVALSTATS.get()))
 
             ui.update_selectize(
                 id="conditions_msd",
@@ -48,7 +54,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         @reactive.event(input.replicates_reset_msd)
         def _():
 
-            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
+            req(not is_empty(S.TINTERVALSTATS.get()) and "Replicate" in S.TINTERVALSTATS.get().columns)
 
             ui.update_selectize(
                 id="replicates_msd",

@@ -20,21 +20,29 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
         @reactive.Effect
         @reactive.event(S.TINTERVALSTATS)
         def _():
-            if S.TINTERVALSTATS.get() is None or S.TINTERVALSTATS.get().empty:
-                return [
-                    ui.update_selectize(id="conditions_ta", choices=[]),
-                    ui.update_selectize(id="replicates_ta", choices=[])
-                ]
+
+            if is_empty(S.TINTERVALSTATS.get()):
+                conditions = []
+                replicates = []
+
+            elif not is_empty(S.TINTERVALSTATS.get()) :
+                conditions = S.TINTERVALSTATS.get()['Condition'].unique().tolist()
+                
+                if 'Replicate' not in S.TINTERVALSTATS.get().columns:
+                    replicates = []
+                else:
+                    replicates = S.TINTERVALSTATS.get()['Replicate'].unique().tolist()
+            
             return [
-                ui.update_selectize(id="conditions_ta", choices=S.TINTERVALSTATS.get()["Condition"].unique().tolist(), selected=S.TINTERVALSTATS.get()["Condition"].unique().tolist()),
-                ui.update_selectize(id="replicates_ta", choices=S.TINTERVALSTATS.get()["Replicate"].unique().tolist(), selected=S.TINTERVALSTATS.get()["Replicate"].unique().tolist())
+                ui.update_selectize(id='conditions_ta', choices=conditions, selected=conditions[0] if conditions else None),
+                ui.update_selectize(id='replicates_ta', choices=replicates, selected=replicates)
             ]
         
         @reactive.Effect
         @reactive.event(input.conditions_reset_ta)
         def _():
 
-            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
+            req(not is_empty(S.TINTERVALSTATS.get()))
 
             ui.update_selectize(
                 id="conditions_ta",
@@ -49,7 +57,7 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
         @reactive.event(input.replicates_reset_ta)
         def _():
 
-            req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
+            req(not is_empty(S.TINTERVALSTATS.get()) and "Replicate" in S.TINTERVALSTATS.get().columns)
 
             ui.update_selectize(
                 id="replicates_ta",
