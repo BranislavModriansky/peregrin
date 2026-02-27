@@ -399,14 +399,14 @@ app_ui = ui.page_sidebar(
                                 style="display:flex; justify-content:space-between; align-items:center;"
                             ),
                             ui.output_ui("replay_slider"),
-                            full_screen=False, width="100", height="800px"
+                            full_screen=False, width="100%", height="800px"
                         ),
                         ui.markdown(""" <p></p> """),
                         ui.panel_well(
                             ui.accordion(
                                 ui.accordion_panel(
                                     "Replay settings",
-                                    ui.input_numeric("tar_framerate", "Frame rate (fps)", value=30, min=1, max=1000, step=1, width="140px"),
+                                    ui.input_numeric("tar_framerate", "Frame rate (fps)", value=1, min=0, max=100, step=1, width="140px"),
                                 )
                             ),
                             ui.markdown(""" <p></p> """),

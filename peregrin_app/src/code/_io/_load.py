@@ -25,8 +25,8 @@ class DataLoader:
     def __init__(self):
         ...
     
-    # @staticmethod
-    def GetDataFrame(filepath: str, **kwargs) -> pd.DataFrame:
+
+    def GetDataFrame(self, filepath: str, **kwargs) -> pd.DataFrame:
         """
         Loads a DataFrame from a file based on its extension.
         Supported formats: CSV, Excel.
@@ -35,8 +35,8 @@ class DataLoader:
 
         _, ext = op.splitext(filepath.lower())
 
-        if ext not in ['.csv', '.xls', '.xlsx']:
-            noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx.")
+        if ext not in ['.csv', '.xls', '.xlsx', '.xml', '.json']:
+            noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx, .xml., .json")
             return None
 
         if ext == '.csv':
@@ -45,11 +45,11 @@ class DataLoader:
             return pd.read_excel(filepath)
         elif ext == '.xml':
             return pd.read_xml(filepath)
+        else:
+            return pd.read_json(filepath)
         
 
-
-    # @staticmethod
-    def ExtractStripped(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
+    def ExtractStripped(self, df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
         """
         Prepare tracking data:
         - Extract only the 4 key columns.
@@ -82,11 +82,7 @@ class DataLoader:
         return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
     
 
-
-    
-
-    @staticmethod
-    def ExtractFull(df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
+    def ExtractFull(self, df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
         """
         Prepare tracking data:
         - Converts chosen coordinate columns to numeric.
@@ -128,48 +124,28 @@ class DataLoader:
         df = df.rename(columns=rename_map)
 
         # normalize other column names
-        def clean_name(name: str) -> str:
-            name = str(name)
-            name = name.replace("_", " ")
-            name = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
-            name = name.strip().capitalize()
-            return name
-
         try:
-            df.columns = [clean_name(c) if c != 'Track ID' else c for c in df.columns]
+            df.columns = [self._clean_name(c) if c != 'Track ID' else c for c in df.columns]
         except Exception as e:
             pass
 
-        def _py_numeric_df(df: pd.DataFrame) -> None:
-            for col in df.columns:
-                try: 
-                    df[col] = pd.to_numeric(df[col], errors='raise')
-                except Exception as e: 
-                    continue  # quietly move on if conversion fails
-
-        _py_numeric_df(df)
+        
+        self._py_numeric_df(df)
             
         return df
     
-    
 
-    
-
-
-
-    @staticmethod
-    def GetColumns(path: str, **kwargs) -> List[str]:
+    def GetColumns(self, path: str, **kwargs) -> List[str]:
         """
         Returns a list of column names from the DataFrame.
         """
         noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        df = DataLoader.GetDataFrame(path, noticequeue=noticequeue)  # or pd.read_excel(path), depending on file type
+        df = self.GetDataFrame(path, noticequeue=noticequeue)  # or pd.read_excel(path), depending on file type
         return df.columns.tolist()
     
 
-    @staticmethod
-    def FindMatchingColumn(columns: List[str], lookfor: List[str], **kwargs) -> str:
+    def FindMatchingColumn(self, columns: List[str], lookfor: List[str], **kwargs) -> str:
         """
         Looks for matches with any of the provided strings.
         - First tries exact matches.
@@ -201,6 +177,27 @@ class DataLoader:
                 if look.lower() in norm_col:
                     return col
         return None
+    
+    
+    def _py_numeric_df(self, df: pd.DataFrame) -> None:
+        for col in df.columns:
+            try: 
+                df[col] = pd.to_numeric(df[col], errors='raise')
+            except Exception as e: 
+                continue  # quietly move on if conversion fails
+
+
+    def _clean_name(self, name: str) -> str:
+        name = str(name)
+        name = name.replace("_", " ")
+        name = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+        name = name.strip().capitalize()
+        return name
+    
+
+
+# if __name__ == "__main__":
+dataloader = DataLoader()
 
 
 

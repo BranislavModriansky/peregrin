@@ -11,7 +11,6 @@ from io import BytesIO
 from ..._handlers._reports import Level
 from ..._infra._selections import Metrics
 
-\
 class ReconstructTracks:
 
     KEY_COLS = ['Condition', 'Replicate', 'Track ID']
@@ -431,7 +430,15 @@ class ReconstructTracks:
             cbar.set_label(f"{label_metric}", fontsize=10)
 
         return fig_lut
-    
+
+
+    @staticmethod
+    def frame_interval_ms(fps: float) -> float:
+        """Return the interval between frames in milliseconds."""
+        if fps <= 0:
+            raise ValueError("Frame rate must be positive.")
+        return 1000.0 / fps
+        
 
     def _arrange_data(self):
         Spots =  Categorizer(
@@ -616,7 +623,7 @@ class ReconstructTracks:
                 cols = g['Spot color'].astype(str).to_numpy()
                 n = coords.shape[0]
                 if n >= 2:
-                    for i in range(1, n):
+                    for i in range(n):
                         segments.append(coords[i - 1:i + 1])
                         seg_colors.append(cols[i])
         elif 'Track color' in spots.columns:

@@ -252,3 +252,4 @@ class Values:
             if noticequeue:
                 noticequeue.Report(Level.error, f"Error computing LUT map. No LUT applied.", f"LUT map error: {str(e)}.")
             return None, None
+        

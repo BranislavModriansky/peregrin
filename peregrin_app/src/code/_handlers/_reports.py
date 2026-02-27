@@ -1,3 +1,5 @@
+from typing import *
+
 class Level:
 
     info = "default"
@@ -57,3 +59,20 @@ class NoticeQueue:
         return self.cache
     
 
+
+def Reporter(level: str, message: str, details: str = None, noticequeue: Callable[[Level, str, str], None] = None) -> None:
+
+    program_messages = {
+        "default":  "PROGRAM INFO:     ",
+        "warning":  "PROGRAM WARNING:  ",
+        "error":    "PROGRAM ERROR:    "
+    }
+
+    if noticequeue is None:
+        print("")
+        print(f"{program_messages.get(level, 'UNKNOWN')}: {message}")
+        if details:
+            print(f"{18*' '}--> Details: {details}")
+        
+    else:
+        noticequeue.Report(level, message, details)

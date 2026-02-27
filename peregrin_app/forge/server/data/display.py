@@ -11,24 +11,8 @@ from src.code import Summarize, Values, DebounceCalc, is_empty, Stats
 
 def mount_data_display(input, output, session, S):
 
-    # stats = Stats()
-
-    # @DebounceCalc(4)
-    # @reactive.calc
-    # def significant_figures_update():
-    #     for df in [S.SPOTSTATS, S.TRACKSTATS, S.FRAMESTATS, S.TINTERVALSTATS]:
-    #         df = df.get()
-    #         if not is_empty(df):
-    #             stats_calc = stats.Signify(df, significant_figures=input.significant_figures())
-    #             df.set(stats_calc)
-
-    # @reactive.Effect
-    # @reactive.event(input.significant_figures, S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, S.UNFILTERED_FRAMESTATS, S.UNFILTERED_TINTERVALSTATS)
-    # def update_significant_figures():
-    #     significant_figures_update()
-
     
-
+    # @reactive.extended_task
     def hist(data: pd.Series, app_theme: str = "light") -> plt.Figure:
             fig, ax = plt.subplots(figsize=(3, 3), dpi=72)
             plt.hist(
@@ -49,6 +33,7 @@ def mount_data_display(input, output, session, S):
 
             return plt.gcf()
 
+    # @reactive.extended_task
     def rend_summary(summary: dict) -> ui.TagList:
         return ui.div(
             ui.tags.h5("Summary"),
@@ -63,6 +48,7 @@ def mount_data_display(input, output, session, S):
             )
         )
 
+    # @reactive.extended_task
     def rend_summaries(column_stats: dict, tag: str) -> ui.TagList:
         cards = []
 
@@ -72,15 +58,18 @@ def mount_data_display(input, output, session, S):
                 if (stats["type"] == "type_one" 
                     and col not in ["Condition", "Replicate", "Condition color", "Replicate color", 
                                     "Frame", "Time point", "Frame lag", "Time lag"]):
-                    stat = col.strip().lower().replace(" ", "_").replace(".", "_")
+                    stat = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
                     body = ui.div(
                         ui.div(ui.output_plot(f"hist_{tag}_{stat}", height="125px"), style="width: 125px; height: 127px;"),
+                        ui.div(
+                            ui.div(str(Values.RoundSigFigs(stats['min'], 5)), style="align-self: flex-start;"),
+                            ui.div(str(Values.RoundSigFigs(stats['max'], 5)), style="align-self: flex-end;"),
+                            style="display: flex; justify-content: space-between; width: 100%;"
+                        ),
                         ui.div(ui.tags.b("missing: "), str(stats['missing'])),
                         ui.div(ui.tags.b("distinct: "), str(stats['distinct'])),
-                        ui.div(ui.tags.b("min: "), str(Values.RoundSigFigs(stats['min'], 5))),
                         ui.div(ui.tags.b("mean: "), str(Values.RoundSigFigs(stats['mean'], 5))),
                         ui.div(ui.tags.b("median: "), str(Values.RoundSigFigs(stats['median'], 5))),
-                        ui.div(ui.tags.b("max: "), str(Values.RoundSigFigs(stats['max'], 5))),
                         ui.div(ui.tags.b("sd: "), str(Values.RoundSigFigs(stats['sd'], 5))),
                         ui.div(ui.tags.b("variance: "), str(Values.RoundSigFigs(stats['variance'], 5))),
                         ui.div(ui.tags.b("mode: "), str(Values.RoundSigFigs(stats['mode'], 5))),
@@ -110,44 +99,54 @@ def mount_data_display(input, output, session, S):
 
         return ui.TagList(*cards)
 
+
     # _ _ _ _ RENDERING DATA FRAMES _ _ _ _
+
+    @reactive.extended_task
+    async def summarize(spots, tracks, frames, tintervals):
+        return [
+            {
+                "general": Summarize.dataframe_summary(spots),
+                "columns": {col: Summarize.column_summary(spots[col]) for col in spots.columns}
+            },
+            {
+                "general": Summarize.dataframe_summary(tracks),
+                "columns": {col: Summarize.column_summary(tracks[col]) for col in tracks.columns}
+            },
+            {
+                "general": Summarize.dataframe_summary(frames),
+                "columns": {col: Summarize.column_summary(frames[col]) for col in frames.columns}
+            },
+            {
+                "general": Summarize.dataframe_summary(tintervals),
+                "columns": {col: Summarize.column_summary(tintervals[col]) for col in tintervals.columns}
+            }
+        ]
 
     @reactive.Effect
     @reactive.event(S.SPOTSTATS, S.TRACKSTATS, S.FRAMESTATS, S.TINTERVALSTATS)
-    def summarize():
-        req(S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty
-            and S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
-        
-        S.SPOTSUMMARY.set({
-            "general": Summarize.dataframe_summary(S.SPOTSTATS.get()),
-            "columns": {
-                col: Summarize.column_summary(S.SPOTSTATS.get()[col])
-                for col in S.SPOTSTATS.get().columns
-            }
-        })
-        S.TRACKSUMMARY.set({
-            "general": Summarize.dataframe_summary(S.TRACKSTATS.get()),
-            "columns": {
-                col: Summarize.column_summary(S.TRACKSTATS.get()[col])
-                for col in S.TRACKSTATS.get().columns
-            }
-        })
-        S.FRAMESUMMARY.set({
-            "general": Summarize.dataframe_summary(S.FRAMESTATS.get()),
-            "columns": {
-                col: Summarize.column_summary(S.FRAMESTATS.get()[col])
-                for col in S.FRAMESTATS.get().columns
-            }
-        })
-        S.TINTERVALSUMMARY.set({
-            "general": Summarize.dataframe_summary(S.TINTERVALSTATS.get()),
-            "columns": {
-                col: Summarize.column_summary(S.TINTERVALSTATS.get()[col])
-                for col in S.TINTERVALSTATS.get().columns
-            }
-        })
+    def _():
+        spots = S.SPOTSTATS.get()
+        tracks = S.TRACKSTATS.get()
+        frames = S.FRAMESTATS.get()
+        tintervals = S.TINTERVALSTATS.get()
+        req(
+            not is_empty(spots),
+            not is_empty(tracks),
+            not is_empty(frames),
+            not is_empty(tintervals)
+        )
+        summarize(spots, tracks, frames, tintervals)
+
+    @reactive.Effect
+    def _():
+        result = summarize.result()
+        if result is not None and len(result) == 4:
+            S.SPOTSUMMARY.set(result[0])
+            S.TRACKSUMMARY.set(result[1])
+            S.FRAMESUMMARY.set(result[2])
+            S.TINTERVALSUMMARY.set(result[3])
+
 
     @output
     @render.ui
@@ -229,7 +228,7 @@ def mount_data_display(input, output, session, S):
     def _():
         for col, stats in S.SPOTSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
                 
                 @output(id=f"hist_spots_{stat_id}")
                 @render.plot
@@ -243,42 +242,38 @@ def mount_data_display(input, output, session, S):
     def _():
         for col, stats in S.TRACKSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
 
                 @output(id=f"hist_tracks_{stat_id}")
                 @render.plot
                 def histogram(c=col): 
-                    fig = hist(data=S.TRACKSTATS.get()[c], app_theme=input.app_theme())
+                    return hist(data=S.TRACKSTATS.get()[c], app_theme=input.app_theme())
 
-                    return fig
                 
     @reactive.effect
     @reactive.event(S.FRAMESUMMARY)
     def _():
         for col, stats in S.FRAMESUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
-
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
+                
                 @output(id=f"hist_frames_{stat_id}")
                 @render.plot
                 def histogram(c=col): 
-                    fig = hist(data=S.FRAMESTATS.get()[c], app_theme=input.app_theme())
+                    return hist(data=S.FRAMESTATS.get()[c], app_theme=input.app_theme())
 
-                    return fig
                 
     @reactive.effect
     @reactive.event(S.TINTERVALSUMMARY)
     def _():
         for col, stats in S.TINTERVALSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_")
+                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
 
                 @output(id=f"hist_tintervals_{stat_id}")
                 @render.plot
                 def histogram(c=col):
-                    fig = hist(data=S.TINTERVALSTATS.get()[c], app_theme=input.app_theme())
-
-                    return fig
+                    return hist(data=S.TINTERVALSTATS.get()[c], app_theme=input.app_theme())
 
     
 

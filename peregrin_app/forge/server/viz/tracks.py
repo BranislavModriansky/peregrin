@@ -252,13 +252,13 @@ def MountTracks(input, output, session, S, noticequeue):
     @output(id="replay_slider")
     @render.ui
     def replay_slider():
-        req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
+        req(not is_empty(S.FRAMESTATS.get()))
         req(input.tar_framerate() is not None)
 
         num_frames = S.FRAMESTATS.get()["Frame"].nunique()
         return ui.input_slider(
             "frame_replay", "Replay",
-            min=1, max=num_frames, value=1, step=1,
+            min=0, max=num_frames, value=0, step=1,
             animate={
                 "interval": frame_interval_ms(input.tar_framerate()),
                 "loop": True,
@@ -271,7 +271,7 @@ def MountTracks(input, output, session, S, noticequeue):
     def set_frame(i: int):
         try:
             n = S.FRAMESTATS.get()["Frame"].nunique()
-            i = 1 if i < 1 else (n if i > n else i)
+            i = 0 if i < 0 else (n - 1 if i >= n else i)
             session.send_input_message("frame_replay", {"value": i})
         except Exception as e:
             print(f"Error in set_frame: {e}")
@@ -280,7 +280,7 @@ def MountTracks(input, output, session, S, noticequeue):
     @reactive.event(input.prev)
     def _prev():
         try:
-            ui.update_slider("frame_replay", value=input.frame_replay() - 1)
+            ui.update_slider("frame_replay", value=input.frame_replay())
         except Exception:
             pass
 
@@ -288,7 +288,7 @@ def MountTracks(input, output, session, S, noticequeue):
     @reactive.event(input.next)
     def _next():
         try:
-            ui.update_slider("frame_replay", value=input.frame_replay() + 1)
+            ui.update_slider("frame_replay", value=input.frame_replay())
         except Exception:
             pass
 
