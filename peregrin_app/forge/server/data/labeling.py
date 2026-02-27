@@ -1,7 +1,7 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
 from ...ui_shell import make_sortable_ui
-from src.code import DataLoader, Metrics, FilenameFormatExample, is_empty
+from src.code import dataloader, Metrics, FilenameFormatExample, is_empty
 
 
 def mount_data_labeling(input, output, session, S, noticequeue):
@@ -47,10 +47,10 @@ def mount_data_labeling(input, output, session, S, noticequeue):
             files = input[f"input_file{idx}"]()
             if files and isinstance(files, list) and len(files) > 0:
                 try:
-                    columns = DataLoader.GetColumns(files[0]["datapath"], noticequeue=noticequeue)
+                    columns = dataloader.GetColumns(files[0]["datapath"], noticequeue=noticequeue)
 
                     for sel in Metrics.LookFor.keys():
-                        choice = DataLoader.FindMatchingColumn(columns, Metrics.LookFor[sel])
+                        choice = dataloader.FindMatchingColumn(columns, Metrics.LookFor[sel])
                         if choice is not None:
                             ui.update_selectize(sel, choices=columns, selected=choice)
                         else:

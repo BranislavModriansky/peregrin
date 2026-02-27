@@ -3,7 +3,7 @@ from unittest import case
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render, req
-from src.code import DataLoader, Stats, Metrics, Level, is_empty
+from src.code import dataloader, Stats, Metrics, Level, is_empty
 
 
 
@@ -38,9 +38,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                             ui.div(  
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
-                                
-                                # TODO: add an option to invert both x and y coordinates independently
-                                # ui.input_checkbox_group("invert_coordinates", "Invert coordinates:", ["X", "Y"], selected=["Y"], inline=True),
 
                                 ui.br(),
                                 ui.div("Compute:", style="font-size: 18px; font-weight: 550; margin-bottom: 12px; margin-left: 2px;"),
@@ -53,38 +50,41 @@ def mount_data_input(input, output, session, S, noticequeue):
                                     ui.markdown(""" <h5><b> Statistical Configuration: </h5></b> """), 
                                     style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
                                 ),
-                                # ui.div(
-                                #     # TODO: add an option to invert both x and y coordinates independently
-                                #     # ui.input_checkbox_group("invert_coordinates", "Invert coordinates:", ["X", "Y"], selected=["Y"], inline=True),
-                                #     ui.input_checkbox("y_mirror", "Invert Y coordinates", True),
-                                #     style="margin-left: 10px;"
-                                # ),
-                                ui.div(
-                                    ui.div("Confidence interval statistic:", style="margin-top: 5px; margin-right: 5px;"),
-                                    ui.tooltip(
-                                        ui.input_selectize("ci_statistic", None, ["mean", "median"], width="110px"),
-                                        "The statistic for which the confidence interval will be computed. The mean is appropariate for normally distributed data, while the median is more robust to outliers and skewed, non-normal distributions.",
-                                        placement="right",
-                                    ),
-                                    style="display: flex; gap: 5px; margin-left: 10px;"
-                                ),
-                                ui.div(
-                                    ui.div("Confidence level (%):", style="margin-top: 5px; margin-right: 5px;"),
-                                    ui.tooltip(
-                                        ui.input_numeric("ci_confidence", None, 95, min=50, max=99.9, step=0.5, width="80px"),
-                                        "Confidence level defines the percentage of confidence intervals that are expected to contain the true parameter value. A common choice is 95%, which means that if the same population is sampled multiple times and confidence intervals are computed for each sample, 95% of those intervals are expected to contain the true parameter value.",
-                                        placement="right",
-                                    ),
-                                    style="display: flex; gap: 5px; margin-left: 10px;"
-                                ),
-                                ui.div(
-                                    ui.div("Confidence interval resamples:", style="margin-top: 5px; margin-right: 5px;"),
-                                    ui.tooltip(  
-                                        ui.input_numeric("ci_resamples", None, 1000, min=100, step=100, width="95px"),
-                                        "To ensure a higher performance during exploratory analysis, the number of resamples is set to 1000 as default. A larger amount of resamples ensures more accurate confidence intervals, but also takes longer to compute. For high quality results, ≥9999 resamples is recommended.",   
-                                        placement="right",
-                                    ),
-                                    style="display: flex; gap: 5px; margin-left: 10px;"
+                                ui.input_checkbox("decriptive_error", "Compute descriptive error stats per category", True),
+                                ui.input_checkbox("inferential_error", "Compute inferential error stats per category", True),
+                                ui.panel_conditional(
+                                    "input.inferential_error",
+                                    ui.input_checkbox("confidence_intervals", "Compute confidence intervals", False),
+                                    ui.panel_conditional(
+                                        "input.confidence_intervals",
+                                        ui.div(
+                                            ui.div("Confidence interval statistic:", style="margin-top: 5px; margin-right: 5px;"),
+                                            ui.tooltip(
+                                                ui.input_selectize("ci_statistic", None, ["mean", "median"], width="110px"),
+                                                "The statistic for which the confidence interval will be computed. The mean is appropariate for normally distributed data, while the median is more robust to outliers and skewed, non-normal distributions.",
+                                                placement="right",
+                                            ),
+                                            style="display: flex; gap: 5px; margin-left: 10px;"
+                                        ),
+                                        ui.div(
+                                            ui.div("Confidence level (%):", style="margin-top: 5px; margin-right: 5px;"),
+                                            ui.tooltip(
+                                                ui.input_numeric("ci_confidence", None, 95, min=50, max=99.9, step=0.5, width="80px"),
+                                                "Confidence level defines the percentage of confidence intervals that are expected to contain the true parameter value. A common choice is 95%, which means that if the same population is sampled multiple times and confidence intervals are computed for each sample, 95% of those intervals are expected to contain the true parameter value.",
+                                                placement="right",
+                                            ),
+                                            style="display: flex; gap: 5px; margin-left: 10px;"
+                                        ),
+                                        ui.div(
+                                            ui.div("Confidence interval resamples:", style="margin-top: 5px; margin-right: 5px;"),
+                                            ui.tooltip(  
+                                                ui.input_numeric("ci_resamples", None, 1000, min=100, step=100, width="95px"),
+                                                "To ensure a higher performance during exploratory analysis, the number of resamples is set to 1000 as default. A larger amount of resamples ensures more accurate confidence intervals, but also takes longer to compute. For high quality results, ≥9999 resamples is recommended.",   
+                                                placement="right",
+                                            ),
+                                            style="display: flex; gap: 5px; margin-left: 10px;"
+                                        )
+                                    )
                                 ),
                                 ui.markdown(""" <hr style="border: none; border-top: 1px solid; opacity: 0.125; margin-top: 15px; margin-bottom: 0px;" /> """),
                                 ui.output_ui("data_labeling_ui"),
@@ -259,10 +259,10 @@ def mount_data_input(input, output, session, S, noticequeue):
 
             for file_idx, fileinfo in enumerate(files, start=1):
                 try:
-                    df = DataLoader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
+                    df = dataloader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
 
                     if input.strip_data():
-                        extracted = DataLoader.ExtractStripped(
+                        extracted = dataloader.ExtractStripped(
                             df,
                             id_col=input.select_id(),
                             t_col=input.select_t(),
@@ -271,7 +271,7 @@ def mount_data_input(input, output, session, S, noticequeue):
                             mirror_y=True,
                         )
                     else:
-                        extracted = DataLoader.ExtractFull(
+                        extracted = dataloader.ExtractFull(
                             df,
                             id_col=input.select_id(),
                             t_col=input.select_t(),
@@ -296,7 +296,13 @@ def mount_data_input(input, output, session, S, noticequeue):
             with reactive.isolate():
                 Stats.B_RESAMPLES = input.ci_resamples()
 
-                stats = Stats(pool_replicates=input.pool_replicates(), noticequeue=noticequeue)
+                stats = Stats(
+                    pool_replicates=input.pool_replicates(),
+                    cat_descr_err=input.decriptive_error(),
+                    cat_infer_err=input.inferential_error(),
+                    bootstrap=input.confidence_intervals(),
+                    noticequeue=noticequeue
+                )
 
                 # Compute spotstats for all data; spotstats are necessary and will be computed in any case
                 Spots = stats.Spots(all_data)
@@ -338,7 +344,7 @@ def mount_data_input(input, output, session, S, noticequeue):
         try:
             stabilize_input()
 
-            df = DataLoader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
+            df = dataloader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
 
             stats = Stats(noticequeue=noticequeue)
 

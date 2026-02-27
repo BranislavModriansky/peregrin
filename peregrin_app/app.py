@@ -19,6 +19,7 @@ app = App(app_ui, Server)
 
 
 # TODO: make two options for chart downloads - an svg with no background and a png
+
 #       -> the buttons can have width 50% each and be side by side
 
 # TODO: add more lut maps. All reasonable from: 

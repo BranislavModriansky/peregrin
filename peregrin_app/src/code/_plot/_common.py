@@ -70,7 +70,6 @@ class Painter:
         try:
             if c_mode.endswith('LUT'):
                 c_mode = c_mode[:-4]
-                print(f"Retrieving colormap for '{c_mode}'")
                 return plt.cm.get_cmap(c_mode)
             else:
                 print(f"Color mode '{c_mode}' does not end with ' LUT'. Defaulting to 'jet LUT'.")
@@ -158,17 +157,6 @@ class Painter:
             fig.set_facecolor('none')
                 
         return plt.gcf()
-    
-
-
-    
-
-    
-    
-
-
-    
-    
 
 
 class Categorizer:
@@ -268,7 +256,6 @@ class Categorizer:
             return self._aggregate()
         return self._filter()
     
-
 
 class LutScale:
 

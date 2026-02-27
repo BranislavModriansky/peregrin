@@ -8,7 +8,7 @@ from collections import defaultdict
 from typing import *
 
 from .._general import Values
-from .._handlers._reports import Level
+from .._handlers._reports import Level, Reporter
 
 
 @dataclass
@@ -75,6 +75,10 @@ class Stats:
         'first', 'last', 'var', 'prod', 'size', 'nunique',
     })
 
+    _EXCLUDE_SUFFIXES = ['per', 'Condition', 'Replicate', 'Track ID', 'Track UID', 'Time point', 'Frame', 'Time lag', 'Frame lag', 'sd', 'var', 'sem', 'q25', 'q75']
+    _DESCR_ERR = ['min', 'max', 'std', 'q25', 'q75']
+    _INFER_ERR = ['sem']
+
     _COLUMNS = {
         'SPOTS': [
             'X coordinate','Y coordinate',
@@ -90,14 +94,43 @@ class Stats:
             'Speed median','Speed q25','Speed q75',
             f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
             'Direction mean','Direction var'
+        ],
+        'FRAMES': [
+            'Condition','Replicate','Time point','Frame',
+            'Mean speed','Median speed','Speed sd','Speed sem',
+            'Speed q25','Speed q75',
+            f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
+            'Direction mean','Direction var'
+        ],
+        'TIMEINTERVALS': [
+            'Condition','Replicate','Time lag','Frame lag',
+            'Mean speed','Median speed','Speed sd','Speed sem',
+            'Speed q25','Speed q75',
+            f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
+            'Direction mean','Direction var'
         ]
     }
 
 
-    def __init__(self, pool_replicates: bool = False, **kwargs) -> None:
+    def __init__(self, pool_replicates: bool = False, *, cat_descr_err: bool = False, cat_infer_err: bool = False, bootstrap: bool = False, **kwargs) -> None:
 
         self.tier = ['Condition'] if pool_replicates else ['Condition', 'Replicate']
         self.noticequeue = kwargs.get('noticequeue', None)
+        
+        if cat_descr_err:
+            self.DESCR_ERR = self._DESCR_ERR
+        else:
+            self.DESCR_ERR = None
+
+        if cat_infer_err:
+            self.INFER_ERR = self._INFER_ERR
+        else:
+            self.INFER_ERR = None
+
+        if bootstrap:
+            self._INFER_ERR = ['sem', 'ci']
+        else:
+            self._INFER_ERR = ['sem']
         
         self.CUSTOM_AGG_FUNCTIONS = {
             'q25':        self._q25,
@@ -196,12 +229,7 @@ class Stats:
         """
         
         if df.empty:
-
-            if self.noticequeue is None: 
-                print(f"PROGRAM WARNING: Input DataFrame to Spots method is empty; no computations performed.")
-            else:
-                self.noticequeue.Report(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.")
-
+            Reporter(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.", noticequeue=self.noticequeue)
             return pd.DataFrame(columns=self._COLUMNS['SPOTS'])
 
         df.sort_values(self.tier + ['Track ID', 'Time point'], inplace=True)
@@ -212,20 +240,15 @@ class Stats:
         df['Track UID'] = grp.ngroup()
         df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
-        # Assigns frame numbers within each data subset based on the order of time points; starts at 1 for the first point in each track.
-        df['Frame'] = df.groupby(self.tier, sort=False)['Time point'].rank(method='dense').astype('Int64')
+        # Assigns frame numbers within each data subset based on the order of time points; starts at 0 for the first point in each track.
+        df['Frame'] = df.groupby(self.tier, sort=False)['Time point'].rank(method='dense').astype('Int64') - 1
 
         # Optional sanity warning (kept lightweight)
         try:
             bad = df.groupby(self.tier + ['Time point'], sort=False)['Frame'].nunique(dropna=True).max()
 
             if bad and bad > 1:
-
-                if self.noticequeue is None: 
-                    print(f"PROGRAM WARNING: Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
-                else:
-                    self.noticequeue.Report(Level.warning, f"Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.")
-
+                Reporter(Level.warning, f"Multiple frames assigned to the same {self.tier} × Time point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.", noticequeue=self.noticequeue)
                 pass
 
         except Exception:
@@ -266,7 +289,7 @@ class Stats:
         )
 
         # Exclude the first frame from cumulative direction stats (no angle data there)
-        valid = df['Frame'].gt(1) & theta_from_start.notna()
+        valid = df['Frame'].gt(0) & theta_from_start.notna()
 
         # Define grouping keys
         gkeys = self.tier + ['Track ID']
@@ -291,6 +314,10 @@ class Stats:
 
         # Drop (if any) present all nan columns  
         df.dropna(how='all', axis='columns', inplace=True)
+
+        if 'Replicate' in self.tier:
+            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
+        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -355,11 +382,9 @@ class Stats:
             'Speed max':    'max',
             'Speed mean':   'mean',
             'Speed sd':     'std',
-            'Speed sem':    'sem',
             'Speed median': 'median',
             'Speed q25':    'q25',
             'Speed q75':    'q75',
-            f'Speed ci{self.CONFIDENCE_LEVEL}': 'ci',
         })
 
         # Build the named agg dict: each entry is (column, func)
@@ -375,22 +400,9 @@ class Stats:
         agg_spec['start_y'] = ('Y coordinate', 'first')
         agg_spec['end_y']   = ('Y coordinate', 'last')
 
+        agg_spec['Max distance reached'] = ('Cumulative track displacement', 'max')
+
         agg = grp.agg(**agg_spec)
-
-        # CI split into two bounds
-        if f'Speed ci{self.CONFIDENCE_LEVEL}' in agg.columns:
-            
-            print(f"Speed ci{self.CONFIDENCE_LEVEL} column found; splitting into low/high bounds.")
-            print(f"Sample of ci column values before splitting:")
-            ci_col = f'Speed ci{self.CONFIDENCE_LEVEL}'
-            print(agg[ci_col].head())
-            print("")
-
-            ci_col = f'Speed ci{self.CONFIDENCE_LEVEL}'
-            agg[f'Speed ci{self.CONFIDENCE_LEVEL} low'] = agg[ci_col].apply(lambda x: x[0] if isinstance(x, tuple) else np.nan)
-            agg[f'Speed ci{self.CONFIDENCE_LEVEL} high'] = agg[ci_col].apply(lambda x: x[1] if isinstance(x, tuple) else np.nan)
-            agg.drop(columns=[ci_col], inplace=True)
-        
 
         # If colors were assigned, carry them over
         if 'Replicate color' in df.columns:
@@ -450,11 +462,13 @@ class Stats:
                 .set_index('Track UID')
             )
             df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
-        
+
+        if 'Replicate' in self.tier:
+            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
+        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
         
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
-            
         if self.DECIMALS_PLACES:
             df = self.NormDecimals(df)
         
@@ -491,12 +505,9 @@ class Stats:
             - ***metric*``max``**:        *maximum value of a given metric across tracks at that time point.*
             - ***metric*``mean``**:       *mean value of a given metric across tracks at that time point.*
             - ***metric*``sd``**:         *standard deviation of a given metric across tracks at that time point.*
-            - ***metric*``sem``**:        *standard error of the mean of a given metric across tracks at that time point.*
             - ***metric*``median``**:     *median value of a given metric across tracks at that time point.*
             - ***metric*``q25``**:        *25th percentile of a given metric across tracks at that time point.*
             - ***metric*``q75``**:        *75th percentile of a given metric across tracks at that time point.*
-            - ***metric*``ci{self.CONFIDENCE_LEVEL} low``**:   *lower bound of the {self.CONFIDENCE_LEVEL}% confidence interval of a given metric across tracks at that time point.*
-            - ***metric*``ci{self.CONFIDENCE_LEVEL} high``**:  *upper bound of the {self.CONFIDENCE_LEVEL}% confidence interval of a given metric across tracks at that time point.*
             \n
             Circular statistics:
 
@@ -532,6 +543,7 @@ class Stats:
 
         # An empty DataFrame equivalent
         if df is None or df.empty:
+            Reporter(Level.warning, f"Input DataFrame to Frames method is empty; no computations performed.", noticequeue=self.noticequeue)
             stats_cols = ['min','max','mean','sd','sem','median','q25','q75',f'ci{self.CONFIDENCE_LEVEL} low',f'ci{self.CONFIDENCE_LEVEL} high']
             cols = (
                 group_cols
@@ -549,10 +561,8 @@ class Stats:
             'std':    'std',
             'median': 'median',
             'count':  'count',
-            'sem':    'sem',
             'q25':    'q25',
             'q75':    'q75',
-            'ci':     'ci',
         })
 
         # One groupby for all metrics
@@ -578,22 +588,16 @@ class Stats:
             vmean   = results['mean']
             vsd     = results['std']
             vmed    = results['median']
-            vsem    = results['sem']
             vq25    = results['q25']
             vq75    = results['q75']
-            ci      = results['ci']
 
             out[f'{mout} min']      = vmin
             out[f'{mout} max']      = vmax
             out[f'{mout} mean']     = vmean
             out[f'{mout} sd']       = vsd
-            out[f'{mout} sem']      = vsem
             out[f'{mout} median']   = vmed
             out[f'{mout} q25']      = vq25
             out[f'{mout} q75']      = vq75
-
-            out[f'{mout} ci{self.CONFIDENCE_LEVEL} low']  = ci.apply(lambda x: x[0] if isinstance(x, tuple) else np.nan)
-            out[f'{mout} ci{self.CONFIDENCE_LEVEL} high'] = ci.apply(lambda x: x[1] if isinstance(x, tuple) else np.nan)
 
         # Computes both instantaneous direction (from 'Direction') and cumulative direction (from 'Cumulative direction mean') stats
         tmp = df[group_cols + ['Direction', 'Cumulative direction mean']].copy()
@@ -629,9 +633,12 @@ class Stats:
         # Reset index to columns
         df = out.reset_index()
 
+        if 'Replicate' in self.tier:
+            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
+        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
-
         if self.DECIMALS_PLACES:
             df = self.NormDecimals(df)
 
@@ -673,37 +680,26 @@ class Stats:
             - **``min``**: minimal MSD.
             - **``max``**: maximal MSD.
             - **``mean``**: mean MSD.
-            - **``sem``**: standard error of the mean of MSD.
             - **``sd``**: standard deviation of MSD.
             - **``median``**: median MSD.
             - **``q25``**: 25th percentile of MSD.
             - **``q75``**: 75th percentile of MSD.
-            - **``ci{self.CONFIDENCE_LEVEL} low``**: lower bound of the {self.CONFIDENCE_LEVEL}% confidence interval of MSD.
-            - **``ci{self.CONFIDENCE_LEVEL} high``**: upper bound of a {self.CONFIDENCE_LEVEL}% confidence interval of MSD.
 
             **``Turn``** statistics across circular mean of turning angles for trajectories at specific time intervals/lags:
             - **``mean``**: circular mean of turning angles.
             - **``var``**: circular variance of turning angles.
         """
 
-        # Output columns
-        cols = [
-            'Condition','Replicate','Frame lag','Time lag','Tracks contributing',
-            *[f'MSD {s}' for s in ['min','max','mean','sem','sd','median','q25','q75',f'ci{self.CONFIDENCE_LEVEL} low',f'ci{self.CONFIDENCE_LEVEL} high']],
-            'Turn mean','Turn var'
-        ]
-
         if df.empty: 
-            return pd.DataFrame(
-                columns=cols
-            )
+            Reporter(Level.warning, f"Input DataFrame to TimeIntervals method is empty; no computations performed.", noticequeue=self.noticequeue)
+            return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
 
         # Unique time point differences -> time steps; use median to resist irregular sampling
         t_unique = np.sort(df['Time point'].unique())
 
         # <2 unique time points returns an empty DataFrame.
         if t_unique.size < 2:
-            return pd.DataFrame(columns=cols)
+            return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
         
         t_step = float(np.diff(t_unique)[0])
 
@@ -761,7 +757,7 @@ class Stats:
 
         # If no tracks had enough points to compute any metrics, return an empty DataFrame with the correct columns.
         if not per_track_msd and not per_track_turn_mean:
-            return pd.DataFrame(columns=cols)
+            return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
 
         # Summarize computed mean squared displacements and turning angles across tracks
         keys = set(per_track_msd.keys()) | set(per_track_turn_mean.keys())
@@ -776,7 +772,7 @@ class Stats:
             # Extract condition, replicate, and lag from the tier tuple
             cond = tlgtier[0]
             lag = tlgtier[-1]
-            print(f"Processing Condition: {cond}, Replicate: {rep}, Frame lag: {lag}")
+            # print(f"Processing Condition: {cond}, Replicate: {rep}, Frame lag: {lag}")
 
             rep = tlgtier[1] if len(tlgtier) == 3 else None
 
@@ -806,26 +802,17 @@ class Stats:
                 'MSD max':    float(arr.max()) if n_tracks else np.nan,
                 'MSD mean':   float(arr.mean()) if n_tracks else np.nan,
                 'MSD sd':     float(arr.std(ddof=1)) if n_tracks > 1 else np.nan,
-                'MSD sem':    float(stats.sem(arr, nan_policy='omit')) if n_tracks > 1 else np.nan,
                 'MSD median': float(np.median(arr)) if n_tracks else np.nan,
                 'MSD q25':    float(self._q25(arr)) if n_tracks else np.nan,
                 'MSD q75':    float(self._q75(arr)) if n_tracks else np.nan,
-                f'MSD ci': self._ci(arr) if n_tracks > 1 else np.nan,
 
                 'Turn mean': np.rad2deg(np.abs(turn_mean_agg)),
                 'Turn var': turn_var_agg,
             }
 
             if rep is not None:
-                print(f"Adding row {row} for Condition: {cond}, Replicate: {rep}, Frame lag: {lag}, Tracks contributing: {n_tracks}")
+                # print(f"Adding row {row} for Condition: {cond}, Replicate: {rep}, Frame lag: {lag}, Tracks contributing: {n_tracks}")
                 row = self._insert_at_position(row, 'Replicate', rep, where=1)
-
-            # split MSD confidence interval into low/high bounds if it exists and is a tuple
-            if n_tracks > 1 and f'MSD ci' in row:
-                ci = row[f'MSD ci']
-                row[f'MSD ci{self.CONFIDENCE_LEVEL} low'] = ci[0] if isinstance(ci, tuple) else np.nan
-                row[f'MSD ci{self.CONFIDENCE_LEVEL} high'] = ci[1] if isinstance(ci, tuple) else np.nan
-                del row[f'MSD ci']
 
             rows.append(row)
 
@@ -833,16 +820,18 @@ class Stats:
             self.tier + ['Frame lag'], ignore_index=True
         )
 
+        if 'Replicate' in self.tier:
+            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
+        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
-
         if self.DECIMALS_PLACES:
             df = self.NormDecimals(df)
 
         BaseDataInventory.TimeIntervals = df
 
         return df
-    
 
 
     def FormatDigits(self, df: pd.DataFrame, *, sig_figs: int = None, decimals: int = None) -> pd.DataFrame:
@@ -914,8 +903,106 @@ class Stats:
             df[col] = df[col].apply(lambda x: round(x, decimals) if pd.notnull(x) else x)
 
         return df
-    
 
+
+    def _general_agg_stats(self, df: pd.DataFrame, exclude: list[str], *, group_by: list[str] = ['Track UID']) -> pd.DataFrame:
+        """
+        #### *Computes basic statistics (min, max, mean, sd, sem, median) for all numeric columns in the input DataFrame, excluding core columns.*
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            ***Unstripped Spots DataFrame** containing columns, other than the core <- ``self._COLUMNS['SPOTS']`` columns, with numeric values to be aggregated.*
+
+        exclude : list[str]
+            *List of column names to be excluded from aggregation.*
+
+        group_by : list[str], optional
+            *List of column or index names to group by. Default is ['Track UID'].*
+
+        Returns
+        -------
+        pd.DataFrame
+            *DataFrame with basic statistics for each additional numeric column which is not found in the core <- ``self._COLUMNS['SPOTS']`` columns.*
+        """
+
+        if exclude is None:
+            return pd.DataFrame()
+
+        # Keep only numeric columns and exclude core columns
+        df = df.select_dtypes(include=[np.number]).drop(columns=exclude, errors='ignore')
+
+        # Stash leftover columns
+        other_cols = df.columns.tolist()
+
+        # Group by Track UID
+        grp = df.groupby(level=group_by, sort=False)
+
+        # For each bonus column, compute basic statistics, rename columns, and merge back
+        for col in other_cols:
+            agg = grp[col].agg(['min','max','mean','std','sem','median'])
+
+            agg.columns = [f"{col} min", f"{col} max", f"{col} mean", f"{col} sd", f"{col} sem", f"{col} median"]
+
+            df = df.merge(agg, left_index=True, right_index=True)
+
+        # Drop original columns
+        df.drop(columns=other_cols, inplace=True)
+
+        # drop multiplicates if present
+        df = df.drop_duplicates()
+        
+        return df
+
+
+    def _describe_infer(self, df: pd.DataFrame, group_cols: list[str], *, stats: dict[str, str] | list[str] = None, **kwargs) -> pd.Series:
+
+        if stats is None or stats is []:
+            return df
+
+        # only numeric columns, excluding id/category-like columns
+        value_cols = [c for c in df.columns
+                      if c not in group_cols
+                      and pd.api.types.is_numeric_dtype(df[c])
+                      and not any(s in c for s in kwargs.get('exclude', self._EXCLUDE_SUFFIXES))]
+
+        resolving = self.resolve(stats)
+        resolving_circular = self.resolve(kwargs.get('circular_stats', {'mean': 'circ_mean', 'var': 'circ_var'}))
+
+        # named aggregation so output columns are already flat
+        named_agg = {}
+        for col in value_cols:
+            
+            if any(t in col for t in ['Direction', 'direction', 'Turn', 'turn']) and not col.endswith('var'):
+                for stat_name, func in resolving_circular.items():
+                    named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} {stat_name}"] = (col, func)
+            else:
+                for stat_name, func in resolving.items():
+                    if stat_name != 'ci':
+                        named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} {stat_name}"] = (col, func)
+                    # else:
+                    #     named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} ci{self.CONFIDENCE_LEVEL}"] = (col, func)
+
+        grp_stats = (
+            df.groupby(group_cols, observed=True, sort=False)
+            .agg(**named_agg)
+            .reset_index())
+        
+        # ci_cols = [c for c in grp_stats.columns if c.endswith(f"ci{self.CONFIDENCE_LEVEL}")]
+    
+        # for col in ci_cols:
+        #     # Extract tuples into two Series at once
+        #     ci_values = grp_stats[col]
+        #     grp_stats[f"{col} low"] = ci_values.str[0]   # first element of tuple
+        #     grp_stats[f"{col} high"] = ci_values.str[-1]  # last element of tuple
+        
+        # # Drop original CI columns
+        # if ci_cols:
+        #     grp_stats.drop(columns=ci_cols, inplace=True)
+
+        return df.merge(grp_stats, on=group_cols, how='left')
+    
+    
     def resolve(self, agg_spec: dict[str, str] | list[str]) -> dict[str, str | callable]:
         """
         ***Resolve an aggregation specification dict so that custom names
@@ -959,6 +1046,41 @@ class Stats:
                     )
         return resolved
         
+
+    def _insert_at_position(self, d: dict, key: Any, value: Any = None, *, where: int | str = 0) -> dict:
+        """
+        Insert a key-value pair into a dictionary at a specific position.
+
+        Parameters
+        ----------
+        d : dict
+            *The original dictionary.*
+
+        insert : tuple
+            *The key-value pair to insert.*
+
+        where : int | str, optional (default=0)
+            *The position at which to insert the new key-value pair. If an integer, it is treated as an index. If a string, it is treated as a key name.*
+        """
+
+        items = list(d.items())
+
+        if isinstance(where, int):
+            index = where
+
+        elif isinstance(where, str):
+            keys = [k for k, _ in items]
+            if where not in keys:
+                raise ValueError(f"Key '{where}' not found in dictionary.")
+            index = keys.index(where) + 1
+            
+        else:
+            raise ValueError("Parameter 'where' must be an integer index or a string key.")
+        
+        items.insert(index, (key, value))
+
+        return dict(items)
+
 
     def _wrap_pi(self, a: np.ndarray) -> np.ndarray:
         """Wrap angles in radians to the range [-π, π]."""
@@ -1077,13 +1199,7 @@ class Stats:
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
             
             except Exception as e:
-
-                if self.noticequeue is None:
-                    print(traceback.format_exc())
-                    print(f"PROGRAM ERROR: Confidence interval computation failed: {e}. See the traceback above.")
-                else:
-                    self.noticequeue.Report(Level.error, f'{e} Confidence interval computation failed', traceback.format_exc())
-
+                Reporter(Level.error, f"Confidence interval computation failed: {e}", traceback.format_exc(), noticequeue=self.noticequeue)
                 return (np.nan, np.nan)
     
     def _sem(self, x):
@@ -1094,89 +1210,6 @@ class Stats:
         return x.std(ddof=1) / np.sqrt(n)
 
     
-    def _general_agg_stats(self, df: pd.DataFrame, exclude: list[str], *, group_by: list[str] = ['Track UID']) -> pd.DataFrame:
-        """
-        #### *Computes basic statistics (min, max, mean, sd, sem, median) for all numeric columns in the input DataFrame, excluding core columns.*
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            ***Unstripped Spots DataFrame** containing columns, other than the core <- ``self._COLUMNS['SPOTS']`` columns, with numeric values to be aggregated.*
-
-        exclude : list[str]
-            *List of column names to be excluded from aggregation.*
-
-        group_by : list[str], optional
-            *List of column or index names to group by. Default is ['Track UID'].*
-
-        Returns
-        -------
-        pd.DataFrame
-            *DataFrame with basic statistics for each additional numeric column which is not found in the core <- ``self._COLUMNS['SPOTS']`` columns.*
-        """
-
-        if exclude is None:
-            return pd.DataFrame()
-
-        # Keep only numeric columns and exclude core columns
-        df = df.select_dtypes(include=[np.number]).drop(columns=exclude, errors='ignore')
-
-        # Stash leftover columns
-        other_cols = df.columns.tolist()
-
-        # Group by Track UID
-        grp = df.groupby(level=group_by, sort=False)
-
-        # For each bonus column, compute basic statistics, rename columns, and merge back
-        for col in other_cols:
-            agg = grp[col].agg(['min','max','mean','std','sem','median'])
-
-            agg.columns = [f"{col} min", f"{col} max", f"{col} mean", f"{col} sd", f"{col} sem", f"{col} median"]
-
-            df = df.merge(agg, left_index=True, right_index=True)
-
-        # Drop original columns
-        df.drop(columns=other_cols, inplace=True)
-
-        # drop multiplicates if present
-        df = df.drop_duplicates()
-        
-        return df
-        
-
-    def _insert_at_position(self, d: dict, key: Any, value: Any = None, *, where: int | str = 0) -> dict:
-        """
-        Insert a key-value pair into a dictionary at a specific position.
-
-        Parameters
-        ----------
-        d : dict
-            *The original dictionary.*
-
-        insert : tuple
-            *The key-value pair to insert.*
-
-        where : int | str, optional (default=0)
-            *The position at which to insert the new key-value pair. If an integer, it is treated as an index. If a string, it is treated as a key name.*
-        """
-
-        items = list(d.items())
-
-        if isinstance(where, int):
-            index = where
-
-        elif isinstance(where, str):
-            keys = [k for k, _ in items]
-            if where not in keys:
-                raise ValueError(f"Key '{where}' not found in dictionary.")
-            index = keys.index(where) + 1
-            
-        else:
-            raise ValueError("Parameter 'where' must be an integer index or a string key.")
-        
-        items.insert(index, (key, value))
-
-        return dict(items)
     
 
 
