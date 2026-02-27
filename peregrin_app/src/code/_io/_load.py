@@ -4,7 +4,7 @@ import numpy as np
 import os.path as op
 from typing import List
 
-from .._handlers._reports import Level
+from .._handlers._reports import Level, Reporter
 
 
 def _try_reading(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> pd.DataFrame:
@@ -35,18 +35,23 @@ class DataLoader:
 
         _, ext = op.splitext(filepath.lower())
 
-        if ext not in ['.csv', '.xls', '.xlsx', '.xml', '.json']:
-            noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx, .xml., .json")
+        if ext not in ['.csv', '.xls', '.xlsx', '.xml', '.json', '.parquet']:
+            noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet")
             return None
 
-        if ext == '.csv':
-            return _try_reading(filepath, noticequeue=noticequeue)
-        elif ext in ['.xls', '.xlsx']:
-            return pd.read_excel(filepath)
-        elif ext == '.xml':
-            return pd.read_xml(filepath)
-        else:
-            return pd.read_json(filepath)
+        match ext:
+            case '.csv':
+                return _try_reading(filepath, noticequeue=noticequeue)
+            case '.xls' | '.xlsx':
+                return pd.read_excel(filepath)
+            case '.xml':
+                return pd.read_xml(filepath)
+            case '.parquet':
+                return pd.read_parquet(filepath)
+            case '.json':
+                return pd.read_json(filepath)
+            case _:
+                Reporter(Level.error, f"File format: {ext} is not supported.", "Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet", noticequeue=noticequeue)
         
 
     def ExtractStripped(self, df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
