@@ -392,8 +392,6 @@ input#decimal_places {
     margin-bottom: 4px;
     white-space: normal;
     overflow: visible;
-    /* overflow-wrap: normal; */
-    /* text-overflow: clip; */
 }
 
 .column-body {

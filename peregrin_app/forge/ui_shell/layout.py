@@ -113,9 +113,9 @@ app_ui = ui.page_sidebar(
                 ui.card(
                     ui.card_header(
                         ui.div(
-                            ui.span("Spot stats", style="font-size:18px;"), 
+                            ui.span("Spot stats", style="font-size:18px; white-space:nowrap;"), 
                             ui.div(
-                                ui.div("Max decimals:", style="margin-right:8px; font-weight: normal;"),
+                                ui.div("Max decimals:", style="font-weight: normal; white-space:nowrap;"),
                                 ui.input_numeric(
                                     id="decimal_places",
                                     label=None,
@@ -124,7 +124,7 @@ app_ui = ui.page_sidebar(
                                     step=1,
                                     width="60px"
                                 ),
-                                ui.div("Significant figures:", style="margin-right:8px; margin-left:12px; font-weight: normal;"),
+                                ui.div("Significant figures:", style="margin-left:12px; font-weight: normal; white-space:nowrap;"),
                                 ui.input_numeric(
                                     id="significant_figures",
                                     label=None,
@@ -132,8 +132,8 @@ app_ui = ui.page_sidebar(
                                     min=1,
                                     step=1,
                                     width="60px"
-                                ), style="margin-left:auto; display:flex; align-items:center;",
-                            ), style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:12px;",
+                                ), style="display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px;",
+                            ), style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; width:100%; gap:12px;",
                         ), class_="bg-blue dataframe-card-header",
                     ),
                     ui.div(
@@ -148,6 +148,13 @@ app_ui = ui.page_sidebar(
                         class_="layout"
                     ),
                     ui.output_data_frame("spot_stats"),
+                    ui.div(
+                        ui.div("Show table", style="width: 95px;"),
+                        ui.div(ui.input_switch("show_spot_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
+                        ui.div(ui.input_switch("show_spot_stats_sums", None, True, width="10px"), style="margin-top: 0px;"),
+                        style="display: flex; align-items: right; justify-content: right; flex-wrap: wrap; margin-bottom: -20px; margin-right: 20px;"
+                    ),
                     ui.download_button("download_spot_stats", "Download CSV"),
                     full_screen=True
                 ),
@@ -165,6 +172,13 @@ app_ui = ui.page_sidebar(
                         class_="layout"
                     ),
                     ui.output_data_frame("track_stats"),
+                    ui.div(
+                        ui.div("Show table", style="width: 95px;"),
+                        ui.div(ui.input_switch("show_track_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
+                        ui.div(ui.input_switch("show_track_stats_sums", None, False, width="10px"), style="margin-top: 0px;"),
+                        style="display: flex; align-items: right; justify-content: right; flex-wrap: wrap; margin-bottom: -20px; margin-right: 20px;"
+                    ),
                     ui.download_button("download_track_stats", "Download CSV"),
                     full_screen=True
                 ),
@@ -182,6 +196,13 @@ app_ui = ui.page_sidebar(
                         class_="layout"
                     ),
                     ui.output_data_frame("frame_stats"),
+                    ui.div(
+                        ui.div("Show table", style="width: 95px;"),
+                        ui.div(ui.input_switch("show_frame_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
+                        ui.div(ui.input_switch("show_frame_stats_sums", None, False, width="10px"), style="margin-top: 0px;"),
+                        style="display: flex; align-items: right; justify-content: right; flex-wrap: wrap; margin-bottom: -20px; margin-right: 20px;"
+                    ),
                     ui.download_button("download_frame_stats", "Download CSV"),
                     full_screen=True
                 ),
@@ -201,12 +222,20 @@ app_ui = ui.page_sidebar(
                         class_="layout"
                     ),
                     ui.output_data_frame("tinterval_stats"),
+                    ui.div(
+                        ui.div("Show table", style="width: 95px;"),
+                        ui.div(ui.input_switch("show_tinterval_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
+                        ui.div(ui.input_switch("show_tinterval_stats_sums", None, False, width="10px"), style="margin-top: 0px;"),
+                        style="display: flex; align-items: right; justify-content: right; flex-wrap: wrap; margin-bottom: -20px; margin-right: 20px;"
+                    ),
                     ui.download_button("download_tinterval_stats", "Download CSV"),
                     full_screen=True
                 ),
             ),
             ui.output_ui("initialize_loader2"),
         ),
+
 
         # TODO - _ _ _ _ GATING _ _ _ _
         ui.nav_panel(
@@ -1299,7 +1328,7 @@ app_ui = ui.page_sidebar(
 
         ui.nav_control(
             ui.output_ui("theme_css_injector"),
-            ui.input_dark_mode(id="app_theme")
+            ui.input_dark_mode(id="app_theme", mode="light"),
         ),
         
         title=ui.tags.span(

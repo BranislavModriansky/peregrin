@@ -76,7 +76,8 @@ class Stats:
     })
 
     _EXCLUDE_SUFFIXES = ['per', 'Condition', 'Replicate', 'Track ID', 'Track UID', 'Time point', 'Frame', 'Time lag', 'Frame lag', 'sd', 'var', 'sem', 'q25', 'q75']
-    _DESCR_ERR = ['min', 'max', 'std', 'q25', 'q75']
+    _DESCR     = ['min', 'max', 'mean', 'median', 'q25', 'q75']
+    _DESCR_ERR = ['std']
     _INFER_ERR = ['sem']
 
     _COLUMNS = {
@@ -112,29 +113,23 @@ class Stats:
     }
 
 
-    def __init__(self, pool_replicates: bool = False, *, cat_descr_err: bool = False, cat_infer_err: bool = False, bootstrap: bool = False, **kwargs) -> None:
+    def __init__(self, pool_replicates: bool = False, *, cat_descr: bool = True, cat_descr_err: bool = False, cat_infer_err: bool = False, bootstrap: bool = False, **kwargs) -> None:
 
         self.tier = ['Condition'] if pool_replicates else ['Condition', 'Replicate']
         self.noticequeue = kwargs.get('noticequeue', None)
 
+        self.cat_descr = cat_descr
         self.cat_descr_err = cat_descr_err
         self.cat_infer_err = cat_infer_err
-        
-        if cat_descr_err:
-            self.DESCR_ERR = self._DESCR_ERR
-        else:
-            self.DESCR_ERR = None
 
-        if cat_infer_err:
-            self.INFER_ERR = self._INFER_ERR
-        else:
-            self.INFER_ERR = None
+        # Build infer-stat list first (bootstrap controls whether CI is included)
+        base_infer = ['sem', 'ci'] if bootstrap else ['sem']
 
-        if bootstrap:
-            self._INFER_ERR = ['sem', 'ci']
-        else:
-            self._INFER_ERR = ['sem']
-        
+        # Always keep these as lists (never None) to avoid list-concat bugs later
+        self.DESCR     = list(self._DESCR) if cat_descr else []
+        self.DESCR_ERR = list(self._DESCR_ERR) if cat_descr_err else []
+        self.INFER_ERR = list(base_infer) if cat_infer_err else []
+
         self.CUSTOM_AGG_FUNCTIONS = {
             'q25':        self._q25,
             'q75':        self._q75,
@@ -318,9 +313,13 @@ class Stats:
         # Drop (if any) present all nan columns  
         df.dropna(how='all', axis='columns', inplace=True)
 
+        descr = self.DESCR_ERR + self.DESCR
+
         if 'Replicate' in self.tier:
-            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
-        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=descr)
+
+        combined_stats = descr + self.INFER_ERR
+        df = self._describe_infer(df, group_cols=['Condition'], stats=combined_stats)
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -466,9 +465,15 @@ class Stats:
             )
             df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
 
+
+        descr = self.DESCR_ERR + self.DESCR
+
         if 'Replicate' in self.tier:
-            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
-        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=descr)
+
+        combined_stats = descr + self.INFER_ERR
+        if combined_stats:
+            df = self._describe_infer(df, group_cols=['Condition'], stats=combined_stats)
         
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -483,54 +488,19 @@ class Stats:
     def Frames(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         #### *Computes time point statistics aggregated across tracks for each tier × Time point.*
-        
-        Parameters
-        ----------
-        df : pd.DataFrame
-            ***(Spots) Input DataFrame must contain (at minimum) these columns:***
-            - ``Condition``
-            - ``Replicate``
-            - ``Time point``
-            - ``Frame``
-            - ``Cumulative track length``
-            - ``Cumulative track displacement``
-            - ``Cumulative straightness index``
-            - ``Distance``
-            - ``Direction``
 
-        Returns
-        -------
-        pd.DataFrame
-            ***A DataFrame with one row per unique tier × Time point. Contains following columns:***
-
-            For each of **``Cumulative track length``**, **``Cumulative track displacement``**, **``Cumulative straightness index``**, **``Cumulative speed``**, **``Distance => Instantaneous speed``** ***metrics***:
-            - ***metric*``min``**:        *minimum value of a given metric across tracks at that time point.*
-            - ***metric*``max``**:        *maximum value of a given metric across tracks at that time point.*
-            - ***metric*``mean``**:       *mean value of a given metric across tracks at that time point.*
-            - ***metric*``sd``**:         *standard deviation of a given metric across tracks at that time point.*
-            - ***metric*``median``**:     *median value of a given metric across tracks at that time point.*
-            - ***metric*``q25``**:        *25th percentile of a given metric across tracks at that time point.*
-            - ***metric*``q75``**:        *75th percentile of a given metric across tracks at that time point.*
-            \n
-            Circular statistics:
-
-            - **``Instantaneous direction mean``**:
-            Mean of **``Direction => Instantaneous direction``** across tracks at that time point.
-
-            - **``Instantaneous direction var``**:
-            Circular variance of **``Direction => Instantaneous direction``** across tracks at that time point.
-
-            - **``Cumulative direction global mean``**:
-            Mean of **``Cumulative direction mean``** across tracks at that time point.
-
-            - **``Cumulative direction global var``**:
-            Circular variance of **``Cumulative direction mean``** across tracks at that time point.
+        Supports category-labeled outputs:
+        - `{per replicate}` when working with replicates
+        - `{per condition}` when pooled or when optional condition-level stats are attached
         """
 
-        # Keep output labels consistent with your docstring
-        group_cols = self.tier + ['Time point','Frame']
+        reps = 'Replicate' in self.tier
+        base_prefix = '{per replicate}' if reps else '{per condition}'
+        add_conds = reps and (self.cat_descr or self.cat_descr_err or self.cat_infer_err)
 
-        # Base metric names (Distance later rewritten to Instantaneous speed)
+        group_cols = self.tier + ['Time point', 'Frame']
+        cond_group_cols = ['Condition', 'Time point', 'Frame']
+
         metrics = [
             'Cumulative track length',
             'Cumulative track displacement',
@@ -538,117 +508,104 @@ class Stats:
             'Cumulative speed',
             'Distance',
         ]
-
-        # Map metrics to output labels
         metric_out = {m: m for m in metrics}
-        # Rename 'Distance' to 'Instantaneous speed'
         metric_out['Distance'] = 'Instantaneous speed'
 
-        # An empty DataFrame equivalent
+        # Stats are driven by configured category lists
+        requested_stats = list(dict.fromkeys(self.DESCR + self.DESCR_ERR + self.INFER_ERR))
+        resolved_stats = self.resolve(requested_stats) if requested_stats else {}
+
+        def _stat_label(stat_name: str) -> str:
+            return 'sd' if stat_name == 'std' else stat_name
+
+        def _build_expected_cols(prefixes: list[str]) -> list[str]:
+            cols = []
+            for pfx in prefixes:
+                for m in metrics:
+                    mout = metric_out[m]
+                    for s in requested_stats:
+                        if s == 'ci':
+                            cols.append(f'{pfx} {mout} ci{self.CONFIDENCE_LEVEL} low')
+                            cols.append(f'{pfx} {mout} ci{self.CONFIDENCE_LEVEL} high')
+                        else:
+                            cols.append(f'{pfx} {mout} {_stat_label(s)}')
+
+            cols.extend([
+                f'{pfx} Instantaneous direction mean',
+                f'{pfx} Instantaneous direction var',
+                f'{pfx} Cumulative direction global mean',
+                f'{pfx} Cumulative direction global var',
+            ])
+            return cols
+
         if df is None or df.empty:
-            Reporter(Level.warning, f"Input DataFrame to Frames method is empty; no computations performed.", noticequeue=self.noticequeue)
-            stats_cols = ['min','max','mean','sd','sem','median','q25','q75',f'ci{self.CONFIDENCE_LEVEL} low',f'ci{self.CONFIDENCE_LEVEL} high']
-            cols = (
-                group_cols
-                + [f"{metric_out[m]} {s}" for m in metrics for s in stats_cols]
-                + ['Instantaneous direction mean', 'Instantaneous direction var',
-                   'Cumulative direction global mean', 'Cumulative direction global var']
-            )
+            Reporter(Level.warning, "Input DataFrame to Frames method is empty; no computations performed.", noticequeue=self.noticequeue)
+            prefixes = [base_prefix] + (['{per condition}'] if add_conds else [])
+            cols = group_cols + _build_expected_cols(prefixes)
             return pd.DataFrame(columns=cols)
 
-        # Resolve the aggregation spec for scalar stats via resolve()
-        scalar_agg_spec = self.resolve({
-            'min':    'min',
-            'max':    'max',
-            'mean':   'mean',
-            'std':    'std',
-            'median': 'median',
-            'count':  'count',
-            'q25':    'q25',
-            'q75':    'q75',
-        })
+        def _compute_level(source: pd.DataFrame, by_cols: list[str], prefix: str) -> pd.DataFrame:
+            g = source.groupby(by_cols, sort=False, observed=True)
+            out = pd.DataFrame(index=g.size().index)
 
-        # One groupby for all metrics
-        g = df.groupby(group_cols, sort=False, observed=True)
+            # Scalar stats
+            for m in metrics:
+                mout = metric_out[m]
+                sgroup = g[m]
 
-        # Assemble the DataFrame
-        out = pd.DataFrame(index=g.ngroups and g[metrics[0]].mean().index)
+                for s, func in resolved_stats.items():
+                    if s == 'ci':
+                        ci = sgroup.agg(func)
+                        out[f'{prefix} {mout} ci{self.CONFIDENCE_LEVEL} low'] = ci.apply(
+                            lambda x: x[0] if isinstance(x, tuple) and len(x) == 2 else np.nan
+                        )
+                        out[f'{prefix} {mout} ci{self.CONFIDENCE_LEVEL} high'] = ci.apply(
+                            lambda x: x[1] if isinstance(x, tuple) and len(x) == 2 else np.nan
+                        )
+                    else:
+                        out[f'{prefix} {mout} {_stat_label(s)}'] = sgroup.agg(func)
 
-        # Per-metric calculation of statistics using resolved functions
-        for m in metrics:
+            # Circular stats
+            tmp = source[by_cols + ['Direction', 'Cumulative direction mean']].copy()
+            dir_vals = pd.to_numeric(tmp['Direction'], errors='coerce').to_numpy(dtype=float)
+            cum_vals = pd.to_numeric(tmp['Cumulative direction mean'], errors='coerce').to_numpy(dtype=float)
 
-            # Output label for the metric
-            mout = metric_out[m]
-            series_group = g[m]
+            tmp['_sin_dir'] = np.sin(dir_vals)
+            tmp['_cos_dir'] = np.cos(dir_vals)
+            tmp['_sin_cum'] = np.sin(cum_vals)
+            tmp['_cos_cum'] = np.cos(cum_vals)
 
-            # Apply each resolved aggregation function
-            results = {}
-            for label, func in scalar_agg_spec.items():
-                results[label] = series_group.agg(func)
+            circ = tmp.groupby(by_cols, sort=False, observed=True).agg(
+                sin_dir=('_sin_dir', 'mean'),
+                cos_dir=('_cos_dir', 'mean'),
+                sin_cum=('_sin_cum', 'mean'),
+                cos_cum=('_cos_cum', 'mean'),
+            )
 
-            vmin    = results['min']
-            vmax    = results['max']
-            vmean   = results['mean']
-            vsd     = results['std']
-            vmed    = results['median']
-            vq25    = results['q25']
-            vq75    = results['q75']
+            out[f'{prefix} Instantaneous direction mean'] = np.arctan2(circ['sin_dir'], circ['cos_dir'])
+            out[f'{prefix} Instantaneous direction var'] = 1.0 - np.hypot(circ['sin_dir'], circ['cos_dir'])
 
-            out[f'{mout} min']      = vmin
-            out[f'{mout} max']      = vmax
-            out[f'{mout} mean']     = vmean
-            out[f'{mout} sd']       = vsd
-            out[f'{mout} median']   = vmed
-            out[f'{mout} q25']      = vq25
-            out[f'{mout} q75']      = vq75
+            out[f'{prefix} Cumulative direction global mean'] = np.arctan2(circ['sin_cum'], circ['cos_cum'])
+            out[f'{prefix} Cumulative direction global var'] = 1.0 - np.hypot(circ['sin_cum'], circ['cos_cum'])
 
-        # Computes both instantaneous direction (from 'Direction') and cumulative direction (from 'Cumulative direction mean') stats
-        tmp = df[group_cols + ['Direction', 'Cumulative direction mean']].copy()
+            return out.reset_index()
 
-        # Convert to numeric, coercing errors to NaN, then to numpy arrays (for sin/cos calculations)
-        dir_vals = pd.to_numeric(tmp['Direction'], errors='coerce').to_numpy(dtype=float)
-        cum_vals = pd.to_numeric(tmp['Cumulative direction mean'], errors='coerce').to_numpy(dtype=float)
+        # Base level (per replicate or per condition)
+        base_df = _compute_level(df, group_cols, base_prefix)
 
-        # Calculate sin and cos for both directions and store in temporary columns
-        tmp['_sin_dir'] = np.sin(dir_vals)
-        tmp['_cos_dir'] = np.cos(dir_vals)
-        tmp['_sin_cum'] = np.sin(cum_vals)
-        tmp['_cos_cum'] = np.cos(cum_vals)
-
-        # Group by the same keys and calculate mean of sin and cos components for both directions
-        circ = tmp.groupby(group_cols, sort=False, observed=True).agg(
-            sin_dir=('_sin_dir', 'mean'),
-            cos_dir=('_cos_dir', 'mean'),
-            sin_cum=('_sin_cum', 'mean'),
-            cos_cum=('_cos_cum', 'mean'),
-        )
-
-        # Calculate circular mean and variance for Instantaneous direction
-        out['Instantaneous direction mean'] = np.arctan2(circ['sin_dir'], circ['cos_dir'])
-        R_dir = np.hypot(circ['sin_dir'], circ['cos_dir'])
-        out['Instantaneous direction var'] = (1.0 - R_dir)
-
-        # Calculate global circular mean and variance for Cumulative direction mean
-        out['Cumulative direction global mean'] = np.arctan2(circ['sin_cum'], circ['cos_cum'])
-        R_cum = np.hypot(circ['sin_cum'], circ['cos_cum'])
-        out['Cumulative direction global var'] = (1.0 - R_cum)
-
-        # Reset index to columns
-        df = out.reset_index()
-
-        # if 'Replicate' in self.tier:
-        #     df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
-        # df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+        # Optional per-condition stats attached to replicate rows (TimeIntervals-like behavior)
+        if add_conds:
+            cond_df = _compute_level(df, cond_group_cols, '{per condition}')
+            base_df = base_df.merge(cond_df, on=cond_group_cols, how='left')
 
         if self.SIGNIFICANT_FIGURES:
-            df = self.Signify(df)
+            base_df = self.Signify(base_df)
         if self.DECIMALS_PLACES:
-            df = self.NormDecimals(df)
+            base_df = self.NormDecimals(base_df)
 
-        BaseDataInventory.Frames = df
-
-        return df
-
+        BaseDataInventory.Frames = base_df
+        return base_df
+    
 
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -710,6 +667,9 @@ class Stats:
         per_track_msd = defaultdict(list)
         per_track_turn_mean = defaultdict(list)
 
+        reps = 'Replicate' in self.tier
+        add_conds = reps and (self.cat_descr or self.cat_descr_err or self.cat_infer_err)
+
         # Iterate through tracks -> accepts Track UID either as an ordinary column or an index
         for _, g in df.groupby(level='Track UID', sort=False):
 
@@ -727,7 +687,8 @@ class Stats:
             x = g['X coordinate'].to_numpy()
             y = g['Y coordinate'].to_numpy()
             cond = g['Condition'].iloc[0]
-            rep  = g['Replicate'].iloc[0] if 'Replicate' in self.tier else None
+            rep  = g['Replicate'].iloc[0] if reps else None
+
 
             # Displacements between consecutive points -> Angles
             dx1 = x[1:] - x[:-1]
@@ -744,8 +705,10 @@ class Stats:
                 # Mean squared displacement
                 if dx.size > 0:
                     msd_track = float((dx**2 + dy**2).mean())
-                    if rep is not None:
+                    if reps:
                         per_track_msd[(cond, rep, lag)].append(msd_track)
+                        if add_conds:
+                            per_track_msd[(cond, lag)].append(msd_track)
                     else:
                         per_track_msd[(cond, lag)].append(msd_track)
 
@@ -753,8 +716,10 @@ class Stats:
                 if theta.size > lag:
                     dtheta = self._wrap_pi(theta[lag:] - theta[:-lag])
                     if dtheta.size > 0:
-                        if rep is not None:
+                        if reps:
                             per_track_turn_mean[(cond, rep, lag)].append(self._circ_mean(dtheta))
+                            if add_conds:
+                                per_track_turn_mean[(cond, lag)].append(self._circ_mean(dtheta))
                         else:
                             per_track_turn_mean[(cond, lag)].append(self._circ_mean(dtheta))
 
@@ -765,101 +730,86 @@ class Stats:
         # Summarize computed mean squared displacements and turning angles across tracks
         keys = set(per_track_msd.keys()) | set(per_track_turn_mean.keys())
 
-        # Initialize list of rows for the output DataFrame
+        # If working per-replicate, only create base rows for (cond, rep, lag).
+        # Condition-level stats are then attached to these rows when add_conds=True.
+        if reps:
+            keys = {k for k in keys if len(k) == 3}
+
         rows = []
+        cat = '{per replicate}' if reps else '{per condition}'
 
-        # Create a category label for the current aggregation level (per replicate or per condition) <- used in naming columns
-        cat = '{per replicate}' if rep is not None else '{per condition}'
-
-        # Determine if we need to compute descriptive/inferential error stats for not just replicates (if by replicate grouping is applied)
-        # but also for the condition-level summary (when condition-level error stats are requested)
-        add_conds = cat == '{per replicate}' and (self.cat_descr_err or self.cat_infer_err)
-        print(f"add_conds: {add_conds}")
-
-        # Iterate through each unique tier × Time lag combination and compute summary statistics
-        tlag_tiers = sorted(keys, key=lambda k: (k[0], k[1], k[2])) if rep is not None else sorted(keys, key=lambda k: (k[0], k[1]))
-        for tlgtier in tlag_tiers:
-
-            # Extract condition, replicate, and lag from the tier tuple
-            cond = tlgtier[0]
-            lag = tlgtier[-1]
-
-            rep = tlgtier[1] if len(tlgtier) == 3 else None
-
-            # Mean squared displacement statistics across tracks
-            if rep is not None:
-                arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
+        for key in keys:
+            if len(key) == 3:
+                cond, rep, lag = key
+                is_rep_row = True
             else:
-                arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
-            cat_n_tracks = arr.size
-    
-            # If condition-level error stats are requested, also compute the MSD array for the condition-level summary
-            if add_conds:
-                cond_arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
-                cond_tracks = cond_arr.size
+                cond, lag = key
+                rep = None
+                is_rep_row = False
 
-            # Turning angle statistics across tracks (uses class circular stats methods)
-            if rep is not None:
+            if is_rep_row:
+                arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
                 turn_means = np.asarray(per_track_turn_mean.get((cond, rep, lag), []), dtype=float)
             else:
+                arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
                 turn_means = np.asarray(per_track_turn_mean.get((cond, lag), []), dtype=float)
+
+            cat_n_tracks = arr.size
             turn_mean_agg = self._circ_mean(turn_means) if turn_means.size else np.nan
             turn_var_agg = self._circ_var(turn_means) if turn_means.size else np.nan
 
-            # If condition-level error stats are requested, also compute the turning angle array for the condition-level summary
-            if add_conds:
+            if add_conds and is_rep_row:
+                cond_arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
+                cond_n_tracks = cond_arr.size
                 turn_cond_means = np.asarray(per_track_turn_mean.get((cond, lag), []), dtype=float)
-                turn_mean_agg = self._circ_mean(turn_cond_means) if turn_cond_means.size else np.nan
-                turn_var_agg = self._circ_var(turn_cond_means) if turn_cond_means.size else np.nan
+                cond_turn_mean_agg = self._circ_mean(turn_cond_means) if turn_cond_means.size else np.nan
+                cond_turn_var_agg = self._circ_var(turn_cond_means) if turn_cond_means.size else np.nan
 
-            # Use custom agg functions for MSD summary statistics
             row = {
                 'Condition': cond,
                 'Frame lag': lag,
                 'Time lag': lag * t_step,
                 f'{cat} Tracks contributing': int(max(cat_n_tracks, turn_means.size)),
 
-                f'{cat} MSD min':    float(arr.min()) if cat_n_tracks else np.nan,
-                f'{cat} MSD max':    float(arr.max()) if cat_n_tracks else np.nan,
-                f'{cat} MSD mean':   float(arr.mean()) if cat_n_tracks else np.nan,
-                f'{cat} MSD sd':     float(arr.std(ddof=1)) if cat_n_tracks > 1 else np.nan,
-                f'{cat} MSD median': float(np.median(arr)) if cat_n_tracks else np.nan,
-                f'{cat} MSD q25':    float(self._q25(arr)) if cat_n_tracks else np.nan,
-                f'{cat} MSD q75':    float(self._q75(arr)) if cat_n_tracks else np.nan,
+                f'{cat} MSD min':    float(arr.min()) if cat_n_tracks else None,
+                f'{cat} MSD max':    float(arr.max()) if cat_n_tracks else None,
+                f'{cat} MSD mean':   float(arr.mean()) if cat_n_tracks else None,
+                f'{cat} MSD sd':     float(arr.std(ddof=1)) if cat_n_tracks > 1 else None,
+                f'{cat} MSD median': float(np.median(arr)) if cat_n_tracks else None,
+                f'{cat} MSD q25':    float(self._q25(arr)) if cat_n_tracks else None,
+                f'{cat} MSD q75':    float(self._q75(arr)) if cat_n_tracks else None,
 
-                f'{cat} Turn mean': np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else np.nan,
-                f'{cat} Turn var': turn_var_agg,
+                f'{cat} Turn mean': np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else None,
+                f'{cat} Turn var': turn_var_agg if not np.isnan(turn_var_agg) else None,
             }
 
-            if add_conds:
+            if add_conds and is_rep_row:
+                if self.cat_descr:
+                    row.update({
+                        '{per condition} MSD max':    float(cond_arr.max()) if cond_n_tracks else None,
+                        '{per condition} MSD mean':   float(cond_arr.mean()) if cond_n_tracks else None,
+                        '{per condition} MSD median': float(np.median(cond_arr)) if cond_n_tracks else None,
+                        '{per condition} MSD q25':    float(self._q25(cond_arr)) if cond_n_tracks else None,
+                        '{per condition} MSD q75':    float(self._q75(cond_arr)) if cond_n_tracks else None,
+                        '{per condition} Turn mean':  np.rad2deg(np.abs(cond_turn_mean_agg)) if not np.isnan(cond_turn_mean_agg) else None,
+                    })
+    
                 if self.cat_descr_err:
-                    
                     row.update({
-                        f'{{per condition}} MSD min':    float(cond_arr.min()) if cond_tracks else np.nan,
-                        f'{{per condition}} MSD max':    float(cond_arr.max()) if cond_tracks else np.nan,
-                        f'{{per condition}} MSD mean':   float(cond_arr.mean()) if cond_tracks else np.nan,
-                        f'{{per condition}} MSD sd':     float(cond_arr.std(ddof=1)) if cond_tracks > 1 else np.nan,
-                        f'{{per condition}} MSD median': float(np.median(cond_arr)) if cond_tracks else np.nan,
-                        f'{{per condition}} MSD q25':    float(self._q25(cond_arr)) if cond_tracks else np.nan,
-                        f'{{per condition}} MSD q75':    float(self._q75(cond_arr)) if cond_tracks else np.nan,
-
-                        f'{{per condition}} Turn mean':  np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else np.nan,
-                        f'{{per condition}} Turn var':   turn_var_agg, 
+                        '{per condition} MSD sd':     float(cond_arr.std(ddof=1)) if cond_n_tracks > 1 else None,
+                        '{per condition} Turn var':   cond_turn_var_agg if not np.isnan(cond_turn_var_agg) else None,
                     })
-                
+
                 if self.cat_infer_err:
-                    ci_low, ci_high = self._ci(cond_arr) if cond_tracks > 1 else (np.nan, np.nan)
+                    ci_low, ci_high = self._ci(cond_arr) if cond_n_tracks > 1 else (None, None)
                     row.update({
-                        f'{{per condition}} MSD sem':    float(self._sem(cond_arr)) if cond_tracks > 1 else np.nan,
-
-                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} low': ci_low,
-                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} high': ci_high,
+                        '{per condition} MSD sem':    float(self._sem(cond_arr)) if cond_n_tracks > 1 else None,
+                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} low':  ci_low if ci_low is not None and not np.isnan(ci_low) else None,
+                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} high': ci_high if ci_high is not None and not np.isnan(ci_high) else None,
                     })
 
-                if self.cat_infer_err or self.cat_descr_err:
-                    row.update({
-                        f'{{per condition}} Tracks contributing': int(cond_tracks),
-                    })
+                if self.cat_descr or self.cat_infer_err or self.cat_descr_err:
+                    row.update({'{per condition} Tracks contributing': int(cond_n_tracks)})
 
             if rep is not None:
                 row = self._insert_at_position(row, 'Replicate', rep, where=1)
@@ -870,9 +820,8 @@ class Stats:
             self.tier + ['Frame lag'], ignore_index=True
         )
 
-        # if 'Replicate' in self.tier:
-        #     df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
-        # df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+        # JSON-safe cleanup for Shiny/front-end serializers (no NaN/Inf in strict JSON)
+        df = df.replace([np.inf, -np.inf], np.nan)
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -880,7 +829,6 @@ class Stats:
             df = self.NormDecimals(df)
 
         BaseDataInventory.TimeIntervals = df
-
         return df
 
 
@@ -1006,8 +954,7 @@ class Stats:
 
 
     def _describe_infer(self, df: pd.DataFrame, group_cols: list[str], *, stats: dict[str, str] | list[str] = None, **kwargs) -> pd.Series:
-
-        if stats is None or stats is []:
+        if not stats:
             return df
 
         # only numeric columns, excluding id/category-like columns
@@ -1030,25 +977,13 @@ class Stats:
                 for stat_name, func in resolving.items():
                     if stat_name != 'ci':
                         named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} {stat_name}"] = (col, func)
-                    # else:
-                    #     named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} ci{self.CONFIDENCE_LEVEL}"] = (col, func)
+                    else:
+                        named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} ci{self.CONFIDENCE_LEVEL}"] = (col, func)
 
         grp_stats = (
             df.groupby(group_cols, observed=True, sort=False)
             .agg(**named_agg)
             .reset_index())
-        
-        # ci_cols = [c for c in grp_stats.columns if c.endswith(f"ci{self.CONFIDENCE_LEVEL}")]
-    
-        # for col in ci_cols:
-        #     # Extract tuples into two Series at once
-        #     ci_values = grp_stats[col]
-        #     grp_stats[f"{col} low"] = ci_values.str[0]   # first element of tuple
-        #     grp_stats[f"{col} high"] = ci_values.str[-1]  # last element of tuple
-        
-        # # Drop original CI columns
-        # if ci_cols:
-        #     grp_stats.drop(columns=ci_cols, inplace=True)
 
         return df.merge(grp_stats, on=group_cols, how='left')
     
@@ -1168,12 +1103,20 @@ class Stats:
 
     def _q25(self, a: np.ndarray) -> float:
         """Lower bound of the interquartile range = Q1."""
-        return np.nanpercentile(a, 25)
+        a = np.asarray(a, dtype=float)
+        a = a[np.isfinite(a)]  # drop NaN/Inf
+        if a.size == 0:
+            return np.nan
+        return float(np.percentile(a, 25))
     
 
     def _q75(self, a: np.ndarray) -> float:
         """Upper bound of the interquartile range = Q3."""
-        return np.nanpercentile(a, 75)
+        a = np.asarray(a, dtype=float)
+        a = a[np.isfinite(a)]  # drop NaN/Inf
+        if a.size == 0:
+            return np.nan
+        return float(np.percentile(a, 75))
     
 
     def _ci(self, a, *, n_resamples: int | None = None, confidence_level: float | None = None, **kwargs) -> tuple[float, float]:
@@ -1252,12 +1195,19 @@ class Stats:
                 Reporter(Level.error, f"Confidence interval computation failed: {e}", traceback.format_exc(), noticequeue=self.noticequeue)
                 return (np.nan, np.nan)
     
-    def _sem(self, x):
+    def _sem(self, x: np.ndarray | pd.Series) -> float:
         """Standard error of the mean."""
-        n = x.count()
-        if n < 2:
-            return np.nan
-        return x.std(ddof=1) / np.sqrt(n)
+        if isinstance(x, np.ndarray):
+            # x = x[~np.isnan(x)]
+            n = len(x)
+            if n < 2:
+                return np.nan
+            return np.std(x, ddof=1) / np.sqrt(n)
+        else:
+            n = x.count()
+            if n < 2:
+                return np.nan
+            return x.std(ddof=1) / np.sqrt(n)
 
     
     

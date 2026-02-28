@@ -172,56 +172,116 @@ def mount_data_display(input, output, session, S):
         req(S.TINTERVALSUMMARY.get() is not None and "general" in S.TINTERVALSUMMARY.get())
         return rend_summary(S.TINTERVALSUMMARY.get()["general"])
 
+
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_spot_summaries():
+        return rend_summaries(S.SPOTSUMMARY.get()["columns"], "spots")
+
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_track_summaries():
+        return rend_summaries(S.TRACKSUMMARY.get()["columns"], "tracks")
+    
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_frame_summaries():
+        return rend_summaries(S.FRAMESUMMARY.get()["columns"], "frames")
+    
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_tinterval_summaries():
+        return rend_summaries(S.TINTERVALSUMMARY.get()["columns"], "tintervals")
+    
+
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_spots_tbl():
+        return Stats().FormatDigits(S.SPOTSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+    
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_tracks_tbl():
+        return Stats().FormatDigits(S.TRACKSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+    
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_frames_tbl():
+        return Stats().FormatDigits(S.FRAMESTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+    
+    @DebounceCalc(3)
+    @reactive.calc
+    def _rend_tintervals_tbl():
+        return Stats().FormatDigits(S.TINTERVALSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+    
+
     @output
     @render.ui
     def spots_summaries():
         req(S.SPOTSUMMARY.get() is not None and "columns" in S.SPOTSUMMARY.get())
-        return rend_summaries(S.SPOTSUMMARY.get()["columns"], "spots")
-    
+        if not input.show_spot_stats_sums():
+            return
+        return _rend_spot_summaries()
+
     @output
     @render.ui
     def tracks_summaries():
         req(S.TRACKSUMMARY.get() is not None and "columns" in S.TRACKSUMMARY.get())
-        return rend_summaries(S.TRACKSUMMARY.get()["columns"], "tracks")
+        if not input.show_track_stats_sums():
+            return
+        return _rend_track_summaries()
     
     @output
     @render.ui
     def frame_summaries():
         req(S.FRAMESUMMARY.get() is not None and "columns" in S.FRAMESUMMARY.get())
-        return rend_summaries(S.FRAMESUMMARY.get()["columns"], "frames")
-    
+        if not input.show_frame_stats_sums():
+            return
+        return _rend_frame_summaries()
+
     @output
     @render.ui
     def tinterval_summaries():
         req(S.TINTERVALSUMMARY.get() is not None and "columns" in S.TINTERVALSUMMARY.get())
-        return rend_summaries(S.TINTERVALSUMMARY.get()["columns"], "tintervals")
+        if not input.show_tinterval_stats_sums():
+            return
+        return _rend_tinterval_summaries()
+
+
 
     @output
     @render.data_frame
     def spot_stats():
-        req(S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty)
-        return Stats().FormatDigits(S.SPOTSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        req(not is_empty(S.SPOTSTATS.get()))
+        if not input.show_spot_stats_tbl():
+            return
+        return _rend_spots_tbl()
 
     @output
     @render.data_frame
     def track_stats():
-        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
-        return Stats().FormatDigits(S.TRACKSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        req(not is_empty(S.TRACKSTATS.get()))
+        if not input.show_track_stats_tbl():
+            return
+        return _rend_tracks_tbl()
     
     @output
     @render.data_frame
     def frame_stats():
-        req(S.FRAMESTATS.get() is not None and not S.FRAMESTATS.get().empty)
-        return Stats().FormatDigits(S.FRAMESTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
-
+        req(not is_empty(S.FRAMESTATS.get()))
+        if not input.show_frame_stats_tbl():
+            return
+        return _rend_frames_tbl()
+    
     @output
     @render.data_frame
     def tinterval_stats():
-        req(S.TINTERVALSTATS.get() is not None and not S.TINTERVALSTATS.get().empty)
-        return Stats().FormatDigits(S.TINTERVALSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        req(not is_empty(S.TINTERVALSTATS.get()))
+        if not input.show_tinterval_stats_tbl():
+            return
+        return _rend_tintervals_tbl()
     
 
-    
     
     @reactive.effect
     @reactive.event(S.SPOTSUMMARY)
