@@ -1,17 +1,16 @@
-### Shinyapps:
-*https://docs.posit.co/shinyapps.io/guide/getting_started/*
+# Shiny deployment workflows
 
-### Shinylive:
+
+## Shinylive:
+
 ```bash
 shinylive export ./peregrin_app docs
 ```
 
 
+##### *Preview of the created `index.html` file:*
 
-<!-- 
-
-html:
-
+```html
 
 <!doctype html>
 <html lang="en">
@@ -52,4 +51,9 @@ html:
   </body>
 </html>
 
- -->
+```
+
+
+## Shinyapps:
+
+For deployment with shinyapps.io visit: *https://docs.posit.co/shinyapps.io/guide/getting_started/*

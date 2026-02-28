@@ -403,9 +403,8 @@ input#decimal_places {
     font-weight: 600;
     font-size: 14px;
     margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
 }
 
 .column-body {

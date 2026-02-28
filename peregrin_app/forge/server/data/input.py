@@ -51,10 +51,10 @@ def mount_data_input(input, output, session, S, noticequeue):
                                     style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
                                 ),
                                 ui.input_checkbox("decriptive_error", "Compute descriptive error stats per category", True),
-                                ui.input_checkbox("inferential_error", "Compute inferential error stats per category", True),
+                                ui.input_checkbox("inferential_error", "Compute inferential error stats per category", False),
                                 ui.panel_conditional(
                                     "input.inferential_error",
-                                    ui.input_checkbox("confidence_intervals", "Compute confidence intervals", False),
+                                    ui.input_checkbox("confidence_intervals", "Compute bootstrap confidence intervals", False),
                                     ui.panel_conditional(
                                         "input.confidence_intervals",
                                         ui.div(
