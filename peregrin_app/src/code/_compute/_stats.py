@@ -116,6 +116,9 @@ class Stats:
 
         self.tier = ['Condition'] if pool_replicates else ['Condition', 'Replicate']
         self.noticequeue = kwargs.get('noticequeue', None)
+
+        self.cat_descr_err = cat_descr_err
+        self.cat_infer_err = cat_infer_err
         
         if cat_descr_err:
             self.DESCR_ERR = self._DESCR_ERR
@@ -633,9 +636,9 @@ class Stats:
         # Reset index to columns
         df = out.reset_index()
 
-        if 'Replicate' in self.tier:
-            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
-        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+        # if 'Replicate' in self.tier:
+        #     df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
+        # df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -765,6 +768,14 @@ class Stats:
         # Initialize list of rows for the output DataFrame
         rows = []
 
+        # Create a category label for the current aggregation level (per replicate or per condition) <- used in naming columns
+        cat = '{per replicate}' if rep is not None else '{per condition}'
+
+        # Determine if we need to compute descriptive/inferential error stats for not just replicates (if by replicate grouping is applied)
+        # but also for the condition-level summary (when condition-level error stats are requested)
+        add_conds = cat == '{per replicate}' and (self.cat_descr_err or self.cat_infer_err)
+        print(f"add_conds: {add_conds}")
+
         # Iterate through each unique tier × Time lag combination and compute summary statistics
         tlag_tiers = sorted(keys, key=lambda k: (k[0], k[1], k[2])) if rep is not None else sorted(keys, key=lambda k: (k[0], k[1]))
         for tlgtier in tlag_tiers:
@@ -772,7 +783,6 @@ class Stats:
             # Extract condition, replicate, and lag from the tier tuple
             cond = tlgtier[0]
             lag = tlgtier[-1]
-            # print(f"Processing Condition: {cond}, Replicate: {rep}, Frame lag: {lag}")
 
             rep = tlgtier[1] if len(tlgtier) == 3 else None
 
@@ -781,7 +791,12 @@ class Stats:
                 arr = np.asarray(per_track_msd.get((cond, rep, lag), []), dtype=float)
             else:
                 arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
-            n_tracks = arr.size
+            cat_n_tracks = arr.size
+    
+            # If condition-level error stats are requested, also compute the MSD array for the condition-level summary
+            if add_conds:
+                cond_arr = np.asarray(per_track_msd.get((cond, lag), []), dtype=float)
+                cond_tracks = cond_arr.size
 
             # Turning angle statistics across tracks (uses class circular stats methods)
             if rep is not None:
@@ -791,27 +806,62 @@ class Stats:
             turn_mean_agg = self._circ_mean(turn_means) if turn_means.size else np.nan
             turn_var_agg = self._circ_var(turn_means) if turn_means.size else np.nan
 
+            # If condition-level error stats are requested, also compute the turning angle array for the condition-level summary
+            if add_conds:
+                turn_cond_means = np.asarray(per_track_turn_mean.get((cond, lag), []), dtype=float)
+                turn_mean_agg = self._circ_mean(turn_cond_means) if turn_cond_means.size else np.nan
+                turn_var_agg = self._circ_var(turn_cond_means) if turn_cond_means.size else np.nan
+
             # Use custom agg functions for MSD summary statistics
             row = {
                 'Condition': cond,
                 'Frame lag': lag,
                 'Time lag': lag * t_step,
-                'Tracks contributing': int(max(n_tracks, turn_means.size)),
+                f'{cat} Tracks contributing': int(max(cat_n_tracks, turn_means.size)),
 
-                'MSD min':    float(arr.min()) if n_tracks else np.nan,
-                'MSD max':    float(arr.max()) if n_tracks else np.nan,
-                'MSD mean':   float(arr.mean()) if n_tracks else np.nan,
-                'MSD sd':     float(arr.std(ddof=1)) if n_tracks > 1 else np.nan,
-                'MSD median': float(np.median(arr)) if n_tracks else np.nan,
-                'MSD q25':    float(self._q25(arr)) if n_tracks else np.nan,
-                'MSD q75':    float(self._q75(arr)) if n_tracks else np.nan,
+                f'{cat} MSD min':    float(arr.min()) if cat_n_tracks else np.nan,
+                f'{cat} MSD max':    float(arr.max()) if cat_n_tracks else np.nan,
+                f'{cat} MSD mean':   float(arr.mean()) if cat_n_tracks else np.nan,
+                f'{cat} MSD sd':     float(arr.std(ddof=1)) if cat_n_tracks > 1 else np.nan,
+                f'{cat} MSD median': float(np.median(arr)) if cat_n_tracks else np.nan,
+                f'{cat} MSD q25':    float(self._q25(arr)) if cat_n_tracks else np.nan,
+                f'{cat} MSD q75':    float(self._q75(arr)) if cat_n_tracks else np.nan,
 
-                'Turn mean': np.rad2deg(np.abs(turn_mean_agg)),
-                'Turn var': turn_var_agg,
+                f'{cat} Turn mean': np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else np.nan,
+                f'{cat} Turn var': turn_var_agg,
             }
 
+            if add_conds:
+                if self.cat_descr_err:
+                    
+                    row.update({
+                        f'{{per condition}} MSD min':    float(cond_arr.min()) if cond_tracks else np.nan,
+                        f'{{per condition}} MSD max':    float(cond_arr.max()) if cond_tracks else np.nan,
+                        f'{{per condition}} MSD mean':   float(cond_arr.mean()) if cond_tracks else np.nan,
+                        f'{{per condition}} MSD sd':     float(cond_arr.std(ddof=1)) if cond_tracks > 1 else np.nan,
+                        f'{{per condition}} MSD median': float(np.median(cond_arr)) if cond_tracks else np.nan,
+                        f'{{per condition}} MSD q25':    float(self._q25(cond_arr)) if cond_tracks else np.nan,
+                        f'{{per condition}} MSD q75':    float(self._q75(cond_arr)) if cond_tracks else np.nan,
+
+                        f'{{per condition}} Turn mean':  np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else np.nan,
+                        f'{{per condition}} Turn var':   turn_var_agg, 
+                    })
+                
+                if self.cat_infer_err:
+                    ci_low, ci_high = self._ci(cond_arr) if cond_tracks > 1 else (np.nan, np.nan)
+                    row.update({
+                        f'{{per condition}} MSD sem':    float(self._sem(cond_arr)) if cond_tracks > 1 else np.nan,
+
+                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} low': ci_low,
+                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} high': ci_high,
+                    })
+
+                if self.cat_infer_err or self.cat_descr_err:
+                    row.update({
+                        f'{{per condition}} Tracks contributing': int(cond_tracks),
+                    })
+
             if rep is not None:
-                # print(f"Adding row {row} for Condition: {cond}, Replicate: {rep}, Frame lag: {lag}, Tracks contributing: {n_tracks}")
                 row = self._insert_at_position(row, 'Replicate', rep, where=1)
 
             rows.append(row)
@@ -820,9 +870,9 @@ class Stats:
             self.tier + ['Frame lag'], ignore_index=True
         )
 
-        if 'Replicate' in self.tier:
-            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
-        df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
+        # if 'Replicate' in self.tier:
+        #     df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=self.DESCR_ERR)
+        # df = self._describe_infer(df, group_cols=['Condition'], stats=self.DESCR_ERR + self.INFER_ERR)
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
