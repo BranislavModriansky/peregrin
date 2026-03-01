@@ -1,4 +1,4 @@
-from ._io._load import dataloader
+from ._io._load import DataLoader
 from ._infra._selections import *
 from ._infra._formats import *
 from ._compute._stats import *
@@ -17,7 +17,7 @@ from ._general import *
 frame_interval_ms = ReconstructTracks.frame_interval_ms
 
 __all__ = [
-    "dataloader",
+    "DataLoader",
     "Stats", "Summarize", "resolve",
     "Inventory1D", "Filter1D", "Inventory2D", "Filter2D",
     "GetLutMap", "Animated", "ReconstructTracks",

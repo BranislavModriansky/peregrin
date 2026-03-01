@@ -21,7 +21,7 @@ def mount_thresholds_build(input, output, session, S):
             
             threshold_1 = [
                 ui.panel_well(
-                    ui.input_selectize("threshold_property_1", "Property", choices=S.SPOTSTATS_COLUMNS.get() + S.TRACKSTATS_COLUMNS.get(), selected='Track displacement'),
+                    ui.input_selectize("threshold_property_1", "Property", choices={'SPOT METRICS': S.SPOTSTATS_COLUMNS.get(), 'TRACK METRICS': S.TRACKSTATS_COLUMNS.get()}, selected='Track displacement', multiple=False),
                     ui.input_selectize("threshold_type_1", "Threshold type", choices=Modes.Thresholding),
                     ui.panel_conditional(
                         "input.threshold_type_1 == 'Relative to...'",
@@ -59,7 +59,7 @@ def mount_thresholds_build(input, output, session, S):
         return ui.accordion_panel(
             f"Threshold {id}",
             ui.panel_well(
-                ui.input_selectize(f"threshold_property_{id}", "Property", choices=S.SPOTSTATS_COLUMNS.get() + S.TRACKSTATS_COLUMNS.get(), selected='Track displacement'),
+                ui.input_selectize(f"threshold_property_{id}", "Property", choices={"SPOT METRICS": S.SPOTSTATS_COLUMNS.get(), "TRACK METRICS": S.TRACKSTATS_COLUMNS.get()}, selected='Track displacement', multiple=False),
                 ui.input_selectize(f"threshold_type_{id}", "Threshold type", choices=Modes.Thresholding),
                 ui.panel_conditional(
                     f"input.threshold_type_{id} == 'Relative to...'",

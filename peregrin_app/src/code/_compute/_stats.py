@@ -654,6 +654,10 @@ class Stats:
             Reporter(Level.warning, f"Input DataFrame to TimeIntervals method is empty; no computations performed.", noticequeue=self.noticequeue)
             return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
 
+        # Ensure Track UID is the index (it may be a column if called outside of the normal pipeline)
+        if df.index.name != 'Track UID' and 'Track UID' in df.columns:
+            df = df.set_index('Track UID', drop=False, verify_integrity=False)
+
         # Unique time point differences -> time steps; use median to resist irregular sampling
         t_unique = np.sort(df['Time point'].unique())
 
@@ -1192,7 +1196,7 @@ class Stats:
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
             
             except Exception as e:
-                Reporter(Level.error, f"Confidence interval computation failed: {e}", traceback.format_exc(), noticequeue=self.noticequeue)
+                Reporter(Level.error, f"Confidence interval computation failed: {e}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
                 return (np.nan, np.nan)
     
     def _sem(self, x: np.ndarray | pd.Series) -> float:

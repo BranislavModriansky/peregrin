@@ -1,10 +1,12 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
 from ...ui_shell import make_sortable_ui
-from src.code import dataloader, Metrics, FilenameFormatExample, is_empty
+from src.code import DataLoader, Metrics, FilenameFormatExample, is_empty
 
 
 def mount_data_labeling(input, output, session, S, noticequeue):
+
+    dataloader = DataLoader(noticequeue=noticequeue)
 
     @output()
     @render.ui

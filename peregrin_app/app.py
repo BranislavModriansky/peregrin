@@ -12,6 +12,9 @@ app = App(app_ui, Server)
 
 
 
+# VERY IPORTANT - TOP PRIORITY
+# TODO: separate filtering spots and tracks. at best use a selectize input with suboptions for filtering spots and tracks separately.
+
 # TODO: add an option to pool / not pool the replicates when calculating statistics
 # TODO: expand the options for the turn angle heatmap to be able to create a heatmap from frame data and time interval data as well. Be able to select the dataframe for which a heatmap will be computed
 # TODO: create a plot where ticks are plotted for each frame and point to the direction of the next movement (similar to a quiver plot)
