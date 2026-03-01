@@ -5,6 +5,7 @@ from forge import app_ui, Server
 app = App(app_ui, Server)
 
 # !IMPORTANT! Helge Hecht meeting:
+# Chceck whether all source code is separated properly
 # Divide the UI layout code into multiple objects = navpanels and even subdivide navpanels
 # Use conda for installing packages into the environment, conda doesnt see pip installments
 # Package all source code code into a peregrin library and use that inside of the shiny framework
