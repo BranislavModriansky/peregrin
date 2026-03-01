@@ -75,13 +75,6 @@ def mount_thresholds_build(input, output, session, S):
         )
     
 
-    # ________ SIDEBAR LABEL ________
-
-    @output()
-    @render.text
-    def sidebar_label():
-        return ui.markdown(f""" <h3> <b>  Data threshold  </b> </h3> """)
-    
 
     # ________ THRESHOLD SETTINGS IMPORT / EXPORT ________
 
