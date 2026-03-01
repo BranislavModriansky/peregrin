@@ -568,3 +568,26 @@ div#colormap_showcase {
     /* width: 75% !important; */
     height: 1500px !important;
 }
+
+
+
+#shiny-notification-panel {
+  max-height: 600px; /* Or a specific height, e.g., 600px */
+}
+
+#shiny-notification-panel {
+  overflow-y: scroll; /* Enables vertical scrolling */
+}
+
+#shiny-notification-panel::-webkit-scrollbar {
+  display: none; /* Hides the scrollbar entirely */
+  width: 0;      /* Ensures no width is taken up */
+}
+
+#shiny-notification-panel {
+  scrollbar-width: none; /* Hides the scrollbar */
+}
+
+#shiny-notification-panel {
+  -ms-overflow-style: none; /* Hides the scrollbar */
+}

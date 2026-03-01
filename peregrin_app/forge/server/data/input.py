@@ -3,12 +3,14 @@ from unittest import case
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render, req
-from src.code import dataloader, Stats, Metrics, Level, is_empty
+from src.code import DataLoader, Stats, Metrics, Level, is_empty
 
 
 
 
 def mount_data_input(input, output, session, S, noticequeue):
+
+    dataloader = DataLoader(noticequeue=noticequeue)
 
     @output
     @render.ui

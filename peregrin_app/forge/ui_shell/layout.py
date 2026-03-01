@@ -7,15 +7,13 @@ from src.code import Metrics, Markers, Dyes, Modes
 from pathlib import Path
 
 
-
-
 warnings.filterwarnings(
     "ignore",
     message=r".*panel_well\(\) is deprecated\. Use shiny\.ui\.card\(\) instead\.",
     category=ShinyDeprecationWarning,
 )
 
-
+styles_path = Path(__file__).parents[2] / "src" / "styles"
 
 # Add a section for enabling the theme/style selection (brutalistic, solemn, digital, silky)
 
@@ -25,7 +23,8 @@ app_ui = ui.page_sidebar(
     # _ _ _ SIDEBAR - DATA FILTERING _ _ _
     ui.sidebar(    
         ui.markdown("""  <p>  """),
-        ui.output_ui(id="sidebar_label"),
+        # ui.output_ui(id="sidebar_label"),
+        ui.markdown(f""" <h2> <b> <p style="margin-left: 10px;">  Trajectory thresholds </p> </b> </h2> """),
         ui.input_action_button(id="append_threshold", label="Add threshold", class_="btn-primary", width="100%", disabled=True),
         ui.input_action_button(id="remove_threshold", label="Remove threshold", class_="btn-primary", width="100%", disabled=True),
         ui.output_ui(id="sidebar_accordion_placeholder"),
@@ -36,6 +35,7 @@ app_ui = ui.page_sidebar(
         ui.output_ui(id="threshold_settings_imex"),
         id="sidebar", open="closed", position="right", width="300px"
     ),
+    
 
     # _ _ _ _ PANEL NAVIGATION BAR _ _ _ _
     ui.navset_bar(
@@ -102,6 +102,7 @@ app_ui = ui.page_sidebar(
                 style="display:flex; align-items:center; justify-content:space-between; gap:12px;"
             ),
             ui.output_ui("input_panel"),
+            ui.include_js(styles_path / "icons.js"),
         ),
 
         # _ _ _ _ PROCESSED DATA DISPLAY _ _ _ _
@@ -149,7 +150,9 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.output_data_frame("spot_stats"),
                     ui.div(
-                        ui.div("Show table", style="width: 95px;"),
+                        ui.div("Show category stats", style="width: 165px;"),
+                        ui.div(ui.input_switch("show_spot_category_stats", None, False, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show table", style="width: 95px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_spot_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
                         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_spot_stats_sums", None, True, width="10px"), style="margin-top: 0px;"),
@@ -173,7 +176,9 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.output_data_frame("track_stats"),
                     ui.div(
-                        ui.div("Show table", style="width: 95px;"),
+                        ui.div("Show category stats", style="width: 165px;"),
+                        ui.div(ui.input_switch("show_track_category_stats", None, False, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show table", style="width: 95px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_track_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
                         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_track_stats_sums", None, False, width="10px"), style="margin-top: 0px;"),
@@ -197,7 +202,9 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.output_data_frame("frame_stats"),
                     ui.div(
-                        ui.div("Show table", style="width: 95px;"),
+                        ui.div("Show category stats", style="width: 165px;"),
+                        ui.div(ui.input_switch("show_frame_category_stats", None, True, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show table", style="width: 95px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_frame_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
                         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_frame_stats_sums", None, False, width="10px"), style="margin-top: 0px;"),
@@ -223,7 +230,9 @@ app_ui = ui.page_sidebar(
                     ),
                     ui.output_data_frame("tinterval_stats"),
                     ui.div(
-                        ui.div("Show table", style="width: 95px;"),
+                        ui.div("Show category stats", style="width: 165px;"),
+                        ui.div(ui.input_switch("show_tinterval_category_stats", None, True, width="10px"), style="margin-top: 0px;"),
+                        ui.div("Show table", style="width: 95px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_tinterval_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
                         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
                         ui.div(ui.input_switch("show_tinterval_stats_sums", None, False, width="10px"), style="margin-top: 0px;"),

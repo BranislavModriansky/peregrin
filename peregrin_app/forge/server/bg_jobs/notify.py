@@ -1,15 +1,18 @@
 import time
 from operator import eq
 from shiny import reactive, ui, req
+from pathlib import Path
 
 from src.code import Level
 
-def mount_notifier(noticequeue):
 
+
+def mount_notifier(noticequeue):
     """
     Polls the noticequeue every 2 seconds and shows notifications.
     """
 
+    
     # @reactive.Calc
     def show_notifications():
         """Helper function to display notifications from data"""
@@ -34,7 +37,7 @@ def mount_notifier(noticequeue):
                     ),
                 ),
                 type="default",
-                duration=data["default"]["duration"][0] if data["default"]["details"] else data["default"]["duration"][1],
+                duration=data["default"]["duration"][1] if data["default"]["details"] else data["default"]["duration"][0],
             )
             noticequeue.Cleanse(Level.info)
 
@@ -55,7 +58,7 @@ def mount_notifier(noticequeue):
                     ),
                 ),
                 type="warning",
-                duration=data["warning"]["duration"][0] if data["warning"]["details"] else data["warning"]["duration"][1],
+                duration=data["warning"]["duration"][1] if data["warning"]["details"] else data["warning"]["duration"][0],
             )
             noticequeue.Cleanse(Level.warning)
 
@@ -70,7 +73,11 @@ def mount_notifier(noticequeue):
                             [
                                 "\n",
                                 ui.tags.details("\n".join(data["error"]["details"]))
-                            ] if data["error"]["details"] else ""
+                            ] if data["error"]["details"] else "",
+                            [
+                                "\n",
+                                ui.tags.details("\n".join(data["error"]["trace"]))
+                            ] if data["error"]["trace"] else ""
                         ],
                         style="border: none; background: none; white-space: pre-wrap; word-wrap: break-word;",
                     ),

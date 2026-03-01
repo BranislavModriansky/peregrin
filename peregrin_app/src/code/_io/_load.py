@@ -1,4 +1,5 @@
 import re
+import traceback
 import pandas as pd
 import numpy as np
 import os.path as op
@@ -7,23 +8,12 @@ from typing import List
 from .._handlers._reports import Level, Reporter
 
 
-def _try_reading(path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> pd.DataFrame:
-    noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
-
-    try:
-        for enc in encodings:
-            try:
-                return pd.read_csv(path, encoding=enc, low_memory=False)
-            except UnicodeDecodeError:
-                continue
-    except Exception as e:
-        noticequeue.Report(Level.error, f"Failed to read files '{path}'", f"{str(e)}")
 
 
 class DataLoader:
 
-    def __init__(self):
-        ...
+    def __init__(self, **kwargs):
+        self.noticequeue = kwargs.get('noticequeue', None)
     
 
     def GetDataFrame(self, filepath: str, **kwargs) -> pd.DataFrame:
@@ -31,17 +21,15 @@ class DataLoader:
         Loads a DataFrame from a file based on its extension.
         Supported formats: CSV, Excel.
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
-
         _, ext = op.splitext(filepath.lower())
 
         if ext not in ['.csv', '.xls', '.xlsx', '.xml', '.json', '.parquet']:
-            noticequeue.Report(Level.error, f"File format: {ext} is not supported.", f"Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet")
+            Reporter(Level.error, f"File format: {ext} is not supported.", details=f"Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet", noticequeue=self.noticequeue)
             return None
 
         match ext:
             case '.csv':
-                return _try_reading(filepath, noticequeue=noticequeue)
+                return self._try_reading(filepath)
             case '.xls' | '.xlsx':
                 return pd.read_excel(filepath)
             case '.xml':
@@ -51,7 +39,7 @@ class DataLoader:
             case '.json':
                 return pd.read_json(filepath)
             case _:
-                Reporter(Level.error, f"File format: {ext} is not supported.", "Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet", noticequeue=noticequeue)
+                Reporter(Level.error, f"File format: {ext} is not supported.", details=f"Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet", noticequeue=self.noticequeue)
         
 
     def ExtractStripped(self, df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
@@ -61,18 +49,17 @@ class DataLoader:
         - Converts them to numeric, dropping rows with missing values.
         - Mirrors Y if requested.
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         try:
             if not all(col in df.columns for col in [id_col, t_col, x_col, y_col]):
                 missing = [col for col in [id_col, t_col, x_col, y_col] if col not in df.columns]
-                noticequeue.Report(Level.error, f"Specified columns were not found", f"Failed to find: {', '.join(missing)}")
+                Reporter(Level.error, f"Specified columns were not found.", details=f"Missing columns: {missing}", noticequeue=self.noticequeue)
                 return pd.DataFrame()
 
             df = df[[id_col, t_col, x_col, y_col]].apply(pd.to_numeric, errors='coerce').dropna().reset_index(drop=True)
 
         except Exception as e:
-            noticequeue.Report(Level.error, f"Error in processing input DataFrame", f"{str(e)}")
+            Reporter(Level.error, f"Error in processing input DataFrame", details=f"{str(e)}", noticequeue=self.noticequeue)
             return pd.DataFrame()
 
         if mirror_y:
@@ -101,7 +88,7 @@ class DataLoader:
         try: 
             if not all(col in df.columns for col in [id_col, t_col, x_col, y_col]):
                 missing = [col for col in [id_col, t_col, x_col, y_col] if col not in df.columns]
-                noticequeue.Report(Level.error, f"Specified columns were not found.", f"Missing columns: {missing}")
+                Reporter(Level.error, f"Specified columns were not found.", details=f"Missing columns: {missing}", noticequeue=self.noticequeue)
                 return pd.DataFrame()
             
             # convert only selected columns to numeric
@@ -111,7 +98,7 @@ class DataLoader:
             # drop rows missing key coordinates
             df = df.dropna(subset=[id_col, t_col, x_col, y_col]).reset_index(drop=True)
         except Exception as e:
-            noticequeue.Report(Level.error, f"Error in processing input DataFrame", f"{str(e)}")
+            Reporter(Level.error, f"Error in processing input DataFrame", details=f"{str(e)}", noticequeue=self.noticequeue)
             return pd.DataFrame()
 
         # mirror Y if needed
@@ -144,9 +131,8 @@ class DataLoader:
         """
         Returns a list of column names from the DataFrame.
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
-        df = self.GetDataFrame(path, noticequeue=noticequeue)  # or pd.read_excel(path), depending on file type
+        df = self.GetDataFrame(path, noticequeue=self.noticequeue)  # or pd.read_excel(path), depending on file type
         return df.columns.tolist()
     
 
@@ -158,7 +144,6 @@ class DataLoader:
         - Finally checks if any term is a substring of the column name.
         If no match is found, returns None.
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
 
         # Normalize columns for matching
         normalized_columns = [
@@ -183,6 +168,18 @@ class DataLoader:
                     return col
         return None
     
+
+    def _try_reading(self, path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> pd.DataFrame:
+
+        try:
+            for enc in encodings:
+                try:
+                    return pd.read_csv(path, encoding=enc, low_memory=False)
+                except UnicodeDecodeError:
+                    continue
+        except Exception as e:
+            Reporter(Level.error, f"{str(e)} -> Failed to read file: {path}.", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+    
     
     def _py_numeric_df(self, df: pd.DataFrame) -> None:
         for col in df.columns:
@@ -200,9 +197,6 @@ class DataLoader:
         return name
     
 
-
-# if __name__ == "__main__":
-dataloader = DataLoader()
 
 
 
