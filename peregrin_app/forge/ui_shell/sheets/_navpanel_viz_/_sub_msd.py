@@ -36,7 +36,7 @@ subpanel_msd = ui.nav_panel(
                     ui.column(4, ui.input_selectize(id="replicates_msd", label="Replicates:", choices=[], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
                     ui.column(1, ui.input_action_button(id="replicates_reset_msd", label="🗘", class_="btn-noframe")),
                     ui.column(4, ui.div(
-                        ui.input_checkbox(id="replicates_group_msd", label="Group Replicates", value=True)),
+                        ui.input_checkbox(id="replicates_separate_msd", label="Separate replicates", value=False)),
                         style="margin-top: 38px; margin-left: -40px;"
                     )
                 )
@@ -71,7 +71,7 @@ subpanel_msd = ui.nav_panel(
                             ui.column(2, 
                                 ui.panel_conditional(
                                     "input.error_band_show_msd == true",
-                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'CI95'], selected='sem', width="120px"),
+                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci'], selected='sem', width="120px"),
                                 )
                             )
                         )

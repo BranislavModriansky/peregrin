@@ -141,7 +141,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             data=S.TINTERVALSTATS(), #TODO: implement filtering for timelags stats
             conditions=input.conditions_msd(),
             replicates=input.replicates_msd(),
-            group_replicates=input.replicates_group_msd(),
+            group_replicates=input.replicates_separate_msd(),
             c_mode=input.c_mode_msd(),
             color=color,
             palette=palette,
@@ -185,7 +185,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             data=S.TINTERVALSTATS(),
             conditions=input.conditions_msd(),
             replicates=input.replicates_msd(),
-            group_replicates=input.replicates_group_msd(),
+            group_replicates=input.replicates_separate_msd(),
             c_mode=input.c_mode_msd(),
             color=color,
             palette=palette,
