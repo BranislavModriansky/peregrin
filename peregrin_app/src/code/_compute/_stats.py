@@ -313,13 +313,13 @@ class Stats:
         # Drop (if any) present all nan columns  
         df.dropna(how='all', axis='columns', inplace=True)
 
-        descr = self.DESCR_ERR + self.DESCR
+        # descr = self.DESCR_ERR + self.DESCR
 
-        if 'Replicate' in self.tier:
-            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=descr)
+        # if 'Replicate' in self.tier:
+        #     df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=descr)
 
-        combined_stats = descr + self.INFER_ERR
-        df = self._describe_infer(df, group_cols=['Condition'], stats=combined_stats)
+        # combined_stats = descr + self.INFER_ERR
+        # df = self._describe_infer(df, group_cols=['Condition'], stats=combined_stats)
 
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -466,14 +466,14 @@ class Stats:
             df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
 
 
-        descr = self.DESCR_ERR + self.DESCR
+        # descr = self.DESCR_ERR + self.DESCR
 
-        if 'Replicate' in self.tier:
-            df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=descr)
+        # if 'Replicate' in self.tier:
+        #     df = self._describe_infer(df, group_cols=['Condition', 'Replicate'], stats=descr)
 
-        combined_stats = descr + self.INFER_ERR
-        if combined_stats:
-            df = self._describe_infer(df, group_cols=['Condition'], stats=combined_stats)
+        # combined_stats = descr + self.INFER_ERR
+        # if combined_stats:
+        #     df = self._describe_infer(df, group_cols=['Condition'], stats=combined_stats)
         
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
@@ -525,8 +525,8 @@ class Stats:
                     mout = metric_out[m]
                     for s in requested_stats:
                         if s == 'ci':
-                            cols.append(f'{pfx} {mout} ci{self.CONFIDENCE_LEVEL} low')
-                            cols.append(f'{pfx} {mout} ci{self.CONFIDENCE_LEVEL} high')
+                            cols.append(f'{pfx} {mout} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low')
+                            cols.append(f'{pfx} {mout} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high')
                         else:
                             cols.append(f'{pfx} {mout} {_stat_label(s)}')
 
@@ -742,6 +742,9 @@ class Stats:
         rows = []
         cat = '{per replicate}' if reps else '{per condition}'
 
+        if not self.cat_descr or not self.cat_descr_err:
+            Reporter(Level.info, f"Exception -> Descriptive, per-category statistics are going to be computed for TimeIntervals even when disabled.", noticequeue=self.noticequeue)
+
         for key in keys:
             if len(key) == 3:
                 cond, rep, lag = key
@@ -778,18 +781,32 @@ class Stats:
                 f'{cat} MSD min':    float(arr.min()) if cat_n_tracks else None,
                 f'{cat} MSD max':    float(arr.max()) if cat_n_tracks else None,
                 f'{cat} MSD mean':   float(arr.mean()) if cat_n_tracks else None,
-                f'{cat} MSD sd':     float(arr.std(ddof=1)) if cat_n_tracks > 1 else None,
                 f'{cat} MSD median': float(np.median(arr)) if cat_n_tracks else None,
                 f'{cat} MSD q25':    float(self._q25(arr)) if cat_n_tracks else None,
                 f'{cat} MSD q75':    float(self._q75(arr)) if cat_n_tracks else None,
 
-                f'{cat} Turn mean': np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else None,
-                f'{cat} Turn var': turn_var_agg if not np.isnan(turn_var_agg) else None,
+                f'{cat} Turn mean':  np.rad2deg(np.abs(turn_mean_agg)) if not np.isnan(turn_mean_agg) else None,
             }
+
+            if self.cat_descr_err:
+                row.update({
+                    f'{cat} MSD sd':   float(arr.std(ddof=1)) if cat_n_tracks > 1 else None,
+                    f'{cat} Turn var': turn_var_agg if not np.isnan(turn_var_agg) else None,
+                })
+
+            if self.cat_infer_err:
+                ci_low, ci_high = self._ci(arr) if cat_n_tracks > 1 else (None, None)
+                row.update({
+                    f'{cat} MSD sem':    float(self._sem(arr)) if cat_n_tracks > 1 else None,
+                    f'{cat} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low':  ci_low if ci_low is not None and not np.isnan(ci_low) else None,
+                    f'{cat} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high': ci_high if ci_high is not None and not np.isnan(ci_high) else None,
+                })
+            
 
             if add_conds and is_rep_row:
                 if self.cat_descr:
                     row.update({
+                        '{per condition} MSD min':    float(cond_arr.min()) if cond_n_tracks else None,
                         '{per condition} MSD max':    float(cond_arr.max()) if cond_n_tracks else None,
                         '{per condition} MSD mean':   float(cond_arr.mean()) if cond_n_tracks else None,
                         '{per condition} MSD median': float(np.median(cond_arr)) if cond_n_tracks else None,
@@ -808,8 +825,8 @@ class Stats:
                     ci_low, ci_high = self._ci(cond_arr) if cond_n_tracks > 1 else (None, None)
                     row.update({
                         '{per condition} MSD sem':    float(self._sem(cond_arr)) if cond_n_tracks > 1 else None,
-                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} low':  ci_low if ci_low is not None and not np.isnan(ci_low) else None,
-                        f'{{per condition}} MSD ci{self.CONFIDENCE_LEVEL} high': ci_high if ci_high is not None and not np.isnan(ci_high) else None,
+                        f'{{per condition}} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low':  ci_low if ci_low is not None and not np.isnan(ci_low) else None,
+                        f'{{per condition}} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high': ci_high if ci_high is not None and not np.isnan(ci_high) else None,
                     })
 
                 if self.cat_descr or self.cat_infer_err or self.cat_descr_err:
@@ -982,7 +999,7 @@ class Stats:
                     if stat_name != 'ci':
                         named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} {stat_name}"] = (col, func)
                     else:
-                        named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} ci{self.CONFIDENCE_LEVEL}"] = (col, func)
+                        named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL}"] = (col, func)
 
         grp_stats = (
             df.groupby(group_cols, observed=True, sort=False)

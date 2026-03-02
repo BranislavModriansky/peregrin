@@ -6,7 +6,7 @@ import pandas as pd
 from typing import *
 
 
-from ..._handlers._reports import Level
+from ..._handlers._reports import Level, Reporter
 from .._common import Categorizer, Painter
 from ..._general import is_empty
 
@@ -26,56 +26,220 @@ class MSD:
     BRIGHTNESS_SCALE = 0.8
     BRIGHTNESS_MIN = 0.06
 
-    AGG_DICT = {
-        'MSD min': 'min',
-        'MSD max': 'max',
-        'MSD mean': 'mean',
-        'MSD sem': 'mean',
-        'MSD sd': 'mean',
-        'MSD median': 'median',
-        'MSD CI95 low': 'mean',
-        'MSD CI95 high': 'mean'
-    }
-    
+
     def __init__(
-            self, data: pd.DataFrame, conditions: list, replicates: list, *args, 
-            group_replicates: bool = True, c_mode: str = None, **kwargs):
+            self, data: pd.DataFrame, conditions: list, replicates: list, *, 
+            c_mode: str = None, separate_replicates: bool = False, **kwargs):
         
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
         
-        self.aggregate = group_replicates
+        self.aggregate = not separate_replicates
         self.disaggregate = False
         self.c_mode = c_mode
 
-        self.color = kwargs.get('color', None) if 'color' in kwargs else None
+        self.color = kwargs.get('color', None)
+        self.palette = kwargs.get('palette', None)
+        self.noticequeue = kwargs.get('noticequeue', None)
 
-        self.palette = kwargs.get('palette', None) if 'palette' in kwargs else None
-        # TODO: create a possibility to use predefined qualitative color maps ["Set1","Set2","Set3","tab10","Accent","Dark2","Pastel1","Pastel2"] when selecting differentiate conditions / replicates
-
-        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+        self.instance_kwargs = kwargs
 
         self.painter = Painter(noticequeue=self.noticequeue)
 
         self._check_errors()
 
-    def _check_errors(self) -> None:
-        if self.aggregate and self.c_mode == 'differentiate replicates':
-            self.aggregate = False
-            self.disaggregate = True
-        if self.disaggregate:
-            self.noticequeue.Report(Level.warning, "Cannot differentiate replicates when replicate grouping is enabled. Disabling replicate grouping.")
 
+    def plot(self,
+             statistic: str = 'mean',
+             linear_fit: bool = False,
+             errorband: Optional[Literal['sd', 'sem', 'min-max', 'ci', False]] = False,
+             *,
+             line: bool = True,
+             scatter: bool = False,
+             **kwargs) -> plt.Figure:
+
+        from ..._compute._stats import Stats
+
+        fig, ax = plt.subplots(figsize=(kwargs.get('fig_height', 5), kwargs.get('fig_width', 3.5)))
+        
+        if self.aggregate:
+            prefix = '{per condition}'
+            if not any('{per condition}' in col for col in self.data.columns.to_list()):
+                Reporter(Level.warning, "Expected aggregated data per condition but no columns with '{per condition}' found. Going to use '{per replicate}' data instead.", noticequeue=self.noticequeue)
+                prefix = '{per replicate}'
+        else:
+            prefix = '{per replicate}'
+        
+
+        self.agg_dict, cols = self._build_agg_dict(prefix, Stats.CI_STATISTIC, Stats.CONFIDENCE_LEVEL)
+        self._arrange_data()
+
+        mi = cols['mean'] if statistic == 'mean' else cols['median']
+
+        self._set_axis_labels(ax)
+            
+        color_map = self._get_colors()
+        
+        # Plot each condition
+        for idx, condition in enumerate(self.conditions):
+            cond_data = self.data[self.data['Condition'] == condition]
+
+            if self.aggregate:
+                # grouped replicates
+                groups = [(condition, None, cond_data)]
+            else:
+                # separate replicates
+                groups = []
+                for rep, rep_df in cond_data.groupby('Replicate'):
+                    groups.append((condition, rep, rep_df))
+
+            for g_idx, (cond_name, rep_name, gdata) in enumerate(groups):
+
+                x_data = gdata['Frame lag'].values
+                y_data = gdata[f'{prefix} MSD {statistic}'].values
+              
+                match errorband:
+
+                    case 'sd':
+
+                        if statistic != 'mean':
+                            Reporter(Level.warning, "Error band with SD is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
+                            errorband = False
+                        else:
+                            err_data = gdata[f'{prefix} MSD sd'].values / 2
+
+                    case 'sem':
+
+                        if f'{prefix} MSD sem' not in gdata.columns:
+                            Reporter(Level.error, "SEM data not available for error band. Make sure to compute SEM in the statistics step. Ignoring error band.", noticequeue=self.noticequeue)
+                            errorband = False
+
+                        else:
+                            if statistic != 'mean':
+                                Reporter(Level.warning, "Error band with SEM is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
+                                errorband = False
+                            else:
+                                err_data = gdata[f'{prefix} MSD sem'].values
+
+                    case 'min-max':
+                        err_data = (gdata[f'{prefix} MSD max'].values, gdata[f'{prefix} MSD min'].values)
+
+                    case 'ci':
+                        
+                        if f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} low' not in gdata.columns or f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} high' not in gdata.columns:
+                            Reporter(Level.error, "Confidence interval data not available for error band. Make sure to compute confidence intervals in the statistics step. Ignoring error band.", noticequeue=self.noticequeue)
+                            errorband = False
+
+                        else:
+                            if statistic != Stats.CI_STATISTIC:
+                                Reporter(Level.warning, f"Confidence interval was coputed for {Stats.CI_STATISTIC}, not {statistic}. Ignoring error band.", noticequeue=self.noticequeue)
+                                errorband = False
+                            else:
+                                err_data = (gdata[f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} high'].values, gdata[f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} low'].values)
+
+                    case _:
+                        Reporter(Level.error, f"Invalid errorband type '{errorband}'.", noticequeue=self.noticequeue)
+                        errorband = False
+
+                if errorband:
+                    if isinstance(err_data, tuple):
+                        band_top_y, band_bottom_y = err_data
+                    else:
+                        band_bottom_y = np.maximum(y_data - err_data, 0.0)
+                        band_top_y = y_data + err_data
+                
+                color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
+
+                # label: show replicate name only once in legend when not grouped
+                if self.aggregate:
+                    label = cond_name
+                else:
+                    label = f"{cond_name} | {rep_name}"
+
+                # Plot error band
+                if errorband:
+                    mask = ~np.isnan(band_bottom_y) & ~np.isnan(band_top_y)
+                    if np.any(mask):
+                        ax.fill_between(
+                            x_data[mask],
+                            band_bottom_y[mask],
+                            band_top_y[mask],
+                            color=color,
+                            alpha=0.08 if self.aggregate else 0.05,
+                            linewidth=0,
+                            zorder=2
+                        )
+                
+                # Plot main line
+                if line:
+                    ax.plot(
+                        x_data,
+                        y_data,
+                        marker='none',
+                        label=label,
+                        linestyle='-',
+                        color=color,
+                        alpha=1 if self.aggregate else 0.8,
+                        zorder=6
+                    )
+                
+                # Plot scatter markers
+                if scatter:
+                    ax.plot(
+                        x_data,
+                        y_data,
+                        marker='|',
+                        markersize=5,
+                        label=None,
+                        linestyle='none',
+                        color='lightgrey',
+                        zorder=5
+                    )
+                
+                # Add linear fit (per replicate when not grouped)
+                if linear_fit:
+                    # pass a unique condition key for annotation placement
+                    fit_key = f"{condition}" if self.aggregate else f"{condition}-{rep_name}"
+                    self._add_linear_fit(
+                        ax,
+                        x_data,
+                        y_data,
+                        fit_key,
+                        color,
+                        idx if self.aggregate else g_idx,
+                        len(self.conditions) if self.aggregate else len(groups)
+                    )
+        
+        # Set y-limits
+        self._set_ylim(ax, self.data[mi].values)
+
+        if kwargs.get('title', None):
+            ax.set_title(kwargs.get('title'), color=kwargs.get('text_color', 'black'))
+        
+        if kwargs.get('grid', False):
+            ax.grid(True, color='whitesmoke', zorder=0)
+
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+        ax.legend(frameon=False)
+
+        fig.set_facecolor(kwargs.get('fig_background', 'white'))
+        
+        return plt.gcf()
+    
+    
     def _arrange_data(self) -> pd.DataFrame:
-        return Categorizer(
+        self.data = Categorizer(
             data=self.data,
             conditions=self.conditions,
             replicates=self.replicates,
             aggby=['Condition', 'Frame lag'] if self.aggregate else ['Condition', 'Replicate', 'Frame lag'],
-            aggdict=self.AGG_DICT,
+            aggdict=self.agg_dict,
             noticequeue=self.noticequeue
         )()
+
     
     def _get_colors(self) -> dict:
 
@@ -127,150 +291,7 @@ class MSD:
         upper = maxy + 0.05 * abs(maxy) if maxy != 0 else 1.0
         ax.set_ylim(lower, upper)
     
-    def plot(self,
-             statistic: str = 'mean',
-             line: bool = True,
-             scatter: bool = False,
-             linear_fit: bool = False,
-             title: Optional[str] = None,
-             errorband: Optional[Literal['sd', 'sem', 'min-max', 'CI95', False]] = False,
-             grid: bool = True,
-             figsize: tuple = (5, 3.5),
-             ax: Optional[plt.Axes] = None) -> plt.Figure:
-
-        if ax is None:
-            fig, ax = plt.subplots(figsize=figsize)
-        else:
-            fig = ax.figure
-        
-        if title:
-            ax.set_title(title)
-
-        data = self._arrange_data()
-        
-        self._set_axis_labels(ax)
-        
-        conditions = data['Condition'].unique()
-
-        # Determine which tags we need colors for
-        if self.c_mode == 'differentiate conditions':
-            tags = self.conditions
-        else:
-            tags = self.replicates
-            
-        color_map = self._get_colors()
-        
-        # Plot each condition
-        for idx, condition in enumerate(conditions):
-            cond_data = data[data['Condition'] == condition]
-
-            if self.aggregate:
-                # one line per condition (replicates already aggregated)
-                groups = [(condition, None, cond_data)]
-            else:
-                # separate line per replicate
-                groups = []
-                for rep, rep_df in cond_data.groupby('Replicate'):
-                    groups.append((condition, rep, rep_df))
-
-            for g_idx, (cond_name, rep_name, gdata) in enumerate(groups):
-
-                x_data = gdata['Frame lag'].values
-                y_data = gdata[f'MSD {statistic}'].values
-                err_anchor = gdata[f'MSD mean'].values
-              
-                match errorband:
-                    case 'sd':
-                        err_data = gdata['MSD sd'].values / 2
-                    case 'sem':
-                        err_data = gdata['MSD sem'].values
-                    case 'min-max':
-                        err_data = (gdata['MSD max'].values, gdata['MSD min'].values)
-                    case 'CI95':
-                        err_data = (gdata['MSD CI95 high'].values, gdata['MSD CI95 low'].values)
-                    case _:
-                        raise ValueError("Invalid errorband type specified.")
-
-                if isinstance(err_data, tuple):
-                    band_top_y, band_bottom_y = err_data
-                else:
-                    band_bottom_y = np.maximum(err_anchor - err_data, 0.0)
-                    band_top_y = err_anchor + err_data
-                
-                color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
-
-                # label: show replicate name only once in legend when not grouped
-                if self.aggregate:
-                    label = cond_name
-                else:
-                    # e.g. "naive-ctr | BC39"
-                    label = f"{cond_name} | {rep_name}"
-
-                # Plot error band
-                if errorband:
-                    mask = ~np.isnan(band_bottom_y) & ~np.isnan(band_top_y)
-                    if np.any(mask):
-                        ax.fill_between(
-                            x_data[mask],
-                            band_bottom_y[mask],
-                            band_top_y[mask],
-                            color=color,
-                            alpha=0.08 if self.aggregate else 0.05,
-                            linewidth=0,
-                            zorder=0
-                        )
-                
-                # Plot main line
-                if line:
-                    ax.plot(
-                        x_data,
-                        y_data,
-                        marker='none',
-                        label=label,
-                        linestyle='-',
-                        color=color,
-                        alpha=1 if self.aggregate else 0.8,
-                        zorder=6
-                    )
-                
-                # Plot scatter markers
-                if scatter:
-                    ax.plot(
-                        x_data,
-                        y_data,
-                        marker='|',
-                        markersize=5,
-                        label=None,
-                        linestyle='none',
-                        color='lightgrey',
-                        zorder=5
-                    )
-                
-                # Add linear fit (per replicate when not grouped)
-                if linear_fit:
-                    # pass a unique condition key for annotation placement
-                    fit_key = f"{condition}" if self.aggregate else f"{condition}-{rep_name}"
-                    self._add_linear_fit(
-                        ax,
-                        x_data,
-                        y_data,
-                        fit_key,
-                        color,
-                        idx if self.aggregate else g_idx,
-                        len(conditions) if self.aggregate else len(groups)
-                    )
-        
-        # Set y-limits
-        self._set_ylim(ax, data['MSD mean'].values)
-        
-        # Grid and legend
-        if grid:
-            ax.grid(grid, color='whitesmoke', zorder=0)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.legend(frameon=False)
-        
-        return plt.gcf()
+    
     
     def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray,
                        tag: str, color: str, idx: int, n_tags: int):
@@ -322,8 +343,69 @@ class MSD:
         except Exception:
             pass
 
-    def __call__(self):
-        return self.plot()
+
+    def _build_agg_dict(self, prefix: str, ci_stat: str, ci_lvl: int) -> dict:
+        
+
+        min     = f"{prefix} MSD min"
+        max     = f"{prefix} MSD max"
+        mean    = f"{prefix} MSD mean"
+        median  = f"{prefix} MSD median"
+        sd      = f"{prefix} MSD sd"
+        sem     = f"{prefix} MSD sem"
+        ci_low  = f"{prefix} MSD {ci_stat} ci{ci_lvl} low"
+        ci_high = f"{prefix} MSD {ci_stat} ci{ci_lvl} high"
+
+        agg_dict = {
+            min:     'min',
+            max:     'max',
+            mean:    'mean',
+            sd:      'mean',
+            median:  'median',
+        }
+
+        if sem in self.data.columns:
+            agg_dict.update({
+                sem: 'mean',
+            })
+
+        if ci_low in self.data.columns and ci_high in self.data.columns:
+            agg_dict.update({
+                ci_low:  'mean',
+                ci_high: 'mean'
+            })
+
+        cols = {v: k for k, v in agg_dict.items()}
+
+        # if self.aggregate:
+        #     agg_dict.pop('Replicate', None)
+
+        return agg_dict, cols
+
+
+    def _check_errors(self) -> None:
+        if not self.aggregate:
+            if 'Replicate' not in self.data.columns or not any('{per replicate}' in col for col in self.data.columns.to_list()):
+                Reporter(f"Cannot separate replicates <- missing 'Replicate' data.", noticequeue=self.noticequeue)
+                self.aggregate = True
+                self.disaggregate = False
+        if not self.aggregate and self.c_mode == 'differentiate conditions':
+            self.c_mode = 'differentiate replicates'
+            Reporter("Cannot differentiate conditions when replicate grouping is disabled. Switching to differentiating replicates instead.", noticequeue=self.noticequeue)
+        
+        if self.aggregate:
+            if 'Condition' not in self.data.columns or not any('{per condition}' in col for col in self.data.columns.to_list()):
+                Reporter(f"Cannot aggregate per condition <- missing 'Condition' data.", noticequeue=self.noticequeue)
+                self.aggregate = False
+                self.disaggregate = True
+        if self.aggregate and self.c_mode == 'differentiate replicates':
+            self.c_mode = 'differentiate conditions'
+            Reporter("Cannot differentiate replicates when replicate grouping is enabled. Switching to differentiating conditions instead.", noticequeue=self.noticequeue)
+
+
+        # if self.aggregate and self.c_mode == 'differentiate replicates':
+        #     self.aggregate = False
+        #     self.disaggregate = True
 
 
 
