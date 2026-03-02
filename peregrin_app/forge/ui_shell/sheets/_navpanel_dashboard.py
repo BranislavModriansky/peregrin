@@ -41,8 +41,6 @@ card_spots = ui.card(
     ),
     ui.output_data_frame("spot_stats"),
     ui.div(
-        ui.div("Show category stats", style="width: 165px;"),
-        ui.div(ui.input_switch("show_spot_category_stats", None, False, width="10px"), style="margin-top: 0px;"),
         ui.div("Show table", style="width: 95px; margin-left: 60px;"),
         ui.div(ui.input_switch("show_spot_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
@@ -69,8 +67,6 @@ card_tracks = ui.card(
     ),
     ui.output_data_frame("track_stats"),
     ui.div(
-        ui.div("Show category stats", style="width: 165px;"),
-        ui.div(ui.input_switch("show_track_category_stats", None, False, width="10px"), style="margin-top: 0px;"),
         ui.div("Show table", style="width: 95px; margin-left: 60px;"),
         ui.div(ui.input_switch("show_track_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
@@ -97,8 +93,6 @@ card_frames = ui.card(
     ),
     ui.output_data_frame("frame_stats"),
     ui.div(
-        ui.div("Show category stats", style="width: 165px;"),
-        ui.div(ui.input_switch("show_frame_category_stats", None, True, width="10px"), style="margin-top: 0px;"),
         ui.div("Show table", style="width: 95px; margin-left: 60px;"),
         ui.div(ui.input_switch("show_frame_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
@@ -125,8 +119,6 @@ card_tintervals = ui.card(
     ),
     ui.output_data_frame("tinterval_stats"),
     ui.div(
-        ui.div("Show category stats", style="width: 165px;"),
-        ui.div(ui.input_switch("show_tinterval_category_stats", None, True, width="10px"), style="margin-top: 0px;"),
         ui.div("Show table", style="width: 95px; margin-left: 60px;"),
         ui.div(ui.input_switch("show_tinterval_stats_tbl", None, True, width="10px"), style="margin-top: 0px;"),
         ui.div("Show summaries", style="width: 145px; margin-left: 60px;"),
