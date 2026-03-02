@@ -71,7 +71,7 @@ subpanel_msd = ui.nav_panel(
                             ui.column(2, 
                                 ui.panel_conditional(
                                     "input.error_band_show_msd == true",
-                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci'], selected='sem', width="120px"),
+                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci'], selected='sd', width="120px"),
                                 )
                             )
                         )

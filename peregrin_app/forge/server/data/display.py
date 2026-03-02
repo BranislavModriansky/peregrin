@@ -49,15 +49,11 @@ def mount_data_display(input, output, session, S):
         )
 
     
-    def rend_summaries(column_stats: dict, tag: str, *, drop: bool = True) -> ui.TagList:
+    def rend_summaries(column_stats: dict, tag: str) -> ui.TagList:
         cards = []
 
         for col, stats in column_stats.items():
-            if drop and ('{per replicate}' in col or '{per condition}' in col):
-                # print(col)
-                continue
 
-            print(col)
             if col not in ["Track ID", "Track UID"]:
                 
                 if (stats["type"] == "type_one" 
@@ -108,17 +104,7 @@ def mount_data_display(input, output, session, S):
     # _ _ _ _ RENDERING DATA FRAMES _ _ _ _
 
     @reactive.extended_task
-    async def summarize(spots, tracks, frames, tintervals, *, drop: list[bool] = [True, True, True, True]):
-
-        if drop[0]:
-            spots = spots[[col for col in spots.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
-        if drop[1]:
-            tracks = tracks[[col for col in tracks.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
-        if drop[2]:
-            frames = frames[[col for col in frames.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
-        if drop[3]:
-            tintervals = tintervals[[col for col in tintervals.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
-
+    async def summarize(spots, tracks, frames, tintervals):
         return [
             {
                 "general": Summarize.dataframe_summary(spots),
@@ -139,9 +125,7 @@ def mount_data_display(input, output, session, S):
         ]
 
     @reactive.Effect
-    @reactive.event(S.SPOTSTATS, S.TRACKSTATS, S.FRAMESTATS, S.TINTERVALSTATS,
-                    input.show_spot_category_stats, input.show_track_category_stats,
-                    input.show_frame_category_stats, input.show_tinterval_category_stats)
+    @reactive.event(S.SPOTSTATS, S.TRACKSTATS, S.FRAMESTATS, S.TINTERVALSTATS)
     def _():
         spots = S.SPOTSTATS.get()
         tracks = S.TRACKSTATS.get()
@@ -153,10 +137,7 @@ def mount_data_display(input, output, session, S):
             not is_empty(frames),
             not is_empty(tintervals)
         )
-        summarize(
-            spots, tracks, frames, tintervals, 
-            drop=[not input.show_spot_category_stats(), not input.show_track_category_stats(), not input.show_frame_category_stats(), not input.show_tinterval_category_stats()]
-        )
+        summarize(spots, tracks, frames, tintervals)
 
     @reactive.Effect
     def _():
@@ -196,54 +177,46 @@ def mount_data_display(input, output, session, S):
     @DebounceCalc(3)
     @reactive.calc
     def _rend_spot_summaries():
-        return rend_summaries(S.SPOTSUMMARY.get()["columns"], "spots", drop=not input.show_spot_category_stats())
+        return rend_summaries(S.SPOTSUMMARY.get()["columns"], "spots")
 
     @DebounceCalc(3)
     @reactive.calc
     def _rend_track_summaries():
-        return rend_summaries(S.TRACKSUMMARY.get()["columns"], "tracks", drop=not input.show_track_category_stats())
+        return rend_summaries(S.TRACKSUMMARY.get()["columns"], "tracks")
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_frame_summaries():
-        return rend_summaries(S.FRAMESUMMARY.get()["columns"], "frames", drop=not input.show_frame_category_stats())
+        return rend_summaries(S.FRAMESUMMARY.get()["columns"], "frames")
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_tinterval_summaries():
-        return rend_summaries(S.TINTERVALSUMMARY.get()["columns"], "tintervals", drop=not input.show_tinterval_category_stats())
+        return rend_summaries(S.TINTERVALSUMMARY.get()["columns"], "tintervals")
     
 
     @DebounceCalc(3)
     @reactive.calc
     def _rend_spots_tbl():
         tbl = Stats().FormatDigits(S.SPOTSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
-        if not input.show_spot_category_stats():
-            tbl = tbl[[col for col in tbl.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
         return tbl
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_tracks_tbl():
         tbl = Stats().FormatDigits(S.TRACKSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
-        if not input.show_track_category_stats():
-            tbl = tbl[[col for col in tbl.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
         return tbl
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_frames_tbl():
         tbl = Stats().FormatDigits(S.FRAMESTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
-        if not input.show_frame_category_stats():
-            tbl = tbl[[col for col in tbl.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
         return tbl
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_tintervals_tbl():
         tbl = Stats().FormatDigits(S.TINTERVALSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
-        if not input.show_tinterval_category_stats():
-            tbl = tbl[[col for col in tbl.columns if not ('{per replicate}' in col or '{per condition}' in col)]]
         return tbl
     
 
@@ -316,12 +289,9 @@ def mount_data_display(input, output, session, S):
 
     
     @reactive.effect
-    @reactive.event(S.SPOTSUMMARY, input.show_spot_category_stats)
+    @reactive.event(S.SPOTSUMMARY)
     def _():
         for col, stats in S.SPOTSUMMARY.get()["columns"].items():
-            if not input.show_spot_category_stats() and ('{per replicate}' in col or '{per condition}' in col):
-                continue
-            
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
                 
@@ -336,9 +306,6 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.TRACKSUMMARY, input.show_track_category_stats)
     def _():
         for col, stats in S.TRACKSUMMARY.get()["columns"].items():
-            if not input.show_track_category_stats() and ('{per replicate}' in col or '{per condition}' in col):
-                continue
-            
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
 
@@ -352,9 +319,6 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.FRAMESUMMARY, input.show_frame_category_stats)
     def _():
         for col, stats in S.FRAMESUMMARY.get()["columns"].items():
-            if not input.show_frame_category_stats() and ('{per replicate}' in col or '{per condition}' in col):
-                continue
-            
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
                 
@@ -368,9 +332,6 @@ def mount_data_display(input, output, session, S):
     @reactive.event(S.TINTERVALSUMMARY, input.show_tinterval_category_stats)
     def _():
         for col, stats in S.TINTERVALSUMMARY.get()["columns"].items():
-            if not input.show_tinterval_category_stats() and ('{per replicate}' in col or '{per condition}' in col):
-                continue
-            
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
                 stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
 

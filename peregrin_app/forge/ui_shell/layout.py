@@ -26,13 +26,12 @@ app_ui = ui.page_sidebar(
         navpanel_inputs,
         navpanel_dashboard,
         navpanel_viz,
-
        
         ui.nav_spacer(),
 
         ui.nav_control(
             ui.output_ui("theme_css_injector"),
-            ui.input_dark_mode(id="app_theme", mode="light"),
+            ui.input_dark_mode(id="app_theme", mode="light")
         ),
         
         title=ui.tags.span(
@@ -41,12 +40,12 @@ app_ui = ui.page_sidebar(
                 href="https://github.com/BranislavModriansky/Peregrin/tree/main",
                 target="_blank",
                 rel="noopener noreferrer",
-                class_="peregrin-logo",
-            ),
+                class_="peregrin-logo"
+            )
         ),
         
         id="main_nav",
         selected="Input Menu",
         
-    ),
+    )
 )
