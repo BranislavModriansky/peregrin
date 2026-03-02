@@ -1,9 +1,6 @@
 from pathlib import Path
-
 from shiny import ui
-
 from .sheets import *
-
 
 
 import warnings
@@ -14,7 +11,6 @@ warnings.filterwarnings(
     message=r".*panel_well\(\) is deprecated\. Use shiny\.ui\.card\(\) instead\.",
     category=ShinyDeprecationWarning,
 )
-
 
 
 
@@ -36,7 +32,7 @@ app_ui = ui.page_sidebar(
 
         ui.nav_control(
             ui.output_ui("theme_css_injector"),
-            ui.input_dark_mode(id="app_theme", mode="dark"),
+            ui.input_dark_mode(id="app_theme", mode="light"),
         ),
         
         title=ui.tags.span(
