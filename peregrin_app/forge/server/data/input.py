@@ -52,7 +52,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                                     ui.markdown(""" <h5><b> Statistical Configuration: </h5></b> """), 
                                     style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
                                 ),
-                                ui.input_checkbox("decriptive_error", "Compute descriptive error stats per category", True),
                                 ui.input_checkbox("inferential_error", "Compute inferential error stats per category", False),
                                 ui.panel_conditional(
                                     "input.inferential_error",
@@ -300,7 +299,7 @@ def mount_data_input(input, output, session, S, noticequeue):
 
                 stats = Stats(
                     pool_replicates=input.pool_replicates(),
-                    cat_descr_err=input.decriptive_error(),
+                    cat_descr_err=True,
                     cat_infer_err=input.inferential_error(),
                     bootstrap=input.confidence_intervals(),
                     noticequeue=noticequeue
