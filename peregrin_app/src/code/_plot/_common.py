@@ -1,4 +1,5 @@
 from __future__ import annotations
+import traceback
 
 import math
 from os import path
@@ -9,14 +10,14 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from typing import Any, List, Tuple
 
-from .._handlers._reports import Level
+from .._handlers._reports import Level, Reporter
 from .._infra._selections import Dyes
 
 
 class Painter:
 
     def __init__(self, **kwargs):
-        self.noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+        self.noticequeue = kwargs.get('noticequeue', None)
         
 
     def GenerateRandomColor(self) -> str:
@@ -41,45 +42,42 @@ class Painter:
         return '#{:02x}{:02x}{:02x}'.format(n, n, n)
 
 
-    def StockQualPalette(self, elements: list, cmap: str) -> list:
+    def StockQualPalette(self, data: pd.DataFrame, tag: str, palette: str, *, which: list = None) -> dict:
         """
         Generates a qualitative colormap for a given list of elements.
         """
 
+        if f'{tag} color' in data.columns:
+            Reporter(Level.info, f'[{tag} color] column found in data, unselect palette to use assigned [{tag} color] colors.', noticequeue=self.noticequeue)
+
         try:
+            elements = data[tag].unique().tolist()
+            if which is not None:
+                elements = [e for e in elements if e in which]
             n = len(elements)
             if n == 0:
-                self.noticequeue.Report(Level.error, "No elements provided for colormap generation.")
-                return []
+                Reporter(Level.error, "No elements provided for colormap generation.", noticequeue=self.noticequeue)
+                return {}
             
             else:
-                cmap = plt.get_cmap(cmap)
-            colors = [mcolors.to_hex(cmap(i / n)) for i in range(n)]
+                try:
+                    cmap = plt.get_cmap(palette)
+                except Exception:
+                    cmap = sns.color_palette(palette, n_colors=n)
+                except Exception as e:
+                    Reporter(Level.error, f"Error retrieving colormap for '{palette}': {str(e)} -> Defaulting to the 'tab10' colormap.", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                    cmap = plt.get_cmap('tab10')
+                    
+            # colors = [mcolors.to_hex(cmap(i / n)) for i in range(n)]
+            colors = {elem: mcolors.to_hex(cmap(i / n)) for i, elem in enumerate(elements)}
 
             return colors
         
         except Exception as e:
-            self.noticequeue.Report(Level.error, f"Error generating qualitative colormap: {str(e)}")
-            return []
-    
-    def GetCmap(self, c_mode: str) -> mcolors.Colormap:
-        """
-        Get a colormap according to the selected color mode.
-        """
-
-        try:
-            if c_mode.endswith('LUT'):
-                c_mode = c_mode[:-4]
-                return plt.cm.get_cmap(c_mode)
-            else:
-                print(f"Color mode '{c_mode}' does not end with ' LUT'. Defaulting to 'jet LUT'.")
-                return plt.cm.jet
-
-        except Exception as e:
-            self.noticequeue.Report(Level.error, f"Error retrieving colormap '{c_mode}': {str(e)}")
-            return plt.cm.jet
+            Reporter(Level.error, "Error generating qualitative colormap.", details=f"An error occurred while generating a qualitative colormap: {str(e)}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+            return {}
         
-
+        
     def BuildQualPalette(self, data: pd.DataFrame, tag: str = 'Replicate', *, which: list = [], **kwargs) -> dict:
 
         tags = data[tag].unique().tolist() if which == [] else which
@@ -96,12 +94,30 @@ class Painter:
         missing = [t for t in tags if t not in mp]
 
         if missing:
-            self.noticequeue.Report(Level.warning, f"Missing colors for {tag} values. Generating random colors instead.", f"Assign colors for missing {tag} values: {', '.join(missing)} or use a stock color palette instead.")
+            Reporter(Level.warning, "Missing color assignments.", details=f"The following {tag} values are missing color assignments: {', '.join(missing)}. Assigning random colors to these values.", noticequeue=self.noticequeue)
             
             for t in missing:
                 mp[t] = self.GenerateRandomColor()
 
         return mp
+    
+    def GetCmap(self, c_mode: str) -> mcolors.Colormap:
+        """
+        Get a colormap according to the selected color mode.
+        """
+
+        try:
+            if c_mode.endswith('LUT'):
+                c_mode = c_mode[:-4]
+                return mpl.colormaps[c_mode]
+            else:
+                return mpl.colormaps[c_mode]
+
+        except Exception as e:
+            Reporter(Level.error, "Error retrieving colormap.", details=f"An error occurred while retrieving the colormap for '{c_mode}': {str(e)}. Defaulting to 'jet' colormap.", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+            return plt.cm.jet
+        
+
     
 
     def ShowcaseGradients(self, *, cmaps: list[str] = Dyes.QuantitativeCModes, **kwargs) -> plt.Figure:
@@ -144,7 +160,7 @@ class Painter:
             ax.text(
                 -0.02, 0.5, name[:-4] if name.endswith(' LUT') else name, 
                 va='center', ha='right', 
-                fontsize=10, color='black',
+                fontsize=10, color=text_color,
                 fontfamily='monospace',
                 transform=ax.transAxes,
             )
@@ -157,6 +173,7 @@ class Painter:
             fig.set_facecolor('none')
                 
         return plt.gcf()
+    
 
 
 class Categorizer:
@@ -186,11 +203,11 @@ class Categorizer:
     def __init__(
         self,
         data: pd.DataFrame,
-        conditions: list = [],
-        replicates: list = [],
+        conditions: list | None = None,
+        replicates: list | None = None,
         *,
-        aggby: list = [],
-        aggdict: dict = {},
+        aggby: list | None = None,
+        aggdict: dict | None = None,
         **kwargs
     ):
         """
@@ -198,10 +215,10 @@ class Categorizer:
         """
 
         self.data = data
-        self.conditions = conditions
-        self.replicates = replicates
-        self.aggby = aggby
-        self.aggdict = aggdict
+        self.conditions = conditions if conditions is not None else []
+        self.replicates = replicates if replicates is not None else []
+        self.aggby = aggby if aggby is not None else []
+        self.aggdict = aggdict if aggdict is not None else {}
         self.noticequeue = kwargs.get('noticequeue', None)
 
     def _checkerrors(self) -> bool:

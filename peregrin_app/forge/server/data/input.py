@@ -50,7 +50,13 @@ def mount_data_input(input, output, session, S, noticequeue):
                                 ),
                                 ui.div(
                                     ui.markdown(""" <h5><b> Statistical Configuration: </h5></b> """), 
-                                    style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
+                                    style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 0px; margin-left: 0px;"
+                                    # style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
+                                ),
+                                ui.tags.details(
+                                    ui.tags.summary(""),
+                                    ui.markdown(""" <span style='color:darkgrey; font-style:italic;'>These settings only apply to frame/time related statistic computations.</span> """),
+                                    style="color: darkgrey; font-color: darkgrey; margin-top: -5px; margin-bottom: 15px;"
                                 ),
                                 ui.input_checkbox("inferential_error", "Compute inferential error stats per category", False),
                                 ui.panel_conditional(

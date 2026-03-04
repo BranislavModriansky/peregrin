@@ -45,7 +45,9 @@ app_ui = ui.page_sidebar(
         ),
         
         id="main_nav",
-        selected="Input Menu",
+
+        # selected="Input Menu",
+        selected="Visualisation",
         
     )
 )

@@ -28,10 +28,8 @@ subpanel_superplots = ui.nav_panel(
             """
         ),
 
-        ui.input_selectize(id="superplot_type", label="Plot:", choices=["Swarms", "Violins"], selected="Swarms", width="110px"),
-        # _ _ Swarmplot settings _ _
-        # ui.panel_conditional(
-        #     "input.superplot_type == 'Swarms'",
+        ui.input_selectize(id="superplot_type", label="Plot:", choices=["Hybrid Superplots", "Superviolins"], selected="Hybrid Superplots", width="200px"),
+         
         ui.accordion(
             ui.accordion_panel(
                 "Data Categories",
@@ -46,223 +44,235 @@ subpanel_superplots = ui.nav_panel(
             ),
             ui.accordion_panel(
                 "Compose",
-                ui.input_selectize(id="metric_sp", label=None, choices=Metrics.Track, selected="Straightness index", width="200px"),
+                ui.row(
+                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=Metrics.Track, selected="Straightness index", width="200px")),
+                    ui.column(2, ui.input_radio_buttons(id="sp_orientation", label=None, choices={"v": "Vertical orientation", "h": "Horizontal orientation"}, selected="v")),
+                    ui.panel_conditional(
+                        "input.superplot_type == 'Hybrid Superplots'",
+                        ui.column(2, ui.div("Density normalization method:", style="margin-top: 5px; margin-left: 5px;")),
+                        ui.column(2, ui.input_selectize(id="sp_density_norm", label=None, choices={"area": "Area", "count": "Count"}, selected="area", width="90px")),
+                    ),
+                ),
+                ui.br(),
 
-                # TODO: ui.input_radio_buttons(id="axis_sp", label="Show categories on axis:", choices=["X", "Y"], selected="X", inline=True),
                 ui.accordion(
                     ui.accordion_panel(
                         "Central tendency skeleton",
-                        
-                    ),
-                    ui.accordion_panel(
-                        "Color",
-                        ui.input_checkbox(id="stock_palette_sp", label="Use stock color palette", value=False),
-                        ui.panel_conditional(
-                            "input.stock_palette_sp == true",
-                            ui.input_selectize(id="palette_sp", label="Color palette:", choices=Dyes.PaletteQualitativeSeaborn + Dyes.PaletteQualitativeMatplotlib, selected=2),
-                        )
-                    ),
-                    id="color_accordion_sp"
-                ),
-                ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;")
-            ),
-            ui.accordion_panel(
-                "Elements & Specs",
-                ui.accordion(
-                    ui.accordion_panel(
-                        "Swarms",
-                        ui.input_checkbox(id="sp_show_swarms", label="Show swarms", value=True),
-                        ui.panel_conditional(
-                            "input.sp_show_swarms == true",
-                            ui.input_numeric("sp_swarm_marker_size", "Dot size:", 1, min=0, step=0.5),
-                            ui.input_numeric("sp_swarm_marker_alpha", "Dot opacity:", 0.5, min=0, max=1, step=0.1),
-                            ui.input_selectize("sp_swarm_marker_outline", "Dot outline color:", Dyes.Colors, selected="black"),
-                        ),
-                    ),
-                    ui.accordion_panel(
-                        "Violins",
-                        ui.input_checkbox(id="sp_show_violins", label="Show violins", value=True),
-                        ui.panel_conditional(
-                            "input.sp_show_violins == true",
-                            ui.input_selectize("sp_violin_fill", "Fill color:", Dyes.Colors, selected="whitesmoke"),
-                            ui.input_numeric("sp_violin_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                            ui.input_selectize("sp_violin_outline", "Outline color:", Dyes.Colors, selected="lightgrey"),
-                            ui.input_numeric("sp_violin_outline_width", "Outline width:", 1, min=0, step=1),
-                        ),
-                    ),
-                    ui.accordion_panel(
-                        "KDE",
-                        ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False),
-                        ui.panel_conditional(
-                            "input.sp_show_kde == true",
-                            ui.input_numeric("sp_kde_line_width", "Outline width:", 1, min=0, step=0.1),
-                            ui.input_checkbox("sp_kde_fill", "Fill area", False),
+                        ui.row(
+                            ui.column(2, ui.input_checkbox(id="sp_cond_mean", label="Show condition mean", value=True)),
                             ui.panel_conditional(
-                                "input.sp_kde_fill == true",
-                                ui.input_numeric("sp_kde_fill_alpha", "Fill opacity:", 0.5, min=0, max=1, step=0.1),
-                            ),
-                            ui.input_numeric("sp_kde_bandwidth", "KDE bandwidth:", 0.75, min=0.1, step=0.1),
+                                "input.sp_cond_mean == true",
+                                ui.column(2, ui.input_selectize(id="sp_cond_mean_ls", label="Line style:", choices={'-': 'Solid', '--': 'Dashed', '-.': 'Dash-dot', ':': 'Dotted'}, selected='-', width="115px")),
+                            )
                         ),
-                    ),
-                    ui.accordion_panel(
-                        "Skeleton",
-                        ui.input_checkbox(id="sp_show_cond_mean", label="Show condition mean lines", value=False),
-                        ui.input_checkbox(id="sp_show_cond_median", label="Show condition median lines", value=False),
-                        ui.input_checkbox(id="sp_show_errbars", label="Show error bars", value=False),
-                        ui.panel_conditional(
-                            "input.sp_show_cond_mean == true && input.sp_show_cond_median == true",
-                            ui.input_selectize("sp_set_as_primary", label="Set as primary:", choices=["mean", "median"], selected="mean"),
+                        ui.row(
+                            ui.column(2, ui.input_checkbox(id="sp_cond_median", label="Show condition median", value=True)),
+                            ui.panel_conditional(
+                                "input.sp_cond_median == true",
+                                ui.column(2, ui.input_selectize(id="sp_cond_median_ls", label="Line style:", choices={'-': 'Solid', '--': 'Dashed', '-.': 'Dash-dot', ':': 'Dotted'}, selected='--', width="115px")),
+                            )
                         ),
-                        ui.panel_conditional(
-                            "input.sp_show_cond_mean == true",
-                            ui.input_numeric(id="sp_mean_line_span", label="Mean line span length:", value=0.12, min=0, step=0.01),
-                            ui.input_selectize(id="sp_mean_line_color", label="Mean line color:", choices=Dyes.Colors, selected="black"),
-                        ),
-                        ui.panel_conditional(
-                            "input.sp_show_cond_median == true",
-                            ui.input_numeric(id="sp_median_line_span", label="Median line span length:", value=0.08, min=0, step=0.01),
-                            ui.input_selectize(id="sp_median_line_color", label="Median line color:", choices=Dyes.Colors, selected="darkblue"),
-                        ),
-                        ui.panel_conditional(
-                            "input.sp_show_cond_mean == true || input.sp_show_cond_median == true",
-                            ui.input_numeric(id="sp_lines_lw", label="Mean/Median Line width:", value=1, min=0, step=0.5),
-                        ),
-                        ui.panel_conditional(
-                            "input.sp_show_errbars == true",
-                            ui.input_numeric(id="sp_errorbar_capsize", label="Error bar cap size:", value=4, min=0, step=1),
-                            ui.input_numeric(id="sp_errorbar_lw", label="Error bar line width:", value=1, min=0, step=0.5),
-                            ui.input_selectize(id="sp_errorbar_color", label="Error bar color:", choices=Dyes.Colors, selected="black"),
-                            ui.input_numeric(id="sp_errorbar_alpha", label="Error bar opacity:", value=1, min=0, max=1, step=0.1),
-                        ),
-                        ui.panel_conditional(
-                            "input.sp_show_cond_means == false && input.sp_show_cond_medians == false && input.sp_show_errbars == false",
-                            ui.markdown(
-                                """
-                                *Condition means/medians/error bars not enabled.*
-                                """
+                        ui.row(
+                            ui.column(2, ui.input_checkbox(id="sp_error", label="Show error", value=True)),
+                            ui.panel_conditional(
+                                "input.sp_error == true",
+                                ui.column(1, ui.input_selectize(id="sp_error_type", label="Method:", choices={"sem": "SEM", "sd": "SD", "ci": "CI"}, selected="sd", width="75px")),
+                                ui.panel_conditional(
+                                    "input.sp_error_type == 'ci'",
+                                    ui.column(1, ui.input_selectize(id="sp_error_statistic", label="CI Statistic:", choices={"mean": "Mean", "median": "Median"}, selected="mean", width="105px")),
+                                    ui.column(2, ui.div(ui.input_numeric(id="sp_error_ci_level", label="Confidence level:", value=95, min=50, max=99.9, step=0.1, width="150px"), style="margin-left: 30px;")),
+                                    ui.column(2, ui.input_numeric(id="sp_error_bootstraps", label="Bootstrap resamples:", value=1000, min=100, step=100, width="175px"))
+                                )
                             )
                         ),
                     ),
+                    
                     ui.accordion_panel(
-                        "Bullets",
-                        ui.input_checkbox(id="sp_show_rep_means", label="Show replicate mean bullets", value=False),
-                        ui.input_checkbox(id="sp_show_rep_medians", label="Show replicate median bullets", value=True),
+                        "Replicate markers",
                         ui.panel_conditional(
-                            "input.sp_show_rep_means == true",
-                            ui.input_numeric("sp_mean_bullet_size", "Mean bullet size:", 80, min=0, step=1),
-                            ui.input_selectize("sp_mean_bullet_outline", "Mean bullet outline color:", Dyes.Colors, selected="black"),
-                            ui.input_numeric("sp_mean_bullet_outline_width", "Mean bullet outline width:", 0.75, min=0, step=0.05),
-                            ui.input_numeric("sp_mean_bullet_alpha", "Mean bullet opacity:", 1, min=0, max=1, step=0.1),
-                        ),
-                        ui.panel_conditional(
-                            "input.sp_show_rep_medians == true",
-                            ui.input_numeric("sp_median_bullet_size", "Median bullet size:", 50, min=0, step=1),
-                            ui.input_selectize("sp_median_bullet_outline", "Median bullet outline color:", Dyes.Colors, selected="black"),
-                            ui.input_numeric("sp_median_bullet_outline_width", "Median bullet outline width:", 0.75, min=0, step=0.05),
-                            ui.input_numeric("sp_median_bullet_alpha", "Median bullet opacity:", 1, min=0, max=1, step=0.1),
-                        ),
-                    ),
-                    ui.accordion_panel(
-                        "Plot specs",
-                        
-                        ui.row(
-                            ui.column(3,
-                                ui.input_checkbox(id="sp_show_legend", label="Show legend", value=True),
-                                ui.input_checkbox(id="sp_grid", label="Show grid", value=False),
-                                ui.input_checkbox(id="sp_spine", label="Open axes top/right", value=True),
+                            "input.superplot_type == 'Hybrid Superplots'",
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_rep_means", label="Show replicate means", value=False)),
+                                ui.panel_conditional(
+                                    "input.sp_rep_means == true",
+                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_size", label="Marker size:", value=80, min=0, step=1, width="115px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_alpha", label="Marker opacity:", value=1, min=0, max=1, step=0.1, width="125px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_outline_lw", label="Marker outline width:", value=0.75, min=0, step=0.05, width="175px")),
+                                    ui.column(2, ui.input_checkbox(id="sp_rep_mean_marker_join", label="Join consecutive", value=True)),
+                                    ui.panel_conditional(
+                                        "input.sp_rep_mean_marker_join == true",
+                                        ui.column(2, ui.input_selectize(id="sp_rep_mean_join_ls", label="Join line style", choices={'-': 'Solid', '--': 'Dashed', '-.': 'Dash-dot', ':': 'Dotted'}, selected='-', width="115px")),
+                                    )
+                                )
                             ),
-                            ui.input_numeric(id="sp_fig_width", label="Fig width:", value=10, min=1, step=0.5),
-                            ui.input_numeric(id="sp_fig_height", label="Fig height:", value=7, min=1, step=0.5)
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_rep_medians", label="Show replicate medians", value=True)),
+                                ui.panel_conditional(
+                                    "input.sp_rep_medians == true",
+                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_size", label="Marker size:", value=50, min=0, step=1, width="115px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_alpha", label="Marker opacity:", value=1, min=0, max=1, step=0.1, width="125px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_outline_lw", label="Marker outline width:", value=0.75, min=0, step=0.05, width="175px")),
+                                    ui.column(2, ui.input_checkbox(id="sp_rep_median_marker_join", label="Join consecutive", value=True)),
+                                    ui.panel_conditional(
+                                        "input.sp_rep_median_marker_join == true",
+                                        ui.column(2, ui.input_selectize(id="sp_rep_median_join_ls", label="Join line style", choices={'-': 'Solid', '--': 'Dashed', '-.': 'Dash-dot', ':': 'Dotted'}, selected='--', width="115px")),
+                                    )
+                                )
+                            ),
                         ),
-                    )
-                ),
-
-
-                
-                
-                # TODO: ui.input_checkbox(id="sp_flip", label="Flip axes", value=False),
-                
-            ),
-            class_="accordion02"
-        ),
-        ui.markdown(""" <br> """),
-        # ),
-
-        # _ _ Violinplot settings _ _
-        ui.panel_conditional(
-            "input.superplot_type == 'Violins'",
-            ui.accordion(
-                ui.accordion_panel(
-                    "Metric",
-                    ui.input_selectize("vp_metric", label=None, choices=Metrics.Track, selected="Straightness index"),
-                    # TODO: ui.input_radio_buttons("vp_y_axis", "Y axis with", ["Absolute values", "Relative values"]),
-                ),
-                ui.accordion_panel(
-                    "General",
-                    ui.input_radio_buttons(id="vp_replicate_bullets", label="Replicate bullets", choices=["Mean", "Median"], selected="Median"),
-                    ui.input_radio_buttons(id="vp_skeleton_centre", label="Skeleton centre value", choices=["Mean", "Median"], selected="Median"),
-                    ui.input_radio_buttons(id="vp_errorbars_method", label="Error bars method", choices=["SEM", "SD", "95% CI"], selected="SEM"),
-                    ui.input_checkbox(id="vp_show_legend", label="Show legend", value=True),
-                    ui.row(
-                        ui.column(
-                            6,
-                            ui.input_numeric(id="vp_fig_width", label="Fig width:", value=12, min=1, step=0.5)
-                        ),
-                        ui.column(
-                            6,
-                            ui.input_numeric(id="vp_fig_height", label="Fig height:", value=5, min=1, step=0.5)
-                        ),
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Superviolins'",
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_show_rep_markers", label="Show replicate markers", value=True)),
+                                ui.panel_conditional(
+                                    "input.sp_show_rep_markers == true",
+                                    ui.input_selectize(id="sp_rep_center", label="Replicate markers:", choices={"mean": "Replicate means", "median": "Replicate medians"}, selected="median", width="180px"),
+                                )
+                            )
+                        )
                     ),
-                ),
-                ui.accordion_panel(
-                    "Aesthetics",
-                    ui.input_checkbox(id="vp_use_stock_palette", label="Use stock color palette", value=False),
-                    ui.input_selectize(id="vp_palette", label="Color palette:", choices=Dyes.PaletteQualitativeSeaborn, selected="Accent"),
-                    ui.accordion(
-                        ui.accordion_panel(
-                            "Violins",
-                            ui.input_numeric(id="vp_violin_bandwidth", label="Violin band width:", value=0.8, min=0, step=0.1),
-                            ui.input_numeric(id="vp_violin_outline_width", label="Total-violin outline width:", value=1, min=0, step=0.1),
-                            ui.input_numeric(id="vp_subviolin_outline_width", label="Sub-violin outline width:", value=0, min=0, step=0.1),
+                    
+                    ui.accordion_panel(
+                        "Violins",
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Superviolins'",
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_violin_outline_1", label="Outline violins", value=True)),
+                                ui.panel_conditional(
+                                    "input.sp_violin_outline_1 == true",
+                                    ui.column(2, ui.input_numeric(id="sp_violin_outline_lw_1", label="Violin outline width:", value=1, min=0, step=0.1, width="175px")),
+                                ),
+                                ui.column(2, ui.input_checkbox(id="sp_subviolins_outline_1", label="Outline sub-violins", value=False)),
+                                ui.panel_conditional(
+                                    "input.sp_subviolins_outline_1 == true",
+                                    ui.column(2, ui.input_numeric(id="sp_subviolins_outline_lw_1", label="Sub-violin outline width:", value=0.5, min=0, step=0.1, width="195px")),
+                                )
+                            )
                         ),
-                        ui.accordion_panel(
-                            "Replicate bullets",
-                            ui.input_numeric(id="vp_bullet_size", label="Bullet size:", value=5, min=0, step=1),
-                            ui.input_numeric(id="vp_bullet_outline_linewidth", label="Bullet outline width:", value=0.8, min=0, step=0.1),
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Hybrid Superplots'",
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_show_violins_2", label="Show violins", value=True)),
+                                ui.panel_conditional(
+                                    "input.sp_show_violins_2 == true",
+                                    ui.column(2, ui.input_checkbox(id="sp_violin_outline_2", label="Outline violins", value=True)),
+                                    ui.panel_conditional(
+                                        "input.sp_violin_outline_2 == true",
+                                        ui.column(2, ui.input_numeric(id="sp_violin_outline_lw_2", label="Violin outline width:", value=1, min=0, step=0.1, width="175px")),
+                                        ui.column(2, ui.input_selectize(id="sp_violin_outline_color_2", label="Outline color:", choices=Dyes.Colors, selected="#5170d7", width="175px")),
+                                    ),
+                                    ui.column(2, ui.input_selectize(id="sp_violin_fill_color_2", label="Violin fill color:", choices=Dyes.Colors, selected="#ffffff", width="175px")),
+                                    ui.column(2, ui.input_numeric(id="sp_violin_fill_alpha_2", label="Violin opacity:", value=0.5, min=0, max=1, step=0.1, width="175px")),
+                                )
+                            )
+                        )
+                    ),
+
+                    ui.accordion_panel(
+                        "Scatter",
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Superviolins'",
+                            ui.markdown("*No scatter is plotted when plotting Superviolins*")
                         ),
-                        ui.accordion_panel(
-                            "Error bars & skeleton",
-                            ui.input_numeric(id="vp_errorbar_linewidth", label="Line width:", value=1, min=0, step=0.1),
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Hybrid Superplots'",
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_show_scatter", label="Show scatter", value=True)),
+                                ui.panel_conditional(
+                                    "input.sp_show_scatter == true",
+                                    ui.column(2, ui.input_selectize(id="sp_scatter_type", label="Scatter method:", choices={"sina": "Sinaplot", "swarm": "Swarmplot"}, selected="sina", width="135px")),
+                                    ui.column(2, ui.input_numeric(id="sp_scatter_marker_size", label="Marker size:", value=5, min=0, step=1, width="115px")),
+                                    ui.column(2, ui.input_numeric(id="sp_scatter_marker_alpha", label="Marker opacity:", value=0.8, min=0, max=1, step=0.1, width="125px")),
+                                    ui.column(2, ui.input_numeric(id="sp_scatter_marker_outline_lw", label="Marker outline width:", value=0, min=0, step=0.5, width="175px")),
+                                )
+                            )
+                        )
+                    ),
+
+                    ui.accordion_panel(
+                        "KDE",
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Superviolins'",
+                            ui.markdown("*These setting do not apply to Superviolins*")
+                        ),
+                        ui.panel_conditional(
+                            "input.superplot_type == 'Hybrid Superplots'",
+                            ui.row(
+                                ui.column(2, ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False)),
+                                ui.panel_conditional(
+                                    "input.sp_show_kde == true",
+                                    ui.column(2, ui.input_checkbox(id="sp_kde_outline", label="KDE outline", value=False)),
+                                    ui.panel_conditional(
+                                        "input.sp_kde_outline == true",
+                                        ui.column(2, ui.input_numeric(id="sp_kde_outline_lw", label="KDE line width:", value=1, min=0, step=0.1, width="150px"))
+                                    ),
+                                    ui.column(2, ui.input_checkbox(id="sp_kde_fill", label="Fill KDE area", value=True)),
+                                    ui.panel_conditional(
+                                        "input.sp_kde_fill == true",
+                                        ui.column(2, ui.input_numeric(id="sp_kde_fill_alpha", label="KDE fill opacity:", value=0.5, min=0, max=1, step=0.1, width="175px")),
+                                    )
+                                )
+                            )
+                        )
+                    ),
+
+                    ui.accordion_panel(
+                        "Color",
+                        ui.row(
+                            ui.column(2, ui.input_checkbox(id="sp_monochrome", label="Monochrome", value=False)),
+                            ui.panel_conditional(
+                                "input.sp_monochrome == false",
+                                ui.column(2, ui.input_checkbox(id="stock_palette_sp", label="Use stock color palette", value=True)),
+                                ui.panel_conditional(
+                                    "input.stock_palette_sp == true",
+                                    ui.column(
+                                        2,
+                                        ui.input_selectize(
+                                            id="palette_sp",
+                                            label="Color palette:",
+                                            choices=Dyes.PaletteQualitativeMatplotlib,
+                                            selected="tab10",
+                                        ),
+                                    ),
+                                )
+                            )
+                        )
+                    ),
+
+                    ui.accordion_panel(
+                        "Size",
+                        ui.row(
+                            ui.input_numeric(id="sp_fig_width", label="Figure width:", value=12, min=1, step=0.5, width="150px"),
+                            ui.input_numeric(id="sp_fig_height", label="Figure height:", value=6, min=1, step=0.5, width="150px")
                         )
                     )
                 ),
-                class_="accordion02"
+                ui.br(),
+                ui.row(ui.input_text(id="sp_title", label=None, placeholder="Title:", width="100%"), style="margin-left: 1px; margin-right: 1px;")
             ),
-            ui.markdown(""" <br> """),
-            ui.row(ui.input_text(id="vp_title", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
+            
+            class_="accordion02"
         ),
-        
-        ui.markdown(""" <br> """),
+        ui.br(),
+
         ui.panel_conditional(
-            "input.superplot_type == 'Swarms'",
+            "input.superplot_type == 'Hybrid Superplots'",
             ui.input_task_button(id="sp_generate", label="Generate", class_="btn-secondary task-btn", width="100%")
         ),
         ui.panel_conditional(
-            "input.superplot_type == 'Violins'",
+            "input.superplot_type == 'Superviolins'",
             ui.input_task_button(id="vp_generate", label="Generate", class_="btn-secondary task-btn", width="100%")
         ),
-        ui.br(),
-        ui.div(" 🏗️ ", style="font-size: 360px"),
     ),
-    # ui.markdown(""" <br> """),
-    # ui.panel_conditional(
-    #     "input.superplot_type == 'Swarms'",
-    #     ui.output_ui("sp_plot_card"),
-    #     ui.download_button(id="sp_download_svg", label="Download SVG", width="100%"),
-    # ),
-    # ui.panel_conditional(
-    #     "input.superplot_type == 'Violins'",
-    #     ui.output_ui("vp_plot_card"),
-    #     ui.download_button(id="vp_download_svg", label="Download SVG", width="100%"),
-    # )
+    ui.br(),
+    ui.panel_conditional(
+        "input.superplot_type == 'Hybrid Superplots'",
+        ui.output_ui("sp_plot_card"),
+        ui.download_button(id="sp_download_svg", label="Download SVG", width="100%"),
+    ),
+    ui.panel_conditional(
+        "input.superplot_type == 'Superviolins'",
+        ui.output_ui("vp_plot_card"),
+        ui.download_button(id="vp_download_svg", label="Download SVG", width="100%"),
+    )
 )
