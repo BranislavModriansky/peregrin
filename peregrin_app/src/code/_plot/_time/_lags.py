@@ -1,3 +1,5 @@
+import traceback
+
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -150,6 +152,7 @@ class MSD:
                         band_top_y = y_data + err_data
                 
                 color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
+                color = self._resolve_color(color, idx if self.aggregate else g_idx)
 
                 # label: show replicate name only once in legend when not grouped
                 if self.aggregate:
@@ -245,14 +248,14 @@ class MSD:
 
         tag = 'Condition' if self.c_mode == 'differentiate conditions' else 'Replicate'
         tags = self.conditions if self.c_mode == 'differentiate conditions' else self.replicates
-        
+
         if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
+            mp = {}
             if self.palette:
                 try:
-                    colors_list = self.painter.StockQualPalette(tags, self.palette)
-                    if colors_list:
-                        return dict(zip(tags, colors_list))
-                except Exception:
+                    mp = self.painter.StockQualPalette(data=self.data, tag=tag, palette=self.palette)
+                except Exception as e:
+                    Reporter(Level.error, f"Failed to apply palette '{self.palette}'. Falling back to default colors.", details=traceback.format_exc(), noticequeue=self.noticequeue)
                     pass
 
             else:
@@ -265,20 +268,28 @@ class MSD:
             return mp
 
         elif self.c_mode == 'single color':
+            safe_single = self._resolve_color(self.color, 0)
             keys = list(self.conditions) + list(self.replicates) + [None]
-            return {k: self.color for k in keys}
-            
+            return {k: safe_single for k in keys}
+
+        # fallback for undefined c_mode
+        return {k: self._resolve_color(None, i) for i, k in enumerate(list(self.conditions) + list(self.replicates) + [None])}
+
+    def _resolve_color(self, color: Optional[str], idx: int = 0) -> str:
+        if color is not None and mcolors.is_color_like(color):
+            return color
+        return f"C{idx % 10}"
 
     def _compute_fit_color(self, base_color: str) -> str:
-        
-        base_rgb = mcolors.to_rgb(base_color)
+        safe_color = self._resolve_color(base_color, 0)
+        base_rgb = mcolors.to_rgb(safe_color)
         hsv = mcolors.rgb_to_hsv(np.array(base_rgb))
-        
-        hsv[1] = np.clip(hsv[1] * self.SATURATION_SCALE, 
+
+        hsv[1] = np.clip(hsv[1] * self.SATURATION_SCALE,
                         self.SATURATION_MIN, self.SATURATION_MAX)
-        hsv[2] = np.clip(hsv[2] * self.BRIGHTNESS_SCALE, 
+        hsv[2] = np.clip(hsv[2] * self.BRIGHTNESS_SCALE,
                         self.BRIGHTNESS_MIN, hsv[2])
-        
+
         return mcolors.to_hex(mcolors.hsv_to_rgb(hsv))
     
     def _set_axis_labels(self, ax: plt.Axes):
@@ -454,7 +465,7 @@ def TurnAnglesHeatmap(
     fig, ax = plt.subplots(figsize=(4, 3.8))
 
     # X (mean turn angles - clipped to [0, 180]) and Y (frame lags) values for the heatmap
-    xvals = np.clip(data['Turn mean'].to_numpy(float), 0, 180)
+    xvals = np.clip(data['{per condition} Turn mean'].to_numpy(float), 0, 180)
     yvals = data['Frame lag'].to_numpy(float)
 
     # Build contiguous lag edges -> each lag becomes a row

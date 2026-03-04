@@ -124,7 +124,8 @@ subpanel_msd = ui.nav_panel(
     ),
     ui.br(),
     ui.card(
-        ui.output_plot("plot_msd"),
+        # ui.output_plot("plot_msd"),
+        ui.div(" 🏗️ ", style="font-size: 360px"),
         full_screen=True,
         height="800px",
     ),

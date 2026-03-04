@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib as mpl
 from typing import Any, List, Tuple
 
 from .._handlers._reports import Level, Reporter

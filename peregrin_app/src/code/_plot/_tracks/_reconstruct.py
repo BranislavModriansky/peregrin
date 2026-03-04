@@ -549,59 +549,58 @@ class ReconstructTracks:
         track_index = self.Tracks.index.unique()
 
         if self.c_mode == 'single color':
-            self.Tracks['Track color'] = mcolors.to_hex(self.only_one_color)
+            self.Tracks['Track color'] = self._coerce_color(self.only_one_color)
 
         elif self.c_mode in ['random colors', 'random greys']:
             if self.c_mode == 'random colors':
                 cols = [mcolors.to_hex(rng.random(3)) for _ in range(len(track_index))]
-            elif self.c_mode == 'random greys':
+            else:
                 cols = [mcolors.to_hex((float(g), float(g), float(g))) for g in rng.random(len(track_index))]
-            self.Tracks['Track color'] = [dict(zip(track_index, cols))[idx] for idx in self.Tracks.index]
+            lut = dict(zip(track_index, cols))
+            self.Tracks['Track color'] = [self._coerce_color(lut.get(idx)) for idx in self.Tracks.index]
 
         elif self.c_mode in ['differentiate conditions', 'differentiate replicates']:
-            if self.c_mode == 'differentiate replicates':
-                category = 'replicate'
-            if self.c_mode == 'differentiate conditions':
-                category = 'condition'
+            category = 'Replicate' if self.c_mode == 'differentiate replicates' else 'Condition'
+            df = self.Tracks.reset_index()
+            categories = df[category].dropna().unique().tolist()
 
             if self.stock_palette is None:
-                mp = self.painter.BuildQualPalette(self.Tracks, tag=category.capitalize())
-                self.Tracks = self.Tracks.reset_index()
-                self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(mp)
-                self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
-            
+                mp = self.painter.BuildQualPalette(data=df, tag=category, which=categories)
+            else:
+                mp = self.painter.StockQualPalette(
+                    data=df,
+                    tag=category,
+                    palette=self.stock_palette,
+                    which=categories
+                )
+                if not isinstance(mp, dict) or not mp:
+                    mp = self.painter.BuildQualPalette(data=df, tag=category, which=categories)
 
-            if self.stock_palette is not None:
-                categories = self.Tracks.reset_index()[category.capitalize()].unique().tolist()
-                palette = self.painter.StockQualPalette(categories, self.stock_palette)
-                compiled = dict(zip(categories, palette))
-
-                self.Tracks = self.Tracks.reset_index()
-                self.Tracks['Track color'] = self.Tracks[category.capitalize()].map(compiled)
-                self.Tracks = self.Tracks.set_index(['Condition', 'Replicate', 'Track ID'])
+            df['Track color'] = df[category].map(mp).apply(self._coerce_color)
+            self.Tracks = df.set_index(['Condition', 'Replicate', 'Track ID'])
 
         else:
-            self.cmap = self.painter.GetCmap(self.c_mode)
-            norm, vals = Values.LutMapper(self.Tracks if self.lut_scaling_stat in self.Tracks.columns else self.Spots, self.lut_scaling_stat, min=self.lut_vmin, max=self.lut_vmax, noticequeue=self.noticequeue)
+            cmap = self._resolve_cmap(self.c_mode)
+            norm, vals = Values.LutMapper(
+                self.Tracks if self.lut_scaling_stat in self.Tracks.columns else self.Spots,
+                self.lut_scaling_stat,
+                min=self.lut_vmin,
+                max=self.lut_vmax,
+                noticequeue=self.noticequeue
+            )
 
             if not (norm is None or vals is None):
-
                 if self.lut_scaling_stat in self.Tracks.columns:
-                    self.Tracks['Track color'] = [mcolors.to_hex(self.cmap(norm(v))) for v in vals]
-
+                    self.Tracks['Track color'] = [self._coerce_color(mcolors.to_hex(cmap(norm(v)))) for v in vals]
                 if self.lut_scaling_stat in self.Spots.columns:
-                    self.Spots['Spot color'] = [mcolors.to_hex(self.cmap(norm(v))) for v in vals]
-
+                    self.Spots['Spot color'] = [self._coerce_color(mcolors.to_hex(cmap(norm(v)))) for v in vals]
             else:
                 self.Tracks['Track color'] = mcolors.to_hex('black')
 
         if 'Track color' in self.Tracks.columns and 'Track color' not in self.Spots.columns:
-            self.Spots = self.Spots.join(
-                self.Tracks[['Track color']],
-                how='left',
-                # validate='many_to_one',
-            )
-    
+            self.Spots = self.Spots.join(self.Tracks[['Track color']], how='left')
+            self.Spots['Track color'] = self.Spots['Track color'].apply(self._coerce_color)
+
     def _build_segments(self, spots: pd.DataFrame, polar: bool = False):
         """
         Build segments and colors from a Spots-like dataframe.
@@ -620,19 +619,19 @@ class ReconstructTracks:
             # Per-spot coloring (e.g. instantaneous LUTs)
             for _, g in spots.groupby(level=self.KEY_COLS, sort=False):
                 coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
-                cols = g['Spot color'].astype(str).to_numpy()
+                cols = g['Spot color'].to_numpy()
                 n = coords.shape[0]
                 if n >= 2:
-                    for i in range(n):
+                    for i in range(1, n):
                         segments.append(coords[i - 1:i + 1])
-                        seg_colors.append(cols[i])
+                        seg_colors.append(self._coerce_color(cols[i]))
         elif 'Track color' in spots.columns:
             # Per-track coloring
             for _, g in spots.groupby(level=self.KEY_COLS, sort=False):
                 coords = g[list(coord_cols)].to_numpy(dtype=float, copy=False)
                 if coords.shape[0] >= 2:
                     segments.append(coords)
-                    seg_colors.append(g['Track color'].iloc[0])
+                    seg_colors.append(self._coerce_color(g['Track color'].iloc[0]))
         else:
             # Fallback: black
             default_col = mcolors.to_hex('black')
@@ -772,17 +771,16 @@ class ReconstructTracks:
             xe = ends[x_coord].to_numpy(dtype=float, copy=False)
             ye = ends[y_coord].to_numpy(dtype=float, copy=False)
 
-            # Prefer per-spot colors if present, else per-track, else fallback to black
+            cols = np.array([mcolors.to_hex('black')] * len(ends), dtype=object)
             if 'Spot color' in ends.columns:
-                cols = ends['Spot color'].astype(str).to_numpy()
+                cols = np.array([self._coerce_color(c) for c in ends['Spot color'].to_numpy()], dtype=object)
             elif 'Track color' in ends.columns:
-                cols = ends['Track color'].astype(str).to_numpy()
-            
+                cols = np.array([self._coerce_color(c) for c in ends['Track color'].to_numpy()], dtype=object)
+
             m = np.isfinite(xe) & np.isfinite(ye)
             if m.any():
                 ax.scatter(
-                    xe[m],
-                    ye[m],
+                    xe[m], ye[m],
                     marker=self.marker["symbol"],
                     s=self.marker_size,
                     edgecolor=cols[m],
@@ -792,18 +790,38 @@ class ReconstructTracks:
                 )
 
     def _color_segments(self, ax):
+        if not self.segments:
+            return
         lc = LineCollection(self.segments, colors=self.segment_colors, linewidths=self.lw, zorder=10)
         ax.add_collection(lc)
 
-    def _rgba_over_background(self, rgba: np.ndarray, bg: tuple[int, int, int]) -> np.ndarray:
-        """Composite uint8 RGBA over an RGB background. Returns uint8 RGB."""
-        if rgba.shape[-1] != 4:
-            raise ValueError("expected RGBA input")
-        rgb = rgba[..., :3].astype(np.float32)
-        a = rgba[..., 3:4].astype(np.float32) / 255.0
-        bg_rgb = np.array(bg, dtype=np.float32).reshape(1, 1, 1, 3)
-        out = rgb * a + bg_rgb * (1.0 - a)
-        return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+    def _resolve_cmap(self, cmap_like):
+        if isinstance(cmap_like, mcolors.Colormap):
+            return cmap_like
+        name = str(cmap_like).strip()
+        if name.lower().endswith('lut'):
+            name = name[:-3].strip()
+        try:
+            cmap = self.painter.GetCmap(name)
+            if isinstance(cmap, mcolors.Colormap):
+                return cmap
+        except Exception:
+            pass
+        try:
+            return plt.get_cmap(name)
+        except Exception:
+            return plt.get_cmap('viridis')
+
+    def _coerce_color(self, value, fallback: str = '#000000') -> str:
+        try:
+            if pd.isna(value):
+                return fallback
+        except Exception:
+            pass
+        try:
+            return mcolors.to_hex(value)
+        except Exception:
+            return fallback
 
 
 

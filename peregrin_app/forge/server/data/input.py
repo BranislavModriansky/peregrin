@@ -29,14 +29,14 @@ def mount_data_input(input, output, session, S, noticequeue):
                                 style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center; margin-top: 15px; margin-bottom: -10px;"
                             ),
                             ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
-                            ui.tooltip(
-                                ui.input_checkbox("pool_replicates", "Pool replicates", False),
-                                """
-                                If enabled, replicates will be pooled together when computing statistics. If disabled, statistics will be computed separately for each replicate. 
-                                Pooling replicates may be appropriate when technical replicates are present and there is no reason to expect systematic differences between them.
-                                """,
-                                placement="right",
-                            ),
+                            # ui.tooltip(
+                            #     ui.input_checkbox("pool_replicates", "Pool replicates", False),
+                            #     """
+                            #     If enabled, replicates will be pooled together when computing statistics. If disabled, statistics will be computed separately for each replicate. 
+                            #     Pooling replicates may be appropriate when technical replicates are present and there is no reason to expect systematic differences between them.
+                            #     """,
+                            #     placement="right",
+                            # ),
                             ui.div(  
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
@@ -304,7 +304,7 @@ def mount_data_input(input, output, session, S, noticequeue):
                 Stats.B_RESAMPLES = input.ci_resamples()
 
                 stats = Stats(
-                    pool_replicates=input.pool_replicates(),
+                    # pool_replicates=input.pool_replicates(),
                     cat_descr_err=True,
                     cat_infer_err=input.inferential_error(),
                     bootstrap=input.confidence_intervals(),

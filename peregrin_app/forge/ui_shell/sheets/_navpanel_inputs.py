@@ -15,4 +15,6 @@ navpanel_inputs = ui.nav_panel(
     ),
     ui.output_ui("input_panel"),
     ui.include_js(styles_path / "icons.js"),
+    # ui.include_css(styles_path / "file_preview_popup.css"),
+    ui.include_js(styles_path / "file_preview_popup.js"),
 )
