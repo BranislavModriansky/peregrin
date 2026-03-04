@@ -19,6 +19,8 @@ navpanel_viz = ui.nav_panel(
         subpanel_series,  
         subpanel_superplots,
 
+        selected="Superplots",
+
         widths = (2, 10)
 
     )
