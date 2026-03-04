@@ -13,6 +13,7 @@ navpanel_viz = ui.nav_panel(
     ui.navset_pill_list(
 
         subpanel_tracks,
+        subpanel_flow,
         subpanel_dirdist,
         subpanel_msd,
         subpanel_turnangs,
