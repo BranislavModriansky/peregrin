@@ -76,7 +76,7 @@ def mount_notifier(noticequeue):
                             ] if data["error"]["details"] else "",
                             [
                                 "\n",
-                                ui.tags.details("\n".join(data["error"]["trace"]))
+                                ui.tags.details(ui.tags.summary("Trace:"), "\n".join(data["error"]["trace"]))
                             ] if data["error"]["trace"] else ""
                         ],
                         style="border: none; background: none; white-space: pre-wrap; word-wrap: break-word;",

@@ -7,10 +7,12 @@ from scipy.stats import gaussian_kde
 import shiny.ui as ui
 from shiny import render, reactive, req, ui
 
-from src.code import Level, Inventory1D, Filter1D, DebounceCalc, is_empty
+from src.code import Level, Inventory1D, Filter1D, DebounceCalc, is_empty, Values
 
 
 def mount_thresholds_calc(input, output, session, S, noticequeue):
+
+    rsf = Values.RoundSigFigs
 
     Filter1D.noticequeue = noticequeue
 
@@ -238,6 +240,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
 
                 bottom, top = inventory["selection"]
 
+                min, max = inventory["ambit"][:2]
+
                 bins = get_bins()
 
                 fig, ax = plt.subplots()
@@ -294,8 +298,13 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 if relative:
                     ax.axvline(reference, linestyle="--", linewidth=1, color=_color)
 
-                ax.set_xticks([]); ax.set_yticks([])
+                ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
+
+                # Show only min and max values on the x-axis, no ticks
+                ax.set_xticks([min, max])
+                ax.set_xticklabels([str(min), str(max)], color=_color)
+                ax.tick_params(axis='x', length=0)
 
                 fig.set_facecolor('none')
                 ax.set_facecolor('none')
