@@ -72,11 +72,7 @@ def mount_motionflow(input, output, session, S, noticequeue):
                 columns = S.SPOTSTATS.get().columns.tolist()
             else:
                 columns = []
-
-            for col in columns: 
-                if any(lbl in col for lbl in ['UID', 'ID', 'Condition', 'Replicate']):
-                    columns.remove(col)
-
+                
             ui.update_selectize(id="arrow_scale_by_mf", choices=columns, selected=columns[0] if columns else None)
             ui.update_selectize(id="arrow_scale_by_a_mf", choices=columns, selected=columns[0] if columns else None)
             ui.update_selectize(id="arrow_scale_by_b_mf", choices=columns, selected=columns[0] if columns else None)

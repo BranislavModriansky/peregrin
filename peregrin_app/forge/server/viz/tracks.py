@@ -75,6 +75,15 @@ def MountTracks(input, output, session, S, noticequeue):
                 selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
 
+    
+    @reactive.effect
+    def update_choices():
+        req(not is_empty(S.SPOTSTATS.get())
+            and not is_empty(S.TRACKSTATS.get()))
+        
+        ui.update_selectize(id="tracks_lut_scaling_metric", choices={"SPOTS": S.SPOTSTATS_COLUMNS.get(), "TRACKS": S.TRACKSTATS_COLUMNS.get()}, selected="Track displacement")
+
+
     @render.text
     def tracks_lutmap_auto_scale_info():
         if (

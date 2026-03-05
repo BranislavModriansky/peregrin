@@ -108,7 +108,7 @@ subpanel_msd = ui.nav_panel(
                         ui.panel_conditional(
                             "input.c_mode_msd != 'single color' && input.palette_stock_msd == true",
                             ui.div(
-                                ui.input_selectize("palette_stock_type_msd", "Palette:", Dyes.PaletteQualitativeMatplotlib),    
+                                ui.input_selectize("palette_stock_type_msd", "Palette:", Dyes.PaletteQualitativeMatplotlib), # TODO: extend the palette options for seaborn qualitative colormaps <- first modify the Painter.StockQualPalette function to include the new colormaps
                                 style="margin-left: -15px;"
                             )
                         )
