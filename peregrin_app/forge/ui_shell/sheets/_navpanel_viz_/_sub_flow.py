@@ -39,7 +39,7 @@ subpanel_flow = ui.nav_panel(
             ),
             ui.accordion_panel(
                 "Compose",
-                ui.input_selectize(id="chart_type_mf", label="Chart type:", choices={"quiver": "Quiver plot", "stream": "Stream plot"}, selected="stream", multiple=False),
+                ui.input_selectize(id="chart_type_mf", label="Chart type:", choices={"quiver": "Quiver plot", "stream": "Stream plot"}, selected="stream", multiple=False, width="165px"),
                 ui.accordion(
                     ui.accordion_panel(
                         "Arrow parameters",
@@ -63,11 +63,11 @@ subpanel_flow = ui.nav_panel(
                                                                      "sd": "Standard Deviation", "add": "Add", "subtract": "Subtract", "multiply": "Multiply", "divide": "Divide"}, 
                                                                      selected="linear", multiple=False)),
                             ui.panel_conditional(
-                                "['min', 'max', 'mean', 'median', 'sum', 'sd'].includes(arrow_scaling_method_mf)",
+                                "['min', 'max', 'mean', 'median', 'sum', 'sd'].includes(input.arrow_scaling_method_mf)",
                                 ui.column(2, ui.input_selectize(id="arrow_scale_by_mf", label="Scale arrow size by:", choices=[], multiple=False)),
                             ),
                             ui.panel_conditional(
-                                "['add', 'subtract', 'multiply', 'divide'].includes(arrow_scaling_method_mf)",
+                                "['add', 'subtract', 'multiply', 'divide'].includes(input.arrow_scaling_method_mf)",
                                 ui.row(
                                     ui.column(2, ui.input_selectize(id="arrow_scale_by_a_mf", label="Value A:", choices=[], multiple=False)),
                                     ui.column(2, ui.input_selectize(id="arrow_scale_by_b_mf", label="Value B:", choices=[], multiple=False)),
@@ -75,19 +75,26 @@ subpanel_flow = ui.nav_panel(
                             )
                         )
                     ),
-                )
+                ),
+                ui.br(),
+                ui.input_text(id="title_mf", label=None, placeholder="Title:"),
             ),
             ui.accordion_panel(
                 "Color",
                 ui.row(
                     ui.column(2, ui.input_selectize(id="color_cmap_mf", label="Colormap:", choices=Dyes.QuantitativeCModes, selected="viridis", multiple=False)),
-                    ui.column(2, ui.input_selectize(id="color_by_mf", label="Color by:", choices=[], multiple=False)),
                 )
             ),
             class_="accordion02"
         ),
         ui.br(),
         ui.input_task_button(id="generate_mf", label="Generate", class_="btn-secondary task-btn", width="100%")
-    )
-
+    ),
+    ui.br(),
+    ui.card(
+        ui.output_plot("motionflow_plot"),
+        full_screen=False,
+        height="800px",
+    ),
+    ui.download_button("mf_download", "Download", width="100%")
 )

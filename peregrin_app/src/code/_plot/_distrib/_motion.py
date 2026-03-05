@@ -147,7 +147,7 @@ class MotionFlowPlot:
                      fontsize=self.kwargs.get('title_fontsize', 12),
                      color=self.kwargs.get('text_color', 'black'))
         
-        fig.set_facecolor(self.kwargs.get('none'))
+        fig.set_facecolor(self.kwargs.get('background_color', 'whitesmoke'))
 
         if self.kwargs.get('show_grid', False):
             self._draw_grid(ax, grid_x, grid_y, cell_w, cell_h)
@@ -270,6 +270,7 @@ class MotionFlowPlot:
         a_func, b_func = self.kwargs.get('metric_a_func', 'mean'), self.kwargs.get('metric_b_func', 'mean')
         
         return {
+            # 'density':  lambda v: len(v),
             'min':      np.min,      
             'max':      np.max,
             'mean':     np.mean,     
@@ -343,7 +344,7 @@ class MotionFlowPlot:
 
     def _scale_getitems(self) -> np.ndarray | None:
 
-        if self.scale_by == 'density':
+        if self.scale_by == 'density' or self.scale_method == 'density':
             return None
 
         match self.scale_by:
