@@ -90,7 +90,7 @@ subpanel_tracks = ui.nav_panel(
                     ui.input_selectize("tracks_color_mode", "Color mode:", Dyes.CModes, width="250px"),
                     ui.panel_conditional(
                         "!['single color', 'random colors', 'random greys', 'differentiate conditions', 'differentiate replicates'].includes(input.tracks_color_mode)",
-                        ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut, width="230px"),
+                        ui.input_selectize(id="tracks_lut_scaling_metric", label="LUT scaling metric:", choices=[], multiple=False, width="230px"),
                     ),
                     ui.panel_conditional(
                         "input.tracks_color_mode == 'single color'",
