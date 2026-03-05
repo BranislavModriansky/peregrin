@@ -16,6 +16,7 @@ from .viz.superplots import mount_superplots
 from .viz.msd import mount_plot_msd
 from .viz.turnangles import mount_plot_turnangles
 from .viz.references import mount_references
+from .viz.motionflow import mount_motionflow
 
 from .bg_jobs.loaders import mount_loaders
 from .bg_jobs.buttons import mount_buttons
@@ -64,6 +65,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     MountDistributions(*args1)
     mount_superplots(*args, **kwargs)
     mount_plot_msd(*args, **kwargs)
+    mount_motionflow(*args, **kwargs)
 
 
     mount_loaders(*args)
