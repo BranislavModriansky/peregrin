@@ -4,7 +4,7 @@ from shiny import reactive, ui, render
 
 def mount_buttons(input, output, session, S, noticequeue):
 
-    @output 
+    output 
     @render.ui
     def import_mode():
 
@@ -40,6 +40,7 @@ def mount_buttons(input, output, session, S, noticequeue):
                         ui.input_file(id="already_processed_input", label=None, placeholder="Drag & drop CSV", accept=[".csv"], multiple=False),
                         style="display: flex; align-items: center; margin-left: 35px;"
                     ),
+                    ui.output_ui("run_processed_btn_ui"),
                     style="display: flex; align-items: center;"
                 )
                 

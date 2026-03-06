@@ -175,8 +175,6 @@ class Painter:
                 
         return plt.gcf()
     
-
-
 class Categorizer:
     """
     #### *Categorize and aggregate data.*
@@ -274,7 +272,6 @@ class Categorizer:
             return self._aggregate()
         return self._filter()
     
-
 class LutScale:
 
     def __init__(self, min_val: float, max_val: float, cmap: str, **kwargs):

@@ -1,10 +1,17 @@
 import traceback
 from unittest import case
+import numpy as np
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render, req
-from src.code import DataLoader, Stats, Metrics, Level, is_empty
+from src.code import DataLoader, Stats, Metrics, Level, is_empty, Reporter
 
+
+
+
+def _sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Replace NaN/Inf with None so JSON serialization doesn't break."""
+    return df.replace([np.nan, np.inf, -np.inf], None)
 
 
 
@@ -250,107 +257,118 @@ def mount_data_input(input, output, session, S, noticequeue):
     @reactive.Effect
     @reactive.event(input.run)
     def parsed_files():
-        all_data = []
+        try:
+            all_data = []
 
-        for idx in range(1, S.INPUTS.get()+1):
+            for idx in range(1, S.INPUTS.get()+1):
 
-            files = input[f"input_file{idx}"]()
+                files = input[f"input_file{idx}"]()
 
-            if not files:
-                break
+                if not files:
+                    break
 
-            if input.auto_label():
-                cond_label = files[0].get("name").split("#")[1] if len(files[0].get("name").split("#")) >= 2 else None #TODO: display an error if the file label is incorrect
+                if input.auto_label():
+                    cond_label = files[0].get("name").split("#")[1] if len(files[0].get("name").split("#")) >= 2 else None
+                else:
+                    cond_label = input[f"condition_label{idx}"]()
+
+                for file_idx, fileinfo in enumerate(files, start=1):
+                    try:
+                        df = dataloader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
+
+                        if input.strip_data():
+                            extracted = dataloader.ExtractStripped(
+                                df,
+                                id_col=input.select_id(),
+                                t_col=input.select_t(),
+                                x_col=input.select_x(),
+                                y_col=input.select_y(),
+                                mirror_y=True,
+                            )
+                        else:
+                            extracted = dataloader.ExtractFull(
+                                df,
+                                id_col=input.select_id(),
+                                t_col=input.select_t(),
+                                x_col=input.select_x(),
+                                y_col=input.select_y(),
+                                mirror_y=True,
+                            )
+
+                    except: continue
+
+                    extracted["Condition"] = cond_label if cond_label else str(idx)
+                    extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
+
+                    all_data.append(extracted)
+
+                    
+                    
+            if all_data:
+                all_data = pd.concat(all_data, axis=0)
+                S.RAWDATA.set(all_data)
+
+                with reactive.isolate():
+                    Stats.B_RESAMPLES = input.ci_resamples()
+
+                    stats = Stats(
+                        cat_descr_err=True,
+                        cat_infer_err=input.inferential_error(),
+                        bootstrap=input.confidence_intervals(),
+                        noticequeue=noticequeue
+                    )
+
+                    Spots = stats.Spots(all_data)
+
+                    Tracks, Frames, TimeIntervals = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+                    if "Trackstats" in input.compute_data():
+                        Tracks = stats.Tracks(all_data)
+                    if "Framestats" in input.compute_data():
+                        Frames = stats.Frames(all_data)
+                    if "TimeIntervals" in input.compute_data():
+                        TimeIntervals = stats.TimeIntervals(all_data)
+
+                S.UNFILTERED_SPOTSTATS.set(_sanitize_df(Spots))
+                S.UNFILTERED_TRACKSTATS.set(_sanitize_df(Tracks))
+                S.UNFILTERED_FRAMESTATS.set(_sanitize_df(Frames))
+                S.UNFILTERED_TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+
+                S.SPOTSTATS.set(_sanitize_df(Spots))
+                S.TRACKSTATS.set(_sanitize_df(Tracks))
+                S.FRAMESTATS.set(_sanitize_df(Frames))
+                S.TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+
+                ui.update_sidebar(id="sidebar", show=True)
+                ui.update_action_button(id="append_threshold", disabled=False)
+
             else:
-                cond_label = input[f"condition_label{idx}"]()
+                pass
 
-            for file_idx, fileinfo in enumerate(files, start=1):
-                try:
-                    df = dataloader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
-
-                    if input.strip_data():
-                        extracted = dataloader.ExtractStripped(
-                            df,
-                            id_col=input.select_id(),
-                            t_col=input.select_t(),
-                            x_col=input.select_x(),
-                            y_col=input.select_y(),
-                            mirror_y=True,
-                        )
-                    else:
-                        extracted = dataloader.ExtractFull(
-                            df,
-                            id_col=input.select_id(),
-                            t_col=input.select_t(),
-                            x_col=input.select_x(),
-                            y_col=input.select_y(),
-                            mirror_y=True,
-                        )
-
-                except: continue
-
-                extracted["Condition"] = cond_label if cond_label else str(idx)
-                extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
-
-                all_data.append(extracted)
-
-                
-                
-        if all_data:
-            all_data = pd.concat(all_data, axis=0)
-            S.RAWDATA.set(all_data)
-
-            with reactive.isolate():
-                Stats.B_RESAMPLES = input.ci_resamples()
-
-                stats = Stats(
-                    # pool_replicates=input.pool_replicates(),
-                    cat_descr_err=True,
-                    cat_infer_err=input.inferential_error(),
-                    bootstrap=input.confidence_intervals(),
-                    noticequeue=noticequeue
-                )
-
-                # Compute spotstats for all data; spotstats are necessary and will be computed in any case
-                Spots = stats.Spots(all_data)
-
-                # Compute desired stats based on user selection in the sidebar
-                Tracks, Frames, TimeIntervals = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-                if "Trackstats" in input.compute_data():
-                    Tracks = stats.Tracks(all_data)
-                if "Framestats" in input.compute_data():
-                    Frames = stats.Frames(all_data)
-                if "TimeIntervals" in input.compute_data():
-                    TimeIntervals = stats.TimeIntervals(all_data)
-
-            S.UNFILTERED_SPOTSTATS.set(Spots)
-            S.UNFILTERED_TRACKSTATS.set(Tracks)
-            S.UNFILTERED_FRAMESTATS.set(Frames)
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
-
-            S.SPOTSTATS.set(Spots)
-            S.TRACKSTATS.set(Tracks)
-            S.FRAMESTATS.set(Frames)
-            S.TINTERVALSTATS.set(TimeIntervals)
-
-            ui.update_sidebar(id="sidebar", show=True)
-            ui.update_action_button(id="append_threshold", disabled=False)
-
-        else:
-            pass
-
+        finally:
+            ui.update_task_button("run", state="ready")
 
 
     # _ _ _ _ PROCESSED DATA INPUT _ _ _ _
 
+    # Show/hide the Run button for processed mode based on file selection
+    @output()
+    @render.ui
+    def run_processed_btn_ui():
+        fileinfo = input.already_processed_input()
+        if fileinfo:
+            # File has been selected — disable mode switch immediately & show Run button
+            stabilize_input()
+            return ui.input_task_button("run_processed", label="Run", class_="btn-secondary task-btn", style="margin-left: 35px; margin-top: margin-top: -32px;")
+        else:
+            return ui.input_action_button("run_processed0", label="Run", class_="btn-secondary task-btn-mask", disabled=True, style="margin-left: 35px; margin-top: -32px;")
+
     @reactive.Effect
-    @reactive.event(input.already_processed_input)
+    @reactive.event(input.run_processed)
     def load_processed_data():
         fileinfo = input.already_processed_input()
+        req(fileinfo)
 
         try:
-            stabilize_input()
-
             df = dataloader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
 
             stats = Stats(noticequeue=noticequeue)
@@ -360,19 +378,25 @@ def mount_data_input(input, output, session, S, noticequeue):
                 stats.Frames(df),            \
                 stats.TimeIntervals(df)
             
-            S.UNFILTERED_SPOTSTATS.set(df)
-            S.UNFILTERED_TRACKSTATS.set(Tracks)
-            S.UNFILTERED_FRAMESTATS.set(Frames)
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
+            S.UNFILTERED_SPOTSTATS.set(_sanitize_df(df))
+            S.UNFILTERED_TRACKSTATS.set(_sanitize_df(Tracks))
+            S.UNFILTERED_FRAMESTATS.set(_sanitize_df(Frames))
+            S.UNFILTERED_TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
 
-            S.SPOTSTATS.set(df)
-            S.TRACKSTATS.set(Tracks)
-            S.FRAMESTATS.set(Frames)
-            S.TINTERVALSTATS.set(TimeIntervals)
+            S.SPOTSTATS.set(_sanitize_df(df))
+            S.TRACKSTATS.set(_sanitize_df(Tracks))
+            S.FRAMESTATS.set(_sanitize_df(Frames))
+            S.TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
             
+            ui.update_sidebar(id="sidebar", show=True)
             ui.update_action_button(id="append_threshold", disabled=False)
-            
+
+            Reporter(Level.info, "Processed data loaded successfully.")
+        
         except Exception as e:
             error_trace = traceback.format_exc()
             noticequeue.Report(Level.error, "Error in loading processed data", error_trace)
-
+        
+        finally:
+            ui.update_task_button("run_processed", state="ready")
+            
