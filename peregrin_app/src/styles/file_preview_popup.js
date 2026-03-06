@@ -16,6 +16,37 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    // Store files from a file input element into our map
+    function captureFiles(fileInput) {
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+        const inputId = fileInput.id || fileInput.closest('.shiny-input-container')?.querySelector('input[type="file"]')?.id;
+        if (inputId) {
+            const files = Array.from(fileInput.files).map(f => ({
+                name: f.name,
+                size: f.size,
+                type: f.type
+            }));
+            fileInputData.set(inputId, files);
+        }
+    }
+
+    // Store files directly from a FileList or DataTransfer (for drop events)
+    function captureFilesFromList(fileList, inputId) {
+        if (!fileList || fileList.length === 0 || !inputId) return;
+        const files = Array.from(fileList).map(f => ({
+            name: f.name,
+            size: f.size,
+            type: f.type
+        }));
+        fileInputData.set(inputId, files);
+    }
+
+    // Find the file input id from a container element
+    function findFileInputId(container) {
+        const fileInput = container.querySelector('input[type="file"]');
+        return fileInput ? (fileInput.id || null) : null;
+    }
+
     // Create popup HTML
     function createPopup(files, inputLabel) {
         const overlay = document.createElement('div');
@@ -109,21 +140,81 @@
 
     // Initialize file preview functionality
     function initFilePreview() {
+
+        // Capture files from browse (change event on file inputs)
         document.addEventListener('change', function(e) {
             const input = e.target;
             if (input.type === 'file') {
-                const inputId = input.id || input.closest('.shiny-input-container')?.querySelector('input[type="file"]')?.id;
-                if (inputId && input.files) {
-                    const files = Array.from(input.files).map(f => ({
+                captureFiles(input);
+            }
+        });
+
+        // Capture files from drag-and-drop onto shiny file input containers
+        document.addEventListener('drop', function(e) {
+            // Find the closest shiny input container that accepts file drops
+            const shinyContainer = e.target.closest('.shiny-input-container');
+            if (!shinyContainer) return;
+
+            const fileInput = shinyContainer.querySelector('input[type="file"]');
+            if (!fileInput) return;
+
+            const inputId = fileInput.id;
+            if (!inputId) return;
+
+            // The drop event's dataTransfer holds the dropped files
+            const droppedFiles = e.dataTransfer && e.dataTransfer.files;
+            if (droppedFiles && droppedFiles.length > 0) {
+                captureFilesFromList(droppedFiles, inputId);
+            } else {
+                // Fallback: wait briefly for the file input to update, then read from it
+                setTimeout(() => captureFiles(fileInput), 150);
+            }
+        }, true); // Use capture phase to catch before Shiny processes it
+
+        // Additional fallback: observe the file input's files property via a MutationObserver
+        // on the readonly text field that Shiny updates after upload completes
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                    const target = mutation.target;
+                    if (target.matches && target.matches('input.form-control[readonly]')) {
+                        const container = target.closest('.shiny-input-container');
+                        if (container) {
+                            const fileInput = container.querySelector('input[type="file"]');
+                            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                                captureFiles(fileInput);
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['value'],
+            subtree: true
+        });
+
+        // Also watch for Shiny's custom progress/complete events on file inputs
+        // Shiny triggers shiny:inputchanged after file upload completes
+        $(document).on('shiny:inputchanged', function(e) {
+            if (e.name && e.value && Array.isArray(e.value)) {
+                // Check if this looks like a file input value (array of objects with name, size, etc.)
+                const isFileInput = e.value.length > 0 && e.value[0] && e.value[0].name;
+                if (isFileInput) {
+                    const inputId = e.name;
+                    const files = e.value.map(f => ({
                         name: f.name,
-                        size: f.size,
-                        type: f.type
+                        size: f.size || 0,
+                        type: f.type || ''
                     }));
                     fileInputData.set(inputId, files);
                 }
             }
         });
 
+        // Click handler for popup
         document.addEventListener('click', function(e) {
             const formControl = e.target.closest('input.form-control[readonly]');
             if (formControl) {

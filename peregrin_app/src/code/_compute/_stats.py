@@ -368,7 +368,7 @@ class Stats:
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
         gcols = ['Track UID']
 
-        grp = df.groupby(gcols, sort=False)
+        grp = df.groupby(level=gcols, sort=False)
 
         # Resolve speed aggregation spec through the resolver
         speed_agg_spec = self.resolve({
@@ -456,6 +456,8 @@ class Stats:
                 .set_index('Track UID')
             )
             df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
+
+        df.insert(df.columns.get_loc('Track ID') + 1, 'Track UID', df.index)
         
         if self.SIGNIFICANT_FIGURES:
             df = self.Signify(df)
