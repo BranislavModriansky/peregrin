@@ -396,6 +396,9 @@ class Stats:
 
         agg_spec['Max distance reached'] = ('Cumulative track displacement', 'max')
 
+        agg_spec['Track start frame'] = ('Frame', 'min')
+        agg_spec['Track end frame'] = ('Frame', 'max')
+
         agg = grp.agg(**agg_spec)
 
         # If colors were assigned, carry them over

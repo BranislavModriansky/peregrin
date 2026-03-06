@@ -18,7 +18,7 @@ from .viz.turnangles import mount_plot_turnangles
 from .viz.references import mount_references
 from .viz.motionflow import mount_motionflow
 
-from .bg_jobs.loaders import mount_loaders
+# from .bg_jobs.loaders import mount_loaders
 from .bg_jobs.buttons import mount_buttons
 from .bg_jobs.notify import mount_notifier
 from .bg_jobs.theme import set_theme
@@ -68,7 +68,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_motionflow(*args, **kwargs)
 
 
-    mount_loaders(*args)
+    # mount_loaders(*args)
     mount_buttons(*args, **kwargs)
     mount_statcols(*args, **kwargs)
 
