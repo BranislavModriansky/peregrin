@@ -16,7 +16,110 @@ class DataLoader:
         self.noticequeue = kwargs.get('noticequeue', None)
     
 
-    def GetDataFrame(self, filepath: str, **kwargs) -> pd.DataFrame:
+    def construct_data(self, files: List[List[str | dict]], strip_data: bool = True, cols: dict = {'id': None, 't': None, 'x': None, 'y': None},
+                       *args, cond_labels: List[str | int] | None = None, auto_label: bool = False, **kwargs) -> pd.DataFrame:
+        data_cache = []
+
+        for group_idx, group_files in enumerate(files, start=1):
+            cond_label = cond_labels[group_idx-1] if cond_labels is not None else None
+
+            data_cache = self.load_data(
+                group_files,
+                strip_data=strip_data,
+                cols=cols,
+                cond_label=cond_label,
+                auto_label=auto_label,
+                cache=data_cache,
+                iteration=group_idx,
+                mirror_y=kwargs.get("mirror_y", True),
+                mirror_x=kwargs.get("mirror_x", False),
+            )
+
+        if data_cache is not None:
+            return pd.concat(data_cache, axis=0)
+        else:
+            raise ValueError("No valid data could be loaded from the provided files.")
+
+
+    def load_data(self, files: List[str | dict], strip_data: bool = True, cols: dict = {'id': None, 't': None, 'x': None, 'y': None}, 
+                  *args, cond_label: str | int | None = None, rep_labels: List[str | int] | None = None, auto_label: bool = False,
+                  **kwargs) -> pd.DataFrame | List[pd.DataFrame]:
+        
+        """
+        
+        """
+
+        cache = "cache" in kwargs
+        data_cache = kwargs.get("cache", [])
+
+
+        for file_idx, fileinfo in enumerate(files, start=1):
+            try:
+                if isinstance(fileinfo, dict) and "datapath" in fileinfo:
+                    df = self.GetDataFrame(fileinfo["datapath"])
+                else:
+                    df = self.GetDataFrame(fileinfo)
+
+                if strip_data:
+                    extracted = self.ExtractStripped(
+                        df,
+                        cols=cols,
+                        mirror_y=kwargs.get("mirror_y", True),
+                        mirror_x=kwargs.get("mirror_x", False),
+                    )
+                else:
+                    extracted = self.ExtractFull(
+                        df,
+                        cols=cols,
+                        mirror_y=kwargs.get("mirror_y", True),
+                        mirror_x=kwargs.get("mirror_x", False),
+                    )
+
+            except: continue
+
+            if (auto_label 
+                and isinstance(fileinfo, dict) 
+                and fileinfo.get("name") 
+                and len(fileinfo.get("name").split("#")) >= 2):
+
+                cond_label = fileinfo.get("name").split("#")[1]
+                rep_label = fileinfo.get("name").split("#")[2]
+
+            elif (auto_label 
+                  and isinstance(fileinfo, str)
+                  and len(op.basename(fileinfo).split("#")) >= 2):
+
+                cond_label = op.basename(fileinfo).split("#")[1]
+                rep_label = op.basename(fileinfo).split("#")[2]
+
+            else:
+                print("Using provided labels or defaults for condition and replicate labeling.")
+                cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
+                rep_label = rep_labels[file_idx-1] if rep_labels is not None else file_idx
+
+                print(cond_label, rep_label)
+
+            
+            extracted["Condition"] = str(cond_label)
+            extracted["Replicate"] = str(rep_label)
+
+            print(extracted)
+
+            data_cache.append(extracted)
+
+
+        if cache and data_cache is not None:
+            return data_cache
+
+        elif not cache and data_cache is not None:
+            return pd.concat(data_cache, axis=0)
+        
+        else:
+            raise ValueError("No valid data could be loaded from the provided files.")
+
+
+
+    def GetDataFrame(self, filepath: str) -> pd.DataFrame:
         """
         Loads a DataFrame from a file based on its extension.
         Supported formats: CSV, Excel.
@@ -42,7 +145,8 @@ class DataLoader:
                 Reporter(Level.error, f"File format: {ext} is not supported.", details=f"Supported formats include: .csv, .xls, .xlsx, .xml., .json, .parquet", noticequeue=self.noticequeue)
         
 
-    def ExtractStripped(self, df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
+    def ExtractStripped(self, df: pd.DataFrame, cols: dict = {'id': None, 't': None, 'x': None, 'y': None}, 
+                        *args, mirror_y: bool = True, mirror_x: bool = False) -> pd.DataFrame:
         """
         Prepare tracking data:
         - Extract only the 4 key columns.
@@ -51,6 +155,11 @@ class DataLoader:
         """
 
         try:
+            id_col = cols['id']
+            t_col = cols['t']
+            x_col = cols['x']
+            y_col = cols['y']
+
             if not all(col in df.columns for col in [id_col, t_col, x_col, y_col]):
                 missing = [col for col in [id_col, t_col, x_col, y_col] if col not in df.columns]
                 Reporter(Level.error, f"Specified columns were not found.", details=f"Missing columns: {missing}", noticequeue=self.noticequeue)
@@ -71,10 +180,15 @@ class DataLoader:
             y_mid = (df[y_col].min() + df[y_col].max()) / 2
             df[y_col] = 2 * y_mid - df[y_col]
 
+        if mirror_x:
+            x_mid = (df[x_col].min() + df[x_col].max()) / 2
+            df[x_col] = 2 * x_mid - df[x_col]
+
         return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
     
 
-    def ExtractFull(self, df: pd.DataFrame, id_col: str, t_col: str, x_col: str, y_col: str, *args, mirror_y: bool = True, **kwargs) -> pd.DataFrame:
+    def ExtractFull(self, df: pd.DataFrame, cols: dict = {'id': None, 't': None, 'x': None, 'y': None}, 
+                    *args, mirror_y: bool = True, mirror_x: bool = False) -> pd.DataFrame:
         """
         Prepare tracking data:
         - Converts chosen coordinate columns to numeric.
@@ -83,7 +197,11 @@ class DataLoader:
         - Keeps all other columns intact.
         - Normalizes column labels (e.g. 'CONTRAST_CH' → 'Contrast ch').
         """
-        noticequeue = kwargs.get('noticequeue', None) if 'noticequeue' in kwargs else None
+
+        id_col = cols['id']
+        t_col = cols['t']
+        x_col = cols['x']
+        y_col = cols['y']
 
         try: 
             if not all(col in df.columns for col in [id_col, t_col, x_col, y_col]):
@@ -106,6 +224,10 @@ class DataLoader:
             y_mid = (df[y_col].min() + df[y_col].max()) / 2
             df[y_col] = 2 * y_mid - df[y_col]
 
+        if mirror_x:
+            x_mid = (df[x_col].min() + df[x_col].max()) / 2
+            df[x_col] = 2 * x_mid - df[x_col]
+
         # rename main columns
         rename_map = {
             id_col: "Track ID",
@@ -120,23 +242,22 @@ class DataLoader:
             df.columns = [self._clean_name(c) if c != 'Track ID' else c for c in df.columns]
         except Exception as e:
             pass
-
         
         self._py_numeric_df(df)
             
         return df
     
 
-    def GetColumns(self, path: str, **kwargs) -> List[str]:
+    def GetColumns(self, path: str) -> List[str]:
         """
         Returns a list of column names from the DataFrame.
         """
 
-        df = self.GetDataFrame(path, noticequeue=self.noticequeue)  # or pd.read_excel(path), depending on file type
+        df = self.GetDataFrame(path)  # or pd.read_excel(path), depending on file type
         return df.columns.tolist()
     
 
-    def FindMatchingColumn(self, columns: List[str], lookfor: List[str], **kwargs) -> str:
+    def FindMatchingColumn(self, columns: List[str], lookfor: List[str]) -> str:
         """
         Looks for matches with any of the provided strings.
         - First tries exact matches.

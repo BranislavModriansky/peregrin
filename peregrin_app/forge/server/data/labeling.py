@@ -1,7 +1,7 @@
 import shiny.ui as ui
 from shiny import reactive, req, render
 from ...ui_shell import make_sortable_ui
-from src.code import DataLoader, Metrics, FilenameFormatExample, is_empty
+from src.code import DataLoader, Metrics, FilenameFormatExample, is_empty, Reporter, Level
 
 
 def mount_data_labeling(input, output, session, S, noticequeue):
@@ -49,7 +49,7 @@ def mount_data_labeling(input, output, session, S, noticequeue):
             files = input[f"input_file{idx}"]()
             if files and isinstance(files, list) and len(files) > 0:
                 try:
-                    columns = dataloader.GetColumns(files[0]["datapath"], noticequeue=noticequeue)
+                    columns = dataloader.GetColumns(files[0]["datapath"])
 
                     for sel in Metrics.LookFor.keys():
                         choice = dataloader.FindMatchingColumn(columns, Metrics.LookFor[sel])
@@ -59,7 +59,7 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                             ui.update_selectize(sel, choices=columns, selected=columns[0] if columns else None)
                     break
                 except Exception as e:
-                    continue
+                    Reporter(Level.error, f"An error occurred while processing file {files[0]['datapath']}: {str(e)}", trace=traceback.format_exc())
 
     # _ _ SET UNITS _ _ 
     @reactive.Effect
