@@ -14,7 +14,7 @@ from .._handlers._reports import Level, Reporter
 @dataclass
 class BaseDataInventory:
     """
-    #### *Data inventory of trajectory statistics Dataframes.*
+    #### *Data inventory of trajectory statistics.*
 
     This class serves as a centralized inventory for the DataFrames that store trajectory statistics at different planes of aggregation. 
     Each attribute is intended to store a DataFrame (one of Spots, Tracks, Frames, TimeIntervals) after any of the computation methods in the Stats class are called.

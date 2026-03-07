@@ -4,14 +4,8 @@ import numpy as np
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render, req
-from src.code import DataLoader, Stats, Metrics, Level, is_empty, Reporter
+from src.code import DataLoader, Stats, Metrics, Level, is_empty, Reporter, BaseDataInventory
 
-
-
-
-def _sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Replace NaN/Inf with None so JSON serialization doesn't break."""
-    return df.replace([np.nan, np.inf, -np.inf], None)
 
 
 
@@ -272,39 +266,26 @@ def mount_data_input(input, output, session, S, noticequeue):
                 else:
                     cond_label = input[f"condition_label{idx}"]()
 
-                for file_idx, fileinfo in enumerate(files, start=1):
-                    try:
-                        df = dataloader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
-
-                        if input.strip_data():
-                            extracted = dataloader.ExtractStripped(
-                                df,
-                                id_col=input.select_id(),
-                                t_col=input.select_t(),
-                                x_col=input.select_x(),
-                                y_col=input.select_y(),
-                                mirror_y=True,
-                            )
-                        else:
-                            extracted = dataloader.ExtractFull(
-                                df,
-                                id_col=input.select_id(),
-                                t_col=input.select_t(),
-                                x_col=input.select_x(),
-                                y_col=input.select_y(),
-                                mirror_y=True,
-                            )
-
-                    except: continue
-
-                    extracted["Condition"] = cond_label if cond_label else str(idx)
-                    extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
-
-                    all_data.append(extracted)
+                all_data = dataloader.load_data(
+                    files=files,
+                    strip_data=input.strip_data(),
+                    cols={
+                        "id": input.select_id(),
+                        "t": input.select_t(),
+                        "x": input.select_x(),
+                        "y": input.select_y()
+                    },
+                    cond_label=cond_label,
+                    auto_label=input.auto_label(),
+                    cache=all_data,
+                    iteration=idx,
+                    mirror_y=True,  #TODO: add UI control
+                    mirror_x=False  #TODO: add UI control
+                )
 
                     
                     
-            if all_data:
+            if all_data is not None:
                 all_data = pd.concat(all_data, axis=0)
                 S.RAWDATA.set(all_data)
 
@@ -320,23 +301,38 @@ def mount_data_input(input, output, session, S, noticequeue):
 
                     Spots = stats.Spots(all_data)
 
-                    Tracks, Frames, TimeIntervals = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
                     if "Trackstats" in input.compute_data():
                         Tracks = stats.Tracks(all_data)
+                    else:
+                        Tracks = pd.DataFrame()
                     if "Framestats" in input.compute_data():
                         Frames = stats.Frames(all_data)
+                    else:
+                        Frames = pd.DataFrame()
                     if "TimeIntervals" in input.compute_data():
                         TimeIntervals = stats.TimeIntervals(all_data)
+                    else:
+                        TimeIntervals = pd.DataFrame()
 
-                S.UNFILTERED_SPOTSTATS.set(_sanitize_df(Spots))
-                S.UNFILTERED_TRACKSTATS.set(_sanitize_df(Tracks))
-                S.UNFILTERED_FRAMESTATS.set(_sanitize_df(Frames))
-                S.UNFILTERED_TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+                # S.UNFILTERED_SPOTSTATS.set(_sanitize_df(Spots))
+                # S.UNFILTERED_TRACKSTATS.set(_sanitize_df(Tracks))
+                # S.UNFILTERED_FRAMESTATS.set(_sanitize_df(Frames))
+                # S.UNFILTERED_TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
 
-                S.SPOTSTATS.set(_sanitize_df(Spots))
-                S.TRACKSTATS.set(_sanitize_df(Tracks))
-                S.FRAMESTATS.set(_sanitize_df(Frames))
-                S.TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+                # S.SPOTSTATS.set(_sanitize_df(Spots))
+                # S.TRACKSTATS.set(_sanitize_df(Tracks))
+                # S.FRAMESTATS.set(_sanitize_df(Frames))
+                # S.TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+
+                S.UNFILTERED_SPOTSTATS.set(Spots)
+                S.UNFILTERED_TRACKSTATS.set(Tracks)
+                S.UNFILTERED_FRAMESTATS.set(Frames)
+                S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
+
+                S.SPOTSTATS.set(Spots)
+                S.TRACKSTATS.set(Tracks)
+                S.FRAMESTATS.set(Frames)
+                S.TINTERVALSTATS.set(TimeIntervals)
 
                 ui.update_sidebar(id="sidebar", show=True)
                 ui.update_action_button(id="append_threshold", disabled=False)
@@ -366,37 +362,50 @@ def mount_data_input(input, output, session, S, noticequeue):
     @reactive.event(input.run_processed)
     def load_processed_data():
         fileinfo = input.already_processed_input()
+        print(fileinfo)
         req(fileinfo)
 
         try:
-            df = dataloader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
+            df = dataloader.GetDataFrame(fileinfo[0]["datapath"])
+
+            # Ensure Condition and Replicate are strings (CSV may load them as int/float)
+            if 'Condition' in df.columns:
+                df['Condition'] = df['Condition'].astype(str)
+            if 'Replicate' in df.columns:
+                df['Replicate'] = df['Replicate'].astype(str)
+            if 'Track ID' in df.columns:
+                df['Track ID'] = pd.to_numeric(df['Track ID'], errors='coerce').astype('Int64')
+            if 'Track UID' in df.columns:
+                df['Track UID'] = pd.to_numeric(df['Track UID'], errors='coerce').astype('Int64')
 
             stats = Stats(noticequeue=noticequeue)
 
-            Tracks, Frames, TimeIntervals =  \
-                stats.Tracks(df),            \
-                stats.Frames(df),            \
-                stats.TimeIntervals(df)
-            
-            S.UNFILTERED_SPOTSTATS.set(_sanitize_df(df))
-            S.UNFILTERED_TRACKSTATS.set(_sanitize_df(Tracks))
-            S.UNFILTERED_FRAMESTATS.set(_sanitize_df(Frames))
-            S.UNFILTERED_TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+            # Run Spots() so Track UID index and all derived columns are set correctly.
+            # Spots() will recompute Track UID via ngroup() and set it as the index,
+            # which is required for Tracks(), Frames(), and TimeIntervals() to work properly.
+            Spots = stats.Spots(df)
 
-            S.SPOTSTATS.set(_sanitize_df(df))
-            S.TRACKSTATS.set(_sanitize_df(Tracks))
-            S.FRAMESTATS.set(_sanitize_df(Frames))
-            S.TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
+            Tracks = stats.Tracks(Spots)
+            Frames = stats.Frames(Spots)
+            TimeIntervals = stats.TimeIntervals(Spots)
+
+            S.UNFILTERED_SPOTSTATS.set(Spots)
+            S.UNFILTERED_TRACKSTATS.set(Tracks)
+            S.UNFILTERED_FRAMESTATS.set(Frames)
+            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
+
+            S.SPOTSTATS.set(Spots)
+            S.TRACKSTATS.set(Tracks)
+            S.FRAMESTATS.set(Frames)
+            S.TINTERVALSTATS.set(TimeIntervals)
             
+            Reporter(Level.info, "Processed data loaded successfully.")
+
             ui.update_sidebar(id="sidebar", show=True)
             ui.update_action_button(id="append_threshold", disabled=False)
-
-            Reporter(Level.info, "Processed data loaded successfully.")
         
         except Exception as e:
-            error_trace = traceback.format_exc()
-            noticequeue.Report(Level.error, "Error in loading processed data", error_trace)
+            Reporter(Level.error, f"An error occurred while loading the processed data: {str(e)}", trace=traceback.format_exc())
         
         finally:
             ui.update_task_button("run_processed", state="ready")
-            
