@@ -30,14 +30,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                                 style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center; margin-top: 15px; margin-bottom: -10px;"
                             ),
                             ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
-                            # ui.tooltip(
-                            #     ui.input_checkbox("pool_replicates", "Pool replicates", False),
-                            #     """
-                            #     If enabled, replicates will be pooled together when computing statistics. If disabled, statistics will be computed separately for each replicate. 
-                            #     Pooling replicates may be appropriate when technical replicates are present and there is no reason to expect systematic differences between them.
-                            #     """,
-                            #     placement="right",
-                            # ),
                             ui.div(  
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
@@ -52,7 +44,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                                 ui.div(
                                     ui.markdown(""" <h5><b> Statistical Configuration: </h5></b> """), 
                                     style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 0px; margin-left: 0px;"
-                                    # style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
                                 ),
                                 ui.tags.details(
                                     ui.tags.summary(""),
@@ -314,16 +305,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                     else:
                         TimeIntervals = pd.DataFrame()
 
-                # S.UNFILTERED_SPOTSTATS.set(_sanitize_df(Spots))
-                # S.UNFILTERED_TRACKSTATS.set(_sanitize_df(Tracks))
-                # S.UNFILTERED_FRAMESTATS.set(_sanitize_df(Frames))
-                # S.UNFILTERED_TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
-
-                # S.SPOTSTATS.set(_sanitize_df(Spots))
-                # S.TRACKSTATS.set(_sanitize_df(Tracks))
-                # S.FRAMESTATS.set(_sanitize_df(Frames))
-                # S.TINTERVALSTATS.set(_sanitize_df(TimeIntervals))
-
                 S.UNFILTERED_SPOTSTATS.set(Spots)
                 S.UNFILTERED_TRACKSTATS.set(Tracks)
                 S.UNFILTERED_FRAMESTATS.set(Frames)
@@ -362,7 +343,6 @@ def mount_data_input(input, output, session, S, noticequeue):
     @reactive.event(input.run_processed)
     def load_processed_data():
         fileinfo = input.already_processed_input()
-        print(fileinfo)
         req(fileinfo)
 
         try:
