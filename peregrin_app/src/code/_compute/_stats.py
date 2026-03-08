@@ -360,6 +360,8 @@ class Stats:
             Circular mean, circular variance.
         """
 
+        df = df.copy()
+
         if df.empty:
             return pd.DataFrame(columns=self._COLUMNS['TRACKS'])
 
@@ -452,13 +454,13 @@ class Stats:
         df.drop_duplicates(inplace=True)
         
         # If 'Replicate' is not present in self.tier, recover it from Spots
-        if 'Replicate' not in df.columns:
-            rep_map = (
-                BaseDataInventory.Spots[['Track UID', 'Replicate']]
-                .drop_duplicates(subset=['Track UID'])
-                .set_index('Track UID')
-            )
-            df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
+        # if 'Replicate' not in df.columns:
+        #     rep_map = (
+        #         BaseDataInventory.Spots[['Track UID', 'Replicate']]
+        #         .drop_duplicates(subset=['Track UID'])
+        #         .set_index('Track UID')
+        #     )
+        #     df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
 
         df.insert(df.columns.get_loc('Track ID') + 1, 'Track UID', df.index)
         
@@ -480,6 +482,8 @@ class Stats:
         - `{per replicate}` when working with replicates
         - `{per condition}` when pooled or when optional condition-level stats are attached
         """
+
+        df = df.copy()
 
         reps = 'Replicate' in self.tier
         base_prefix = '{per replicate}' if reps else '{per condition}'
@@ -611,6 +615,7 @@ class Stats:
             base_df = self.NormDecimals(base_df)
 
         BaseDataInventory.Frames = base_df
+
         return base_df
     
     
@@ -660,6 +665,9 @@ class Stats:
         if df.empty: 
             Reporter(Level.warning, f"Input DataFrame to TimeIntervals method is empty; no computations performed.", noticequeue=self.noticequeue)
             return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
+
+        # Work on a copy to avoid mutating the caller's DataFrame (e.g. BaseDataInventory.Spots)
+        df = df.copy()
 
         # Ensure Track UID is the index (it may be a column if called outside of the normal pipeline)
         if df.index.name != 'Track UID' and 'Track UID' in df.columns:
@@ -906,6 +914,7 @@ class Stats:
             base_result = self.NormDecimals(base_result)
 
         BaseDataInventory.TimeIntervals = base_result
+        
         return base_result
 
 

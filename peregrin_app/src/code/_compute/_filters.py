@@ -14,6 +14,9 @@ from .._general import clock, is_empty
 from ._stats import BaseDataInventory, Stats
 
 
+# TODO: fix reindexing so that data is then later on plotted correctly.
+
+
 
 @dataclass
 class Inventory2D:
@@ -73,18 +76,27 @@ class Filter1D:
         if mask is None or len(mask) == 0:
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         
-        # Filter using index intersection to avoid KeyError
-        valid_spot_indices = spotstats.index.intersection(mask)
-        valid_track_indices = trackstats.index.intersection(mask)
+        print("")
+        print("Mask:")
+        print(mask)
+        print("Spotstats index:")
+        print(spotstats.index)
+        print("Trackstats index:")
+        print(trackstats.index)
         
-        spotstats = spotstats.loc[valid_spot_indices]
-        trackstats = trackstats.loc[valid_track_indices]
+        # Filter using index intersection to avoid KeyError
+        # valid_spot_indices = spotstats.index.intersection(mask)
+        # valid_track_indices = trackstats.index.intersection(mask)
+        
+        spotstats = spotstats.loc[mask]
+        trackstats = trackstats.loc[mask]
         
         # Regenerate frame and time interval stats from filtered spots
-        # stats = Stats(noticequeue=self.noticequeue)
+        stats = Stats(noticequeue=self.noticequeue)
 
-        framestats = Stats(noticequeue=self.noticequeue).Frames(spotstats)
-        tintervalstats = Stats(noticequeue=self.noticequeue).TimeIntervals(spotstats)
+
+        framestats = stats.Frames(spotstats)
+        tintervalstats = stats.TimeIntervals(spotstats)
 
         return spotstats, trackstats, framestats, tintervalstats
 
