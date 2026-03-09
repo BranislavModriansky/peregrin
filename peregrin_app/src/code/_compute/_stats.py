@@ -13,11 +13,27 @@ from .._handlers._reports import Level, Reporter
 
 @dataclass
 class BaseDataInventory:
-    """
-    #### *Data inventory of trajectory statistics.*
+    """ Data inventory
 
-    This class serves as a centralized inventory for the DataFrames that store trajectory statistics at different planes of aggregation. 
-    Each attribute is intended to store a DataFrame (one of Spots, Tracks, Frames, TimeIntervals) after any of the computation methods in the Stats class are called.
+    Serves as an inventory for the DataFrames computed via the `(class) Stats`, storing trajectory statistics at different planes of aggregation. 
+
+    Attributes
+    ----------
+    Spots : pd.DataFrame
+        *Contains per-trajectory-point statistics, including both local (previous -> current position) and cumulative (start -> current position) metrics.*
+
+    Tracks : pd.DataFrame
+        *Contains whole-trajectory statistics. Single row per unique trajectory.*
+
+    Frames : pd.DataFrame
+        *Contains per-time-point statistics, including local and cumulative metrics.*
+
+    TimeIntervals : pd.DataFrame
+        *Contains per-time-interval statistics.*
+
+    See also
+    --------
+    `(class) Stats` - a class with methods for computing the mentioned DataFrames.
     """
 
     Spots: pd.DataFrame
@@ -26,40 +42,49 @@ class BaseDataInventory:
     TimeIntervals: pd.DataFrame
 
 
-
 class Stats:
-    """
-    #### *Class for computing trajectory statistics at various levels of aggregation.*
-
-    This class provides methods to compute trajectory statistics at multiple levels of aggregation: 
-    per-spot (Spots), per-track (Tracks), per-frame/time point (Frames), and per-time interval/lag (TimeIntervals). 
-    Each method processes the input DataFrame and updates the corresponding DataFrame in the BaseDataInventory.
+    """ A class providing methods for computing trajectory statistics at various levels of aggregation: \n
+    Spots (per-trajectory-point), Tracks (per-whole-trajectory), Frames (per-time-point), Time intervals (per-time-interval). \n
+    Calling this method initializes its statistical configuration.
 
     Parameters
     ----------
-    pool_replicates : bool, optional
-        *If True, replicates will be pooled together when calculating statistics; if False, statistics will be calculated separately for each replicate. Default is True.*
+    cat_descr : bool, default True
+        *If True, descriptive statistics (min, max, mean, median, q25, q75) will be computed for the.*
+    
+    cat_descr_err : bool, default True
+        *If True, descriptive error statistics (std) will be computed.*
+
+    cat_infer_err : bool, default False
+        *If True, inferative statistics (sem, ?ci) will be computed.
+
+    bootstrap_ci : bool, default False
+        *If True, ci will be computed when the `cat_infer_err` is set to True.*
+
 
     Attributes
     ----------
     SIGNIFICANT_FIGURES : int, optional
-        *If specified, during computations all values are going to be rounded to this number of significant figures.*
+        *If specified, all values are going to be rounded to the given number of significant figures.*
 
     DECIMALS_PLACES : int, optional
-        *If specified, during computations all floating-point values are going to be normalized (rounded) to this number of decimal places.*
+        *If specified, all floating-point values are going to be rounded to the given number of decimal places.*
 
-    BOOTSTRAP_RESAMPLES : int, optional
-        *Number of resamples to perform when calculating bootstrap confidence intervals. Default is 1000.*
+    BOOTSTRAP_RESAMPLES : int, default 1000
+        *A number of resamples to perform when calculating bootstrap confidence intervals.*
 
-    CONFIDENCE_LEVEL : float, optional
-        *Confidence level to use when calculating confidence intervals (e.g. 95 for 95% confidence intervals). Default is 95.*
+    CONFIDENCE_LEVEL : int, default 95
+        *Confidence level (%) to use when calculating confidence intervals.*
     
-    CI_STATISTIC : str, optional
-        *Statistic to calculate confidence intervals for (e.g. 'mean', 'median'). Default is 'mean'.*
+    CI_STATISTIC : str, default 'mean'
+        *Statistic to calculate confidence intervals for (e.g. 'mean', 'median').*
 
+    
     Methods
     -------
     GetAllData(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
+
+    
     """
 
     
@@ -82,50 +107,33 @@ class Stats:
 
     _COLUMNS = {
         'SPOTS': [
-            'X coordinate','Y coordinate',
-            'Time point','Frame','Track ID','Condition','Replicate','Track UID',
-            'Distance','Cumulative track length','Cumulative track displacement',
-            'Cumulative straightness index','Cumulative speed','Direction',
-            'Cumulative direction mean','Cumulative direction var'
+            'Condition','Replicate','Track ID','Track UID','Time point','Frame',
+            'X coordinate','Y coordinate','Distance','Cumulative track length','Cumulative track displacement',
+            'Cumulative straightness index','Cumulative speed','Direction','Cumulative direction mean','Cumulative direction var'
         ],
         'TRACKS': [
-            'Condition','Replicate','Track ID', 'Track points',
+            'Condition','Replicate','Track ID','Track UID',
             'Track length','Track displacement','Straightness index',
-            'Speed min','Speed max','Speed mean','Speed sd','Speed sem',
-            'Speed median','Speed q25','Speed q75',
-            f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
+            'Speed min','Speed max','Speed mean','Speed sd','Speed median','Speed q25','Speed q75',
+            'Max distance reached','Track start frame','Track end frame',
             'Direction mean','Direction var'
         ],
-        'FRAMES': [
-            'Condition','Replicate','Time point','Frame',
-            'Mean speed','Median speed','Speed sd','Speed sem',
-            'Speed q25','Speed q75',
-            f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
-            'Direction mean','Direction var'
-        ],
-        'TIMEINTERVALS': [
-            'Condition','Replicate','Time lag','Frame lag',
-            'Mean speed','Median speed','Speed sd','Speed sem',
-            'Speed q25','Speed q75',
-            f'Speed ci{CONFIDENCE_LEVEL} low',f'Speed ci{CONFIDENCE_LEVEL} high',
-            'Direction mean','Direction var'
-        ]
+        'FRAMES':        ['Condition','Replicate','Time point','Frame'],
+        'TIMEINTERVALS': ['Condition','Replicate','Time lag','Frame lag']
     }
 
 
-    def __init__(self, pool_replicates: bool = False, *, cat_descr: bool = True, cat_descr_err: bool = True, cat_infer_err: bool = False, bootstrap: bool = False, **kwargs) -> None:
+    def __init__(self, *, cat_descr: bool = True, cat_descr_err: bool = True, cat_infer_err: bool = False, bootstrap_ci: bool = False, **kwargs) -> None:
 
-        self.tier = ['Condition'] if pool_replicates else ['Condition', 'Replicate']
+        self.tier = ['Condition', 'Replicate']
         self.noticequeue = kwargs.get('noticequeue', None)
 
         self.cat_descr = cat_descr
         self.cat_descr_err = cat_descr_err
         self.cat_infer_err = cat_infer_err
 
-        # Build infer-stat list first (bootstrap controls whether CI is included)
-        base_infer = ['sem', 'ci'] if bootstrap else ['sem']
+        base_infer = ['sem', 'ci'] if bootstrap_ci else ['sem']
 
-        # Always keep these as lists (never None) to avoid list-concat bugs later
         self.DESCR     = list(self._DESCR) if cat_descr else []
         self.DESCR_ERR = list(self._DESCR_ERR) if cat_descr_err else []
         self.INFER_ERR = list(base_infer) if cat_infer_err else []
@@ -140,31 +148,44 @@ class Stats:
         }
 
 
-    def GetAllData(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """
-        #### *Computes all trajectory statistics (Spots, Tracks, Frames, TimeIntervals) from raw spot data.*
+    def get_all_data(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """ Computes all trajectory statistics (Spots, Tracks, Frames, TimeIntervals) from raw trajectory spot (track point) data.
 
         Parameters
         ----------
         df : pd.DataFrame
-            ***Input DataFrame must contain (at minimum) these columns:***
-            - ``Condition``
-            - ``Replicate``
-            - ``Track ID``
-            - ``X coordinate``
-            - ``Y coordinate``
-            - ``Time point``
-
-        significant_figures : int, optional
-            *If provided, rounds all values in the results to the specified number of significant figures.*
-        
-        normalize_decimals : int, optional
-            *If provided, formats all floating-point values in the results to the specified number of decimal places.*
+            ***Input DataFrame must contain these columns:***
+            - `Condition`
+            - `Replicate`
+            - `Track ID`
+            - `X coordinate`
+            - `Y coordinate`
+            - `Time point`
 
         Returns
         -------
-        ``Spots``, ``Tracks``, ``Frames``, ``TimeIntervals`` : pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
-            ***Updates and returns BaseDataInventory items -> DataFrames of trajectory statistics at various planes of aggregation.***
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
+            `Stats.Spots()`, `Stats.Tracks()`, `Stats.Frames()` and `Stats.TimeIntervals()` DataFrames.
+
+            \n *Sets `BaseDataInventory.Spots`, `BaseDataInventory.Tracks`, `BaseDataInventory.Frames`, `BaseDataInventory.TimeIntervals` to the computed DataFrames.*
+
+        See also
+        --------
+        `Stats.Spots()`- 
+        computes per-trajectory-point statistics, both local (previous -> current position) and cumulative (start -> current position).
+
+        `Stats.Tracks()`- 
+        computes per-whole-trajectory statistics from the Spots DataFrame.
+
+        `Stats.Frames()`- 
+        computes per-time-point statistics from the Spots DataFrame.
+
+        `Stats.TimeIntervals()`- 
+        computes per-time-interval statistics from the Spots DataFrame.
+
+        `(dataclass) BaseDataInventory`- 
+        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+
         """
 
         self.Spots(df)
@@ -176,54 +197,80 @@ class Stats:
 
 
     def Spots(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        #### *Computes per-point trajectory statistics, both local (previous -> current position) and cumulative (start -> current position).*
+        """ Computes per-trajectory-point statistics, both local (previous -> current position) and cumulative (start -> current position).
 
         Parameters
         ----------
         df : pd.DataFrame
-            ***Input DataFrame must contain (at minimum) these columns:***
-            - ``Condition``
-            - ``Replicate``
-            - ``Track ID``
-            - ``X coordinate``
-            - ``Y coordinate``
-            - ``Time point``
+            ***The input DataFrame must contain these columns:***
+            - `Condition`
+            - `Replicate`
+            - `Track ID`
+            - `X coordinate`
+            - `Y coordinate`
+            - `Time point`
 
-        significant_figures : int, optional
-            *If provided, rounds all values in the results to the specified number of significant figures.*
-        
-        normalize_decimals : int, optional
-            *If provided, formats all floating-point values in the results to the specified number of decimal places.*
-        
         Returns
         -------
         pd.DataFrame
-            ***The input DataFrame, formatted, with additional columns:***
+            *The computed DataFrame containing these columns:*
 
-            - **``Distance``**:
-            Euclidean distance between consecutive positions (step length).
+            - **`Condition`**
+            - **`Replicate`**
+            - **`Track ID`**
+            - **`Track UID`**
+            - **`Time point`**
+            - **`Frame`**
 
-            - **``Cumulative track length``**:
-            Cumulative sum of ``Distances`` along the track up to the current position.
+            - **`X coordinate`**
+            - **`Y coordinate`**
 
-            - **``Cumulative track displacement``**:
-            Euclidean distance from the first position in the track to the current position.
+            - **`Distance`**- 
+            Euclidean distance between consecutive (previous -> current) positions (step length).
 
-            - **``Cumulative straightness index``**:
-            ``Cumulative track displacement`` / ``Cumulative track length``.
+            - **`Cumulative track length`**- 
+            Cumulative sum of `Distance` along the track up to the current position.
 
-            - **``Cumulative speed``**:
-            Mean speed from start to current position: ``Cumulative track length`` / ``Frame``.
+            - **`Cumulative track displacement`**- 
+            Euclidean distance from the starting position of the track to the current position.
 
-            - **``Direction``**:
-            Direction of motion in radians ``np.arctan2(Δy, Δx)``.
+            - **`Cumulative straightness index`**- 
+            Track's straigtness calculated as `Cumulative track displacement` / `Cumulative track length`.
 
-            - **``Cumulative direction mean``**:
-            Mean of motion directions from start to current position.
+            - **`Cumulative speed`**- 
+            Mean speed (`Distance`) from the starting to the current position <- `Cumulative track length` / `Frame`.
 
-            - **``Cumulative direction var``**:
-            Cumulative direction variance from start to current position.
+            - **`Direction`**- 
+            Instantaneous direction of motion in radians `np.arctan2(Δy, Δx)`. Calculated between the previous and current positions.
+
+            - **`Cumulative direction mean`**- 
+            Mean of directions of motion from the starting to the current position.
+
+            - **`Cumulative direction var`**- 
+            Cumulative direction variance from the starting to the current position.
+
+            - **`Other`**- 
+            *any additional columns from the input DataFrame that are not part of the above list will be retained in the output if they contain any non-NA values; otherwise, they will be dropped.*
+
+            \n Sets `BaseDataInventory.Spots` to the computed DataFrame.
+
+        See also
+        --------
+        `Stats.get_all_data()`- 
+        computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
+
+        `Stats.Tracks()`- 
+        computes per-whole-trajectory statistics from the Spots DataFrame.
+
+        `Stats.Frames()`- 
+        computes per-time-point statistics from the Spots DataFrame.
+
+        `Stats.TimeIntervals()`- 
+        computes per-time-interval statistics from the Spots DataFrame.
+
+        `(dataclass) BaseDataInventory`- 
+        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+
         """
         
         if df.empty:
@@ -324,40 +371,83 @@ class Stats:
 
 
     def Tracks(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        #### *Computes a comprehensive DataFrame of track-level statistics for each trajectory of the input Spots DataFrame.*
+        """ Computes a comprehensive DataFrame of track-level statistics for each trajectory of the input Spots DataFrame.
 
         Parameters
         ----------
         df : pd.DataFrame
-            ***(Spots) Input DataFrame must contain (at minimum) these columns:***
-            - ``Condition``
-            - ``Replicate``
-            - ``Track ID``
-            - ``Distance``
-            - ``X coordinate``
-            - ``Y coordinate``
-            - ``Direction``
+            *This method expects the dataframe acquired by `Stats.Spots()`. **The input DataFrame must contain these columns:***
+            - `Condition`
+            - `Replicate`
+            - `Track ID`
+            - `Track UID`
+            - `Frame`
+            - `X coordinate`
+            - `Y coordinate`
+            - `Distance`
+            - `Cumulative track displacement`
+            - `Direction`
 
         Returns
         -------
         pd.DataFrame
             ***A DataFrame with one row per unique track, containing the following columns:***
 
-            - **``Track length``**:
-            Total length of the track (sum of ``Distance``).
+            - **`Condition`**
+            - **`Replicate`**
+            - **`Track ID`**
+            - **`Track UID`**
+            
+            - **`Track length`**- 
+            Total length of the track (sum of `Distance`).
 
-            - **``Track displacement``**:
-            Euclidean distance from the start to the end of the track.
+            - **`Speed`** **`min`**, **`max`**, **`mean`**, **`sd`**, **`median`** and **`q25`**, **`q75`** (iqr) - 
+            of the `Distances` between consecutive points (step lengths).
 
-            - **``Straightness index``**:
-            ``Track displacement`` / ``Track length``.
+            - **`Max distance reached`**- 
+            Maximum Euclidean distance from the starting position reached at any point along the track.
 
-            - **Speed statistics**:
-            Minimum, maximum, mean, standard deviation, standard error of the mean, median, interquartile range, 95% confidence interval.
+            - **`Track start frame`**- 
+            Frame number of the first point in the track.
 
-            - **Direction statistics**:
-            Circular mean, circular variance.
+            - **`Track end frame`**- 
+            Frame number of the last point in the track.
+
+            - **`Track displacement`**- 
+            Euclidean distance from the starting position to the end position of the track.
+
+            - **`Straightness index`**- 
+            Track's straigtness calculated as `Track displacement` / `Track length`.
+
+            - **`Track points`**- 
+            The number of points the trajectory is comprised of.
+
+            - **`Direction mean`**- 
+            Circular mean of the `Direction` values.
+
+            - **`Direction var`**- 
+            Circular variance of the `Direction` values.
+
+            - **`Other`**- 
+            *any additional columns from the input DataFrame that are not part of the above list will be retained in the output if they contain any non-NA values; otherwise, they will be dropped.*
+
+        See also
+        --------
+        `Stats.get_all_data()`- 
+        computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
+
+        `Stats.Tracks()`- 
+        computes per-whole-trajectory statistics from the Spots DataFrame.
+
+        `Stats.Frames()`- 
+        computes per-time-point statistics from the Spots DataFrame.
+
+        `Stats.TimeIntervals()`- 
+        computes per-time-interval statistics from the Spots DataFrame.
+
+        `(dataclass) BaseDataInventory`- 
+        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+
         """
 
         df = df.copy()
@@ -453,15 +543,6 @@ class Stats:
 
         df.drop_duplicates(inplace=True)
         
-        # If 'Replicate' is not present in self.tier, recover it from Spots
-        # if 'Replicate' not in df.columns:
-        #     rep_map = (
-        #         BaseDataInventory.Spots[['Track UID', 'Replicate']]
-        #         .drop_duplicates(subset=['Track UID'])
-        #         .set_index('Track UID')
-        #     )
-        #     df = df.merge(rep_map, left_on='Track UID', right_index=True, how='left')
-
         df.insert(df.columns.get_loc('Track ID') + 1, 'Track UID', df.index)
         
         if self.SIGNIFICANT_FIGURES:
@@ -475,12 +556,70 @@ class Stats:
     
 
     def Frames(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        #### *Computes time point statistics aggregated across tracks for each tier × Time point.*
+        """ Computes time point statistics:
 
-        Supports category-labeled outputs:
-        - `{per replicate}` when working with replicates
-        - `{per condition}` when pooled or when optional condition-level stats are attached
+        - `{per replicate}`- aggregated across all tracks of the same `Replicate`
+        - `{per condition}`- aggregated across all tracks of the same `Condition`
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            *This method expects the dataframe acquired by `Stats.Spots()`. **The input DataFrame must contain these columns:***
+            - `Condition`
+            - `Replicate`
+            - `Time point`
+            - `Frame`
+            - `Distance`
+            - `Cumulative track length`
+            - `Cumulative track displacement`
+            - `Cumulative straightness index`
+            - `Cumulative speed`
+            - `Direction`
+            - `Cumulative direction mean`
+
+        Returns
+        -------
+        pd.DataFrame
+            *A DataFrame with one row per unique combination of `Condition` × `Replicate` × `Time point`, containing the following columns:*
+
+            - **`Condition`**
+            - **`Replicate`**
+            - **`Time point`**
+            - **`Frame`**
+
+            \n **`{per category}`*****`{metric}`***
+                - ***descriptive base statistics:***  **`min`**, **`max`**, **`mean`**, **`median`**, **`q25`**, **`q75`** (iqr) if `cat_descr` is set to `True` when initializing the Stats class
+                - ***descriptive error statistics:*** **`std`** if `descr_descr_err` is set to True when initializing the Stats class
+                - ***inferative error statistics:***  **`sem`**, if `descr_infer_err` is set to True when initializing the Stats class, 
+                ***`{CI_STATISTIC}`*****`ci`*****`{CONFIDENCE_LEVEL}`*****`low`** and ***`{CI_STATISTIC}`*****`ci`*****`{CONFIDENCE_LEVEL}`*****`high`** (confidence interval) if both `descr_infer_err` and `bootstrap_ci` are set to True
+                - ***circular statistics:*** **`mean`** (circular mean) and **`var`** (circular variance) calculated for each of `Direction` and `Cumulative direction`.
+            
+            - for each of these metrics
+                - **`Cumulative track length`**
+                - **`Cumulative track displacement`**
+                - **`Cumulative straightness index`**
+                - **`Cumulative speed`**
+                - **`Instantaneous speed`**
+                - **`Instantaneous direction`**
+                - **`Cumulative direction global`**
+
+        See also
+        --------
+        `Stats.get_all_data()`- 
+        computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
+
+        `Stats.Tracks()`- 
+        computes per-whole-trajectory statistics from the Spots DataFrame.
+
+        `Stats.Frames()`- 
+        computes per-time-point statistics from the Spots DataFrame.
+
+        `Stats.TimeIntervals()`- 
+        computes per-time-interval statistics from the Spots DataFrame.
+
+        `(dataclass) BaseDataInventory`- 
+        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+
         """
 
         df = df.copy()
@@ -532,7 +671,7 @@ class Stats:
         if df is None or df.empty:
             Reporter(Level.warning, "Input DataFrame to Frames method is empty; no computations performed.", noticequeue=self.noticequeue)
             prefixes = [base_prefix] + (['{per condition}'] if add_conds else [])
-            cols = group_cols + _build_expected_cols(prefixes)
+            cols = self._COLUMNS['FRAMES'] + _build_expected_cols(prefixes)
             return pd.DataFrame(columns=cols)
 
         # Separate resolved stats into CI vs. non-CI for batching
@@ -616,50 +755,114 @@ class Stats:
 
         BaseDataInventory.Frames = base_df
 
+        print(base_df.columns.tolist())
+
         return base_df
     
     
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        #### *Computes time interval (time lag) statistics across tracks for each tier × Time lag.*
+        """ Computes per-time-interval statistics, including mean squared displacement (MSD) and turning angles:
+
+        For each frame lag (1, 2, …, maximum), squared displacements and turning angles are computed across trajectories.
+
+        - `{per replicate}`- aggregated across all tracks of the same `Replicate`
+        - `{per condition}`- aggregated across all tracks of the same `Condition`
+
+
+        Example
+        -------
+
+        Trajectories A, B, and C comprised of consecutive points and their positions:
+        ```
+        pa1 ─ pa2 ─ pa3 ─ pa4 ─ pa5 ─ pa6 ─ pa7
+              pb1 ─ pb2 ─ pb3 ─ pb4 ─ pb5 ─ pb6
+              pc1 ─ pc2 ─ pc3 ─ pc4 ─ pc5
+        ```
+
+        Valid position pairs for the interval (lag) of three frames:
+        ```
+        pa1 ───────────── pa4
+              pa2 ───────────── pa5
+              pb1 ───────────── pb4
+              pc1 ───────────── pc4
+                    pa3 ───────────── pa6
+                    pb2 ───────────── pb5
+                    pc2 ───────────── pc5
+                          pa4 ───────────── pa7
+                          pb3 ───────────── pb6
+        ```
+
+        MSD formula for a given time lag *k* for a given trajactory *i* with trajectory point positions *p* at a time position *t* :
+        ```
+        MSDᵢ(k) = ||pᵢ(t+k) - pᵢ(t)||²
+        ```
+        \n The per-track MSD values are then aggregated across tracks within each of unique `Time lag` × `Replicate` and `Time lag` × `Condition`.
         
+            
+        Turning angle formula for a given time lag *k* for a trajectory *i* with trajectory point positions *y* and *x* at a time position *t* :
+        ```
+        Δθᵢ(k) = ||θᵢ(Δy(t+k), Δx(t+k)) - θᵢ(Δy(t), Δx(t))||
+        ```
+        \n The angular difference in the direction of motion is then wrapped to [−π, π]. 
+        Per-track turning angles values are then aggregated (circular mean and variance) across tracks within each of unique `Time lag` × `Replicate` and `Time lag` × `Condition` .
+
+
+
         Parameters
         ----------
         df : pd.DataFrame
-            ***(Spots) Input DataFrame must contain (at minimum) these columns:***
-            - ``Condition``
-            - ``Replicate``
-            - ``Track ID``
-            - ``X coordinate``
-            - ``Y coordinate``
-            - ``Time point``
+            *This method expects the dataframe acquired by `Stats.Spots()`. **The input DataFrame must contain these columns:***
+            - `Condition`
+            - `Replicate`
+            - `Track UID`
+            - `Time point`
+            - `X coordinate`
+            - `Y coordinate`
 
         Returns
         -------
         pd.DataFrame
-            ***A DataFrame with one row per unique tier × Time lag. Contains following columns:***
+            *A DataFrame with one row per unique combination of `Condition` × `Replicate` × `Frame lag`, containing the following columns:*
 
-            - **``Frame lag``**: 
-            Time lag in frames (integer).
+            - **`Condition`**
+            - **`Replicate`**
+            - **`Frame lag`**- Integer lag in frames (1, 2, 3, …).
+            - **`Time lag`**- Corresponding time lag computed as `Frame lag` × time step.
 
-            - **``Time lag``**:
-            Time lag in actual time units, computed from the median time step of the input data.
+            \n **`{per category}`**
+                - **`Tracks contributing`**- the number of tracks that contributed data at each lag
+                - **`Turn mean`**- mean absolute turning angle in degrees
+                - **`Turn var`**- circular variance of turning angles
+                - **`MSD`** ***descriptive base statistics:*** **`min`**, **`max`**, **`mean`**, **`median`**, **`q25`**, **`q75`** (iqr) if `cat_descr` is set to `True` when initializing the Stats class
+                - **`MSD`** ***descriptive error statistics:*** **`sd`** if `cat_descr_err` is set to `True` when initializing the Stats class
+                - **`MSD`** ***inferative error statistics:*** **`sem`** if `cat_infer_err` is set to `True` when initializing the Stats class,
+                ***`{CI_STATISTIC}`*****`ci`*****`{CONFIDENCE_LEVEL}`*****`low`** and ***`{CI_STATISTIC}`*****`ci`*****`{CONFIDENCE_LEVEL}`*****`high`** (confidence interval) if both `cat_infer_err` and `bootstrap_ci` are set to `True`
 
-            - **``Tracks contributing``**: 
-            Number of tracks that contributed to the statistics at that time lag.
 
-            **``MSD`` *(mean squared displacement)*** statistics across trajectories at specific time intervals/lags:
-            - **``min``**: minimal MSD.
-            - **``max``**: maximal MSD.
-            - **``mean``**: mean MSD.
-            - **``sd``**: standard deviation of MSD.
-            - **``median``**: median MSD.
-            - **``q25``**: 25th percentile of MSD.
-            - **``q75``**: 75th percentile of MSD.
+            \n Sets `BaseDataInventory.TimeIntervals` to the computed DataFrame.
 
-            **``Turn``** statistics across circular mean of turning angles for trajectories at specific time intervals/lags:
-            - **``mean``**: circular mean of turning angles.
-            - **``var``**: circular variance of turning angles.
+        Notes
+        -----
+        - Tracks with fewer than 2 points are excluded from computation.
+        - If fewer than 2 unique time points exist in the input, an empty DataFrame is returned.
+
+        See also
+        --------
+        `Stats.get_all_data()`- 
+        computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
+
+        `Stats.Spots()`- 
+        computes per-trajectory-point statistics, both local (previous -> current position) and cumulative (start -> current position).
+
+        `Stats.Tracks()`- 
+        computes per-whole-trajectory statistics from the Spots DataFrame.
+
+        `Stats.Frames()`- 
+        computes per-time-point statistics from the Spots DataFrame.
+
+        `(dataclass) BaseDataInventory`- 
+        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+
         """
 
         if df.empty: 
@@ -914,6 +1117,8 @@ class Stats:
             base_result = self.NormDecimals(base_result)
 
         BaseDataInventory.TimeIntervals = base_result
+
+        print(base_result.columns.tolist())
         
         return base_result
 
@@ -1011,32 +1216,52 @@ class Stats:
         """
 
         if exclude is None:
-            return pd.DataFrame()
+            Reporter(Level.warning, "No columns specified for exclusion in Stats._general_agg_stats(); all numeric columns will be aggregated.", noticequeue=self.noticequeue)
+
+        exclude = [col for col in exclude if col != 'Track UID']
 
         # Keep only numeric columns and exclude core columns
-        df = df.select_dtypes(include=[np.number]).drop(columns=exclude, errors='ignore')
+        additional = df.copy()
 
-        # Stash leftover columns
-        other_cols = df.columns.tolist()
+        try:
+            additional = additional.drop(columns=exclude, errors='ignore')
 
-        # Group by Track UID
-        grp = df.groupby(level=group_by, sort=False)
+            if not additional.shape[1]:
+                return pd.DataFrame(index=additional.index)
 
-        # For each bonus column, compute basic statistics, rename columns, and merge back
-        for col in other_cols:
-            agg = grp[col].agg(['min','max','mean','std','sem','median'])
+            additional = additional.select_dtypes(include=[np.number])
 
-            agg.columns = [f"{col} min", f"{col} max", f"{col} mean", f"{col} sd", f"{col} sem", f"{col} median"]
+            if additional.empty or additional.shape[1] == 0:
+                return pd.DataFrame(index=df.index if group_by == ['Track UID'] else df.groupby(level=group_by, sort=False).ngroup().index)
 
-            df = df.merge(agg, left_index=True, right_index=True)
+            # Stash leftover columns (exclude 'Track UID' if it's among them)
+            other_cols = [c for c in additional.columns.tolist() if c != 'Track UID']
 
-        # Drop original columns
-        df.drop(columns=other_cols, inplace=True)
+            if not other_cols:
+                return pd.DataFrame(index=additional.index)
 
-        # drop multiplicates if present
-        df = df.drop_duplicates()
+            # Group by Track UID
+            grp = additional.groupby(level=group_by, sort=False)
+
+            # For each bonus column, compute basic statistics, rename columns, and merge back
+            for col in other_cols:
+                agg = grp[col].agg(['min','max','mean','std','sem','median'])
+
+                agg.columns = [f"{col} min", f"{col} max", f"{col} mean", f"{col} sd", f"{col} sem", f"{col} median"]
+
+                additional = additional.merge(agg, left_index=True, right_index=True)
+
+            # Drop original columns
+            additional.drop(columns=other_cols, inplace=True)
+
+            # drop multiplicates if present
+            additional = additional.drop_duplicates()
+            
+            return additional
         
-        return df
+        except Exception as e:
+            Reporter(Level.error, f"Error in _general_agg_stats while preparing DataFrame for aggregation: {e}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+            return pd.DataFrame(index=df.index)
 
 
     def _describe_infer(self, df: pd.DataFrame, group_cols: list[str], *, stats: dict[str, str] | list[str] = None, **kwargs) -> pd.Series:
