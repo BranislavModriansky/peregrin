@@ -18,12 +18,12 @@ class MotionFlowPlot:
 
     The spatial extent is divided into an (n_arrows_x × n_arrows_y) grid.
     Each occupied cell computes:
-      • DIRECTION  — circular-mean / min / max of all 'Direction' values in that cell
-      • SCALE      — aggregated scale_by metric (density or any numeric column)
+    * DIRECTION  — circular-mean / min / max of all 'Direction' values in that cell
+    * SCALE      — aggregated scale_by metric (density or any numeric column)
 
     Two render modes:
-      • mode='quiver'   — straight arrows, centered on cell, length ∝ scale
-      • mode='stream'   — curved streamlines (matplotlib streamplot), linewidth/color ∝ scale
+    * mode='quiver'   — straight arrows, centered on cell, length ∝ scale
+    * mode='stream'   — curved streamlines (matplotlib streamplot), linewidth/color ∝ scale
     """
 
     SCALE_METHODS = ('density', 'min', 'max', 'mean', 'median', 'sum', 'sd', 'add', 'subtract', 'multiply', 'divide')
