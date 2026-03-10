@@ -36,6 +36,7 @@ class BaseDataInventory:
     `(class) Stats` - a class with methods for computing the mentioned DataFrames.
     """
 
+    RawInput: pd.DataFrame
     Spots: pd.DataFrame
     Tracks: pd.DataFrame
     Frames: pd.DataFrame
@@ -188,6 +189,7 @@ class Stats:
 
         """
 
+        self.RawInput = df
         self.Spots(df)
         self.Tracks(BaseDataInventory.Spots)
         self.Frames(BaseDataInventory.Spots)
@@ -272,7 +274,11 @@ class Stats:
         serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
 
         """
+
+        self.RawInput = df
         
+        df = df.copy()
+
         if df.empty:
             Reporter(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.", noticequeue=self.noticequeue)
             return pd.DataFrame(columns=self._COLUMNS['SPOTS'])
@@ -281,14 +287,14 @@ class Stats:
 
         grp = df.groupby(self.tier + ['Track ID'], sort=False)
 
-        # Provides a completely unique identifier for each track (Track UID) that is consistent across all methods and is used for merging.
+        # Provides a unique trajectory identifier (Track UID) as index that is consistent throughout dataflow and is used for grouping, iterating, filtering, and merging.
         df['Track UID'] = grp.ngroup()
         df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
 
         # Assigns frame numbers within each data subset based on the order of time points; starts at 0 for the first point in each track.
         df['Frame'] = df.groupby(self.tier, sort=False)['Time point'].rank(method='dense').astype('Int64') - 1
 
-        # Optional sanity warning (kept lightweight)
+        # Sanity guard, checking for multiple frames assigned to the same tier × time point combination
         try:
             bad = df.groupby(self.tier + ['Time point'], sort=False)['Frame'].nunique(dropna=True).max()
 
@@ -299,7 +305,7 @@ class Stats:
         except Exception:
             pass
 
-        # Distance between current and next position
+        # Distance between the previous and the current position
         df['Distance'] = np.hypot(
             grp['X coordinate'].diff(),
             grp['Y coordinate'].diff()
@@ -308,26 +314,27 @@ class Stats:
         # Cumulative track length
         df['Cumulative track length'] = grp['Distance'].cumsum()
 
-        # Net (straight-line) distance: start -> current last position
+        # Cumulative track displacement -> straight-line distance (start -> current position)
         start = grp[['X coordinate', 'Y coordinate']].transform('first')
         df['Cumulative track displacement'] = np.hypot(
             (df['X coordinate'] - start['X coordinate']),
             (df['Y coordinate'] - start['Y coordinate'])
         ).replace(0, np.nan)
 
-        # Straightness index: Track displacement vs. actual path length
+        # Straightness index: Track displacement vs. actual trajectory length ratio
         # Avoid division by zero by replacing zeros with NaN, then fill
         df['Cumulative straightness index'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
-        # Cumulative speed: mean speed from start to current position
+        # Cumulative speed -> mean speed from the starting to the current position
         df['Cumulative speed'] = df['Cumulative track length'] / df['Frame'].replace(0, np.nan)
-        # Direction of travel (radians) based on diff to previous point
+
+        # Instantaneous direction of motion (rad) -> difference between the previous and current position
         df['Direction'] = np.arctan2(
             grp['Y coordinate'].diff(),
             grp['X coordinate'].diff()
         ).fillna(np.nan)
 
-        # Cumulative direction 
+        # Cumulative direction of motion (circular mean and variance) calculations
         theta_from_start = np.arctan2(
             df['Y coordinate'] - start['Y coordinate'],
             df['X coordinate'] - start['X coordinate'],
@@ -357,7 +364,7 @@ class Stats:
         R = (np.hypot(cum_sin, cum_cos) / n_angles)
         df['Cumulative direction var'] = (1.0 - R)
 
-        # Drop (if any) present all nan columns  
+        # Drop all-NaN columns (if any are present)
         df.dropna(how='all', axis='columns', inplace=True)
 
         if self.SIGNIFICANT_FIGURES:
@@ -366,7 +373,7 @@ class Stats:
             df = self.NormDecimals(df)
 
         BaseDataInventory.Spots = df
-
+        
         return df
 
 
@@ -455,6 +462,7 @@ class Stats:
         if df.empty:
             return pd.DataFrame(columns=self._COLUMNS['TRACKS'])
 
+        # Stash the categorical identifiers for merging them back into the aggregated result DataFrame
         stash = df[self.tier + ['Track ID']].drop_duplicates()
 
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
@@ -462,7 +470,7 @@ class Stats:
 
         grp = df.groupby(level=gcols, sort=False)
 
-        # Resolve speed aggregation spec through the resolver
+        # Resolve the aggregation functions for speed statistics
         speed_agg_spec = self.resolve({
             'Speed min':    'min',
             'Speed max':    'max',
@@ -480,7 +488,7 @@ class Stats:
         for label, func in speed_agg_spec.items():
             agg_spec[label] = ('Distance', func)
 
-        # Add coordinate first/last for displacement calculation
+        # Add coordinates first/last for displacement calculation
         agg_spec['start_x'] = ('X coordinate', 'first')
         agg_spec['end_x']   = ('X coordinate', 'last')
         agg_spec['start_y'] = ('Y coordinate', 'first')
@@ -501,7 +509,7 @@ class Stats:
             colors = grp['Condition color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
 
-        # Other general stats
+        # Other general stats if the input data were not stripped
         other = self._general_agg_stats(df, exclude=self._COLUMNS['SPOTS'])
 
         # Displacement and straightness
@@ -509,16 +517,16 @@ class Stats:
         agg['Straightness index'] = (agg['Track displacement'] / agg['Track length'])
         agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
-        # Points per track
+        # Points/ per track
         n = grp.size().rename('Track points')
         agg = agg.merge(n, left_index=True, right_index=True)
 
-        # Sin/Cos components for circular statistics
+        # Sin/Cos values for circular statistics
         sin_cos = df.assign(
             _sin=np.sin(df['Direction']), 
             _cos=np.cos(df['Direction'])
         )
-        # Group and aggregate sin/cos components along tracks
+        # Group and aggregate sin/cos components along tracks, getting mean sin and cos for each track
         dir_agg = sin_cos.groupby(gcols, sort=False).agg(
             mean_sin=('_sin','mean'),
             mean_cos=('_cos','mean')
@@ -534,15 +542,14 @@ class Stats:
         # Remove temporary columns
         dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
 
-        # Merge circular statistics into main agg DataFrame
+        # Merge results
         df = agg.merge(dir_agg, left_index=True, right_index=True)
-
         df = df.merge(other, left_index=True, right_index=True, how='right')
-
         df = stash.merge(df, left_index=True, right_index=True, how='right')
 
         df.drop_duplicates(inplace=True)
         
+        # Insert Track UID as a column right after Track ID
         df.insert(df.columns.get_loc('Track ID') + 1, 'Track UID', df.index)
         
         if self.SIGNIFICANT_FIGURES:
