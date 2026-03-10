@@ -110,14 +110,16 @@ class Stats:
         'SPOTS': [
             'Condition','Replicate','Track ID','Track UID','Time point','Frame',
             'X coordinate','Y coordinate','Distance','Cumulative track length','Cumulative track displacement',
-            'Cumulative straightness index','Cumulative speed','Direction','Cumulative direction mean','Cumulative direction var'
+            'Cumulative straightness index','Cumulative speed','Direction',
+            'Directional change','Cumulative directional change','Cumulative directional change mean',
+            'Cumulative direction mean','Cumulative direction var'
         ],
         'TRACKS': [
             'Condition','Replicate','Track ID','Track UID',
             'Track length','Track displacement','Straightness index',
             'Speed min','Speed max','Speed mean','Speed sd','Speed median','Speed q25','Speed q75',
             'Max distance reached','Track start frame','Track end frame',
-            'Direction mean','Direction var'
+            'Direction mean','Direction var','Mean directional change'
         ],
         'FRAMES':        ['Condition','Replicate','Time point','Frame'],
         'TIMEINTERVALS': ['Condition','Replicate','Time lag','Frame lag']
@@ -245,6 +247,15 @@ class Stats:
             - **`Direction`**- 
             Instantaneous direction of motion in radians `np.arctan2(Δy, Δx)`. Calculated between the previous and current positions.
 
+            - **`Directional change`**- 
+            Absolute turning angle (degrees) between consecutive directions, calculated as the angular difference between the current and previous `Direction` values, wrapped to the range [-180°, 180°].
+
+            - **`Cumulative directional change`**- 
+            Cumulative sum of absolute `Directional change` values along the track up to the current position.
+
+            - **`Cumulative directional change mean`**- 
+            Mean of all absolute `Directional change` values along the track up to the current position
+
             - **`Cumulative direction mean`**- 
             Mean of directions of motion from the starting to the current position.
 
@@ -283,7 +294,10 @@ class Stats:
 
         df.sort_values(self.tier + ['Track ID', 'Time point'], inplace=True)
 
-        grp = df.groupby(self.tier + ['Track ID'], sort=False)
+        # Define grouping keys
+        gkeys = self.tier + ['Track ID']
+
+        grp = df.groupby(gkeys, sort=False)
 
         # Provides a unique trajectory identifier (Track UID) as index that is consistent throughout dataflow and is used for grouping, iterating, filtering, and merging.
         df['Track UID'] = grp.ngroup()
@@ -332,6 +346,25 @@ class Stats:
             grp['X coordinate'].diff()
         ).fillna(np.nan)
 
+        # Directional change (turning angle) -> angular difference between consecutive directions, wrapped to [-π, π], then absolute, converted to degrees
+        raw_dir_change = grp['Direction'].diff()
+        # Wrap to [-π, π] first, then take absolute value, then convert to degrees
+        wrapped_dir_change = (raw_dir_change + np.pi) % (2 * np.pi) - np.pi
+        df['Directional change'] = np.rad2deg(wrapped_dir_change.abs()).fillna(np.nan)
+
+        # Cumulative directional change -> cumulative sum of absolute directional changes (degrees) along the track
+        df['Cumulative directional change'] = df.groupby(gkeys, sort=False)['Directional change'].cumsum()
+
+        # Mean directional change -> mean of absolute directional changes (degrees) along the track up to the current position
+        df['Cumulative directional change mean'] = (
+            df.groupby(gkeys, sort=False)['Directional change']
+            .expanding().mean()
+            .droplevel(list(range(len(gkeys))))
+        )
+
+        # First two points of each track have no directional change; set them to NaN
+        df.loc[df['Directional change'].isna(), ['Cumulative directional change', 'Cumulative directional change mean']] = np.nan
+
         # Cumulative direction of motion (circular mean and variance) calculations
         theta_from_start = np.arctan2(
             df['Y coordinate'] - start['Y coordinate'],
@@ -340,9 +373,6 @@ class Stats:
 
         # Exclude the first frame from cumulative direction stats (no angle data there)
         valid = df['Frame'].gt(0) & theta_from_start.notna()
-
-        # Define grouping keys
-        gkeys = self.tier + ['Track ID']
 
         # Calculate sin and cos of the cumulated direction mean for each point excluding first frame
         sinv = pd.Series(np.where(valid, np.sin(theta_from_start), np.nan), index=df.index)
@@ -430,6 +460,9 @@ class Stats:
             - **`Direction mean`**- 
             Circular mean of the `Direction` values.
 
+            - **`Mean directional change`**- 
+            Mean of absolute turning angles per track (degrees).
+
             - **`Direction var`**- 
             Circular variance of the `Direction` values.
 
@@ -465,9 +498,9 @@ class Stats:
         stash = df[self.tier + ['Track ID']].drop_duplicates()
 
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
-        gcols = ['Track UID']
+        uid = ['Track UID']
 
-        grp = df.groupby(level=gcols, sort=False)
+        grp = df.groupby(level=uid, sort=False)
 
         # Resolve the aggregation functions for speed statistics
         speed_agg_spec = self.resolve({
@@ -526,7 +559,7 @@ class Stats:
             _cos=np.cos(df['Direction'])
         )
         # Group and aggregate sin/cos components along tracks, getting mean sin and cos for each track
-        dir_agg = sin_cos.groupby(gcols, sort=False).agg(
+        dir_agg = sin_cos.groupby(uid, sort=False).agg(
             mean_sin=('_sin','mean'),
             mean_cos=('_cos','mean')
         )
@@ -540,6 +573,10 @@ class Stats:
 
         # Remove temporary columns
         dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
+
+        # Mean directional change: mean of absolute turning angles per track (degrees) — constant per track, take any value
+        mean_dir_change = df['Cumulative directional change mean'].groupby(uid, sort=False).last()
+        dir_agg['Mean directional change'] = mean_dir_change
 
         # Merge results
         df = agg.merge(dir_agg, left_index=True, right_index=True)
@@ -608,6 +645,7 @@ class Stats:
                 - **`Instantaneous speed`**
                 - **`Instantaneous direction`**
                 - **`Cumulative direction global`**
+                - **`Cumulative directional change global`**
 
         See also
         --------
@@ -641,6 +679,7 @@ class Stats:
             'Cumulative straightness index',
             'Cumulative speed',
             'Distance',
+            'Cumulative directional change mean',
         ]
         # (output df labels)
         metric_out = {m: m for m in metrics}
@@ -671,6 +710,7 @@ class Stats:
                     f'{pfx} Instantaneous direction var',
                     f'{pfx} Cumulative direction global mean',
                     f'{pfx} Cumulative direction global var',
+                    f'{pfx} Cumulative directional change global mean',
                 ])
             return cols
 
@@ -743,6 +783,11 @@ class Stats:
             out[f'{prefix} Cumulative direction global mean'] = np.arctan2(circ['sin_cum'], circ['cos_cum'])
             out[f'{prefix} Cumulative direction global var'] = 1.0 - np.hypot(circ['sin_cum'], circ['cos_cum'])
 
+            # Cumulative directional change global mean: mean of cumulative directional change across all tracks at each time point
+            cum_dc_mean = source.groupby(by_cols, sort=False)['Cumulative directional change mean'].mean()
+            out[f'{prefix} Cumulative directional change global mean'] = cum_dc_mean.values
+
+
             # Reset index to turn grouping keys back into columns
             return out.reset_index()
 
@@ -797,7 +842,7 @@ class Stats:
         ```
         MSDᵢ(k) = ||pᵢ(t+k) - pᵢ(t)||²
         ```
-        \n The per-track MSD values are then aggregated across tracks within each of unique `Time lag` × `Replicate` and `Time lag` × `Condition`.
+        \n The per-track MSD values are then aggregated across tracks within each of unique `Time lag` × `Condition` × `Replicate` and `Time lag` × `Condition`.
         
             
         Turning angle formula for a given time lag *k* for a trajectory *i* with trajectory point positions *y* and *x* at a time position *t* :
@@ -805,7 +850,7 @@ class Stats:
         Δθᵢ(k) = ||θᵢ(Δy(t+k), Δx(t+k)) - θᵢ(Δy(t), Δx(t))||
         ```
         \n The angular difference in the direction of motion is then wrapped to [−π, π]. 
-        Per-track turning angles values are then aggregated (circular mean and variance) across tracks within each of unique `Time lag` × `Replicate` and `Time lag` × `Condition` .
+        Per-track turning angles values are then aggregated (circular mean and variance) across tracks within each of unique `Time lag` × `Condition` × `Replicate` and `Time lag` × `Condition`.
 
 
 
@@ -1054,10 +1099,10 @@ class Stats:
                 circ_var = 1.0 - circ_R
 
                 if self.cat_descr or self.cat_descr_err or self.cat_infer_err:
-                    result[f'{prefix} Turn mean'] = pd.Series(np.rad2deg(np.abs(circ_mean)), index=turn_circ.index)
+                    result[f'{prefix} Directional change mean'] = pd.Series(np.rad2deg(np.abs(circ_mean)), index=turn_circ.index)
 
                 if self.cat_descr_err:
-                    result[f'{prefix} Turn var'] = pd.Series(circ_var, index=turn_circ.index)
+                    result[f'{prefix} Directional change var'] = pd.Series(circ_var, index=turn_circ.index)
 
             return result
 

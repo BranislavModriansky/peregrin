@@ -76,14 +76,6 @@ class Filter1D:
         if mask is None or len(mask) == 0:
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         
-        print("")
-        print("Mask:")
-        print(mask)
-        print("Spotstats index:")
-        print(spotstats.index)
-        print("Trackstats index:")
-        print(trackstats.index)
-        
         # Filter using index intersection to avoid KeyError
         # valid_spot_indices = spotstats.index.intersection(mask)
         # valid_track_indices = trackstats.index.intersection(mask)
