@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .._common import Categorizer, Painter
+from ..._general import is_empty
 from ..._handlers._reports import Reporter, Level
 from ..._compute import Stats
 
@@ -19,7 +20,7 @@ class TSeries:
 
 
     def __init__(self, data: pd.DataFrame, conditions: list = None, replicates: list = None, metric: str = None,
-                 *args, stat: str = 'mean', disper: str = None, ignore_categories: bool = False, level: str = 'Condition', **kwargs) -> None:
+                 *args, stat: str = 'mean', disper: str = None, level: str = 'Condition', ignore_categories: bool = False, **kwargs) -> None:
         
         self.data = data
         self.conditions = conditions
@@ -58,6 +59,7 @@ class TSeries:
         self.painter = Painter(noticequeue=self.noticequeue)
         self.figsize = kwargs.get('figsize', (8, 5))
         self.xscale = kwargs.get('xscale', 'literal')
+        self.time_units = kwargs.get('time_units', 's')
         self.yscale = kwargs.get('yscale', 'literal')
         self.title = kwargs.get('title', None)
 
@@ -103,8 +105,8 @@ class TSeries:
         if not self.ignore_categories:
             self._arrange_data()
 
-        colors = self._get_palette()                # dict {group_label: hex}
-        color_list = list(colors.values())           # fallback ordered list
+        colors = self._get_palette()
+        color_list = list(colors.values())
 
         # Build groups
         if self.ignore_categories:
@@ -152,8 +154,7 @@ class TSeries:
                                     color=c, alpha=self.FILL_ALPHA)
 
         # Labels and title
-        xunits = {'Frame': 'frame', 'Time point': 'time'}
-        ax.set_xlabel(f"{x_col.replace('_', ' ')} [{xunits.get(x_col, '?')}]")
+        ax.set_xlabel(f"{x_col.replace('_', ' ')} {'frame' if x_col == 'Frame' else self.time_units}")
         ax.set_ylabel(f"{y_col.replace('_', ' ')}")
         ax.set_title(self.title)
         ax.legend(loc='best', frameon=True, framealpha=0.9)
@@ -235,6 +236,3 @@ class TSeries:
 
         return x_col
     
-
-    def _get_y_axis(self) -> np.ndarray:
-        ...
