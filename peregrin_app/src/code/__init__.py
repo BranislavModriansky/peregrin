@@ -7,6 +7,7 @@ from ._plot._common import *
 from ._plot._tracks._reconstruct import ReconstructTracks
 from ._plot._categorical._collate import SuperPlots
 from ._plot._time._lags import MSD, TurnAnglesHeatmap
+from ._plot._time._series import TSeries
 from ._plot._distrib._polar import PolarDataDistribute
 from . _plot._distrib._motion import MotionFlowPlot
 from ._handlers._scheduling import *
@@ -29,6 +30,6 @@ __all__ = [
     "frame_interval_ms",
     "DebounceCalc", "ThrottleCalc", "DebounceEffect",
     "Level", "NoticeQueue",
-    'MSD', 'TurnAnglesHeatmap',
+    'MSD', 'TurnAnglesHeatmap', 'TSeries',
     "is_empty", "clock"
 ]

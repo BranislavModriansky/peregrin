@@ -111,7 +111,7 @@ class Stats:
             'Condition','Replicate','Track ID','Track UID','Time point','Frame',
             'X coordinate','Y coordinate','Distance','Cumulative track length','Cumulative track displacement',
             'Cumulative straightness index','Cumulative speed','Direction',
-            'Directional change','Cumulative directional change','Cumulative directional change mean',
+            'Directional change','Cumulative directional change','Cumulative mean directional change',
             'Cumulative direction mean','Cumulative direction var'
         ],
         'TRACKS': [
@@ -250,10 +250,7 @@ class Stats:
             - **`Directional change`**- 
             Absolute turning angle (degrees) between consecutive directions, calculated as the angular difference between the current and previous `Direction` values, wrapped to the range [-180°, 180°].
 
-            - **`Cumulative directional change`**- 
-            Cumulative sum of absolute `Directional change` values along the track up to the current position.
-
-            - **`Cumulative directional change mean`**- 
+            - **`Cumulative mean directional change`**- 
             Mean of all absolute `Directional change` values along the track up to the current position
 
             - **`Cumulative direction mean`**- 
@@ -352,18 +349,15 @@ class Stats:
         wrapped_dir_change = (raw_dir_change + np.pi) % (2 * np.pi) - np.pi
         df['Directional change'] = np.rad2deg(wrapped_dir_change.abs()).fillna(np.nan)
 
-        # Cumulative directional change -> cumulative sum of absolute directional changes (degrees) along the track
-        df['Cumulative directional change'] = df.groupby(gkeys, sort=False)['Directional change'].cumsum()
-
         # Mean directional change -> mean of absolute directional changes (degrees) along the track up to the current position
-        df['Cumulative directional change mean'] = (
+        df['Cumulative mean directional change'] = (
             df.groupby(gkeys, sort=False)['Directional change']
             .expanding().mean()
             .droplevel(list(range(len(gkeys))))
         )
 
         # First two points of each track have no directional change; set them to NaN
-        df.loc[df['Directional change'].isna(), ['Cumulative directional change', 'Cumulative directional change mean']] = np.nan
+        df.loc[df['Directional change'].isna(), ['Cumulative mean directional change']] = np.nan
 
         # Cumulative direction of motion (circular mean and variance) calculations
         theta_from_start = np.arctan2(
@@ -575,7 +569,7 @@ class Stats:
         dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
 
         # Mean directional change: mean of absolute turning angles per track (degrees) — constant per track, take any value
-        mean_dir_change = df['Cumulative directional change mean'].groupby(uid, sort=False).last()
+        mean_dir_change = df['Cumulative mean directional change'].groupby(uid, sort=False).last()
         dir_agg['Mean directional change'] = mean_dir_change
 
         # Merge results
@@ -644,8 +638,8 @@ class Stats:
                 - **`Cumulative speed`**
                 - **`Instantaneous speed`**
                 - **`Instantaneous direction`**
-                - **`Cumulative direction global`**
-                - **`Cumulative directional change global`**
+                - **`Cumulative direction`**
+                - **`Cumulative mean directional change`**
 
         See also
         --------
@@ -679,7 +673,7 @@ class Stats:
             'Cumulative straightness index',
             'Cumulative speed',
             'Distance',
-            'Cumulative directional change mean',
+            'Cumulative mean directional change',
         ]
         # (output df labels)
         metric_out = {m: m for m in metrics}
@@ -708,9 +702,9 @@ class Stats:
                 cols.extend([
                     f'{pfx} Instantaneous direction mean',
                     f'{pfx} Instantaneous direction var',
-                    f'{pfx} Cumulative direction global mean',
-                    f'{pfx} Cumulative direction global var',
-                    f'{pfx} Cumulative directional change global mean',
+                    f'{pfx} Cumulative direction mean',
+                    f'{pfx} Cumulative direction var',
+                    f'{pfx} Cumulative mean directional change mean',
                 ])
             return cols
 
@@ -780,12 +774,11 @@ class Stats:
 
             out[f'{prefix} Instantaneous direction mean'] = np.arctan2(circ['sin_dir'], circ['cos_dir'])
             out[f'{prefix} Instantaneous direction var'] = 1.0 - np.hypot(circ['sin_dir'], circ['cos_dir'])
-            out[f'{prefix} Cumulative direction global mean'] = np.arctan2(circ['sin_cum'], circ['cos_cum'])
-            out[f'{prefix} Cumulative direction global var'] = 1.0 - np.hypot(circ['sin_cum'], circ['cos_cum'])
+            out[f'{prefix} Cumulative direction mean'] = np.arctan2(circ['sin_cum'], circ['cos_cum'])
+            out[f'{prefix} Cumulative direction var'] = 1.0 - np.hypot(circ['sin_cum'], circ['cos_cum'])
 
-            # Cumulative directional change global mean: mean of cumulative directional change across all tracks at each time point
-            cum_dc_mean = source.groupby(by_cols, sort=False)['Cumulative directional change mean'].mean()
-            out[f'{prefix} Cumulative directional change global mean'] = cum_dc_mean.values
+            # Cumulative mean directional change mean (regular mean, not circular)
+            out[f'{prefix} Cumulative mean directional change mean'] = source.groupby(by_cols, sort=False)['Cumulative mean directional change'].mean().values
 
 
             # Reset index to turn grouping keys back into columns
@@ -1132,7 +1125,7 @@ class Stats:
             df = self.norm_decimals(df)
 
         BaseDataInventory.TimeIntervals = df.copy()
-        
+
         return df
 
 

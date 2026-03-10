@@ -14,6 +14,7 @@ from .viz.tracks import MountTracks
 from .viz.distributions import MountDistributions
 from .viz.superplots import mount_superplots
 from .viz.msd import mount_plot_msd
+from .viz.timeseries import mount_plot_ts
 from .viz.turnangles import mount_plot_turnangles
 from .viz.references import mount_references
 from .viz.motionflow import mount_motionflow
@@ -65,6 +66,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     MountDistributions(*args1)
     mount_superplots(*args, **kwargs)
     mount_plot_msd(*args, **kwargs)
+    mount_plot_ts(*args, **kwargs)
     mount_motionflow(*args, **kwargs)
 
 

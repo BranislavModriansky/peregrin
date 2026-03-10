@@ -29,10 +29,9 @@ class Metrics:
     ]
 
     Time = [
-        "Track length",
-        "Track displacement",
-        "Straightness index",
-        "Speed"
+        'Cumulative track length', 'Cumulative track displacement', 'Cumulative straightness index', 
+        'Cumulative speed', 'Instantaneous speed', 'Cumulative mean directional change', 
+        'Instantaneous direction', 'Cumulative direction'
     ]
 
     LookFor = {
