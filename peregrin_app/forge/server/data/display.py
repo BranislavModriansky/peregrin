@@ -198,25 +198,25 @@ def mount_data_display(input, output, session, S):
     @DebounceCalc(3)
     @reactive.calc
     def _rend_spots_tbl():
-        tbl = Stats().FormatDigits(S.SPOTSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        tbl = Stats().format_digits(S.SPOTSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
         return tbl
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_tracks_tbl():
-        tbl = Stats().FormatDigits(S.TRACKSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        tbl = Stats().format_digits(S.TRACKSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
         return tbl
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_frames_tbl():
-        tbl = Stats().FormatDigits(S.FRAMESTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        tbl = Stats().format_digits(S.FRAMESTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
         return tbl
     
     @DebounceCalc(3)
     @reactive.calc
     def _rend_tintervals_tbl():
-        tbl = Stats().FormatDigits(S.TINTERVALSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
+        tbl = Stats().format_digits(S.TINTERVALSTATS.get(), sig_figs=input.significant_figures(), decimals=input.decimal_places())
         return tbl
     
 
