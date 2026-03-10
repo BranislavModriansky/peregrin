@@ -796,8 +796,6 @@ class Stats:
 
         BaseDataInventory.Frames = df.copy()
 
-        print(df.columns.tolist())
-
         return df
     
     

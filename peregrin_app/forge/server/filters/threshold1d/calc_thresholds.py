@@ -145,7 +145,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                     value=min,
                     min=min,
                     max=max,
-                    step=step
+                    step=step, 
+                    update_on="blur"
                 )),
                 ui.column(6, ui.input_numeric(
                     f"ceil_threshold_value_{id}",
@@ -153,7 +154,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                     value=max,
                     min=min,
                     max=max,
-                    step=step
+                    step=step, 
+                    update_on="blur"
                 )),
             )
 

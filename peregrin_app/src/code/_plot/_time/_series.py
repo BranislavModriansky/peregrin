@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from .._common import Categorizer, Painter
 from ..._general import is_empty
 from ..._handlers._reports import Reporter, Level
-from ..._compute import Stats
+from ..._compute._stats import Stats
 
 
 class TSeries:
@@ -62,6 +62,7 @@ class TSeries:
         self.time_units = kwargs.get('time_units', 's')
         self.yscale = kwargs.get('yscale', 'literal')
         self.title = kwargs.get('title', None)
+        self.darkmode = kwargs.get('darkmode', False)
 
         self.ci_statistic = Stats.CI_STATISTIC
         self.confidence_level = Stats.CONFIDENCE_LEVEL
@@ -162,7 +163,21 @@ class TSeries:
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.grid(False)
-        fig.set_facecolor('whitesmoke')
+        
+        fig.set_facecolor('whitesmoke') if not self.darkmode else fig.set_facecolor("#262626")
+        if self.darkmode: 
+            ax.set_facecolor("#161616")
+            ax.tick_params(colors='white')
+            ax.yaxis.label.set_color('white')
+            ax.xaxis.label.set_color('white')
+            ax.title.set_color('white')
+            legend = ax.get_legend()
+            if legend:
+                frame = legend.get_frame()
+                frame.set_facecolor('#2e2e2e')
+                for text in legend.get_texts():
+                    text.set_color('white')
+
         fig.tight_layout()
         return plt.gcf()
 
@@ -195,12 +210,12 @@ class TSeries:
 
     def _get_disper_col(self) -> str:
         match self.disper:
-            case 'sem'     : return [f'{self.prefix}{self.metric} sem']
-            case 'sd'      : return [f'{self.prefix}{self.metric} sd']
-            case 'min-max' : return [f'{self.prefix}{self.metric} min', f'{self.prefix}{self.metric} max']
-            case 'iqr'     : return [f'{self.prefix}{self.metric} q25', f'{self.prefix}{self.metric} q75']
-            case 'ci'      : return [f'{self.prefix}{self.metric} {self.ci_statistic} ci{self.confidence_level} low', f'{self.prefix}{self.metric} {self.ci_statistic} ci{self.confidence_level} high']
-            case  None     : return  None
+            case 'sem'         : return [f'{self.prefix}{self.metric} sem']
+            case 'sd'          : return [f'{self.prefix}{self.metric} sd']
+            case 'min-max'     : return [f'{self.prefix}{self.metric} min', f'{self.prefix}{self.metric} max']
+            case 'iqr'         : return [f'{self.prefix}{self.metric} q25', f'{self.prefix}{self.metric} q75']
+            case 'ci'          : return [f'{self.prefix}{self.metric} {self.ci_statistic} ci{self.confidence_level} low', f'{self.prefix}{self.metric} {self.ci_statistic} ci{self.confidence_level} high']
+            case 'none' | None : return  None
             case _:
                 Reporter(Level.warning, f"Unknown dispersion type '{self.disper}' -> No error bars will be plotted.")
                 return None
@@ -212,12 +227,12 @@ class TSeries:
             if not self.stock_palette:
                 return self.painter.BuildQualPalette(self.data, 'Condition', which=self.conditions)
             else:
-                return Painter.StockQualPalette(self.data, 'Condition', self.stock_palette, which=self.conditions)
+                return self.painter.StockQualPalette(self.data, 'Condition', self.stock_palette, which=self.conditions)
         elif self.level == ['Condition', 'Replicate']:
             if not self.stock_palette:
                 return self.painter.BuildQualPalette(self.data, 'Replicate', which=self.replicates)
             else:
-                return Painter.StockQualPalette(self.data, 'Replicate', self.stock_palette, which=self.replicates)
+                return self.painter.StockQualPalette(self.data, 'Replicate', self.stock_palette, which=self.replicates)
         else:
             # ignore_categories / fallback
             return {'_default': self.color or '#1f77b4'}
@@ -228,7 +243,7 @@ class TSeries:
         match self.xscale:
              case 'literal' | 'time':
                 x_col = 'Time point'
-             case 'relative':
+             case 'relative' | 'frame':
                 x_col = 'Frame'
              case _:
                 Reporter(Level.warning, f"Unknown xscale '{self.xscale}'. Defaulting to 'relative'.")
