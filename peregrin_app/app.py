@@ -13,6 +13,11 @@ app = App(app_ui, Server)
 
 
 
+
+# TODO: !!!! ADD PLOT DOWNLOADS AS SVGs AND PNGs !!!!!
+
+
+
 # TODO: make two options for chart downloads - an svg with no background and a png
 #       -> the buttons can have width 50% each and be side by side
 
