@@ -335,9 +335,20 @@ class SuperPlots:
             for r in unique_reps:
                 sub = self.data[
                     (self.data['Replicate'] == r) & (self.data['Condition'] == group)
-                ][self.statistic]
+                ][self.statistic].dropna()
+                if sub.empty:
+                    continue
                 min_cuts.append(sub.min())
                 max_cuts.append(sub.max())
+
+            # If no valid data for this group, fill with empties and skip
+            if not min_cuts or not max_cuts:
+                for r in unique_reps:
+                    norm_wy.append(np.array([]))
+                    px.append(np.array([]))
+                subgroup_dict[group]["norm_wy"] = norm_wy
+                subgroup_dict[group]["px"] = px
+                continue
 
             min_cuts = sorted(min_cuts)
             max_cuts = sorted(max_cuts)
@@ -396,11 +407,28 @@ class SuperPlots:
     def _sv_interpolate_nan(arr):
         """Interpolate NaN values in a KDE coordinate array."""
         arr = np.asarray(arr, dtype=float)
+        nan_idx = np.where(np.isnan(arr))
+        if nan_idx[0].size == 0:
+            return arr
+
+        # If the array has fewer than 2 elements, we can't compute diffs
+        if len(arr) < 2:
+            arr[np.isnan(arr)] = 0.0
+            return arr
+
         diffs = np.diff(arr, axis=0)
         median_val = np.nanmedian(diffs)
-        nan_idx = np.where(np.isnan(arr))
-        if nan_idx[0].size != 0:
-            arr[nan_idx[0][0]] = arr[nan_idx[0][0] + 1] - median_val
+        # If median_val is itself NaN (all diffs are NaN), fall back to 0
+        if np.isnan(median_val):
+            median_val = 0.0
+
+        idx = nan_idx[0][0]
+        if idx + 1 < len(arr) and not np.isnan(arr[idx + 1]):
+            arr[idx] = arr[idx + 1] - median_val
+        elif idx - 1 >= 0 and not np.isnan(arr[idx - 1]):
+            arr[idx] = arr[idx - 1] + median_val
+        else:
+            arr[idx] = 0.0
         return arr
 
 
@@ -427,6 +455,10 @@ class SuperPlots:
         if len(norm_wy) == 0 or len(px) == 0:
             return
 
+        # Guard: if the last KDE row is all zeros or empty, skip this subgroup
+        if np.asarray(norm_wy[-1]).size == 0 or np.nanmax(np.abs(np.asarray(norm_wy[-1]))) == 0:
+            return
+
         right_sides = np.array([norm_wy[-1] * -1 + i * 2 for i in norm_wy])
 
         new_wy = []
@@ -441,6 +473,10 @@ class SuperPlots:
         outline_vals = np.append(px[-1], np.flipud(px[-1]))
         append_param = np.flipud(norm_wy[-1]) * -1
         outline_pos = np.append(norm_wy[-1], append_param) * total_width + axis_point
+
+        # Guard: if outline arrays ended up empty, skip
+        if outline_pos.size == 0 or outline_vals.size == 0:
+            return
 
         # Close the outline if endpoints don't match
         if outline_pos[0] != outline_pos[-1]:

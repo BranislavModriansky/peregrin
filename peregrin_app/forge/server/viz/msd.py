@@ -14,7 +14,7 @@ from src.code import MSD, Dyes, is_empty
 def mount_plot_msd(input, output, session, S, noticequeue):
 
     @reactive.Effect
-    def update_choices_msd():
+    def update_choices():
 
         @reactive.Effect
         @reactive.event(S.TINTERVALSTATS)
@@ -66,93 +66,54 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             )
 
 
+    def _get_class_kwargs():
+        return dict(
+            data=S.TINTERVALSTATS(),
+            conditions=input.conditions_msd(),
+            replicates=input.replicates_msd(),
+            level=input.aggregation_msd(),
+            stock_palette=input.palette_stock_msd(),
+            palette=input.palette_stock_type_msd(),
+            noticequeue=noticequeue
+        )
+
+    def _get_plot_kwargs():
+        return dict(
+            statistic=input.statistic_msd(),
+            line=input.line_show_msd(),
+            scatter=input.scatter_show_msd(),
+            linear_fit=input.fit_show_msd(),
+            errorband=input.error_band_type_msd(),
+            grid=input.grid_show_msd(),
+            title=input.title_msd()
+        )
+
+
     @ui.bind_task_button(button_id="generate_msd")
     @reactive.extended_task
-    async def output_plot_msd(
-        data,
-        conditions,
-        replicates,
-        group_replicates,
-        c_mode,
-        color,
-        palette,
-        statistic,
-        line,
-        scatter,
-        linear_fit,
-        errorband,
-        grid,
-        title
-    ):
-        def _build():
+    async def output_plot_msd(class_kwargs, plot_kwargs):
+        def _build(_class_kwargs=class_kwargs, _plot_kwargs=plot_kwargs):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
                     message="Starting a Matplotlib GUI outside of the main thread will likely fail",
                     category=UserWarning,
                 )
-
-                return MSD(
-                    data=data,
-                    conditions=conditions,
-                    replicates=replicates,
-                    group_replicates=group_replicates,
-                    c_mode=c_mode,
-                    color=color,
-                    palette=palette,
-                    noticequeue=noticequeue
-                ).plot(
-                    statistic=statistic,
-                    line=line,
-                    scatter=scatter,
-                    errorband=errorband,
-                    linear_fit=linear_fit,
-                    grid=grid,
-                    title=title
-                )
+                return MSD(**_class_kwargs).plot(**_plot_kwargs)
             
-        # Run in executor, then store the figure in the reactive value
         return await asyncio.get_running_loop().run_in_executor(None, _build)
-        
+
+
     @reactive.Effect
-    @reactive.event(input.generate_msd, ignore_none=False)
+    @reactive.event(input.generate_msd, ignore_init=True, ignore_none=False)
     def _():
 
+        req(not is_empty(S.TINTERVALSTATS.get())
+            and "Condition" in S.TINTERVALSTATS.get().columns 
+            and "Replicate" in S.TINTERVALSTATS.get().columns)
+        
         output_plot_msd.cancel()
-
-        req(not is_empty(S.TINTERVALSTATS.get()))
-
-        if input.error_band_show_msd():
-            errorband = input.error_band_type_msd()
-        else:
-            errorband = None
-
-        if input.c_mode_msd() == "single color":
-            color = input.only_one_color_msd()
-        else:
-            color = None
-
-        if input.palette_stock_msd():
-            palette = input.palette_stock_type_msd()
-        else:
-            palette = None
-
-        output_plot_msd(
-            data=S.TINTERVALSTATS(), #TODO: implement filtering for timelags stats
-            conditions=input.conditions_msd(),
-            replicates=input.replicates_msd(),
-            group_replicates=input.replicates_separate_msd(),
-            c_mode=input.c_mode_msd(),
-            color=color,
-            palette=palette,
-            statistic=input.statistic_msd(),
-            line=input.line_show_msd(),
-            scatter=input.scatter_show_msd(),
-            linear_fit=input.fit_show_msd(),
-            errorband=errorband,
-            grid=input.grid_show_msd(),
-            title=input.title_msd()
-        )
+        output_plot_msd(_get_class_kwargs(), _get_plot_kwargs())
 
     
     @render.plot
@@ -166,39 +127,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
 
         req(S.TINTERVALSTATS() is not None and not S.TINTERVALSTATS().empty)
 
-        if input.error_band_show_msd():
-            errorband = input.error_band_type_msd()
-        else:
-            errorband = None
-
-        if input.c_mode_msd() == "single color":
-            color = input.only_one_color_msd()
-        else:
-            color = None
-
-        if input.palette_stock_msd():
-            palette = input.palette_stock_type_msd()
-        else:
-            palette = None
-
-        fig = MSD(
-            data=S.TINTERVALSTATS(),
-            conditions=input.conditions_msd(),
-            replicates=input.replicates_msd(),
-            group_replicates=input.replicates_separate_msd(),
-            c_mode=input.c_mode_msd(),
-            color=color,
-            palette=palette,
-            noticequeue=noticequeue
-        ).plot(
-            statistic=input.statistic_msd(),
-            line=input.line_show_msd(),
-            scatter=input.scatter_show_msd(),
-            errorband=errorband,
-            linear_fit=input.fit_show_msd(),
-            grid=input.grid_show_msd(),
-            title=input.title_msd()
-        )
+        fig = MSD(_get_class_kwargs()).plot(_get_plot_kwargs())
 
 
         if fig is not None:

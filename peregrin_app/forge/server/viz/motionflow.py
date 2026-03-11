@@ -119,7 +119,7 @@ def mount_motionflow(input, output, session, S, noticequeue):
     
 
     @reactive.Effect
-    @reactive.event(input.generate_mf)
+    @reactive.event(input.generate_mf, ignore_init=True)
     def _():
         output_motionflow_plot.cancel()
 

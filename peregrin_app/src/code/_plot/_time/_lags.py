@@ -29,19 +29,18 @@ class MSD:
     BRIGHTNESS_MIN = 0.06
 
 
-    def __init__(
-            self, data: pd.DataFrame, conditions: list, replicates: list, *, 
-            c_mode: str = None, separate_replicates: bool = False, **kwargs):
+    def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
+                 *, level: str = 'Condition', **kwargs):
         
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
         
-        self.aggregate = not separate_replicates
+        self.level = level
         self.disaggregate = False
-        self.c_mode = c_mode
 
         self.color = kwargs.get('color', None)
+        self.stock_palette = kwargs.get('stock_palette', None)
         self.palette = kwargs.get('palette', None)
         self.noticequeue = kwargs.get('noticequeue', None)
 
@@ -63,9 +62,9 @@ class MSD:
 
         from ..._compute._stats import Stats
 
-        fig, ax = plt.subplots(figsize=(kwargs.get('fig_height', 5), kwargs.get('fig_width', 3.5)))
+        fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 5), kwargs.get('fig_height', 3.5)))
         
-        if self.aggregate:
+        if self.level == 'Condition':
             prefix = '{per condition}'
             if not any('{per condition}' in col for col in self.data.columns.to_list()):
                 Reporter(Level.warning, "Expected aggregated data per condition but no columns with '{per condition}' found. Going to use '{per replicate}' data instead.", noticequeue=self.noticequeue)
@@ -75,19 +74,21 @@ class MSD:
         
 
         self.agg_dict, cols = self._build_agg_dict(prefix, Stats.CI_STATISTIC, Stats.CONFIDENCE_LEVEL)
+        
+        # Extract colors BEFORE aggregation drops the color columns
+        color_map = self._get_colors()
+        
         self._arrange_data()
 
         mi = cols['mean'] if statistic == 'mean' else cols['median']
 
         self._set_axis_labels(ax)
             
-        color_map = self._get_colors()
-        
         # Plot each condition
         for idx, condition in enumerate(self.conditions):
             cond_data = self.data[self.data['Condition'] == condition]
 
-            if self.aggregate:
+            if self.level == 'Condition':
                 # grouped replicates
                 groups = [(condition, None, cond_data)]
             else:
@@ -151,11 +152,11 @@ class MSD:
                         band_bottom_y = np.maximum(y_data - err_data, 0.0)
                         band_top_y = y_data + err_data
                 
-                color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
-                color = self._resolve_color(color, idx if self.aggregate else g_idx)
+                color = color_map.get(cond_name) if self.level == 'Condition' else color_map.get(rep_name)
+                color = self._resolve_color(color, idx if self.level == 'Condition' else g_idx)
 
                 # label: show replicate name only once in legend when not grouped
-                if self.aggregate:
+                if self.level == 'Condition':
                     label = cond_name
                 else:
                     label = f"{cond_name} | {rep_name}"
@@ -169,7 +170,7 @@ class MSD:
                             band_bottom_y[mask],
                             band_top_y[mask],
                             color=color,
-                            alpha=0.08 if self.aggregate else 0.05,
+                            alpha=0.08 if self.level == 'Condition' else 0.05,
                             linewidth=0,
                             zorder=2
                         )
@@ -183,7 +184,7 @@ class MSD:
                         label=label,
                         linestyle='-',
                         color=color,
-                        alpha=1 if self.aggregate else 0.8,
+                        alpha=1 if self.level == 'Condition' else 0.8,
                         zorder=6
                     )
                 
@@ -203,15 +204,15 @@ class MSD:
                 # Add linear fit (per replicate when not grouped)
                 if linear_fit:
                     # pass a unique condition key for annotation placement
-                    fit_key = f"{condition}" if self.aggregate else f"{condition}-{rep_name}"
+                    fit_key = f"{condition}" if self.level == 'Condition' else f"{condition}-{rep_name}"
                     self._add_linear_fit(
                         ax,
                         x_data,
                         y_data,
                         fit_key,
                         color,
-                        idx if self.aggregate else g_idx,
-                        len(self.conditions) if self.aggregate else len(groups)
+                        idx if self.level == 'Condition' else g_idx,
+                        len(self.conditions) if self.level == 'Condition' else len(groups)
                     )
         
         # Set y-limits
@@ -238,7 +239,7 @@ class MSD:
             data=self.data,
             conditions=self.conditions,
             replicates=self.replicates,
-            aggby=['Condition', 'Frame lag'] if self.aggregate else ['Condition', 'Replicate', 'Frame lag'],
+            aggby=['Condition', 'Frame lag'] if self.level == 'Condition' else ['Condition', 'Replicate', 'Frame lag'],
             aggdict=self.agg_dict,
             noticequeue=self.noticequeue
         )()
@@ -246,34 +247,24 @@ class MSD:
     
     def _get_colors(self) -> dict:
 
-        tag = 'Condition' if self.c_mode == 'differentiate conditions' else 'Replicate'
-        tags = self.conditions if self.c_mode == 'differentiate conditions' else self.replicates
+        tags = self.conditions if self.level == 'Condition' else self.replicates
 
-        if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
-            mp = {}
-            if self.palette:
-                try:
-                    mp = self.painter.StockQualPalette(data=self.data, tag=tag, palette=self.palette)
-                except Exception as e:
-                    Reporter(Level.error, f"Failed to apply palette '{self.palette}'. Falling back to default colors.", details=traceback.format_exc(), noticequeue=self.noticequeue)
-                    pass
+        if self.stock_palette:
+            try:
+                return self.painter.StockQualPalette(self.data, self.level, self.palette, which=tags)
+            except Exception as e:
+                Reporter(Level.error, f"Failed to apply palette '{self.palette}'. Falling back to default colors.", details=traceback.format_exc(), noticequeue=self.noticequeue)
+                pass
 
-            else:
-                mp = self.painter.BuildQualPalette(
-                    data=self.data,
-                    tag=tag,
-                    which=tags
-                )
+        else:
+            try:
+                return self.painter.BuildQualPalette(self.data, self.level, which=tags)
+            except Exception as e:
+                Reporter(Level.error, f"Failed to build color palette for tag '{self.level}'. Falling back to default colors. Error: {e}", details=traceback.format_exc(), noticequeue=self.noticequeue)
+                return self.painter.StockQualPalette(self.data, self.level, self.palette, which=tags)
+            
+        
 
-            return mp
-
-        elif self.c_mode == 'single color':
-            safe_single = self._resolve_color(self.color, 0)
-            keys = list(self.conditions) + list(self.replicates) + [None]
-            return {k: safe_single for k in keys}
-
-        # fallback for undefined c_mode
-        return {k: self._resolve_color(None, i) for i, k in enumerate(list(self.conditions) + list(self.replicates) + [None])}
 
     def _resolve_color(self, color: Optional[str], idx: int = 0) -> str:
         if color is not None and mcolors.is_color_like(color):
@@ -375,6 +366,10 @@ class MSD:
             median:  'median',
         }
 
+        # Preserve color columns through aggregation
+        if f'{self.level} color' in self.data.columns:
+            agg_dict[f'{self.level} color'] = 'first'
+
         if sem in self.data.columns:
             agg_dict.update({
                 sem: 'mean',
@@ -386,38 +381,26 @@ class MSD:
                 ci_high: 'mean'
             })
 
-        cols = {v: k for k, v in agg_dict.items()}
-
-        # if self.aggregate:
-        #     agg_dict.pop('Replicate', None)
+        cols = {
+            'mean': mean,
+            'median': median,
+        }
 
         return agg_dict, cols
 
 
     def _check_errors(self) -> None:
-        if not self.aggregate:
+        if not self.level == 'Replicate':
             if 'Replicate' not in self.data.columns or not any('{per replicate}' in col for col in self.data.columns.to_list()):
-                Reporter(f"Cannot separate replicates <- missing 'Replicate' data.", noticequeue=self.noticequeue)
-                self.aggregate = True
+                Reporter(Level.error, f"Cannot separate replicates <- missing 'Replicate' data.", noticequeue=self.noticequeue)
+                self.level = 'Condition'
                 self.disaggregate = False
-        if not self.aggregate and self.c_mode == 'differentiate conditions':
-            self.c_mode = 'differentiate replicates'
-            Reporter("Cannot differentiate conditions when replicate grouping is disabled. Switching to differentiating replicates instead.", noticequeue=self.noticequeue)
         
-        if self.aggregate:
+        if self.level == 'Condition':
             if 'Condition' not in self.data.columns or not any('{per condition}' in col for col in self.data.columns.to_list()):
-                Reporter(f"Cannot aggregate per condition <- missing 'Condition' data.", noticequeue=self.noticequeue)
-                self.aggregate = False
+                Reporter(Level.error, f"Cannot aggregate per condition <- missing 'Condition' data.", noticequeue=self.noticequeue)
+                self.level = 'Replicate'
                 self.disaggregate = True
-        if self.aggregate and self.c_mode == 'differentiate replicates':
-            self.c_mode = 'differentiate conditions'
-            Reporter("Cannot differentiate replicates when replicate grouping is enabled. Switching to differentiating conditions instead.", noticequeue=self.noticequeue)
-
-
-        # if self.aggregate and self.c_mode == 'differentiate replicates':
-        #     self.aggregate = False
-        #     self.disaggregate = True
-
 
 
 def TurnAnglesHeatmap(
@@ -479,6 +462,11 @@ def TurnAnglesHeatmap(
 
     # Compute 2D histogram of mean turn angles vs frame lags
     H, xe, ye = np.histogram2d(xvals, yvals, bins=[angle_bin_edges, y_edges])
+
+    # # Normalize H per lag (row) so each row sums to 1 (fraction)
+    # row_sums = H.sum(axis=0, keepdims=True)
+    # row_sums[row_sums == 0] = 1  # avoid division by zero
+    # H = H / row_sums
 
     # Create a colormesh plot using the histogram data
     pcm = ax.pcolormesh(

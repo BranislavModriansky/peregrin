@@ -63,7 +63,7 @@ class Painter:
             else:
                 try:
                     cmap = plt.get_cmap(palette)
-                except Exception:
+                except ValueError:
                     cmap = sns.color_palette(palette, n_colors=n)
                 except Exception as e:
                     Reporter(Level.error, f"Error retrieving colormap for '{palette}': {str(e)} -> Defaulting to the 'tab10' colormap.", trace=traceback.format_exc(), noticequeue=self.noticequeue)
