@@ -1,3 +1,4 @@
+from __future__ import annotations
 import traceback
 
 import pandas as pd
@@ -8,6 +9,7 @@ from .._common import Categorizer, Painter
 from ..._general import is_empty
 from ..._handlers._reports import Reporter, Level
 from ..._compute._stats import Stats
+
 
 
 class TSeries:
@@ -116,7 +118,7 @@ class TSeries:
             iter_groups = self.data.groupby(self.level, sort=False)
 
         for idx, (key, group) in enumerate(iter_groups):
-            group = group.sort_values(x_col)
+            group = group.sort_values('Frame')
 
             x_vals = group[x_col].to_numpy()
             y_vals = group[y_col].to_numpy()
@@ -155,7 +157,7 @@ class TSeries:
                                     color=c, alpha=self.FILL_ALPHA)
 
         # Labels and title
-        ax.set_xlabel(f"{x_col.replace('_', ' ')} {'frame' if x_col == 'Frame' else self.time_units}")
+        ax.set_xlabel(f"{'Time' if x_col == 'Time point' else 'Frame'}{f' [{self.time_units}]' if x_col == 'Time point' else ''}")
         ax.set_ylabel(f"{y_col.replace('_', ' ')}")
         ax.set_title(self.title)
         ax.legend(loc='best', frameon=True, framealpha=0.9)
@@ -222,14 +224,14 @@ class TSeries:
 
 
     def _get_palette(self) -> dict:
-        """Get color palette for the plot."""
+        """ Get color palette for the plot. """
         if self.level == ['Condition']:
-            if not self.stock_palette:
+            if not self.palette:
                 return self.painter.BuildQualPalette(self.data, 'Condition', which=self.conditions)
             else:
                 return self.painter.StockQualPalette(self.data, 'Condition', self.stock_palette, which=self.conditions)
         elif self.level == ['Condition', 'Replicate']:
-            if not self.stock_palette:
+            if not self.palette:
                 return self.painter.BuildQualPalette(self.data, 'Replicate', which=self.replicates)
             else:
                 return self.painter.StockQualPalette(self.data, 'Replicate', self.stock_palette, which=self.replicates)
@@ -241,13 +243,11 @@ class TSeries:
     def _get_x_col(self) -> str:
         """Detect the x-axis column in the data."""
         match self.xscale:
-             case 'literal' | 'time':
-                x_col = 'Time point'
-             case 'relative' | 'frame':
-                x_col = 'Frame'
-             case _:
+            case 'literal' | 'time':
+                return 'Time point'
+            case 'relative' | 'frame':
+                return 'Frame'
+            case _:
                 Reporter(Level.warning, f"Unknown xscale '{self.xscale}'. Defaulting to 'relative'.")
-                x_col = 'Frame'
-
-        return x_col
+                return 'Frame'
     
