@@ -42,6 +42,14 @@ class BaseDataInventory:
     Frames: pd.DataFrame
     TimeIntervals: pd.DataFrame
 
+    def __post_init__(self):
+        self.RawInput = pd.DataFrame()
+        self.Spots = pd.DataFrame()
+        self.Tracks = pd.DataFrame()
+        self.Frames = pd.DataFrame()
+        self.TimeIntervals = pd.DataFrame()
+
+
 
 class Stats:
     """ A class providing methods for computing trajectory statistics at various levels of aggregation: \n
@@ -663,6 +671,14 @@ class Stats:
         # Work on a copy to avoid mutating the caller's DataFrame
         df = df.copy()
 
+        # Stash color columns if present, to carry them over to the output
+        _color_cols = [c for c in ('Replicate color', 'Condition color') if c in df.columns]
+        _color_stash = None
+        if _color_cols:
+            # Build a lookup keyed by the replicate/condition grouping columns
+            _stash_keys = self.tier[:]  # ['Condition', 'Replicate']
+            _color_stash = df[_stash_keys + _color_cols].drop_duplicates(subset=_stash_keys)
+
         rep_group_cols  =  self.tier + ['Time point', 'Frame']
         cond_group_cols = ['Condition', 'Time point', 'Frame']
 
@@ -789,6 +805,10 @@ class Stats:
         conds = _compute_level(df, cond_group_cols, '{per condition}')
         df = reps.merge(conds, on=cond_group_cols, how='left')
 
+        # Re-attach color columns if they were present on input
+        if _color_stash is not None:
+            df = df.merge(_color_stash, on=_stash_keys, how='left')
+
         if self.SIGNIFICANT_FIGURES:
             df = self.signify(df)
         if self.DECIMALS_PLACES:
@@ -910,6 +930,14 @@ class Stats:
 
         # Work on a copy to avoid mutating the caller's DataFrame
         df = df.copy()
+
+        # Stash color columns if present, to carry them over to the output
+        _color_cols = [c for c in ('Replicate color', 'Condition color') if c in df.columns]
+        _color_stash = None
+        if _color_cols:
+            # Build a lookup keyed by the replicate/condition grouping columns
+            _stash_keys = self.tier[:]  # ['Condition', 'Replicate']
+            _color_stash = df[_stash_keys + _color_cols].drop_duplicates(subset=_stash_keys)
 
         # Ensure Track UID is used as index
         if df.index.name != 'Track UID' and 'Track UID' in df.columns:
@@ -1118,6 +1146,10 @@ class Stats:
 
         # JSON-safe cleanup for Shiny/front-end serializers (no NaN/Inf in strict JSON)
         df = df.replace([np.inf, -np.inf], np.nan)
+
+        # Re-attach color columns if they were present on input
+        if _color_stash is not None:
+            df = df.merge(_color_stash, on=_stash_keys, how='left')
 
         if self.SIGNIFICANT_FIGURES:
             df = self.signify(df)
