@@ -348,6 +348,9 @@ def mount_data_input(input, output, session, S, noticequeue):
         try:
             df = dataloader.GetDataFrame(fileinfo[0]["datapath"])
 
+            # Drop auto-saved CSV index columns (e.g., "Unnamed: 0")
+            df = df.loc[:, ~df.columns.astype(str).str.match(r"^Unnamed(:\s*\d+)?$")]
+
             # Ensure Condition and Replicate are strings (CSV may load them as int/float)
             if 'Condition' in df.columns:
                 df['Condition'] = df['Condition'].astype(str)
