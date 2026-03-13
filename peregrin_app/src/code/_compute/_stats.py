@@ -152,8 +152,8 @@ class Stats:
         self.CUSTOM_AGG_FUNCTIONS = {
             'q25':        self._q25,
             'q75':        self._q75,
-            'ci':         self._ci,
-            'sem':        self._sem,
+            'ci':         self.ci,
+            'sem':        self.sem,
             'circ_mean':  self._circ_mean,
             'circ_var':   self._circ_var,
         }
@@ -463,7 +463,7 @@ class Stats:
             Circular mean of the `Direction` values.
 
             - **`Mean directional change`**- 
-            Mean of absolute turning angles per track (degrees).
+            Mean of absolute directional changes per track (degrees).
 
             - **`Direction var`**- 
             Circular variance of the `Direction` values.
@@ -576,7 +576,7 @@ class Stats:
         # Remove temporary columns
         dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
 
-        # Mean directional change: mean of absolute turning angles per track (degrees) — constant per track, take any value
+        # Mean directional change: mean of absolute directional changes per track (degrees) — constant per track, take any value
         mean_dir_change = df['Cumulative mean directional change'].groupby(uid, sort=False).last()
         dir_agg['Mean directional change'] = mean_dir_change
 
@@ -820,7 +820,7 @@ class Stats:
     
     
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """ Computes per-time-interval statistics, including mean squared displacement (MSD) and turning angles:
+        """ Computes per-time-interval statistics, including mean squared displacement (MSD) and directional change:
 
         For each frame lag (1, 2, …, maximum), squared displacements and turning angles are computed across trajectories.
 
@@ -891,8 +891,8 @@ class Stats:
             \n **`{per category}`**
                 - **`Tracks contributing`**- the number of tracks that contributed data at a given time lag for a given category
                 - **`Position pairs contributing`**- the number of position pairs that contributed data at a given time lag for a given category
-                - **`Turn mean`**- mean absolute turning angle in degrees
-                - **`Turn var`**- circular variance of turning angles
+                - **`Directional change mean`**- mean absolute turning angle in degrees
+                - **`Directional change var`**- circular variance of turning angles
                 - **`MSD`** ***descriptive base statistics:*** **`min`**, **`max`**, **`mean`**, **`median`**, **`q25`**, **`q75`** (iqr) if `cat_descr` is set to `True` when initializing the Stats class
                 - **`MSD`** ***descriptive error statistics:*** **`sd`** if `cat_descr_err` is set to `True` when initializing the Stats class
                 - **`MSD`** ***inferative error statistics:*** **`sem`** if `cat_infer_err` is set to `True` when initializing the Stats class,
@@ -1038,7 +1038,7 @@ class Stats:
             # Wrap to [-pi, pi]
             dtheta_all = (dtheta_all + np.pi) % (2 * np.pi) - np.pi
 
-            # Valid turning angles: pos >= 1 AND pos+lag < n AND both thetas finite
+            # Valid directional changes: pos >= 1 AND pos+lag < n AND both thetas finite
             turn_valid = valid_mask & (pos_arr >= 1) & np.isfinite(theta_arr) & np.isfinite(shifted_theta.values)
             turn_idx = np.where(turn_valid)[0]
 
@@ -1086,8 +1086,8 @@ class Stats:
                 agg_dict[f'{prefix} MSD sd'] = msd_grp.std(ddof=1)
 
             if self.cat_infer_err:
-                agg_dict[f'{prefix} MSD sem'] = msd_grp.agg(self._sem)
-                ci_series = msd_grp.agg(self._ci)
+                agg_dict[f'{prefix} MSD sem'] = msd_grp.agg(self.sem)
+                ci_series = msd_grp.agg(self.ci)
                 ci_unpacked = pd.DataFrame(
                     ci_series.tolist(),
                     index=ci_series.index,
@@ -1276,7 +1276,7 @@ class Stats:
         named_agg = {}
         for col in value_cols:
             
-            if any(t in col for t in ['Direction', 'direction', 'Turn', 'turn']) and not col.endswith('var'):
+            if any(t in col for t in ['Direction', 'direction', 'Directional', 'directional', 'Turn', 'turn']) and not col.endswith('var'):
                 for stat_name, func in resolving_circular.items():
                     named_agg[f"{'{'}per {group_cols[-1].lower()}{'}'} {col} {stat_name}"] = (col, func)
             else:
@@ -1410,7 +1410,7 @@ class Stats:
         return float(np.percentile(a, 75))
     
 
-    def _ci(self, a, *, n_resamples: int | None = None, confidence_level: float | None = None, **kwargs) -> tuple[float, float]:
+    def ci(self, a, *, n_resamples: int | None = None, confidence_level: float | None = None, **kwargs) -> tuple[float, float]:
         """ Confidence interval via bootstrap.
         
         Parameters
@@ -1484,7 +1484,7 @@ class Stats:
                 Reporter(Level.error, f"Confidence interval computation failed: {e}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
                 return (np.nan, np.nan)
     
-    def _sem(self, x: np.ndarray | pd.Series) -> float:
+    def sem(self, x: np.ndarray | pd.Series) -> float:
         """ Standard error of the mean. """
         if isinstance(x, np.ndarray):
             # x = x[~np.isnan(x)]

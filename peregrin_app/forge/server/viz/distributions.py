@@ -175,80 +175,63 @@ def MountDistributions(input, output, session, S, noticequeue):
         )
     
 
-    # _ _ _ KDE COLORMESH _ _ _
-    
-    @render.text
-    def dd_kde_colormesh_density_range():
+    def _dd_build(which="rosechart"):
+        if is_empty(S.TRACKSTATS.get()):
+            return None
+        
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning,
+                message="Starting a Matplotlib GUI outside of the main thread will likely fail")
+            
+            match which:
+                case "rosechart":
+                    return PolarDataDistribute(**_distribution_rose_chart_kwargs()).RoseChart()
+                case "kde_line":
+                    return PolarDataDistribute(**_distribution_kde_line_kwargs()).KDELinePlot()
+                case "kde_colormesh":
+                    return PolarDataDistribute(**_distribution_kde_colormesh_kwargs()).GaussianKDEColormesh()
 
-        if (S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and noticequeue is not None):
 
-            kwargs = _density_caps_kwargs()
+    # _ _ _ ROSE CHART _ _ _
 
-            min, max = PolarDataDistribute(**kwargs).get_density_range()
-            S.MIN_DENSITY.set(f'{min:.4f}'); S.MAX_DENSITY.set(f'{max:.4f}')
-
-        if (
-            S.TRACKSTATS.get() is None or S.TRACKSTATS.get().empty
-            or S.MIN_DENSITY.get() is None
-            or S.MAX_DENSITY.get() is None
-        ): return "No data."
-
-        return f"min: {S.MIN_DENSITY.get()}; max: {S.MAX_DENSITY.get()}"
-    
-    ui.bind_task_button(button_id="generate_dd_kde_colormesh")
+    ui.bind_task_button(button_id="generate_dd_rosechart")
     @reactive.extended_task
-    async def output_data_distribution_colormesh(kwargs: dict):
-        def _build(_kwargs=kwargs):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                    category=UserWarning,
-                )
-                fig = PolarDataDistribute(**_kwargs).GaussianKDEColormesh()
-
-                return fig
+    async def output_data_distribution_rose_chart():
+        def _build():
+            return _dd_build(which="rosechart")
             
         return await asyncio.get_running_loop().run_in_executor(None, _build)
     
+
     @reactive.Effect
-    @reactive.event(input.generate_dd_kde_colormesh, ignore_none=False)
+    @reactive.event(input.generate_dd_rosechart, ignore_none=False)
     def _():
-        output_data_distribution_colormesh.cancel()
+        output_data_distribution_rose_chart.cancel(); output_data_distribution_rose_chart()
 
-        req(
-            S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and "Condition" in S.TRACKSTATS.get().columns and "Replicate" in S.TRACKSTATS.get().columns
-        )
-
-        kwargs = _distribution_kde_colormesh_kwargs()
-
-        output_data_distribution_colormesh(kwargs)
 
     @render.plot
-    def dd_plot_kde_colormesh():
-        return output_data_distribution_colormesh.result()
+    def dd_plot_rosechart():
+        return output_data_distribution_rose_chart.result()
     
-    @render.download(filename=f"KDE Colormesh {date.today()}.svg")
-    def download_dd_kde_colormesh():
-        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
 
-        _kwargs = _distribution_kde_colormesh_kwargs()
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                category=UserWarning,
-            )
-            fig = PolarDataDistribute(**_kwargs).GaussianKDEColormesh()
+    @render.download(filename=f"Rose Chart {date.today()}.svg", media_type="svg")
+    def dd_rosechart_download_svg():
+        fig = _dd_build(which="rosechart")
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
                 yield buffer.getvalue()
-    
+
+    @render.download(filename=f"Rose Chart {date.today()}.png", media_type="png")
+    def dd_rosechart_download_png():
+        fig = _dd_build(which="rosechart")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
+                yield buffer.getvalue()
+
 
     # _ _ _ KDE LINE PLOT _ _ _
 
@@ -256,108 +239,108 @@ def MountDistributions(input, output, session, S, noticequeue):
     @reactive.extended_task
     async def output_data_distribution_kde_line(kwargs: dict):
         def _build(_kwargs=kwargs):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                    category=UserWarning,
-                )
-                fig = PolarDataDistribute(**_kwargs).KDELinePlot()
-
-                return fig
+            return _dd_build(which="kde_line")
             
         return await asyncio.get_running_loop().run_in_executor(None, _build)
     
+
     @reactive.Effect
     @reactive.event(input.generate_dd_kde_line, ignore_none=False)
     def _():
         output_data_distribution_kde_line.cancel()
 
-        req(
-            S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and "Condition" in S.TRACKSTATS.get().columns and "Replicate" in S.TRACKSTATS.get().columns
-        )
+        req(not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _distribution_kde_line_kwargs()
 
         output_data_distribution_kde_line(kwargs)
 
+
     @render.plot
     def dd_plot_kde_line():
         return output_data_distribution_kde_line.result()
     
-    @render.download(filename=f"KDE Line Plot {date.today()}.svg")
-    def download_dd_kde_line():
-        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
 
-        _kwargs = _distribution_kde_line_kwargs()
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                category=UserWarning,
-            )
-            fig = PolarDataDistribute(**_kwargs).KDELinePlot()
+    @render.download(filename=f"KDE Line Plot {date.today()}.svg", media_type="svg")
+    def dd_kde_line_download_svg():
+        fig = _dd_build(which="kde_line")
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
                 yield buffer.getvalue()
 
+    @render.download(filename=f"KDE Line Plot {date.today()}.png", media_type="png")
+    def dd_kde_line_download_png():
+        fig = _dd_build(which="kde_line")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
+                yield buffer.getvalue()
     
-    # _ _ _ ROSE CHART _ _ _
 
-    ui.bind_task_button(button_id="generate_dd_rosechart")
+    # _ _ _ KDE COLORMESH _ _ _
+    
+    @render.text
+    def dd_kde_colormesh_density_range():
+
+        if (not is_empty(S.TRACKSTATS.get())):
+
+            kwargs = _density_caps_kwargs()
+
+            min, max = PolarDataDistribute(**kwargs).get_density_range()
+            S.MIN_DENSITY.set(f'{min:.4f}'); S.MAX_DENSITY.set(f'{max:.4f}')
+
+        if (not is_empty(S.TRACKSTATS.get())
+            or S.MIN_DENSITY.get() is None
+            or S.MAX_DENSITY.get() is None
+        ): return "No data."
+
+        return f"min: {S.MIN_DENSITY.get()}; max: {S.MAX_DENSITY.get()}"
+    
+
+    ui.bind_task_button(button_id="generate_dd_kde_colormesh")
     @reactive.extended_task
-    async def output_data_distribution_rose_chart(kwargs: dict):
+    async def output_data_distribution_colormesh(kwargs: dict):
         def _build(_kwargs=kwargs):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                    category=UserWarning,
-                )
-                fig = PolarDataDistribute(**_kwargs).RoseChart()
-
-                return fig
+            return _dd_build(which="kde_colormesh")
             
         return await asyncio.get_running_loop().run_in_executor(None, _build)
     
+
     @reactive.Effect
-    @reactive.event(input.generate_dd_rosechart, ignore_none=False)
+    @reactive.event(input.generate_dd_kde_colormesh, ignore_none=False)
     def _():
-        output_data_distribution_rose_chart.cancel()
+        output_data_distribution_colormesh.cancel()
 
-        req(
-            S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and "Condition" in S.TRACKSTATS.get().columns and "Replicate" in S.TRACKSTATS.get().columns
-        )
+        req(not is_empty(S.TRACKSTATS.get()))
 
-        kwargs = _distribution_rose_chart_kwargs()
+        kwargs = _distribution_kde_colormesh_kwargs()
 
-        output_data_distribution_rose_chart(kwargs)
+        output_data_distribution_colormesh(kwargs)
+
 
     @render.plot
-    def dd_plot_rosechart():
-        return output_data_distribution_rose_chart.result()
+    def dd_plot_kde_colormesh():
+        return output_data_distribution_colormesh.result()
     
-    @render.download(filename=f"Rose Chart {date.today()}.svg")
-    def download_dd_rosechart():
-        req(S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty)
-
-        _kwargs = _distribution_rose_chart_kwargs()
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="Starting a Matplotlib GUI outside of the main thread will likely fail",
-                category=UserWarning,
-            )
-            fig = PolarDataDistribute(**_kwargs).RoseChart()
+    
+    @render.download(filename=f"KDE Colormesh {date.today()}.svg", media_type="svg")
+    def dd_kde_colormesh_download_svg():
+        fig = _dd_build(which="kde_colormesh")
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"KDE Colormesh {date.today()}.png", media_type="png")
+    def dd_kde_colormesh_download_png():
+        fig = _dd_build(which="kde_colormesh")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
                 yield buffer.getvalue()
     

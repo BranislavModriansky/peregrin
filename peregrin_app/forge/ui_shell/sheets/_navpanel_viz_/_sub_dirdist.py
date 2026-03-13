@@ -109,7 +109,10 @@ subpanel_dirdist = ui.nav_panel(
             ui.br(),
             ui.output_plot("dd_plot_rosechart", height="500px"),
             ui.br(),
-            ui.download_button("download_dd_rosechart", "Download Rose Chart", width="100%")
+            ui.row(
+                ui.column(6, ui.download_button("dd_rosechart_download_svg", "Download SVG", width="100%")),
+                ui.column(6, ui.download_button("dd_rosechart_download_png", "Download PNG", width="100%"))
+            )
         ),
         ui.card(
             ui.card_header("Gaussian KDE Colormesh", class_="bg-secondary-css"),
@@ -151,7 +154,11 @@ subpanel_dirdist = ui.nav_panel(
             ),
             ui.br(),
             ui.output_plot("dd_plot_kde_colormesh", height="500px"),
-            ui.download_button("download_dd_kde_colormesh", "Download Colormesh", width="100%")
+            ui.br(),
+            ui.row(
+                ui.column(6, ui.download_button("dd_kde_colormesh_download_svg", "Download SVG", width="100%")),
+                ui.column(6, ui.download_button("dd_kde_colormesh_download_png", "Download PNG", width="100%"))
+            )
         ),
         ui.card(
             ui.card_header("KDE Line Plot", class_="bg-secondary-css"),
@@ -221,7 +228,11 @@ subpanel_dirdist = ui.nav_panel(
             ),
             ui.br(),
             ui.output_plot("dd_plot_kde_line", height="450px"),
-            ui.download_button("download_dd_kde_line", "Download Line Plot", width="100%")
+            ui.br(),
+            ui.row(
+                ui.column(6, ui.download_button("dd_kde_line_download_svg", "Download SVG", width="100%")),
+                ui.column(6, ui.download_button("dd_kde_line_download_png", "Download PNG", width="100%"))
+            )
         ),
         width=1/2,
         class_="dd-cards-wrap"

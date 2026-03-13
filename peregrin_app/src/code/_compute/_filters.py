@@ -256,14 +256,11 @@ class Filter1D:
         series = data.loc[idxs, Inventory1D.property[idx]].dropna()
         min, max = series.min(), series.max()
 
-        match Inventory1D.filter[idx][0]:
-
-            case "Normalized 0-1":
-
-                if min == max:
-                    series = pd.Series(0.0, index=series.index)
-                else:
-                    series = series.apply(lambda v: (v - min) / (max - min))
+        if Inventory1D.filter[idx][0] == "Normalized 0-1":
+            if min == max:
+                series = pd.Series(0.0, index=series.index)
+            else:
+                series = series.apply(lambda v: (v - min) / (max - min))
 
         return series
 
@@ -314,7 +311,7 @@ class Filter1D:
             if max > 1:
                 min, max = self._clamp(min, max)
             else:
-                min, max =round(min, 2), round(max, 2)
+                min, max = round(min, 2), round(max, 2)
                 
         else:
             min, max = 0, 100
@@ -327,9 +324,9 @@ class Filter1D:
         Clamps given min and max values to whole numbers.
         """
 
-        if min is None or not isinstance(min, (int, float)):
+        if min is None or not isinstance(min, int | float | np.number):
             min = 0
-        if max is None or not isinstance(max, (int, float)):
+        if max is None or not isinstance(max, int | float | np.number):
             max = 100
         if min > max:
             min, max = max, min
@@ -344,7 +341,7 @@ class Filter1D:
         """
         Finds the adequate step size based on the highest value of the range.
         """
-
+        
         if max < 0.01:
             step = 0.0001
         elif 0.01 <= max < 0.1:

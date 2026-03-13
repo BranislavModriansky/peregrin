@@ -96,5 +96,8 @@ subpanel_flow = ui.nav_panel(
         full_screen=False,
         height="800px",
     ),
-    ui.download_button("mf_download", "Download", width="100%")
+    ui.row(
+        ui.column(6, ui.download_button("mf_download_svg", "Download SVG", width="100%")),
+        ui.column(6, ui.download_button("mf_download_png", "Download PNG", width="100%"))
+    )
 )

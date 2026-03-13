@@ -34,7 +34,7 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
                     replicates = S.TINTERVALSTATS.get()['Replicate'].unique().tolist()
             
             return [
-                ui.update_selectize(id='conditions_ta', choices=conditions, selected=conditions[0] if conditions else None),
+                ui.update_selectize(id='condition_ta', choices=conditions, selected=conditions[0] if conditions else None),
                 ui.update_selectize(id='replicates_ta', choices=replicates, selected=replicates)
             ]
         
@@ -45,11 +45,11 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
             req(not is_empty(S.TINTERVALSTATS.get()))
 
             ui.update_selectize(
-                id="conditions_ta",
+                id="condition_ta",
                 selected=[]
-            ) if input.conditions_ta() else \
+            ) if input.condition_ta() else \
             ui.update_selectize(
-                id="conditions_ta",
+                id="condition_ta",
                 selected=S.TINTERVALSTATS.get()["Condition"].unique().tolist()
             )
 
@@ -68,21 +68,27 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
                 selected=S.TINTERVALSTATS.get()["Replicate"].unique().tolist()
             )
 
+
+    def _ta_kwargs():
+        return {
+            "data": S.TINTERVALSTATS.get(),
+            "condition": input.condition_ta(),
+            "replicates": input.replicates_ta(),
+            "angle_range": input.angle_range_ta(),
+            "tlag_range": input.tlag_range_ta(),
+            "cmap": input.cmap_ta(),
+            "figsize": (input.ta_fig_width(), input.ta_fig_height()),
+            "title": input.title_ta(),
+            "text_color": 'white' if input.app_theme() == 'dark' else 'black',
+            "strip_background": True,
+        }
+
     
     @ui.bind_task_button(button_id="generate_ta")
     @reactive.extended_task
-    async def output_plot_turnangles(
-        data,
-        conditions,
-        replicates,
-        angle_range,
-        cmap,
-        title,
-        text_color,
-        strip_background
-    ):
+    async def output_plot_turnangles(kwargs):
 
-        def _build():
+        def _build(_kwargs=kwargs):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
@@ -90,17 +96,7 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
                     category=UserWarning,
                 )
 
-                return TurnAnglesHeatmap(
-                    data=data,
-                    conditions=conditions,
-                    replicates=replicates,
-                    angle_range=angle_range,
-                    cmap=cmap,
-                    title=title,
-                    text_color=text_color,
-                    strip_background=strip_background,
-                    noticequeue=noticequeue
-                )
+                return TurnAnglesHeatmap(**_kwargs)
 
         return await asyncio.get_running_loop().run_in_executor(None, _build)
     
@@ -112,43 +108,28 @@ def mount_plot_turnangles(input, output, session, S, noticequeue):
 
         req(not is_empty(S.TINTERVALSTATS.get()))
 
-        output_plot_turnangles(
-            data=S.TINTERVALSTATS.get(),
-            conditions=input.conditions_ta(),
-            replicates=input.replicates_ta(),
-            angle_range=input.angle_range_ta(),
-            cmap=input.cmap_ta(),
-            title=input.title_ta(),
-            text_color='white' if input.app_theme() == 'dark' else 'black',
-            strip_background=True
-        )
+        output_plot_turnangles(_ta_kwargs())
+
 
     @render.plot
     def plot_ta():
         return output_plot_turnangles.result()
     
-    @render.download(filename=f"Turn Angles Colormesh {date.today()}.svg")
-    def download_plot_ta():
-        
-        req(not is_empty(S.TINTERVALSTATS.get()))
 
-        fig = TurnAnglesHeatmap(
-            data=S.TINTERVALSTATS.get(),
-            conditions=input.conditions_ta(),
-            replicates=input.replicates_ta(),
-            angle_range=input.angle_range_ta(),
-            cmap=input.cmap_ta(),
-            title=input.title_ta(),
-            text_color='black',
-            strip_background=False,
-            noticequeue=noticequeue
-        )
+    @render.download(filename=f"Directional change colormesh {date.today()}.svg", media_type="svg")
+    def ta_download_svg():
+        fig = TurnAnglesHeatmap(**_ta_kwargs())
 
         if fig is not None:
-            buf = io.BytesIO()
-            fig.savefig(buf, format="svg", bbox_inches='tight')
-            buf.seek(0)
-            return buf.read()
-        else:
-            noticequeue.Report(Level.error, "Failed to generate the plot for download.", "Please try adjusting the plot settings or check the input data.")
-            return None
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches='tight')
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Directional change colormesh {date.today()}.png", media_type="png")
+    def ta_download_png():
+        fig = TurnAnglesHeatmap(**_ta_kwargs())
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches='tight')
+                yield buffer.getvalue()

@@ -133,7 +133,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
         except Exception:
             pass
 
-    def render_threshold_controls(id, min=0, max=100, step=1):
+    def render_threshold_controls(id, min, max, step):
         @output(id=f"manual_threshold_value_setting_placeholder_{id}")
         @render.ui
         def manual_threshold_value_setting():
