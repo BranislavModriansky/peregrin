@@ -115,5 +115,8 @@ subpanel_msd = ui.nav_panel(
         full_screen=True,
         height="800px",
     ),
-    ui.download_button("download_plot_msd", "Download", width="100%")
+    ui.row(
+        ui.column(6, ui.download_button("msd_download_svg", "Download SVG", width="100%")),
+        ui.column(6, ui.download_button("msd_download_png", "Download PNG", width="100%")),
+    )
 )

@@ -121,16 +121,28 @@ def mount_plot_msd(input, output, session, S, noticequeue):
         return output_plot_msd.result()
     
 
+    def _msd_build():
+        if is_empty(S.TINTERVALSTATS.get()):
+            return None
+        else:
+            return MSD(**_get_class_kwargs()).plot(**_get_plot_kwargs())
+
     
     @render.download(filename=f"MSD {date.today()}.svg")
-    def download_plot_msd():
-
-        req(S.TINTERVALSTATS() is not None and not S.TINTERVALSTATS().empty)
-
-        fig = MSD(_get_class_kwargs()).plot(_get_plot_kwargs())
-
+    def msd_download_svg():
+        fig = _msd_build()
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+
+    @render.download(filename=f"MSD {date.today()}.png")
+    def msd_download_png():
+        fig = _msd_build()
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
                 yield buffer.getvalue()

@@ -13,14 +13,13 @@ navpanel_viz = ui.nav_panel(
     ui.navset_pill_list(
 
         subpanel_tracks,
-        subpanel_flow,
+        subpanel_series, 
         subpanel_dirdist,
         subpanel_msd,
-        subpanel_turnangs,
-        subpanel_series,  
         subpanel_superplots,
-
+        subpanel_turnangs,
+        subpanel_flow,
+        
         widths = (2, 10)
-
     )
 )

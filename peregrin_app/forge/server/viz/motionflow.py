@@ -1,3 +1,4 @@
+from datetime import date
 import io
 import warnings
 import asyncio
@@ -132,9 +133,32 @@ def mount_motionflow(input, output, session, S, noticequeue):
         output_motionflow_plot(kwargs)
 
 
-
-
     @render.plot
     def motionflow_plot():
         return output_motionflow_plot.result()
     
+
+    def _mf_build():
+        if is_empty(S.SPOTSTATS.get()):
+            return None
+        else:
+            return MotionFlowPlot(**motionflow_kwargs()).plot()
+
+
+    @render.download(filename=f"Motion flow {date.today()}.svg", media_type="svg")
+    def mf_download_svg():
+        fig = _mf_build()
+        
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Motion flow {date.today()}.png", media_type="png")
+    def mf_download_png():
+        fig = _mf_build()
+        
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
+                yield buffer.getvalue()

@@ -313,13 +313,20 @@ def mount_data_labeling(input, output, session, S, noticequeue):
 
         # ── Condition order ──
         if input.set_condition_order():
-            if input.order() is not None and len(input.order()) >= 2:
-                order = list(input.order())
-                for df in dataframes.values():
-                    if "Condition" in df.columns:
-                        df["Condition"] = pd.Categorical(df["Condition"], categories=order, ordered=True)
-                        df.sort_values("Condition", inplace=True)
+            selected_order = input.order()
+            if selected_order is not None and len(selected_order) >= 2:
+                order = list(selected_order)
+                rank = {cond: i for i, cond in enumerate(order)}
 
+                for key, df in dataframes.items():
+                    if "Condition" in df.columns:
+                        dataframes[key] = df.sort_values(
+                            by="Condition",
+                            key=lambda col: col.map(rank).fillna(len(rank)),
+                            kind="stable",
+                        )
+
+                
         # ── Push all changes at once ──
         for key in dataframes:
             getattr(S, key).set(dataframes[key])
@@ -332,7 +339,6 @@ def mount_data_labeling(input, output, session, S, noticequeue):
         BaseDataInventory.Tracks = S.UNFILTERED_TRACKSTATS.get()
         BaseDataInventory.Frames = S.UNFILTERED_FRAMESTATS.get()
         BaseDataInventory.TimeIntervals = S.UNFILTERED_TINTERVALSTATS.get()
-        print("Data fed to inventory from labeling.")
 
 
     @reactive.Effect()
@@ -344,13 +350,13 @@ def mount_data_labeling(input, output, session, S, noticequeue):
     def feed_data():
 
         req(all(not is_empty(df) for df in [S.UNFILTERED_SPOTSTATS.get(), BaseDataInventory.Spots,
-                                    S.UNFILTERED_TRACKSTATS.get(), BaseDataInventory.Tracks,
-                                    S.UNFILTERED_FRAMESTATS.get(), BaseDataInventory.Frames,
-                                    S.UNFILTERED_TINTERVALSTATS.get(), BaseDataInventory.TimeIntervals]))
+                                            S.UNFILTERED_TRACKSTATS.get(), BaseDataInventory.Tracks,
+                                            S.UNFILTERED_FRAMESTATS.get(), BaseDataInventory.Frames,
+                                            S.UNFILTERED_TINTERVALSTATS.get(), BaseDataInventory.TimeIntervals]))
 
         if all(r_df.equals(b_df) for r_df, b_df in [
-                (S.UNFILTERED_SPOTSTATS.get(), BaseDataInventory.Spots),
-                (S.UNFILTERED_TRACKSTATS.get(), BaseDataInventory.Tracks),
-                (S.UNFILTERED_FRAMESTATS.get(), BaseDataInventory.Frames),
-                (S.UNFILTERED_TINTERVALSTATS.get(), BaseDataInventory.TimeIntervals)]
+              (S.UNFILTERED_SPOTSTATS.get(), BaseDataInventory.Spots),
+              (S.UNFILTERED_TRACKSTATS.get(), BaseDataInventory.Tracks),
+              (S.UNFILTERED_FRAMESTATS.get(), BaseDataInventory.Frames),
+              (S.UNFILTERED_TINTERVALSTATS.get(), BaseDataInventory.TimeIntervals)]
         ): _feed_data()

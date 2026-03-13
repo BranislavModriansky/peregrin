@@ -54,12 +54,13 @@ Peregrin is a an application designed for researchers studying cell migration. I
 
 - Generate highly customizable figures, covering:
     - Track reconstruction and animation
+    - Time series
     - Polar histograms
     - Richard Martin Edler von Mises distribution lineplots and heatmaps
     - Mean Squared Displacement charts
+    - Superplots
     - Mean turning angles per frame lags colormesh
-    - <del> Time series </del> 🏗️
-    - <del> Superplots </del> 🏗️
+    - Motion flow plots (experimental)
 
 - Export figures in SVG format.
 

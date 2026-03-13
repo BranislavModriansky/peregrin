@@ -112,3 +112,26 @@ def mount_plot_ts(input, output, session, S, noticequeue):
     @render.plot
     def plot_ts():
         return output_time_series.result()
+
+
+    @render.download(filename=f"Time series {date.today()}.svg", media_type="svg")
+    def ts_download_svg():
+        req(not is_empty(S.FRAMESTATS.get()))
+
+        fig = TSeries(**_ts_kwargs()).plot()
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches='tight')
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Time series {date.today()}.png", media_type="png")
+    def ts_download_png():
+        req(not is_empty(S.FRAMESTATS.get()))
+
+        fig = TSeries(**_ts_kwargs()).plot()
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches='tight')
+                yield buffer.getvalue()

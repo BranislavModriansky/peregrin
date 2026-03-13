@@ -268,11 +268,17 @@ subpanel_superplots = ui.nav_panel(
     ui.panel_conditional(
         "input.superplot_type == 'Hybrid Superplots'",
         ui.output_ui("sp_plot_card"),
-        ui.download_button(id="sp_download_svg", label="Download SVG", width="100%"),
+        ui.row(
+            ui.column(6, ui.download_button(id="sp_download_svg", label="Download SVG", width="100%")),
+            ui.column(6, ui.download_button(id="sp_download_png", label="Download PNG", width="100%"))
+        )
     ),
     ui.panel_conditional(
         "input.superplot_type == 'Superviolins'",
         ui.output_ui("vp_plot_card"),
-        ui.download_button(id="vp_download_svg", label="Download SVG", width="100%"),
+        ui.row(
+            ui.column(6, ui.download_button(id="vp_download_svg", label="Download SVG", width="100%")),
+            ui.column(6, ui.download_button(id="vp_download_png", label="Download PNG", width="100%"))
+        )
     )
 )

@@ -403,84 +403,59 @@ class MSD:
                 self.disaggregate = True
 
 
-def TurnAnglesHeatmap(
-        data: pd.DataFrame,
-        conditions: list[str],
-        replicates: list[str],
-        *,
-        angle_range: int = 15,
-        cmap="plasma",
-        **kwargs
-    ) -> plt.Figure:
-    """
-    #### *Plots a heatmap of mean turn angles across frame lags.*
+def TurnAnglesHeatmap(data: pd.DataFrame, condition: str, replicates: list[str], *, angle_range: int = 15, tlag_range: int = 1, cmap="plasma", **kwargs) -> plt.Figure:
+    """ Plot directional change (turning angle) over time lags as a colormesh. """
 
-    This function creates a colormesh showing the distribution of mean turn angles (0-180°) across different frame lags in the data. 
-    The x-axis represents binned mean turn angles, while the y-axis represents frame lags. 
-    The color intensity indicates the fraction of data points within each angle-lag bin.
-    """
-
-    # Keyword arguments
     noticequeue = kwargs.get('noticequeue', None)
     text_color = kwargs.get('text_color', 'black')
-    title = kwargs.get('title', None)
-    strip_background = kwargs.get('strip_background', True)
-    
-    # Define angle bins based on the specified range
-    angle_bin_edges = np.arange(0, 181, angle_range)
-    
-    # Get data of selected categories
+    title = kwargs.get('title', '')
+
+    fig, ax = plt.subplots(figsize=(kwargs.get('figsize', (6, 6))))
+
+    if is_empty(data):
+        Reporter(Level.warning, "No data available for plotting.", noticequeue=noticequeue)
+        return None
+
+    if isinstance(condition, list | tuple):
+        condition = condition[0]
+        if len(condition) > 1:
+            Reporter(Level.info, "Multiple conditions selecting for colormesh. ", noticequeue=noticequeue)
+            condition = condition[0]
+
     data = Categorizer(
         data=data,
-        conditions=conditions,
+        conditions=[condition],
         replicates=replicates,
         noticequeue=noticequeue
     )()
 
-    # Check if data is empty after categorization
-    if is_empty(data):
-        noticequeue.Report(Level.info, "No data. Cannot generate heatmap.")
+    cmap = Painter(noticequeue=noticequeue).GetCmap(cmap)
+
+    xvals = data['{per replicate} Directional change mean'].to_numpy()
+    yvals = data['Frame lag'].to_numpy()
+    lags = data['Frame lag'].unique()
+
+    if lags.size < 2:
         return None
     
-    cmap = Painter(noticequeue=noticequeue).GetCmap(cmap)
-    
-    # Initialize the plot
-    fig, ax = plt.subplots(figsize=(4, 3.8))
+    n = len(replicates)
 
-    # X (mean turn angles - clipped to [0, 180]) and Y (frame lags) values for the heatmap
-    xvals = np.clip(data['{per condition} Turn mean'].to_numpy(float), 0, 180)
-    yvals = data['Frame lag'].to_numpy(float)
+    x_bins = np.arange(0, 181, angle_range)
+    y_bins = np.arange(0, lags.max(), tlag_range)
 
-    # Build contiguous lag edges -> each lag becomes a row
-    lags = np.unique(yvals)
-    # Create a bin for each lag value. Lag value <- bin's center value <- boundaries halfway to the next lag value.
-    if lags.size > 1:
-        mids = (lags[1:] + lags[:-1]) / 2
-        y_edges = np.r_[lags[0]-(mids[0]-lags[0]), mids, lags[-1]+(lags[-1]-mids[-1])]
-    else:
-        y_edges = np.array([lags[0]-0.5, lags[0]+0.5])
+    H, xe, ye = np.histogram2d(xvals, yvals, bins=[x_bins, y_bins])
 
-    # Compute 2D histogram of mean turn angles vs frame lags
-    H, xe, ye = np.histogram2d(xvals, yvals, bins=[angle_bin_edges, y_edges])
-
-    # # Normalize H per lag (row) so each row sums to 1 (fraction)
-    # row_sums = H.sum(axis=0, keepdims=True)
-    # row_sums[row_sums == 0] = 1  # avoid division by zero
-    # H = H / row_sums
-
-    # Create a colormesh plot using the histogram data
     pcm = ax.pcolormesh(
-        xe, ye, H.T, 
-        cmap=cmap, shading="auto",
-        norm=mcolors.Normalize(vmin=0, vmax=np.nanmax(H)),
+        xe, ye, H.T / n,
+        cmap=cmap, shading='auto',
+        norm=mcolors.Normalize(vmin=0, vmax=np.nanmax(H / n)),
     )
 
     # Set axis labels, limits, ticks, and title
-    ax.set_xlabel("Mean turn angle (°)", color=text_color)
+    ax.set_xlabel("Mean directional change (°)", color=text_color)
     ax.set_ylabel("Frame lag", color=text_color)
-    ax.set_xlim(angle_bin_edges[0], angle_bin_edges[-1])
-    ax.set_xticks(np.arange(0, 181, 30))
     ax.tick_params(colors=text_color, width=0.5)
+    ax.grid(False)
 
     for spine in ax.spines.values():
         spine.set_visible(True)
@@ -489,17 +464,14 @@ def TurnAnglesHeatmap(
 
     ax.set_title(title, color=text_color)
 
-    if strip_background:
+    if kwargs.get('strip_background', True):
         fig.set_facecolor('none')
 
-    # Add colorbar with custom ticks and labels
+    # Add colorbar with custom ticks and labels (0–1 fractions)
     cbar = plt.colorbar(pcm, ax=ax, aspect=25, pad=0.04)
-    cbar.set_label("Data fraction per lag", color=text_color)
-    cbar.set_ticks(np.linspace(0.0, 1.0, 5))
-    cbar.formatter = mticker.FormatStrFormatter("%.2f")
-    cbar.update_ticks()
+    cbar.set_label('Fraction of replicates', color=text_color)
     cbar.ax.tick_params(colors=text_color, width=0.5)
-    
+
     for spine in cbar.ax.spines.values():
         spine.set_color(text_color)
         spine.set_linewidth(0.5)

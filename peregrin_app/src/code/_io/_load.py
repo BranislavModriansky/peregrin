@@ -93,17 +93,11 @@ class DataLoader:
                 rep_label = op.basename(fileinfo).split("#")[2]
 
             else:
-                print("Using provided labels or defaults for condition and replicate labeling.")
                 cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
                 rep_label = rep_labels[file_idx-1] if rep_labels is not None else file_idx
 
-                print(cond_label, rep_label)
-
-            
             extracted["Condition"] = str(cond_label)
             extracted["Replicate"] = str(rep_label)
-
-            print(extracted)
 
             data_cache.append(extracted)
 
