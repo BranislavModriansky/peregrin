@@ -45,7 +45,7 @@ subpanel_superplots = ui.nav_panel(
             ui.accordion_panel(
                 "Compose",
                 ui.row(
-                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=Metrics.Track, selected="Straightness index", width="200px")),
+                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=[], width="200px")),
                     ui.column(2, ui.input_radio_buttons(id="sp_orientation", label=None, choices={"v": "Vertical orientation", "h": "Horizontal orientation"}, selected="v")),
                     ui.panel_conditional(
                         "input.superplot_type == 'Hybrid Superplots'",
@@ -76,10 +76,10 @@ subpanel_superplots = ui.nav_panel(
                             ui.column(2, ui.input_checkbox(id="sp_error", label="Show error", value=True)),
                             ui.panel_conditional(
                                 "input.sp_error == true",
-                                ui.column(1, ui.input_selectize(id="sp_error_type", label="Method:", choices={"sem": "SEM", "sd": "SD", "ci": "CI"}, selected="sd", width="75px")),
+                                ui.column(1, ui.input_selectize(id="sp_error_type", label="Method:", choices=["sd", "sem", "ci"], selected="sd", width="75px")),
                                 ui.panel_conditional(
                                     "input.sp_error_type == 'ci'",
-                                    ui.column(1, ui.input_selectize(id="sp_error_statistic", label="CI Statistic:", choices={"mean": "Mean", "median": "Median"}, selected="mean", width="105px")),
+                                    ui.column(1, ui.input_selectize(id="sp_error_statistic", label="CI Statistic:", choices=["mean", "median"], selected="mean", width="105px")),
                                     ui.column(2, ui.div(ui.input_numeric(id="sp_error_ci_level", label="Confidence level:", value=95, min=50, max=99.9, step=0.1, width="150px"), style="margin-left: 30px;")),
                                     ui.column(2, ui.input_numeric(id="sp_error_bootstraps", label="Bootstrap resamples:", value=1000, min=100, step=100, width="175px"))
                                 )
@@ -242,8 +242,8 @@ subpanel_superplots = ui.nav_panel(
                     ui.accordion_panel(
                         "Size",
                         ui.row(
-                            ui.input_numeric(id="sp_fig_width", label="Figure width:", value=12, min=1, step=0.5, width="150px"),
-                            ui.input_numeric(id="sp_fig_height", label="Figure height:", value=6, min=1, step=0.5, width="150px")
+                            ui.input_numeric(id="sp_fig_width", label="Width [in]:", value=12, min=1, step=0.5, width="150px"),
+                            ui.input_numeric(id="sp_fig_height", label="Height [in]:", value=6, min=1, step=0.5, width="150px")
                         )
                     )
                 ),

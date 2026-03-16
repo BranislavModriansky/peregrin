@@ -54,15 +54,13 @@ class MSD:
     def plot(self,
              statistic: str = 'mean',
              linear_fit: bool = False,
-             errorband: Optional[Literal['sd', 'sem', 'min-max', 'ci', False]] = False,
+             disper: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
              *,
              line: bool = True,
              scatter: bool = False,
              **kwargs) -> plt.Figure:
 
         from ..._compute._stats import Stats
-
-        fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 5), kwargs.get('fig_height', 3.5)))
         
         if self.level == 'Condition':
             prefix = '{per condition}'
@@ -71,7 +69,8 @@ class MSD:
                 prefix = '{per replicate}'
         else:
             prefix = '{per replicate}'
-        
+
+        fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 5), kwargs.get('fig_height', 3.5)))
 
         self.agg_dict, cols = self._build_agg_dict(prefix, Stats.CI_STATISTIC, Stats.CONFIDENCE_LEVEL)
         
@@ -102,13 +101,13 @@ class MSD:
                 x_data = gdata['Frame lag'].values
                 y_data = gdata[f'{prefix} MSD {statistic}'].values
               
-                match errorband:
+                match disper:
 
-                    case 'sd':
+                    case 'sd' | 'std':
 
                         if statistic != 'mean':
-                            Reporter(Level.warning, "Error band with SD is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
-                            errorband = False
+                            Reporter(Level.warning, "Error band with 'sd' is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
+                            disper = False
                         else:
                             err_data = gdata[f'{prefix} MSD sd'].values / 2
 
@@ -116,12 +115,12 @@ class MSD:
 
                         if f'{prefix} MSD sem' not in gdata.columns:
                             Reporter(Level.error, "SEM data not available for error band. Make sure to compute SEM in the statistics step. Ignoring error band.", noticequeue=self.noticequeue)
-                            errorband = False
+                            disper = False
 
                         else:
                             if statistic != 'mean':
-                                Reporter(Level.warning, "Error band with SEM is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
-                                errorband = False
+                                Reporter(Level.warning, "Error band with 'sem' is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
+                                disper = False
                             else:
                                 err_data = gdata[f'{prefix} MSD sem'].values
 
@@ -132,20 +131,23 @@ class MSD:
                         
                         if f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} low' not in gdata.columns or f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} high' not in gdata.columns:
                             Reporter(Level.error, "Confidence interval data not available for error band. Make sure to compute confidence intervals in the statistics step. Ignoring error band.", noticequeue=self.noticequeue)
-                            errorband = False
+                            disper = False
 
                         else:
                             if statistic != Stats.CI_STATISTIC:
                                 Reporter(Level.warning, f"Confidence interval was coputed for {Stats.CI_STATISTIC}, not {statistic}. Ignoring error band.", noticequeue=self.noticequeue)
-                                errorband = False
+                                disper = False
                             else:
                                 err_data = (gdata[f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} high'].values, gdata[f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} low'].values)
 
-                    case _:
-                        Reporter(Level.error, f"Invalid errorband type '{errorband}'.", noticequeue=self.noticequeue)
-                        errorband = False
+                    case 'none' | None | False:
+                        disper = False
 
-                if errorband:
+                    case _:
+                        Reporter(Level.error, f"Invalid 'disper' (dispersion) type '{disper}'.", noticequeue=self.noticequeue)
+                        disper = False
+
+                if disper:
                     if isinstance(err_data, tuple):
                         band_top_y, band_bottom_y = err_data
                     else:
@@ -162,7 +164,7 @@ class MSD:
                     label = f"{cond_name} | {rep_name}"
 
                 # Plot error band
-                if errorband:
+                if disper:
                     mask = ~np.isnan(band_bottom_y) & ~np.isnan(band_top_y)
                     if np.any(mask):
                         ax.fill_between(

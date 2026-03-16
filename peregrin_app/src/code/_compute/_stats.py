@@ -143,11 +143,15 @@ class Stats:
         self.cat_descr_err = cat_descr_err
         self.cat_infer_err = cat_infer_err
 
-        base_infer = ['sem', 'ci'] if bootstrap_ci else ['sem']
-
-        self.DESCR     = list(self._DESCR) if cat_descr else []
-        self.DESCR_ERR = list(self._DESCR_ERR) if cat_descr_err else []
-        self.INFER_ERR = list(base_infer) if cat_infer_err else []
+        self.DESCR     = self._DESCR if cat_descr else []
+        self.DESCR_ERR = self._DESCR_ERR if cat_descr_err else []
+        if cat_infer_err:
+            self.INFER_ERR = self._INFER_ERR
+            if bootstrap_ci:
+                self.INFER_ERR.append('ci')
+        else:
+            self.INFER_ERR = []
+        
 
         self.CUSTOM_AGG_FUNCTIONS = {
             'q25':        self._q25,
@@ -696,7 +700,8 @@ class Stats:
         metric_out['Distance'] = 'Instantaneous speed'
 
         # Stats are driven by configured category lists
-        requested_stats = list(dict.fromkeys(self.DESCR + self.DESCR_ERR + self.INFER_ERR))
+        requested_stats = self.DESCR + self.DESCR_ERR + self.INFER_ERR
+        print(f"Requested stats: {requested_stats}")
         resolved_stats = self.resolve(requested_stats) if requested_stats else {}
 
         # helper, converting 'std' to 'sd'
@@ -728,39 +733,43 @@ class Stats:
             prefixes = ['{per replicate}', '{per condition}']
             cols = self._COLUMNS['FRAMES'] + _build_expected_cols(prefixes)
             return pd.DataFrame(columns=cols)
-
-        # Separate resolved stats into ci and non-ci for batching
-        non_ci_stats = {s: func for s, func in resolved_stats.items() if s != 'ci'}
-        ci_func = resolved_stats.get('ci', None)
+        
 
         def _compute_level(source: pd.DataFrame, by_cols: list[str], prefix: str) -> pd.DataFrame:
-            g = source.groupby(by_cols, sort=False, observed=True)
+            grp = source.groupby(by_cols, sort=False, observed=True)
+            out = pd.DataFrame(index=grp.size().index)
 
             # Batch scalar statistics via a single named-agg call
-            named_agg = {}
             for m in metrics:
                 mout = metric_out[m]
-                for s, func in non_ci_stats.items():
-                    named_agg[f'{prefix} {mout} {_stat_label(s)}'] = (m, func)
+                sgrp = grp[m]
 
-            out = g.agg(**named_agg) if named_agg else pd.DataFrame(index=g.keys if hasattr(g, 'keys') else g.size().index)
+                if self.cat_descr:
+                    out[f'{prefix} {mout} min'] = sgrp.min()
+                    out[f'{prefix} {mout} max'] = sgrp.max()
+                    out[f'{prefix} {mout} mean'] = sgrp.mean()
+                    out[f'{prefix} {mout} median'] = sgrp.median()
+                    out[f'{prefix} {mout} q25'] = sgrp.agg(self._q25)
+                    out[f'{prefix} {mout} q75'] = sgrp.agg(self._q75)
 
-            # Ci columns (with incorporated tuple unpacking, handled in bulk per metric)
-            if ci_func is not None:
-                for m in metrics:
-                    mout = metric_out[m]
-                    ci_series = g[m].agg(ci_func)
-                    # Unpack tuples in bulk instead of row-by-row lambda
-                    ci_unpacked = pd.DataFrame(
-                        ci_series.tolist(),
-                        index=ci_series.index,
-                        columns=[
-                            f'{prefix} {mout} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low',
-                            f'{prefix} {mout} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high',
-                        ],
-                    )
-                    # Replace non-tuple results
-                    out = out.join(ci_unpacked)
+                if self.cat_descr_err:
+                    out[f'{prefix} {mout} sd'] = sgrp.std(ddof=1)
+
+                if self.cat_infer_err:
+                    out[f'{prefix} {mout} sem'] = sgrp.agg(self.sem)
+                    
+                    if 'ci' in self.INFER_ERR:
+                        ci_series = sgrp.agg(self.ci)
+                        ci_unpacked = pd.DataFrame(
+                            ci_series.tolist(),
+                            index=ci_series.index,
+                            columns=[
+                                f'{prefix} {mout} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low',
+                                f'{prefix} {mout} {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high',
+                            ],
+                        )
+                        for c in ci_unpacked.columns:
+                            out[c] = ci_unpacked[c]
 
             # Circular statistics: compute sin/cos
             dir_vals = pd.to_numeric(source['Direction'], errors='coerce').to_numpy(dtype=float)
@@ -1087,17 +1096,18 @@ class Stats:
 
             if self.cat_infer_err:
                 agg_dict[f'{prefix} MSD sem'] = msd_grp.agg(self.sem)
-                ci_series = msd_grp.agg(self.ci)
-                ci_unpacked = pd.DataFrame(
-                    ci_series.tolist(),
-                    index=ci_series.index,
-                    columns=[
-                        f'{prefix} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low',
-                        f'{prefix} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high',
-                    ],
-                )
-                for c in ci_unpacked.columns:
-                    agg_dict[c] = ci_unpacked[c]
+                if 'ci' in self.INFER_ERR:
+                    ci_series = msd_grp.agg(self.ci)
+                    ci_unpacked = pd.DataFrame(
+                        ci_series.tolist(),
+                        index=ci_series.index,
+                        columns=[
+                            f'{prefix} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} low',
+                            f'{prefix} MSD {self.CI_STATISTIC} ci{self.CONFIDENCE_LEVEL} high',
+                        ],
+                    )
+                    for c in ci_unpacked.columns:
+                        agg_dict[c] = ci_unpacked[c]
 
             # Counts based on raw MSD pairs
             agg_dict[f'{prefix} Tracks contributing'] = msd_keys['Track UID'].nunique().astype(int)

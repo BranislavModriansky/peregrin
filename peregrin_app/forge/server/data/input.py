@@ -286,7 +286,7 @@ def mount_data_input(input, output, session, S, noticequeue):
                     stats = Stats(
                         cat_descr_err=True,
                         cat_infer_err=input.inferential_error(),
-                        bootstrap=input.confidence_intervals(),
+                        bootstrap_ci=input.confidence_intervals(),
                         noticequeue=noticequeue
                     )
 
@@ -347,6 +347,9 @@ def mount_data_input(input, output, session, S, noticequeue):
 
         try:
             df = dataloader.GetDataFrame(fileinfo[0]["datapath"])
+
+            # Drop auto-saved CSV index columns (e.g., "Unnamed: 0")
+            df = df.loc[:, ~df.columns.astype(str).str.match(r"^Unnamed(:\s*\d+)?$")]
 
             # Ensure Condition and Replicate are strings (CSV may load them as int/float)
             if 'Condition' in df.columns:

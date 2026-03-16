@@ -50,8 +50,8 @@ subpanel_series = ui.nav_panel(
                     ui.accordion_panel(
                         "Chart Parameters",
                         ui.row(
-                            ui.column(1, ui.input_numeric(id="fig_width_ts", label="Width (in):", value=8, min=1, max=20, step=1, width="95px")),
-                            ui.column(1, ui.input_numeric(id="fig_height_ts", label="Height (in):", value=5, min=1, max=20, step=1, width="95px")),
+                            ui.column(1, ui.input_numeric(id="fig_width_ts", label="Width [in]:", value=8, min=1, max=20, step=1, width="95px")),
+                            ui.column(1, ui.input_numeric(id="fig_height_ts", label="Height [in]:", value=5, min=1, max=20, step=1, width="95px")),
                         ),
                         ui.input_selectize(id="xscale_ts", label="X-axis scale:", choices=['frame', 'time'], selected='frame', width="125px"),
                     ),

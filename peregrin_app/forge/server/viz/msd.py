@@ -83,7 +83,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             line=input.line_show_msd(),
             scatter=input.scatter_show_msd(),
             linear_fit=input.fit_show_msd(),
-            errorband=input.error_band_type_msd(),
+            disper=input.error_band_type_msd(),
             grid=input.grid_show_msd(),
             title=input.title_msd()
         )

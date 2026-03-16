@@ -14,7 +14,7 @@ def mount_statcols(input, output, session, S, noticequeue):
             spot_cols = S.UNFILTERED_SPOTSTATS.get().columns.tolist()
             track_cols = S.UNFILTERED_TRACKSTATS.get().columns.tolist()
 
-            ignore = ["Track ID", "Track UID", "Condition", "Replicate"]
+            ignore = ["Track ID", "Track UID", "Condition", "Replicate", "Condition color", "Replicate color"]
 
             try:
                 for col in ignore:

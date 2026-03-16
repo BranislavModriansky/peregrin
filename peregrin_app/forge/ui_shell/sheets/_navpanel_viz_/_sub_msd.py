@@ -63,17 +63,9 @@ subpanel_msd = ui.nav_panel(
                         ui.input_checkbox("fit_show_msd", "Show linear fit", True),
                     ),
                     ui.accordion_panel(
-                        'Error band',
+                        'Dispersion',
                         ui.row(
-                            ui.column(2, 
-                                ui.input_checkbox("error_band_show_msd", "Show error band", True)
-                            ),
-                            ui.column(2, 
-                                ui.panel_conditional(
-                                    "input.error_band_show_msd == true",
-                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci'], selected='sd', width="120px"),
-                                )
-                            )
+                            ui.column(2, ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci', 'none'], selected='sd', width="120px")),
                         )
                     ),
                     ui.accordion_panel(
