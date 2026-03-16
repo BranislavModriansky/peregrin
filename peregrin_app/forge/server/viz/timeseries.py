@@ -44,7 +44,7 @@ def mount_plot_ts(input, output, session, S, noticequeue):
             ui.update_selectize(
                 id="conditions_ts",
                 selected=[]
-            ) if input.conditions_msd() else \
+            ) if input.conditions_ts() else \
             ui.update_selectize(
                 id="conditions_ts",
                 selected=S.FRAMESTATS.get()["Condition"].unique().tolist()
@@ -54,12 +54,12 @@ def mount_plot_ts(input, output, session, S, noticequeue):
         @reactive.event(input.replicates_reset_ts)
         def _():
 
-            req(not is_empty(S.FRAMESTATS.get()) and "Replicate" in S.FRAMESTATS.get().columns)
+            req(not is_empty(S.FRAMESTATS.get()))
 
             ui.update_selectize(
                 id="replicates_ts",
                 selected=[]
-            ) if input.replicates_msd() else \
+            ) if input.replicates_ts() else \
             ui.update_selectize(
                 id="replicates_ts",
                 selected=S.FRAMESTATS.get()["Replicate"].unique().tolist()

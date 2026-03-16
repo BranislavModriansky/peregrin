@@ -16,13 +16,18 @@ def mount_superplots(input, output, session, S, noticequeue):
         @reactive.Effect
         @reactive.event(S.TRACKSTATS)
         def _():
+            req(not is_empty(S.TRACKSTATS.get()))
+            ui.update_selectize(id="metric_sp", choices=S.TRACKSTATS_COLUMNS.get(), selected="Straightness index")
+
+        @reactive.Effect
+        @reactive.event(S.TRACKSTATS)
+        def _():
             if is_empty(S.TRACKSTATS.get()):
                 conditions = []
                 replicates = []
 
             elif not is_empty(S.TRACKSTATS.get()) :
                 conditions = S.TRACKSTATS.get()['Condition'].unique().tolist()
-                
                 if 'Replicate' not in S.TRACKSTATS.get().columns:
                     replicates = []
                 else:
@@ -59,6 +64,8 @@ def mount_superplots(input, output, session, S, noticequeue):
                 id="replicates_sp",
                 selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
+
+    
 
 
     def _superplot_common_kwargs() -> dict:

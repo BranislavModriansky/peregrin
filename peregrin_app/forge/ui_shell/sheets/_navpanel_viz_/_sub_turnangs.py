@@ -56,8 +56,8 @@ subpanel_turnangs = ui.nav_panel(
                     ui.accordion_panel(
                         "Size",
                         ui.row(
-                            ui.column(2, ui.input_numeric(id="ta_fig_width", label="Figure width:", value=6, min=1, step=0.5)),
-                            ui.column(2, ui.input_numeric(id="ta_fig_height", label="Figure height:", value=6, min=1, step=0.5)),
+                            ui.column(2, ui.input_numeric(id="ta_fig_width", label="Width [in]:", value=6, min=1, step=0.5)),
+                            ui.column(2, ui.input_numeric(id="ta_fig_height", label="Height [in]:", value=6, min=1, step=0.5)),
                         )
                     ),
                     ui.accordion_panel(
