@@ -185,20 +185,34 @@ def MountDistributions(input, output, session, S, noticequeue):
             
             match which:
                 case "rosechart":
-                    return PolarDataDistribute(**_distribution_rose_chart_kwargs()).RoseChart()
+                    kwargs = _distribution_rose_chart_kwargs()
+                    kwargs['text_color'] = 'black'  # Override text color on download
+                    return PolarDataDistribute(**kwargs).RoseChart()
+                
                 case "kde_line":
-                    return PolarDataDistribute(**_distribution_kde_line_kwargs()).KDELinePlot()
+                    kwargs = _distribution_kde_line_kwargs()
+                    kwargs['text_color'] = 'black'  # Override text color on download
+                    return PolarDataDistribute(**kwargs).KDELinePlot()
+                
                 case "kde_colormesh":
-                    return PolarDataDistribute(**_distribution_kde_colormesh_kwargs()).GaussianKDEColormesh()
+                    kwargs = _distribution_kde_colormesh_kwargs()
+                    kwargs['text_color'] = 'black'  # Override text color on download
+                    return PolarDataDistribute(**kwargs).GaussianKDEColormesh()
 
 
     # _ _ _ ROSE CHART _ _ _
 
     ui.bind_task_button(button_id="generate_dd_rosechart")
     @reactive.extended_task
-    async def output_data_distribution_rose_chart():
-        def _build():
-            return _dd_build(which="rosechart")
+    async def output_data_distribution_rose_chart(kwargs: dict):
+        def _build(_kwargs=kwargs):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+                return PolarDataDistribute(**_kwargs).RoseChart()
             
         return await asyncio.get_running_loop().run_in_executor(None, _build)
     
@@ -206,7 +220,10 @@ def MountDistributions(input, output, session, S, noticequeue):
     @reactive.Effect
     @reactive.event(input.generate_dd_rosechart, ignore_none=False)
     def _():
-        output_data_distribution_rose_chart.cancel(); output_data_distribution_rose_chart()
+        output_data_distribution_rose_chart.cancel()
+        
+        req(not is_empty(S.TRACKSTATS.get()))
+        output_data_distribution_rose_chart(_distribution_rose_chart_kwargs())
 
 
     @render.plot
@@ -239,10 +256,16 @@ def MountDistributions(input, output, session, S, noticequeue):
     @reactive.extended_task
     async def output_data_distribution_kde_line(kwargs: dict):
         def _build(_kwargs=kwargs):
-            return _dd_build(which="kde_line")
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+                return PolarDataDistribute(**_kwargs).KDELinePlot()
             
         return await asyncio.get_running_loop().run_in_executor(None, _build)
-    
+
 
     @reactive.Effect
     @reactive.event(input.generate_dd_kde_line, ignore_none=False)
@@ -251,9 +274,7 @@ def MountDistributions(input, output, session, S, noticequeue):
 
         req(not is_empty(S.TRACKSTATS.get()))
 
-        kwargs = _distribution_kde_line_kwargs()
-
-        output_data_distribution_kde_line(kwargs)
+        output_data_distribution_kde_line(_distribution_kde_line_kwargs())
 
 
     @render.plot
@@ -304,7 +325,13 @@ def MountDistributions(input, output, session, S, noticequeue):
     @reactive.extended_task
     async def output_data_distribution_colormesh(kwargs: dict):
         def _build(_kwargs=kwargs):
-            return _dd_build(which="kde_colormesh")
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Starting a Matplotlib GUI outside of the main thread will likely fail",
+                    category=UserWarning,
+                )
+                return PolarDataDistribute(**_kwargs).GaussianKDEColormesh()
             
         return await asyncio.get_running_loop().run_in_executor(None, _build)
     
@@ -315,10 +342,7 @@ def MountDistributions(input, output, session, S, noticequeue):
         output_data_distribution_colormesh.cancel()
 
         req(not is_empty(S.TRACKSTATS.get()))
-
-        kwargs = _distribution_kde_colormesh_kwargs()
-
-        output_data_distribution_colormesh(kwargs)
+        output_data_distribution_colormesh(_distribution_kde_colormesh_kwargs())
 
 
     @render.plot
