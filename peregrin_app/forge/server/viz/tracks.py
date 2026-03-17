@@ -104,10 +104,7 @@ def MountTracks(input, output, session, S, noticequeue):
 
 
     def _reconstruct_tracks_kwargs() -> dict:
-        """
-        IMPORTANT: Call only from a reactive context (main thread).
-        Do NOT call from inside an extended_task.
-        """
+        """ Call only in a reactive context (in the main thread). <- Do not call inside an extended_task. """
 
         if input.tracks_annotate_r():
             annotate_r = input.tracks_r_annotstyle()
@@ -190,6 +187,7 @@ def MountTracks(input, output, session, S, noticequeue):
         req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).Realistic()
 
         if fig is not None:
@@ -202,6 +200,7 @@ def MountTracks(input, output, session, S, noticequeue):
         req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).Realistic()
 
         if fig is not None:
@@ -254,6 +253,7 @@ def MountTracks(input, output, session, S, noticequeue):
         req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).Normalized(all_data=S.SPOTSTATS.get())
 
         if fig is not None:
@@ -266,6 +266,7 @@ def MountTracks(input, output, session, S, noticequeue):
         req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).Normalized(all_data=S.SPOTSTATS.get())
 
         if fig is not None:
@@ -393,6 +394,7 @@ def MountTracks(input, output, session, S, noticequeue):
         )
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         stack = output_track_reconstruction_animated.result()
         req(stack is not None)
 
@@ -417,6 +419,7 @@ def MountTracks(input, output, session, S, noticequeue):
         req(not is_empty(S.SPOTSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).GetLutMap(units=S.UNITS.get(), _extend=input.tracks_lutmap_extend_edges())
 
         if fig is not None:
@@ -429,6 +432,8 @@ def MountTracks(input, output, session, S, noticequeue):
         req(not is_empty(S.SPOTSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
+
         fig = ReconstructTracks(**kwargs).GetLutMap(units=S.UNITS.get(), _extend=input.tracks_lutmap_extend_edges())
 
         if fig is not None:

@@ -363,9 +363,7 @@ def mount_data_input(input, output, session, S, noticequeue):
 
             stats = Stats(noticequeue=noticequeue)
 
-            # Run Spots() so Track UID index and all derived columns are set correctly.
-            # Spots() will recompute Track UID via ngroup() and set it as the index,
-            # which is required for Tracks(), Frames(), and TimeIntervals() to work properly.
+            # Running Spots() -> set Track UID index is necessaryfor other Stats methods.
             Spots = stats.Spots(df)
 
             Tracks = stats.Tracks(Spots)

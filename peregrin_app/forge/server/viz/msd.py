@@ -107,12 +107,12 @@ def mount_plot_msd(input, output, session, S, noticequeue):
     @reactive.Effect
     @reactive.event(input.generate_msd, ignore_init=True, ignore_none=False)
     def _():
+        output_plot_msd.cancel()
 
         req(not is_empty(S.TINTERVALSTATS.get())
             and "Condition" in S.TINTERVALSTATS.get().columns 
             and "Replicate" in S.TINTERVALSTATS.get().columns)
         
-        output_plot_msd.cancel()
         output_plot_msd(_get_class_kwargs(), _get_plot_kwargs())
 
     
