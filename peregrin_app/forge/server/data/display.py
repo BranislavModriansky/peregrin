@@ -10,8 +10,24 @@ from src.code import Summarize, Values, DebounceCalc, is_empty, Stats
 
 
 def mount_data_display(input, output, session, S):
+    HIST_EXCLUDE = {
+        "Condition", "Replicate", "Condition color", "Replicate color",
+        "Frame", "Time point", "Frame lag", "Time lag", "Track ID", "Track UID"
+    }
 
-    
+    def _col_to_stat_id(col: str) -> str:
+        return (
+            col.strip()
+            .lower()
+            .replace(" ", "_")
+            .replace(".", "_")
+            .replace("{", "_l_br_")
+            .replace("}", "_r_br_")
+        )
+
+    def _should_render_hist(col: str, stats: dict) -> bool:
+        return stats.get("type") == "type_one" and col not in HIST_EXCLUDE
+
     # @reactive.extended_task
     def hist(data: pd.Series, app_theme: str = "light") -> plt.Figure:
             fig, ax = plt.subplots(figsize=(3, 3), dpi=72)
@@ -51,15 +67,10 @@ def mount_data_display(input, output, session, S):
     
     def rend_summaries(column_stats: dict, tag: str) -> ui.TagList:
         cards = []
-
         for col, stats in column_stats.items():
-
             if col not in ["Track ID", "Track UID"]:
-                
-                if (stats["type"] == "type_one" 
-                    and col not in ["Condition", "Replicate", "Condition color", "Replicate color", 
-                                    "Frame", "Time point", "Frame lag", "Time lag"]):
-                    stat = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
+                if _should_render_hist(col, stats):
+                    stat = _col_to_stat_id(col)
                     body = ui.div(
                         ui.div(ui.output_plot(f"hist_{tag}_{stat}", height="125px"), style="width: 125px; height: 127px;"),
                         ui.div(
@@ -76,7 +87,6 @@ def mount_data_display(input, output, session, S):
                         ui.div(ui.tags.b("mode: "), str(Values.RoundSigFigs(stats['mode'], 5))),
                         class_="column-body"
                     )
-
                 else:
                     body = ui.div(
                         ui.div(ui.tags.b("missing: "), str(stats['missing'])),
@@ -88,7 +98,6 @@ def mount_data_display(input, output, session, S):
                         ],
                         class_="column-body"
                     )
-                    
 
                 cards.append(
                     ui.div(
@@ -289,51 +298,43 @@ def mount_data_display(input, output, session, S):
 
     
     @reactive.effect
-    @reactive.event(S.SPOTSUMMARY)
     def _():
         for col, stats in S.SPOTSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
-                
+                stat_id = _col_to_stat_id(col)
+
                 @output(id=f"hist_spots_{stat_id}")
                 @render.plot
                 def histogram(c=col): 
                     return hist(data=S.SPOTSTATS.get()[c], app_theme=input.app_theme())
-                
-                
-                    
+
     @reactive.effect
-    @reactive.event(S.TRACKSUMMARY, input.show_track_category_stats)
     def _():
         for col, stats in S.TRACKSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
+                stat_id = _col_to_stat_id(col)
 
                 @output(id=f"hist_tracks_{stat_id}")
                 @render.plot
                 def histogram(c=col): 
                     return hist(data=S.TRACKSTATS.get()[c], app_theme=input.app_theme())
 
-                
     @reactive.effect
-    @reactive.event(S.FRAMESUMMARY, input.show_frame_category_stats)
     def _():
         for col, stats in S.FRAMESUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
-                
+                stat_id = _col_to_stat_id(col)
+
                 @output(id=f"hist_frames_{stat_id}")
                 @render.plot
                 def histogram(c=col): 
                     return hist(data=S.FRAMESTATS.get()[c], app_theme=input.app_theme())
 
-                
     @reactive.effect
-    @reactive.event(S.TINTERVALSUMMARY, input.show_tinterval_category_stats)
     def _():
         for col, stats in S.TINTERVALSUMMARY.get()["columns"].items():
             if stats["type"] == "type_one" and col not in ["Condition", "Replicate"]:
-                stat_id = col.strip().lower().replace(" ", "_").replace(".", "_").replace("{", "_l_br_").replace("}", "_r_br_")
+                stat_id = _col_to_stat_id(col)
 
                 @output(id=f"hist_tintervals_{stat_id}")
                 @render.plot

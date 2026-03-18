@@ -19,40 +19,23 @@ def mount_thresholds_info_export(input, output, session, S):
             blocks = []
             thresholds = S.THRESHOLDS.get()
 
-            print("")
-            print(f"S.THRESHOLDS keys: {thresholds.keys()}")
-
             # iterate deterministically if keys are integers
             for t in sorted(thresholds.keys()):
-                print("")
-                print(f"Processing threshold {t} for thresholding info")
 
                 if t >= S.THRESHOLDS_ID.get():
-                    print(f"Threshold {t} is greater than current threshold ID {S.THRESHOLDS_ID.get()}, stopping iteration.")
                     break
                 try:
                     t_state = thresholds.get(t)
                     t_state_after = thresholds.get(t + 1)
-
-                    print("")
-                    print(f"t_state tracks: {t_state}")
-                    print("")
-                    print(f"t_state_after tracks: {t_state_after}")
                     
                     t_state_mask = np.unique(t_state.get("mask"))
                     data = len(t_state_mask)
-                    print("")
-                    print(f"Data before threshold {t}: {data}")
+
                     t_state_after_mask = np.unique(t_state_after.get("mask"))
                     data_after = len(t_state_after_mask)
 
-                    print("")
-                    print(f"Data after threshold {t}: {data_after}")
                     out = data - data_after
                     out_percent = round(out / data * 100)
-
-                    print("")
-                    print(f"Threshold {t} - Out: {out}, Out percent: {out_percent}%")
 
                     prop = input[f"threshold_property_{t+1}"]()
                     ftype = input[f"threshold_type_{t+1}"]()
@@ -67,12 +50,7 @@ def mount_thresholds_info_export(input, output, session, S):
                         reference =  ""
                     vals = input[f"floor_threshold_value_{t+1}"](), input[f"ceil_threshold_value_{t+1}"]()
 
-                    print("")
-                    print(f"Threshold {t} - Property: {prop}, Filter type: {ftype}, Reference: {reference}, Range: {vals}")
-
                 except Exception:
-                    print(f"Error occurred while processing threshold {t}")
-                    print(traceback.format_exc())
                     break
 
                 blocks.append(
@@ -99,8 +77,6 @@ def mount_thresholds_info_export(input, output, session, S):
                 )
 
         except Exception:
-            print(traceback.format_exc())
-
             pass
 
         total_tracks = len(S.UNFILTERED_TRACKSTATS.get())
