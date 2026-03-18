@@ -1,4 +1,7 @@
+import traceback
+
 import pandas as pd
+import numpy as np
 import shiny.ui as ui
 from shiny import render
 from html import escape
@@ -11,39 +14,65 @@ def mount_thresholds_info_export(input, output, session, S):
     @output()
     @render.ui
     def threshold_info():
-        return None
 
         try:
             blocks = []
             thresholds = S.THRESHOLDS.get()
 
+            print("")
+            print(f"S.THRESHOLDS keys: {thresholds.keys()}")
+
             # iterate deterministically if keys are integers
             for t in sorted(thresholds.keys()):
-                if t > S.THRESHOLDS_ID.get():
+                print("")
+                print(f"Processing threshold {t} for thresholding info")
+
+                if t >= S.THRESHOLDS_ID.get():
+                    print(f"Threshold {t} is greater than current threshold ID {S.THRESHOLDS_ID.get()}, stopping iteration.")
                     break
                 try:
                     t_state = thresholds.get(t)
                     t_state_after = thresholds.get(t + 1)
-                    
-                    data = len(t_state.get("tracks"))
-                    data_after = len(t_state_after.get("tracks")) if t_state_after else data
-                    out = data - data_after
-                    out_percent = round(out / data * 100) if data else 0
 
-                    prop = input[f"threshold_property_{t}"]()
-                    ftype = input[f"threshold_type_{t}"]()
+                    print("")
+                    print(f"t_state tracks: {t_state}")
+                    print("")
+                    print(f"t_state_after tracks: {t_state_after}")
+                    
+                    t_state_mask = np.unique(t_state.get("mask"))
+                    data = len(t_state_mask)
+                    print("")
+                    print(f"Data before threshold {t}: {data}")
+                    t_state_after_mask = np.unique(t_state_after.get("mask"))
+                    data_after = len(t_state_after_mask)
+
+                    print("")
+                    print(f"Data after threshold {t}: {data_after}")
+                    out = data - data_after
+                    out_percent = round(out / data * 100)
+
+                    print("")
+                    print(f"Threshold {t} - Out: {out}, Out percent: {out_percent}%")
+
+                    prop = input[f"threshold_property_{t+1}"]()
+                    ftype = input[f"threshold_type_{t+1}"]()
                     if ftype == "Relative to...":
-                        ref = input[f"reference_value_{t}"]()
+                        ref = input[f"reference_value_{t+1}"]()
                         if ref == "My own value":
-                            ref_val = input[f"my_own_value_{t}"]()
+                            ref_val = input[f"my_own_value_{t+1}"]()
                         else:
                             ref_val = ref
                         reference = f"<br>Reference: <br><i><b>{ref}</b> (<b>{ref_val}</b>)</i><br>" if not isinstance(ref_val, str) else f"<br>Reference: <br><i><b>{ref}</b></i><br>"
                     else:
                         reference =  ""
-                    vals = input[f"threshold_slider_{t}"]()
+                    vals = input[f"floor_threshold_value_{t+1}"](), input[f"ceil_threshold_value_{t+1}"]()
+
+                    print("")
+                    print(f"Threshold {t} - Property: {prop}, Filter type: {ftype}, Reference: {reference}, Range: {vals}")
 
                 except Exception:
+                    print(f"Error occurred while processing threshold {t}")
+                    print(traceback.format_exc())
                     break
 
                 blocks.append(
@@ -53,7 +82,7 @@ def mount_thresholds_info_export(input, output, session, S):
                             <hr style="border:0; border-top:1px solid #000000; margin:8px 0;">
                         <div style="height:5px;"></div>
                         <p style="margin-bottom:8px; margin-top:10px;">
-                            <b><h5>Threshold {t}</h5></b>
+                            <b><h5>Threshold {t+1}</h5></b>
                             Filtered out: <br>
                             <i><b>{out}</b> (<b>{out_percent}%</b>)</i>
                         </p>
@@ -70,10 +99,14 @@ def mount_thresholds_info_export(input, output, session, S):
                 )
 
         except Exception:
+            print(traceback.format_exc())
+
             pass
 
         total_tracks = len(S.UNFILTERED_TRACKSTATS.get())
-        filtered_tracks = len(thresholds.get(S.THRESHOLDS_ID.get()+1).get("tracks")) if thresholds and thresholds.get(S.THRESHOLDS_ID.get()+1) else total_tracks
+        
+        mask = thresholds.get(S.THRESHOLDS_ID.get()).get("mask")
+        filtered_tracks = len(np.unique(mask)) if mask is not None else total_tracks
 
         filtered_tracks_percent = (
             round(filtered_tracks / total_tracks * 100) if total_tracks else 0
@@ -108,6 +141,7 @@ def mount_thresholds_info_export(input, output, session, S):
         Build an SVG 'Info' panel using current Shiny reactives.
         Works for both 1D and 2D thresholding like in your filter_info().
         """
+
         return
         
         # ---------- helpers ----------
@@ -244,9 +278,9 @@ def mount_thresholds_info_export(input, output, session, S):
         return svg
 
 
-    @render.download(filename=f"Threshold Info {date.today()}.svg", media_type="svg")
-    def download_threshold_info():
-        svg = GetInfoSVG()
-        yield svg.encode("utf-8")
+    # @render.download(filename=f"Threshold Info {date.today()}.svg", media_type="svg")
+    # def download_threshold_info():
+    #     svg = GetInfoSVG()
+    #     yield svg.encode("utf-8")
 
         
