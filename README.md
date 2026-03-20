@@ -8,7 +8,7 @@
 <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">
   <img
     alt="Peregrin screenshot"
-    src="https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/Peregrin_c.png"
+    src="https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/peregrin.png"
   />
 </a>
 
@@ -62,7 +62,7 @@ Peregrin is a an application designed for researchers studying cell migration. I
     - Mean turning angles per frame lags colormesh
     - Motion flow plots (experimental)
 
-- Export figures in SVG format.
+- Export figures in `.svg`, `.png`, `.mp4` formats.
 
 
 
