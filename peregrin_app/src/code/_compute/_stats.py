@@ -116,16 +116,20 @@ class Stats:
 
     _COLUMNS = {
         'SPOTS': [
-            'Condition','Replicate','Track ID','Track UID','Time point','Frame',
-            'X coordinate','Y coordinate','Distance','Cumulative track length','Cumulative track displacement',
-            'Cumulative straightness index','Cumulative speed','Direction',
-            'Directional change','Cumulative directional change','Cumulative mean directional change',
+            'Condition','Replicate','Track ID','Track UID',
+            'Time point','Frame','X coordinate','Y coordinate','Distance',
+            'Cumulative track length','Cumulative track displacement','Cumulative straightness ratio', 
+            'Cumulative speed','Cumulative mean straight line speed',
+            'Cumulative forward progression linearity','Direction','Directional change',
+            'Cumulative sum directional change','Cumulative mean directional change',
             'Cumulative direction mean','Cumulative direction var'
         ],
         'TRACKS': [
             'Condition','Replicate','Track ID','Track UID',
-            'Track length','Track displacement','Straightness index',
-            'Speed min','Speed max','Speed mean','Speed sd','Speed median','Speed q25','Speed q75',
+            'Y location', 'X location', 
+            'Track length','Track displacement','Straightness ratio',
+            'Speed min','Speed max','Speed mean','Speed sd','Speed median',
+            'Mean straight line speed', 'Forward progression linearity',  # https://imagej.net/plugins/trackmate/analyzers/
             'Max distance reached','Track start frame','Track end frame',
             'Direction mean','Direction var','Mean directional change'
         ],
@@ -250,17 +254,26 @@ class Stats:
             - **`Cumulative track displacement`**- 
             Euclidean distance from the starting position of the track to the current position.
 
-            - **`Cumulative straightness index`**- 
+            - **`Cumulative straightness ratio`**- 
             Track's straigtness calculated as `Cumulative track displacement` / `Cumulative track length`.
 
             - **`Cumulative speed`**- 
             Mean speed (`Distance`) from the starting to the current position <- `Cumulative track length` / `Frame`.
+
+            - **`Cumulative mean straight line speed`**-
+            Calculated as `Cumulative track displacement` / Track point count.
+
+            - **`Cumulative forward progression linearity`**-
+            Calculated as `Cumulative mean straight line speed` / `Cumulative speed`
 
             - **`Direction`**- 
             Instantaneous direction of motion in radians `np.arctan2(Δy, Δx)`. Calculated between the previous and current positions.
 
             - **`Directional change`**- 
             Absolute turning angle (degrees) between consecutive directions, calculated as the angular difference between the current and previous `Direction` values, wrapped to the range [-180°, 180°].
+
+            - **`Cumulative sum directional change`**-
+            Cumulative sum of `Directional change` along the track up to the current position.
 
             - **`Cumulative mean directional change`**- 
             Mean of all absolute `Directional change` values along the track up to the current position
@@ -332,6 +345,8 @@ class Stats:
             grp['Y coordinate'].diff()
         ).fillna(np.nan)
 
+        _temp = grp['Track UID'].transform('count')
+
         # Cumulative track length
         df['Cumulative track length'] = grp['Distance'].cumsum()
 
@@ -344,10 +359,13 @@ class Stats:
 
         # Straightness index: Track displacement vs. actual trajectory length ratio
         # Avoid division by zero by replacing zeros with NaN, then fill
-        df['Cumulative straightness index'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
+        df['Cumulative straightness ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
         # Cumulative speed -> mean speed from the starting to the current position
         df['Cumulative speed'] = df['Cumulative track length'] / df['Frame'].replace(0, np.nan)
+
+        df['Cumulative straight line speed'] = df['Cumulative track displacement'] / _temp.replace(0, np.nan)
+        df['Cumulative forward progression linearity'] = df['Cumulative straight line speed'] / df['Cumulative speed']
 
         # Instantaneous direction of motion (rad) -> difference between the previous and current position
         df['Direction'] = np.arctan2(
@@ -362,10 +380,11 @@ class Stats:
         df['Directional change'] = np.rad2deg(wrapped_dir_change.abs()).fillna(np.nan)
 
         # Mean directional change -> mean of absolute directional changes (degrees) along the track up to the current position
-        df['Cumulative mean directional change'] = (
-            df.groupby(gkeys, sort=False)['Directional change']
-            .expanding().mean()
-            .droplevel(list(range(len(gkeys))))
+        _temp = df.groupby(gkeys, sort=False)['Directional change'].expanding()
+
+        df['Cumulative sum directional change'], df['Cumulative mean directional change'] = (
+            _temp.sum().droplevel(list(range(len(gkeys)))),
+            _temp.mean().droplevel(list(range(len(gkeys))))
         )
 
         # First two points of each track have no directional change; set them to NaN
@@ -442,7 +461,7 @@ class Stats:
             - **`Track length`**- 
             Total length of the track (sum of `Distance`).
 
-            - **`Speed`** **`min`**, **`max`**, **`mean`**, **`sd`**, **`median`** and **`q25`**, **`q75`** (iqr) - 
+            - **`Speed`** **`min`**, **`max`**, **`mean`**, **`sd`**, **`median`** - 
             of the `Distances` between consecutive points (step lengths).
 
             - **`Max distance reached`**- 
@@ -457,8 +476,14 @@ class Stats:
             - **`Track displacement`**- 
             Euclidean distance from the starting position to the end position of the track.
 
-            - **`Straightness index`**- 
+            - **`Track straightness ratio`**- 
             Track's straigtness calculated as `Track displacement` / `Track length`.
+
+            - **`Mean straight line speed`**-
+            Calculated as `Track displacement` / `Track points`
+
+            - **`Forward progression linearity`**-
+            Calculated as `Mean straight line speed` / `Speed mean`
 
             - **`Track points`**- 
             The number of points the trajectory is comprised of.
@@ -514,9 +539,7 @@ class Stats:
             'Speed max':    'max',
             'Speed mean':   'mean',
             'Speed sd':     'std',
-            'Speed median': 'median',
-            'Speed q25':    'q25',
-            'Speed q75':    'q75',
+            'Speed median': 'median'
         })
 
         # Build the named agg dict: each entry is (column, func)
@@ -552,12 +575,15 @@ class Stats:
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
-        agg['Straightness index'] = (agg['Track displacement'] / agg['Track length'])
+        agg['Track straightness ratio'] = (agg['Track displacement'] / agg['Track length'])
         agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
         # Points/ per track
         n = grp.size().rename('Track points')
         agg = agg.merge(n, left_index=True, right_index=True)
+
+        agg['Mean straight line speed'] = agg['Track displacement'] / agg['Track points']
+        agg['Forward progression linearity'] = agg['Mean straight line speed'] / agg['Speed mean']
 
         # Sin/Cos values for circular statistics
         sin_cos = df.assign(
@@ -621,7 +647,7 @@ class Stats:
             - `Distance`
             - `Cumulative track length`
             - `Cumulative track displacement`
-            - `Cumulative straightness index`
+            - `Cumulative straightness ratio`
             - `Cumulative speed`
             - `Direction`
             - `Cumulative direction mean`
@@ -646,11 +672,14 @@ class Stats:
             - for each of these metrics
                 - **`Cumulative track length`**
                 - **`Cumulative track displacement`**
-                - **`Cumulative straightness index`**
-                - **`Cumulative speed`**
+                - **`Cumulative straightness ratio`**
                 - **`Instantaneous speed`**
+                - **`Cumulative speed`**
+                - **`Cumulative straight line speed`**
+                - **`Cumulative forward progression linearity`**
                 - **`Instantaneous direction`**
                 - **`Cumulative direction`**
+                - **`Cumulative sum directional change`**
                 - **`Cumulative mean directional change`**
 
         See also
@@ -690,9 +719,12 @@ class Stats:
         metrics = [
             'Cumulative track length',
             'Cumulative track displacement',
-            'Cumulative straightness index',
+            'Cumulative straightness ratio',
             'Cumulative speed',
             'Distance',
+            'Cumulative straight line speed',
+            'Cumulative forward progression linearity',
+            'Cumulative sum directional change',
             'Cumulative mean directional change',
         ]
         # (output df labels)

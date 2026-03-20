@@ -42,7 +42,7 @@ subpanel_series = ui.nav_panel(
                 "Compose",
                 ui.row(
                     ui.column(3, ui.input_selectize(id="metric_ts", label="Metric:", choices=Metrics.Time, width="350px")),
-                    ui.column(2, ui.input_selectize(id="statistic_ts", label="Statistic:", choices=['mean', 'median', 'min', 'max'], selected='mean', width="135px")),
+                    ui.column(2, ui.input_selectize(id="statistic_ts", label="Statistic:", choices=['mean', 'median', 'min', 'max', 'var'], selected='mean', width="135px")),
                     ui.column(2, ui.input_selectize(id="dispertion_ts", label="Dispertion:", choices=['min-max', 'sd', 'sem', 'iqr', 'ci', 'none'], width="135px")),
                     ui.column(2, ui.input_selectize(id="level_ts", label="Aggregation level:", choices=['Condition', 'Replicate'], width="175px")),
                 ),
