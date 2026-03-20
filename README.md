@@ -8,7 +8,7 @@
 <a href="https://branislavmodriansky.github.io/peregrin/" target="_blank" rel="noopener noreferrer">
   <img
     alt="Peregrin screenshot"
-    src="https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/Peregrin_c.png"
+    src="https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/peregrin.png"
   />
 </a>
 
