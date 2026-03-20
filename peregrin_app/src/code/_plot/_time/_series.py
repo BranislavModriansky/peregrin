@@ -14,7 +14,7 @@ from ..._compute._stats import Stats
 
 class TSeries:
 
-    FILL_ALPHA = 0.2
+    FILL_ALPHA = 0.18
     REPLICATES_ALPHA = 0.3
 
     STAT_COLS = ['mean', 'median', 'min', 'max']
@@ -40,7 +40,7 @@ class TSeries:
                 self.level  = ['Condition', 'Replicate']
                 self.prefix = '{per replicate} '
             case _:
-                Reporter(Level.warning, "Unknown level argument {level}. Level must be either 'Condition' or 'Replicate'. Defaulting to 'Condition'.")
+                Reporter(Level.warning, "Unknown level argument {level}. Level must be either 'Condition' or 'Replicate'. Defaulting to 'Condition'.", noticequeue=self.noticequeue)
                 self.level  = ['Condition']
                 self.prefix = '{per condition} '
 
@@ -49,6 +49,8 @@ class TSeries:
             self.prefix = None
         
         self._assign_kwargs(kwargs)
+
+        self._error = False
         self._check_errors()
 
 
@@ -73,31 +75,39 @@ class TSeries:
     def _check_errors(self):
         """Validate input data"""
 
-        data_cols = self.data.columns if self.data is not None else []
-
         if is_empty(self.data):
-            Reporter(Level.error, "Input data is empty.")
+            Reporter(Level.error, "Input data is empty.", noticequeue=self.noticequeue)
+            self._error = True
+
+        data_cols = self.data.columns.tolist()
 
         if self.stat not in self.STAT_COLS:
-            Reporter(Level.error, f"Unexpected statistic '{self.stat}'.")
+            Reporter(Level.error, f"Unexpected statistic '{self.stat}' for metric '{self.metric}'.", noticequeue=self.noticequeue)
+            self._error = True
 
-        if self.disper is not None and self.disper not in self.ERR_COLS:
-            Reporter(Level.error, f"Unexpected dispersion type '{self.disper}'.")
+        elif self.disper is not None and self.disper not in self.ERR_COLS:
+            Reporter(Level.error, f"Unexpected dispersion type '{self.disper}' for metric '{self.metric}'.", noticequeue=self.noticequeue)
+            self._error = True
 
-        if 'Condition' not in data_cols:
-            Reporter(Level.error, "Column 'Condition' not found in data.")
+        elif 'Condition' not in data_cols:
+            Reporter(Level.error, "Column 'Condition' not found in data.", noticequeue=self.noticequeue)
+            self._error = True
 
-        if self.level == ['Condition', 'Replicate'] and 'Replicate' not in data_cols:
-            Reporter(Level.error, "Column 'Replicate' not found in data.")
+        elif self.level == ['Condition', 'Replicate'] and 'Replicate' not in data_cols:
+            Reporter(Level.error, "Column 'Replicate' not found in data.", noticequeue=self.noticequeue)
+            self._error = True
 
-        if f'{self.prefix}{self.metric} {self.stat}' not in data_cols:
-            Reporter(Level.error, f"Column '{self.prefix} {self.metric} {self.stat}' not found.")
+        elif f'{self.prefix}{self.metric} {self.stat}' not in data_cols:
+            Reporter(Level.error, f"Column '{self.prefix} {self.metric} {self.stat}' not found.", noticequeue=self.noticequeue)
+            self._error = True
 
-        if is_empty(self.data[f'{self.prefix}{self.metric} {self.stat}']):
-            Reporter(Level.error, f"Column '{self.prefix} {self.metric} {self.stat}' is empty.")
+        elif is_empty(self.data[f'{self.prefix}{self.metric} {self.stat}']):
+            Reporter(Level.error, f"Column '{self.prefix} {self.metric} {self.stat}' is empty.", noticequeue=self.noticequeue)
+            self._error = True
 
 
     def plot(self) -> plt.Figure:
+        if self._error: return
 
         fig, ax = plt.subplots(figsize=self.figsize)
 
@@ -148,13 +158,13 @@ class TSeries:
             if disper_vals is not None:
                 if isinstance(disper_vals, list) and len(disper_vals) == 2:
                     ax.fill_between(x_vals, disper_vals[0], disper_vals[1],
-                                    color=c, alpha=self.FILL_ALPHA)
+                                    color=c, alpha=self.FILL_ALPHA, linewidth=0)
                 elif isinstance(disper_vals, list) and len(disper_vals) == 1:
                     ax.fill_between(x_vals, y_vals - disper_vals[0], y_vals + disper_vals[0],
-                                    color=c, alpha=self.FILL_ALPHA)
+                                    color=c, alpha=self.FILL_ALPHA, linewidth=0)
                 elif not isinstance(disper_vals, list):
                     ax.fill_between(x_vals, y_vals - disper_vals, y_vals + disper_vals,
-                                    color=c, alpha=self.FILL_ALPHA)
+                                    color=c, alpha=self.FILL_ALPHA, linewidth=0)
 
         # Labels and title
         ax.set_xlabel(f"{'Time' if x_col == 'Time point' else 'Frame'}{f' [{self.time_units}]' if x_col == 'Time point' else ''}")
