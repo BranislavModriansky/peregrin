@@ -16,13 +16,18 @@ def mount_superplots(input, output, session, S, noticequeue):
         @reactive.Effect
         @reactive.event(S.TRACKSTATS)
         def _():
+            req(not is_empty(S.TRACKSTATS.get()))
+            ui.update_selectize(id="metric_sp", choices=S.TRACKSTATS_COLUMNS.get(), selected="Straightness index")
+
+        @reactive.Effect
+        @reactive.event(S.TRACKSTATS)
+        def _():
             if is_empty(S.TRACKSTATS.get()):
                 conditions = []
                 replicates = []
 
             elif not is_empty(S.TRACKSTATS.get()) :
                 conditions = S.TRACKSTATS.get()['Condition'].unique().tolist()
-                
                 if 'Replicate' not in S.TRACKSTATS.get().columns:
                     replicates = []
                 else:
@@ -59,6 +64,8 @@ def mount_superplots(input, output, session, S, noticequeue):
                 id="replicates_sp",
                 selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
+
+    
 
 
     def _superplot_common_kwargs() -> dict:
@@ -280,5 +287,49 @@ def mount_superplots(input, output, session, S, noticequeue):
     @render.plot
     def superviolins_superplot():
         return output_superviolins_superplot.result()
+    
 
+    def _superplot_build(which: str = "hybrid"):
+        if is_empty(S.TRACKSTATS.get()):
+            return None
+        else:
+            if which == "hybrid":
+                return SuperPlots(**_superplot_common_kwargs()).hybrid(**_superplot_hybrid_kwargs())
+            else:
+                return SuperPlots(**_superplot_common_kwargs()).superviolins(**_superplot_superviolins_kwargs())
 
+    @render.download(filename=f"SuperHybrid plot {date.today()}.svg", media_type="svg")
+    def sp_download_svg():
+        fig = _superplot_build(which="hybrid")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"SuperHybrid plot {date.today()}.png", media_type="png")
+    def sp_download_png():
+        fig = _superplot_build(which="hybrid")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"SuperViolin plot {date.today()}.svg", media_type="svg")
+    def vp_download_svg():
+        fig = _superplot_build(which="superviolins")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"SuperViolin plot {date.today()}.png", media_type="png")
+    def vp_download_png():
+        fig = _superplot_build(which="superviolins")
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
+                yield buffer.getvalue()

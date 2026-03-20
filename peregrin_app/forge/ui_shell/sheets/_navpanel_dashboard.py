@@ -14,7 +14,8 @@ card_spots = ui.card(
                     value=5,
                     min=0,
                     step=1,
-                    width="60px"
+                    width="60px",
+                    update_on="blur"
                 ),
                 ui.div("Significant figures:", style="margin-left:12px; font-weight: normal; white-space:nowrap;"),
                 ui.input_numeric(
@@ -23,7 +24,8 @@ card_spots = ui.card(
                     value=5,
                     min=1,
                     step=1,
-                    width="60px"
+                    width="60px",
+                    update_on="blur"
                 ), style="display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px;"
             ), style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; width:100%; gap:12px;"
         ), class_="bg-blue dataframe-card-header"

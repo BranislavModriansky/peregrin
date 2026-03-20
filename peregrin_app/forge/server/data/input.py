@@ -1,9 +1,10 @@
 import traceback
 from unittest import case
+import numpy as np
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render, req
-from src.code import DataLoader, Stats, Metrics, Level, is_empty
+from src.code import DataLoader, Stats, Metrics, Level, is_empty, Reporter, BaseDataInventory
 
 
 
@@ -29,14 +30,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                                 style="display: flex; flex-direction: column; justify-content: center; height: 100%; text-align: center; margin-top: 15px; margin-bottom: -10px;"
                             ),
                             ui.input_checkbox("strip_data", "Strip data, only keeping necessary columns", True),
-                            # ui.tooltip(
-                            #     ui.input_checkbox("pool_replicates", "Pool replicates", False),
-                            #     """
-                            #     If enabled, replicates will be pooled together when computing statistics. If disabled, statistics will be computed separately for each replicate. 
-                            #     Pooling replicates may be appropriate when technical replicates are present and there is no reason to expect systematic differences between them.
-                            #     """,
-                            #     placement="right",
-                            # ),
                             ui.div(  
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
@@ -51,7 +44,6 @@ def mount_data_input(input, output, session, S, noticequeue):
                                 ui.div(
                                     ui.markdown(""" <h5><b> Statistical Configuration: </h5></b> """), 
                                     style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 0px; margin-left: 0px;"
-                                    # style="display: flex; flex-direction: column; height: 100%; margin-top: 30px; margin-bottom: 10px; margin-left: 0px;"
                                 ),
                                 ui.tags.details(
                                     ui.tags.summary(""),
@@ -250,78 +242,133 @@ def mount_data_input(input, output, session, S, noticequeue):
     @reactive.Effect
     @reactive.event(input.run)
     def parsed_files():
-        all_data = []
+        try:
+            all_data = []
 
-        for idx in range(1, S.INPUTS.get()+1):
+            for idx in range(1, S.INPUTS.get()+1):
 
-            files = input[f"input_file{idx}"]()
+                files = input[f"input_file{idx}"]()
 
-            if not files:
-                break
+                if not files:
+                    break
 
-            if input.auto_label():
-                cond_label = files[0].get("name").split("#")[1] if len(files[0].get("name").split("#")) >= 2 else None #TODO: display an error if the file label is incorrect
-            else:
-                cond_label = input[f"condition_label{idx}"]()
+                if input.auto_label():
+                    cond_label = files[0].get("name").split("#")[1] if len(files[0].get("name").split("#")) >= 2 else None
+                else:
+                    cond_label = input[f"condition_label{idx}"]()
 
-            for file_idx, fileinfo in enumerate(files, start=1):
-                try:
-                    df = dataloader.GetDataFrame(fileinfo["datapath"], noticequeue=noticequeue)
-
-                    if input.strip_data():
-                        extracted = dataloader.ExtractStripped(
-                            df,
-                            id_col=input.select_id(),
-                            t_col=input.select_t(),
-                            x_col=input.select_x(),
-                            y_col=input.select_y(),
-                            mirror_y=True,
-                        )
-                    else:
-                        extracted = dataloader.ExtractFull(
-                            df,
-                            id_col=input.select_id(),
-                            t_col=input.select_t(),
-                            x_col=input.select_x(),
-                            y_col=input.select_y(),
-                            mirror_y=True,
-                        )
-
-                except: continue
-
-                extracted["Condition"] = cond_label if cond_label else str(idx)
-                extracted["Replicate"] = fileinfo.get("name").split("#")[2] if input.auto_label() and len(fileinfo.get("name").split("#")) >= 2 else str(file_idx)
-
-                all_data.append(extracted)
-
-                
-                
-        if all_data:
-            all_data = pd.concat(all_data, axis=0)
-            S.RAWDATA.set(all_data)
-
-            with reactive.isolate():
-                Stats.B_RESAMPLES = input.ci_resamples()
-
-                stats = Stats(
-                    # pool_replicates=input.pool_replicates(),
-                    cat_descr_err=True,
-                    cat_infer_err=input.inferential_error(),
-                    bootstrap=input.confidence_intervals(),
-                    noticequeue=noticequeue
+                all_data = dataloader.load_data(
+                    files=files,
+                    strip_data=input.strip_data(),
+                    cols={
+                        "id": input.select_id(),
+                        "t": input.select_t(),
+                        "x": input.select_x(),
+                        "y": input.select_y()
+                    },
+                    cond_label=cond_label,
+                    auto_label=input.auto_label(),
+                    cache=all_data,
+                    iteration=idx,
+                    mirror_y=True,  #TODO: add UI control
+                    mirror_x=False  #TODO: add UI control
                 )
 
-                # Compute spotstats for all data; spotstats are necessary and will be computed in any case
-                Spots = stats.Spots(all_data)
+                    
+                    
+            if all_data is not None:
+                all_data = pd.concat(all_data, axis=0)
+                S.RAWDATA.set(all_data)
 
-                # Compute desired stats based on user selection in the sidebar
-                Tracks, Frames, TimeIntervals = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-                if "Trackstats" in input.compute_data():
-                    Tracks = stats.Tracks(all_data)
-                if "Framestats" in input.compute_data():
-                    Frames = stats.Frames(all_data)
-                if "TimeIntervals" in input.compute_data():
-                    TimeIntervals = stats.TimeIntervals(all_data)
+                with reactive.isolate():
+                    Stats.B_RESAMPLES = input.ci_resamples()
+
+                    stats = Stats(
+                        cat_descr_err=True,
+                        cat_infer_err=input.inferential_error(),
+                        bootstrap_ci=input.confidence_intervals(),
+                        noticequeue=noticequeue
+                    )
+
+                    Spots = stats.Spots(all_data)
+
+                    if "Trackstats" in input.compute_data():
+                        Tracks = stats.Tracks(all_data)
+                    else:
+                        Tracks = pd.DataFrame()
+                    if "Framestats" in input.compute_data():
+                        Frames = stats.Frames(all_data)
+                    else:
+                        Frames = pd.DataFrame()
+                    if "TimeIntervals" in input.compute_data():
+                        TimeIntervals = stats.TimeIntervals(all_data)
+                    else:
+                        TimeIntervals = pd.DataFrame()
+
+                S.UNFILTERED_SPOTSTATS.set(Spots)
+                S.UNFILTERED_TRACKSTATS.set(Tracks)
+                S.UNFILTERED_FRAMESTATS.set(Frames)
+                S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
+
+                S.SPOTSTATS.set(Spots)
+                S.TRACKSTATS.set(Tracks)
+                S.FRAMESTATS.set(Frames)
+                S.TINTERVALSTATS.set(TimeIntervals)
+
+                ui.update_sidebar(id="sidebar", show=True)
+                ui.update_action_button(id="append_threshold", disabled=False)
+
+            else:
+                pass
+
+        finally:
+            ui.update_task_button("run", state="ready")
+
+
+    # _ _ _ _ PROCESSED DATA INPUT _ _ _ _
+
+    # Show/hide the Run button for processed mode based on file selection
+    @output()
+    @render.ui
+    def run_processed_btn_ui():
+        fileinfo = input.already_processed_input()
+        if fileinfo:
+            # File has been selected — disable mode switch immediately & show Run button
+            stabilize_input()
+            return ui.input_task_button("run_processed", label="Run", class_="btn-secondary task-btn", style="margin-left: 35px; margin-top: margin-top: -32px;")
+        else:
+            return ui.input_action_button("run_processed0", label="Run", class_="btn-secondary task-btn-mask", disabled=True, style="margin-left: 35px; margin-top: -32px;")
+
+    @reactive.Effect
+    @reactive.event(input.run_processed)
+    def load_processed_data():
+        fileinfo = input.already_processed_input()
+        req(fileinfo)
+
+        try:
+            df = dataloader.GetDataFrame(fileinfo[0]["datapath"])
+
+            # Drop auto-saved CSV index columns (e.g., "Unnamed: 0")
+            df = df.loc[:, ~df.columns.astype(str).str.match(r"^Unnamed(:\s*\d+)?$")]
+
+            # Ensure Condition and Replicate are strings (CSV may load them as int/float)
+            if 'Condition' in df.columns:
+                df['Condition'] = df['Condition'].astype(str)
+            if 'Replicate' in df.columns:
+                df['Replicate'] = df['Replicate'].astype(str)
+            if 'Track ID' in df.columns:
+                df['Track ID'] = pd.to_numeric(df['Track ID'], errors='coerce').astype('Int64')
+            if 'Track UID' in df.columns:
+                df['Track UID'] = pd.to_numeric(df['Track UID'], errors='coerce').astype('Int64')
+
+            stats = Stats(noticequeue=noticequeue)
+
+            # Running Spots() -> set Track UID index is necessaryfor other Stats methods.
+            Spots = stats.Spots(df)
+
+            Tracks = stats.Tracks(Spots)
+            Frames = stats.Frames(Spots)
+            TimeIntervals = stats.TimeIntervals(Spots)
 
             S.UNFILTERED_SPOTSTATS.set(Spots)
             S.UNFILTERED_TRACKSTATS.set(Tracks)
@@ -332,47 +379,14 @@ def mount_data_input(input, output, session, S, noticequeue):
             S.TRACKSTATS.set(Tracks)
             S.FRAMESTATS.set(Frames)
             S.TINTERVALSTATS.set(TimeIntervals)
+            
+            Reporter(Level.info, "Processed data loaded successfully.")
 
             ui.update_sidebar(id="sidebar", show=True)
             ui.update_action_button(id="append_threshold", disabled=False)
-
-        else:
-            pass
-
-
-
-    # _ _ _ _ PROCESSED DATA INPUT _ _ _ _
-
-    @reactive.Effect
-    @reactive.event(input.already_processed_input)
-    def load_processed_data():
-        fileinfo = input.already_processed_input()
-
-        try:
-            stabilize_input()
-
-            df = dataloader.GetDataFrame(fileinfo[0]["datapath"], noticequeue=noticequeue)
-
-            stats = Stats(noticequeue=noticequeue)
-
-            Tracks, Frames, TimeIntervals =  \
-                stats.Tracks(df),            \
-                stats.Frames(df),            \
-                stats.TimeIntervals(df)
-            
-            S.UNFILTERED_SPOTSTATS.set(df)
-            S.UNFILTERED_TRACKSTATS.set(Tracks)
-            S.UNFILTERED_FRAMESTATS.set(Frames)
-            S.UNFILTERED_TINTERVALSTATS.set(TimeIntervals)
-
-            S.SPOTSTATS.set(df)
-            S.TRACKSTATS.set(Tracks)
-            S.FRAMESTATS.set(Frames)
-            S.TINTERVALSTATS.set(TimeIntervals)
-            
-            ui.update_action_button(id="append_threshold", disabled=False)
-            
+        
         except Exception as e:
-            error_trace = traceback.format_exc()
-            noticequeue.Report(Level.error, "Error in loading processed data", error_trace)
-
+            Reporter(Level.error, f"An error occurred while loading the processed data: {str(e)}", trace=traceback.format_exc())
+        
+        finally:
+            ui.update_task_button("run_processed", state="ready")

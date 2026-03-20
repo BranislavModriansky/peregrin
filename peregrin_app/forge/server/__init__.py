@@ -14,10 +14,12 @@ from .viz.tracks import MountTracks
 from .viz.distributions import MountDistributions
 from .viz.superplots import mount_superplots
 from .viz.msd import mount_plot_msd
+from .viz.timeseries import mount_plot_ts
 from .viz.turnangles import mount_plot_turnangles
 from .viz.references import mount_references
+from .viz.motionflow import mount_motionflow
 
-from .bg_jobs.loaders import mount_loaders
+# from .bg_jobs.loaders import mount_loaders
 from .bg_jobs.buttons import mount_buttons
 from .bg_jobs.notify import mount_notifier
 from .bg_jobs.theme import set_theme
@@ -64,9 +66,11 @@ def Server(input: Inputs, output: Outputs, session: Session):
     MountDistributions(*args1)
     mount_superplots(*args, **kwargs)
     mount_plot_msd(*args, **kwargs)
+    mount_plot_ts(*args, **kwargs)
+    mount_motionflow(*args, **kwargs)
 
 
-    mount_loaders(*args)
+    # mount_loaders(*args)
     mount_buttons(*args, **kwargs)
     mount_statcols(*args, **kwargs)
 

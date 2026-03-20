@@ -63,7 +63,7 @@ class Painter:
             else:
                 try:
                     cmap = plt.get_cmap(palette)
-                except Exception:
+                except ValueError:
                     cmap = sns.color_palette(palette, n_colors=n)
                 except Exception as e:
                     Reporter(Level.error, f"Error retrieving colormap for '{palette}': {str(e)} -> Defaulting to the 'tab10' colormap.", trace=traceback.format_exc(), noticequeue=self.noticequeue)
@@ -175,8 +175,6 @@ class Painter:
                 
         return plt.gcf()
     
-
-
 class Categorizer:
     """
     #### *Categorize and aggregate data.*
@@ -274,7 +272,6 @@ class Categorizer:
             return self._aggregate()
         return self._filter()
     
-
 class LutScale:
 
     def __init__(self, min_val: float, max_val: float, cmap: str, **kwargs):

@@ -1,804 +1,811 @@
+/* ==========================================================================
+   Dark Theme – Design Tokens
+   ========================================================================== */
+
 :root {
-    --color-one: #1e1f21;
-    --color-two: #181616;
-    --color-twothree: #1d1f23;
-    --color-three: #26282d;
-    --color-threefour: #333539;
-    --color-four: #3c3f45;
-    --color-five: #9b9b9b;
-    --color-stripes-one: #2c2c2c;
-    --color-stripes-two: #252525;
-    --color-stripes-three: transparent;
+  /* Surface palette */
+  --surface-0: #121314;
+  --surface-1: #181616;
+  --surface-2: #1d1f23;
+  --surface-3: #1e1f21;
+  --surface-4: #26282d;
+  --surface-5: #333539;
+  --surface-6: #3c3f45;
 
-    --stripes-one: linear-gradient(
-        -45deg, 
-        black 5%, var(--color-stripes-one) 5%, 
-        var(--color-stripes-one) 10%, black 10%, 
-        black 15%, var(--color-stripes-one) 15%,
-        var(--color-stripes-one) 20%, black 20%, 
-        black 25%, var(--color-stripes-one) 25%,
-        var(--color-stripes-one) 30%, black 30%, 
-        black 35%, var(--color-stripes-one) 35%,
-        var(--color-stripes-one) 40%, black 40%, 
-        black 45%, var(--color-stripes-one) 45%,
-        var(--color-stripes-one) 50%, black 50%, 
-        black 55%, var(--color-stripes-one) 55%,
-        var(--color-stripes-one) 60%, black 60%, 
-        black 65%, var(--color-stripes-one) 65%,
-        var(--color-stripes-one) 70%, black 70%, 
-        black 75%, var(--color-stripes-one) 75%,
-        var(--color-stripes-one) 80%, black 80%, 
-        black 85%, var(--color-stripes-one) 85%, 
-        var(--color-stripes-one) 90%, black 90%, 
-        black 95%, var(--color-stripes-one) 95%, 
-        var(--color-stripes-one)
-    );
+  /* Text palette */
+  --text-primary: #f7f7f7;
+  --text-secondary: #dbe5ea;
+  --text-muted: #6f7476;
+  --text-disabled: #727272;
+  --text-dark: #000000;
 
-    --stripes-two: linear-gradient(
-        -45deg,
-        black 5%, var(--color-stripes-two) 5%, 
-        var(--color-stripes-two) 10%, black 10%, 
-        black 15%, var(--color-stripes-two) 15%,
-        var(--color-stripes-two) 20%, black 20%, 
-        black 25%, var(--color-stripes-two) 25%,
-        var(--color-stripes-two) 30%, black 30%, 
-        black 35%, var(--color-stripes-two) 35%,
-        var(--color-stripes-two) 40%, black 40%, 
-        black 45%, var(--color-stripes-two) 45%,
-        var(--color-stripes-two) 50%, black 50%, 
-        black 55%, var(--color-stripes-two) 55%,
-        var(--color-stripes-two) 60%, black 60%, 
-        black 65%, var(--color-stripes-two) 65%,
-        var(--color-stripes-two) 70%, black 70%, 
-        black 75%, var(--color-stripes-two) 75%,
-        var(--color-stripes-two) 80%, black 80%, 
-        black 85%, var(--color-stripes-two) 85%, 
-        var(--color-stripes-two) 90%, black 90%, 
-        black 95%, var(--color-stripes-two) 95%, 
-        var(--color-stripes-two)
-    );
+  /* Accent */
+  --accent-primary: #dbe5ea;
+  --accent-hover: #dbe5ea;
+  --accent-link: #006ea9;
+  --accent-active: #58a9d6;
+  --accent-primary-soft: #5c707e24;
 
-    --stripes-three: linear-gradient(
-        -45deg,
-        black 5%, transparent 5%, 
-        transparent 10%, black 10%, 
-        black 15%, transparent 15%,
-        transparent 20%, black 20%, 
-        black 25%, transparent 25%,
-        transparent 30%, black 30%, 
-        black 35%, transparent 35%,
-        transparent 40%, black 40%, 
-        black 45%, transparent 45%,
-        transparent 50%, black 50%, 
-        black 55%, transparent 55%,
-        transparent 60%, black 60%, 
-        black 65%, transparent 65%,
-        transparent 70%, black 70%, 
-        black 75%, transparent 75%,
-        transparent 80%, black 80%, 
-        black 85%, transparent 85%, 
-        transparent 90%, black 90%, 
-        black 95%, transparent 95%, 
-        transparent
-    );
+  /* Utility / misc */
+  --table-head-bg: #9b9b9b;
+  --overlay-bg: rgba(9, 9, 9, 0.502);
+  --popup-border: #435d7b;
+  --popup-shadow: none;
+  --transition-fast: 0.2s ease-in-out;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 0.75rem;
 
+  /* Stripe colors */
+  --stripe-1: #2c2c2c;
+  --stripe-2: #252525;
 
-    /* Main Accents */
-    --color-primary: #f7f7f7;
-    --color-hover: #dbe5ea;
-    --color-secondary: #dbe5ea;
+  /* Aliases */
+  --color-one: var(--surface-3);
+  --color-two: var(--surface-1);
+  --color-twothree: var(--surface-2);
+  --color-three: var(--surface-4);
+  --color-threefour: var(--surface-5);
+  --color-four: var(--surface-6);
+  --color-five: var(--table-head-bg);
+  --color-zero: var(--text-muted);
 
-    --color-secondary-transparent: #5c707e24;
-    --color-zero: #6f7476;
+  --color-primary: var(--text-primary);
+  --color-hover: var(--accent-hover);
+  --color-secondary: var(--accent-primary);
+  --color-secondary-transparent: var(--accent-primary-soft);
 
+  --color-stripes-one: var(--stripe-1);
+  --color-stripes-two: var(--stripe-2);
+  --color-stripes-three: transparent;
 
+  --popup-bg: var(--surface-3);
+  --header-bg: var(--surface-3);
+  --header-border: var(--surface-6);
+  --text-color: var(--text-secondary);
+  --subtext-color: var(--text-muted);
+  --item-bg: var(--surface-0);
+  --item-hover-bg: var(--surface-4);
+  --item-border: var(--surface-6);
+  --close-hover-color: var(--text-dark);
 
+  /* Stripes */
+  --stripes-one: linear-gradient(
+    -45deg,
+    #000 5%, var(--stripe-1) 5%,
+    var(--stripe-1) 10%, #000 10%,
+    #000 15%, var(--stripe-1) 15%,
+    var(--stripe-1) 20%, #000 20%,
+    #000 25%, var(--stripe-1) 25%,
+    var(--stripe-1) 30%, #000 30%,
+    #000 35%, var(--stripe-1) 35%,
+    var(--stripe-1) 40%, #000 40%,
+    #000 45%, var(--stripe-1) 45%,
+    var(--stripe-1) 50%, #000 50%,
+    #000 55%, var(--stripe-1) 55%,
+    var(--stripe-1) 60%, #000 60%,
+    #000 65%, var(--stripe-1) 65%,
+    var(--stripe-1) 70%, #000 70%,
+    #000 75%, var(--stripe-1) 75%,
+    var(--stripe-1) 80%, #000 80%,
+    #000 85%, var(--stripe-1) 85%,
+    var(--stripe-1) 90%, #000 90%,
+    #000 95%, var(--stripe-1) 95%,
+    var(--stripe-1)
+  );
 
-    --popup-bg: #1e1f21;
-    --popup-shadow: none;
-    --header-bg: #1e1f21;
-    --header-border: #3c3f45;
-    --text-color: #dbe5ea;
-    --subtext-color: #6f7476;
-    --item-bg: #121314;
-    --item-hover-bg: #26282d;
-    --item-border: #3c3f45;
-    --overlay-bg: rgba(9, 9, 9, 0.502);
-    --close-hover-color: #000;
-    --popup-border: #315a8a;
-    
+  --stripes-two: linear-gradient(
+    -45deg,
+    #000 5%, var(--stripe-2) 5%,
+    var(--stripe-2) 10%, #000 10%,
+    #000 15%, var(--stripe-2) 15%,
+    var(--stripe-2) 20%, #000 20%,
+    #000 25%, var(--stripe-2) 25%,
+    var(--stripe-2) 30%, #000 30%,
+    #000 35%, var(--stripe-2) 35%,
+    var(--stripe-2) 40%, #000 40%,
+    #000 45%, var(--stripe-2) 45%,
+    var(--stripe-2) 50%, #000 50%,
+    #000 55%, var(--stripe-2) 55%,
+    var(--stripe-2) 60%, #000 60%,
+    #000 65%, var(--stripe-2) 65%,
+    var(--stripe-2) 70%, #000 70%,
+    #000 75%, var(--stripe-2) 75%,
+    var(--stripe-2) 80%, #000 80%,
+    #000 85%, var(--stripe-2) 85%,
+    var(--stripe-2) 90%, #000 90%,
+    #000 95%, var(--stripe-2) 95%,
+    var(--stripe-2)
+  );
+
+  --stripes-three: linear-gradient(
+    -45deg,
+    #000 5%, transparent 5%,
+    transparent 10%, #000 10%,
+    #000 15%, transparent 15%,
+    transparent 20%, #000 20%,
+    #000 25%, transparent 25%,
+    transparent 30%, #000 30%,
+    #000 35%, transparent 35%,
+    transparent 40%, #000 40%,
+    #000 45%, transparent 45%,
+    transparent 50%, #000 50%,
+    #000 55%, transparent 55%,
+    transparent 60%, #000 60%,
+    #000 65%, transparent 65%,
+    transparent 70%, #000 70%,
+    #000 75%, transparent 75%,
+    transparent 80%, #000 80%,
+    #000 85%, transparent 85%,
+    transparent 90%, #000 90%,
+    #000 95%, transparent 95%,
+    transparent
+  );
 }
 
-.shiny-input-select * {
-    box-shadow: none !important;
+/* ==========================================================================
+   Global UI hygiene
+   ========================================================================== */
+
+.shiny-input-select *,
+.shiny-input-number *,
+.shiny-input-container *,
+.form-control *,
+.checkbox *,
+.accordion-header.h2 * {
+  box-shadow: none !important;
 }
 
-.shiny-input-number * {
-    box-shadow: none !important;
-}
-
-.shiny-input-container * {
-    box-shadow: none !important;
-}
-
-.form-control * {
-    box-shadow: none !important;
-}
+/* ==========================================================================
+   Navigation bars
+   ========================================================================== */
 
 .peregrin-logo {
-    font-weight: 600 !important;
-    font-size: 1.8rem !important;
-    color: var(--color-secondary) !important;
-    text-decoration: none !important;
+  color: var(--color-secondary) !important;
+  font-size: 1.8rem !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+}
+
+.navbar {
+  background-color: var(--color-one) !important;
 }
 
 .navbar-brand {
-    margin-top: -3px !important;
-    padding-right: 10px !important;
+  margin-top: -3px !important;
+  padding-right: 10px !important;
 }
 
-/* data input labeling sidebar */
+/* ==========================================================================
+   The main sidebar and accordions
+   ========================================================================== */
+
 #labeling_sidebar {
-    background-color: var(--color-two) !important;
+  background-color: var(--color-two) !important;
 }
 
-/* sidebar layout border */
 #labeling_sidebar_n_data_input_layout {
-    border: 1px solid var(--color-three) !important;
-    border-left: none !important
+  border: 1px solid var(--color-three) !important;
+  border-left: none !important;
 }
 
-.checkbox * {
-    box-shadow: none !important;
-}
-
-.accordion-header.h2 *{
-    box-shadow: none !important;
-}
-
-/* sidebar customization */
 #sidebar,
 #sidebar .accordion,
 #sidebar .accordion-item,
-#sidebar .accordion .accordion-header,
-#sidebar .accordion .accordion-button,
-#sidebar .accordion .accordion-collapse {
-    background-color: var(--color-two) !important;
+#sidebar .accordion-header,
+#sidebar .accordion-button,
+#sidebar .accordion-collapse {
+  background-color: var(--color-two) !important;
 }
 
-#sidebar, #sidebar > *, #sidebar > div, #sidebar .accordion,
-#sidebar .accordion .accordion-header {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-#sidebar .accordion .accordion-item .accordion-header .accordion-button {
-    font-size: 0.6em !important;
-    padding-left: 10px !important;
-    padding-right: 0 !important;
-}
-#sidebar .accordion .accordion-collapse {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-#sidebar .accordion .accordion-body {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
-#sidebar .accordion .accordion-item {
-    border-left: 0 !important;
-    border-right: 0 !important;
+#sidebar,
+#sidebar > *,
+#sidebar > div,
+#sidebar .accordion,
+#sidebar .accordion-header,
+#sidebar .accordion-collapse,
+#sidebar .accordion-body {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 
+#sidebar .accordion-item {
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
 
-/* special accordion02 class */
+#sidebar .accordion-item .accordion-header .accordion-button {
+  font-size: 0.6em !important;
+  padding-left: 10px !important;
+  padding-right: 0 !important;
+}
+
+#sidebar .accordion-body {
+  box-sizing: border-box !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 .accordion02 .accordion-header .accordion-button {
-    font-weight: 600;
+  font-weight: 600;
 }
 
-/* special draggable-accordion class */
-.draggable-accordion .accordion-item {
-    background-color: var(--color-one) !important;
-}
+.draggable-accordion .accordion-item,
 .draggable-accordion .accordion-button {
-    background-color: var(--color-one) !important;
+  background-color: var(--color-one) !important;
 }
+
+/* ==========================================================================
+   Cards / panels / data viewers
+   ========================================================================== */
 
 .elevated-panel .card {
-    background-color: var(--color-two) !important;
+  background-color: var(--color-two) !important;
 }
+
 .elevated-panel .card:hover:not(:has(.accordion:hover)) {
-    border-color: var(--color-four) !important;
-}
-
-/* plain-link class for markdown links */
-.plain-link {
-    color: #006ea9"";
-    text-decoration: none;
-    cursor: pointer;
-    font-style: italic;
-}
-.plain-link:hover {
-    text-decoration: underline;
-}
-
-
-/* custom order ladder ui element */
-#order {
-    list-style-type: none;
-    padding-left: 0;
-    margin-left: 0;
-}
-#order li { 
-    cursor: grab; 
-    background: var(--color-one); 
-}
-#order li:active { 
-    cursor: grabbing; 
-}
-
-
-/* image stack scroll through buttons */
-#prev, #next {
-    border: none !important;
-    background: none !important;
-    box-shadow: none !important;
-    padding: 0.25rem 0.5rem !important;
-    font-size: 3rem;
-}
-#prev:hover, #next:hover {
-    color: #007bff;
-    cursor: pointer;
-}
-#play, #stop {
-    border: none !important;
-    background: none !important;
-    box-shadow: none !important;
-    padding: 0.25rem 0.5rem !important;
-    font-size: 2rem;
-}
-#play:hover, #stop:hover {
-    color: dimgrey;
-    cursor: pointer;
-}
-
-
-/* custom button without frame */
-.btn-noframe {
-    border: none;
-    padding: 0;
-    padding-top: 17px;
-    margin-left: -15px;
-    background: none;
-    box-shadow: none;
-    color: lightgrey;
-    cursor: pointer;
-    font-size: 2.65rem;
-}
-.btn-noframe:hover {
-    color: dimgrey;
-    background: none;
-}
-.btn-noframe:active {
-    color: #58a9d6 !important;
-    background: none !important;
-}
-
-.btn-tertiary-css {
-    background-color: transparent !important;
-    background-image: var(--stripes-one) !important;
-    border: 1px solid var(--color-threefour) !important;
-    color: var(--color-secondary) !important;
-}
-
-.btn-tertiary-css:hover {
-    /* background-image: var(--stripes-two) !important; */
-    border-color: var(--color-four) !important;
-    color: white !important;
-}
-.action-button.btn-tertiary-css:active {
-    background-image: var(--stripes-two) !important;
-    border-color: var(--color-twothree) !important;
-}
-.action-button.btn-tertiary-css:active * {
-    color: #ddd !important;
-}
-.action-button.btn-tertiary-css:disabled {
-    background-image: var(--stripes-three) !important;
-    border-color: transparent !important;
-    color: #727272 !important;
+  border-color: var(--color-four) !important;
 }
 
 .card-header.bg-secondary-css {
-    background-color: var(--color-four) !important;
+  background-color: var(--color-four) !important;
 }
 
 .card-header:not(.bg-blue).dataframe-card-header {
-    padding-top: 12.29px !important;
-    padding-bottom: 10.6px !important;
-}
-
-input#significant_figures {
-    box-shadow: none !important;
-    padding: 0.2rem 0.75rem; 
-    border-radius: 0.75rem;
-}
-input#decimal_places {
-    box-shadow: none !important;
-    padding: 0.2rem 0.75rem; 
-    border-radius: 0.75rem;
+  padding-top: 12.29px !important;
+  padding-bottom: 10.6px !important;
 }
 
 .card-body {
-    background-color: #17181b !important;
+  background-color: #17181b !important;
 }
 
 .dd-cards-wrap {
-  /* Masonry-like stacking (no row alignment) */
   display: block !important;
   column-count: 2;
   column-gap: 1rem;
 }
-/* Fit cards to 1 column on smaller screens */
+
 @media (max-width: 991.98px) {
   .dd-cards-wrap {
     column-count: 1;
   }
 }
+
 .dd-cards-wrap > * {
   display: inline-block;
   width: 100% !important;
   max-width: 100% !important;
+  margin: 0 0 1rem;
   break-inside: avoid;
   page-break-inside: avoid;
   -webkit-column-break-inside: avoid;
-  margin: 0 0 1rem 0;
 }
+
 .dd-cards-wrap .card,
 .dd-cards-wrap .card-body {
   height: auto !important;
 }
 
-.navbar {
-    background-color: var(--color-one) !important;
+/* ==========================================================================
+   Links
+   ========================================================================== */
+
+.plain-link {
+  color: var(--accent-link);
+  cursor: pointer;
+  font-style: italic;
+  text-decoration: none;
 }
 
+.plain-link:hover {
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Data viewer controls (significant figures, decimal places)
+   ========================================================================== */
+
+input#significant_figures,
+input#decimal_places {
+  box-shadow: none !important;
+  border-radius: var(--radius-lg);
+  padding: 0.2rem 0.75rem;
+}
+
+/* ==========================================================================
+   Custom buttons (replay controls, no-frame buttons, tertiary action buttons)
+   ========================================================================== */
+
+#prev,
+#next {
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0.25rem 0.5rem !important;
+  font-size: 3rem;
+}
+
+#prev:hover,
+#next:hover {
+  color: #007bff;
+  cursor: pointer;
+}
+
+#play,
+#stop {
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0.25rem 0.5rem !important;
+  font-size: 2rem;
+}
+
+#play:hover,
+#stop:hover {
+  color: dimgrey;
+  cursor: pointer;
+}
+
+.btn-noframe {
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: lightgrey;
+  cursor: pointer;
+  font-size: 2.65rem;
+  margin-left: -15px;
+  padding: 17px 0 0;
+}
+
+.btn-noframe:hover {
+  color: dimgrey;
+  background: none;
+}
+
+.btn-noframe:active {
+  color: var(--accent-active) !important;
+  background: none !important;
+}
+
+.btn-tertiary-css {
+  background-color: transparent !important;
+  background-image: var(--stripes-one) !important;
+  border: 1px solid var(--color-threefour) !important;
+  color: var(--color-secondary) !important;
+}
+
+.btn-tertiary-css:hover {
+  border-color: var(--color-four) !important;
+  color: #fff !important;
+}
+
+.action-button.btn-tertiary-css:active {
+  background-image: var(--stripes-two) !important;
+  border-color: var(--color-twothree) !important;
+}
+
+.action-button.btn-tertiary-css:active * {
+  color: #ddd !important;
+}
+
+.action-button.btn-tertiary-css:disabled {
+  background-image: var(--stripes-three) !important;
+  border-color: transparent !important;
+  color: var(--text-disabled) !important;
+}
+
+/* ==========================================================================
+   Shiny sortable styling
+   ========================================================================== */
+
+#order {
+  list-style: none;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+#order li {
+  cursor: grab;
+  background: var(--color-one);
+}
+
+#order li:active {
+  cursor: grabbing;
+}
+
+/* ==========================================================================
+   Data tables styling
+   ========================================================================== */
+
 .layout {
-    display: grid;
-    grid-template-columns: 135px 1fr;
-    gap: 6px;
+  display: grid;
+  grid-template-columns: 135px 1fr;
+  gap: 6px;
 }
 
 .df-summary {
-    font-size: 12px;
-    border-right: 1px solid var(--color-four);
+  font-size: 12px;
+  border-right: 1px solid var(--color-four);
 }
 
 .column-summaries {
-    display: flex;
-    overflow-x: auto;
-    gap: 6px;
-    padding-bottom: 2px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .column-card {
-    min-width: 140px;
-    border: 1px solid var(--color-threefour);
-    padding: 6px;
-    font-size: 11px;
-    background: var(--color-two);
+  min-width: 140px;
+  border: 1px solid var(--color-threefour);
+  background: var(--color-two);
+  font-size: 11px;
+  padding: 6px;
 }
 
 .column-title {
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 4px;
-    white-space: normal;
-    overflow: visible;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: normal;
+  overflow: visible;
 }
 
 .column-body {
-    height: 150px;
-    overflow-y: auto;
-    scrollbar-width: none;
+  height: 150px;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .column-body::-webkit-scrollbar {
-    display: none;
-}
-                
-.modebar-container {
-    display: none !important;
+  display: none;
 }
 
-.modal-backdrop {
-    background-color: black !important;
-    opacity: 0.5 !important;
-}
-
-div#bslib-full-screen-overlay {
-    background-color: black !important;
-    opacity: 0.85 !important;
-}
-
-a.bslib-full-screen-exit {
-    color: lightgrey !important;
-}
-
-* table tbody * {
-    background-color: var(--color-two) !important;
-}
-* th {
-    background-color: var(--color-five) !important;
-}
-* th * {
-    color: black !important;
-}
-
-
+/* ==========================================================================
+   Navigation bar links animations
+   ========================================================================== */
 
 nav a {
-    color: var(--color-zero) !important;
-    transition: var(--transition-smooth) !important;
-    font-weight: 500 !important;
-}
-nav a.active {
-    color: var(--color-primary) !important;
-    /* Removed border-bottom to align with hover effect height */
-    background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
-}
-nav a.hover,
-nav a.nav-link:hover {
-    color: var(--color-hover) !important;
+  color: var(--color-zero) !important;
+  font-weight: 500 !important;
+  transition: var(--transition-smooth) !important;
 }
 
-/* animated bottom border (nav links only; excludes .peregrin-logo) */
+nav a.active {
+  color: var(--color-primary) !important;
+  background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
+}
+
+/* nav-links */
+nav a.hover,
+nav a.nav-link:hover {
+  color: var(--color-hover) !important;
+}
+
 nav a.nav-link {
-    color: var(--color-zero) !important;
-    transition: var(--transition-smooth) !important;
-    font-weight: 500 !important;
+  position: relative;
+  overflow: hidden;
+  border-bottom: none !important;
+  color: var(--color-zero) !important;
+  font-weight: 500 !important;
+  transition: var(--transition-smooth) !important;
 }
 
 nav a.nav-link.active {
-    color: var(--color-primary) !important;
-    /* Removed border-bottom to align with hover effect height */
-    background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
-}
-
-nav a.nav-link.hover,
-nav a.nav-link:hover {
-    color: var(--color-hover) !important;
-}
-
-/* animated bottom border */
-nav a.nav-link {
-    position: relative;
-    overflow: hidden;
-    border-bottom: none !important; /* prevent default bottom border */
+  color: var(--color-primary) !important;
+  background: linear-gradient(0deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
 }
 
 nav a.nav-link::after {
-    content: "";
-    position: absolute;
-    left: 0%;
-    bottom: 0;
-    width: 0;
-    height: 2px;
-    background-color: var(--color-hover);
-    transition: left 0.2s ease-in-out, width 0.2s ease-in-out;
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--color-hover);
+  transition: left var(--transition-fast), width var(--transition-fast);
 }
 
-/* Active state now uses the pseudo-element for consistent positioning */
 nav a.nav-link.active::after {
-    width: 100%;
-    left: 0;
-    background-color: var(--color-primary);
+  left: 0;
+  width: 100%;
+  background-color: var(--color-primary);
 }
 
-/* Change active border color on hover */
 nav a.nav-link.active:hover::after {
-    background-color: var(--color-hover);
+  background-color: var(--color-hover);
 }
 
 nav a.nav-link:hover::after,
 nav a.nav-link.hover::after {
-    width: 100%;
-    left: 0;
+  left: 0;
+  width: 100%;
 }
 
+/* nav-pills */
 .nav-pills .nav-item * {
-    color: var(--color-zero) !important;
+  color: var(--color-zero) !important;
 }
 
-/* Animated Left Border for Nav Pills */
 .nav-pills .nav-link {
-    position: relative;
-    overflow: hidden;
-    border-left: none !important; /* Remove default border */
-    transition: var(--transition-smooth) !important;
+  position: relative;
+  overflow: hidden;
+  border-left: none !important;
+  transition: var(--transition-smooth) !important;
 }
 
 .nav-pills .nav-link::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 87.5%; /* Start from top to grow downwards */
-    width: 2px; /* Matches navbar border thickness */
-    transform: translateY(-100%);
-    height: 0;
-    background-color: var(--color-hover);
-    transition: height 0.2s ease-in-out;
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 87.5%;
+  transform: translateY(-100%);
+  width: 2px;
+  height: 0;
+  background-color: var(--color-hover);
+  transition: height var(--transition-fast);
 }
 
 .nav-pills .nav-link:hover::before {
-    height: 75%; /* Reduced from 100% to prevent touching */
+  height: 75%;
 }
 
 .nav-pills a.active {
-    color: var(--color-primary) !important;
-    background: linear-gradient(90deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
-    background-size: 100% 75% !important; /* Match border height */
-    background-repeat: no-repeat !important;
-    background-position: left center !important;
+  color: var(--color-primary) !important;
+  background: linear-gradient(90deg, var(--color-secondary-transparent) 0%, transparent 100%) !important;
+  background-size: 100% 75% !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
 }
 
-/* Active state keeps the border full height */
 .nav-pills a.active::before {
-    height: 75%; /* Reduced from 100% to match hover span */
-    background-color: var(--color-secondary);
+  height: 75%;
+  background-color: var(--color-secondary);
 }
 
-/* Active hover changes border color */
 .nav-pills a.active:hover::before {
-    background-color: var(--color-hover);
+  background-color: var(--color-hover);
 }
 
 .nav-pills a.nav-link:hover {
-    color: var(--color-hover) !important;
+  color: var(--color-hover) !important;
 }
 
+/* ==========================================================================
+   Fullscreen overlay
+   ========================================================================== */
+
+.modal-backdrop {
+  background-color: #000 !important;
+  opacity: 0.5 !important;
+}
+
+div#bslib-full-screen-overlay {
+  background-color: #000 !important;
+  opacity: 0.85 !important;
+}
+
+a.bslib-full-screen-exit {
+  color: lightgrey !important;
+}
+
+.modebar-container {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+
+* table tbody * {
+  background-color: var(--color-two) !important;
+}
+
+* th {
+  background-color: var(--color-five) !important;
+}
+
+* th * {
+  color: #000 !important;
+}
+
+/* ==========================================================================
+   One-off state overrides
+   ========================================================================== */
+
 div.checkbox:has(#compute_spotstats) {
-    cursor: not-allowed !important;
+  cursor: not-allowed !important;
 }
 
 div.checkbox:has(#compute_spotstats) * {
-    pointer-events: none !important;
-    color: grey !important;
+  pointer-events: none !important;
+  color: grey !important;
 }
-
 
 div#colormap_showcase {
-    /* width: 75% !important; */
-    height: 1500px !important;
+  height: 1500px !important;
 }
 
-
-
-#shiny-notification-panel {
-  max-height: 600px; /* Or a specific height, e.g., 600px */
-}
+/* ==========================================================================
+   Notifications
+   ========================================================================== */
 
 #shiny-notification-panel {
-  overflow-y: scroll; /* Enables vertical scrolling */
+  max-height: 600px;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 #shiny-notification-panel::-webkit-scrollbar {
-  display: none; /* Hides the scrollbar entirely */
-  width: 0;      /* Ensures no width is taken up */
+  display: none;
+  width: 0;
 }
 
-#shiny-notification-panel {
-  scrollbar-width: none; /* Hides the scrollbar */
-}
-
-#shiny-notification-panel {
-  -ms-overflow-style: none; /* Hides the scrollbar */
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* ==========================================================================
+   Imported file preview popup
+   ========================================================================== */
 
 .file-preview-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--overlay-bg);
-    backdrop-filter: blur(1px);
-    z-index: 9998;
-    opacity: 0;
-    transition: opacity 0.2s ease;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9998;
+  opacity: 0;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(1px);
+  transition: opacity 0.2s ease;
 }
 
 .file-preview-overlay.show {
-    opacity: 1;
+  opacity: 1;
 }
 
 .file-preview-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.95);
-    background: var(--popup-bg);
-    border-radius: 6px;
-    box-shadow: 0 5px 15px var(--popup-shadow);
-    z-index: 9999;
-    min-width: 400px;
-    max-width: 550px;
-    max-height: 70vh;
-    opacity: 0;
-    transition: all 0.15s ease;
-    overflow: hidden;
-    border: 1px solid var(--popup-border);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 9999;
+  min-width: 400px;
+  max-width: 550px;
+  max-height: 70vh;
+  overflow: hidden;
+  opacity: 0;
+  border: 1px solid var(--popup-border);
+  border-radius: var(--radius-md);
+  background: var(--popup-bg);
+  box-shadow: 0 5px 15px var(--popup-shadow);
+  transform: translate(-50%, -50%) scale(0.95);
+  transition: all 0.15s ease;
 }
 
 .file-preview-popup.show {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .file-preview-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    border-bottom: 1px solid var(--header-border);
-    background: var(--header-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--header-border);
+  background: var(--header-bg);
 }
 
 .file-preview-header h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 500;
-    color: var(--text-color);
+  margin: 0;
+  color: var(--text-color);
+  font-size: 20px;
+  font-weight: 500;
 }
 
 .file-preview-close {
-    background: transparent;
-    border: none;
-    color: var(--subtext-color);
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    font-size: 24px;
-    line-height: 1;
-    padding: 0;
-    opacity: 0.5;
-    transition: opacity 0.15s ease;
+  width: 24px;
+  height: 24px;
+  border: none;
+  padding: 0;
+  opacity: 0.5;
+  color: var(--subtext-color);
+  background: transparent;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  transition: opacity 0.15s ease;
 }
 
 .file-preview-close:hover {
-    opacity: 1;
-    color: var(--close-hover-color);
+  opacity: 1;
+  color: var(--close-hover-color);
 }
 
 .file-preview-content {
-    padding: 20px;
-    max-height: 50vh;
-    overflow-y: auto;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 20px;
 }
 
 .file-preview-empty {
-    text-align: center;
-    color: var(--subtext-color);
-    padding: 20px;
-    font-style: italic;
+  padding: 20px;
+  color: var(--subtext-color);
+  font-style: italic;
+  text-align: center;
 }
 
 .file-preview-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .file-preview-item {
-    display: flex;
-    align-items: center;
-    padding: 8px 10px;
-    border-radius: 4px;
-    margin-bottom: 6px;
-    background: var(--item-bg);
-    border: 1px solid var(--item-border);
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--item-border);
+  border-radius: var(--radius-sm);
+  background: var(--item-bg);
 }
 
 .file-preview-item:hover {
-    background: var(--item-hover-bg);
+  background: var(--item-hover-bg);
 }
 
 .file-preview-item:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .file-preview-icon {
-    width: 32px;
-    height: 32px;
-    background: var(--subtext-color);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 12px;
-    flex-shrink: 0;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--subtext-color);
 }
 
 .file-preview-icon svg {
-    width: 16px;
-    height: 16px;
-    fill: var(--popup-bg);
+  width: 16px;
+  height: 16px;
+  fill: var(--popup-bg);
 }
 
 .file-preview-info {
-    flex: 1;
-    min-width: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .file-preview-name {
-    font-size: 14px;
-    font-weight: 400;
-    color: var(--text-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  overflow: hidden;
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .file-preview-size {
-    font-size: 12px;
-    color: var(--subtext-color);
-    margin-top: 2px;
+  margin-top: 2px;
+  color: var(--subtext-color);
+  font-size: 12px;
 }
 
 .file-preview-count {
-    font-size: 14px;
-    color: var(--text-color);
-    margin-bottom: 15px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--header-border);
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--header-border);
+  color: var(--text-color);
+  font-size: 14px;
 }

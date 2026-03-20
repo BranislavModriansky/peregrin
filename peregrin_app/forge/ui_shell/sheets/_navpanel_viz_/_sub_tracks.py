@@ -28,7 +28,7 @@ subpanel_tracks = ui.nav_panel(
         ),
 
         # _ _ SETTINGS _ _
-        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Normalized", "Animated"], selected="Normalized", width="200px"),
+        ui.input_selectize(id="track_reconstruction_method", label="Reconstruction method:", choices=["Realistic", "Normalized", "Animated"], selected="Realistic", width="200px"),
 
         ui.accordion(
             ui.accordion_panel(
@@ -90,7 +90,7 @@ subpanel_tracks = ui.nav_panel(
                     ui.input_selectize("tracks_color_mode", "Color mode:", Dyes.CModes, width="250px"),
                     ui.panel_conditional(
                         "!['single color', 'random colors', 'random greys', 'differentiate conditions', 'differentiate replicates'].includes(input.tracks_color_mode)",
-                        ui.input_selectize("tracks_lut_scaling_metric", "LUT scaling metric:", Metrics.Lut, width="230px"),
+                        ui.input_selectize(id="tracks_lut_scaling_metric", label="LUT scaling metric:", choices=[], multiple=False, width="230px"),
                     ),
                     ui.panel_conditional(
                         "input.tracks_color_mode == 'single color'",
@@ -163,7 +163,11 @@ subpanel_tracks = ui.nav_panel(
             full_screen=False,
             height="800px",
         ),
-        ui.download_button("trr_download", "Download", width="100%")
+        ui.br(),
+        ui.row(
+            ui.column(6, ui.download_button("trr_download_svg", "Download SVG", width="100%")),
+            ui.column(6, ui.download_button("trr_download_png", "Download PNG", width="100%"))
+        )
     ),
     ui.panel_conditional(
         "input.track_reconstruction_method == 'Normalized'",
@@ -172,7 +176,11 @@ subpanel_tracks = ui.nav_panel(
             full_screen=False,
             height="800px",
         ),
-        ui.download_button("tnr_download", "Download", width="100%"),
+        ui.br(),
+        ui.row(
+            ui.column(6, ui.download_button("tnr_download_svg", "Download SVG", width="100%")),
+            ui.column(6, ui.download_button("tnr_download_png", "Download PNG", width="100%"))
+        )
     ),
     ui.panel_conditional(
         "input.track_reconstruction_method == 'Animated'",
@@ -195,12 +203,15 @@ subpanel_tracks = ui.nav_panel(
                 )
             ),
             ui.markdown(""" <p></p> """),
-            ui.download_button("tar_download", "Download video", width="100%"),
+            ui.download_button("tar_download", "Download MP4 video", width="100%"),
         )
     ),
     ui.panel_conditional(
         "!['single color', 'random colors', 'random greys'].includes(input.tracks_color_mode)",
-        ui.markdown(""" <p></p> """),
-        ui.download_button(id="download_lut_map_svg", label="Download LUT Map SVG", width="100%"),
+        ui.br(),
+        ui.row(
+            ui.column(6, ui.download_button(id="tr_download_lut_map_svg", label="Download LUT Map SVG", width="100%")),
+            ui.column(6, ui.download_button(id="tr_download_lut_map_png", label="Download LUT Map PNG", width="100%"))
+        )
     )
 )

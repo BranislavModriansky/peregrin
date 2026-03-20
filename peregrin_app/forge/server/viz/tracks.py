@@ -7,7 +7,7 @@ from matplotlib.pyplot import text
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes, is_empty
+from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes, is_empty, Level, Reporter
 
 import numpy as np
 from io import BytesIO
@@ -75,6 +75,15 @@ def MountTracks(input, output, session, S, noticequeue):
                 selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
 
+    
+    @reactive.effect
+    def update_choices():
+        req(not is_empty(S.SPOTSTATS.get())
+            and not is_empty(S.TRACKSTATS.get()))
+        
+        ui.update_selectize(id="tracks_lut_scaling_metric", choices={"SPOTS": S.SPOTSTATS_COLUMNS.get(), "TRACKS": S.TRACKSTATS_COLUMNS.get()}, selected="Track displacement")
+
+
     @render.text
     def tracks_lutmap_auto_scale_info():
         if (
@@ -95,10 +104,7 @@ def MountTracks(input, output, session, S, noticequeue):
 
 
     def _reconstruct_tracks_kwargs() -> dict:
-        """
-        IMPORTANT: Call only from a reactive context (main thread).
-        Do NOT call from inside an extended_task.
-        """
+        """ Call only in a reactive context (in the main thread). <- Do not call inside an extended_task. """
 
         if input.tracks_annotate_r():
             annotate_r = input.tracks_r_annotstyle()
@@ -176,20 +182,30 @@ def MountTracks(input, output, session, S, noticequeue):
     def track_reconstruction_realistic():
         return output_track_reconstruction_realistic.result()
 
-    @render.download(filename=f"Realistic Track Reconstruction {date.today()}.svg")
-    def trr_download():
-        req(
-            S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-        )
+    @render.download(filename=f"Realistic Track Reconstruction {date.today()}.svg", media_type="svg")
+    def trr_download_svg():
+        req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).Realistic()
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Realistic Track Reconstruction {date.today()}.png", media_type="png")
+    def trr_download_png():
+        req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
+
+        kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
+        fig = ReconstructTracks(**kwargs).Realistic()
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
                 yield buffer.getvalue()
 
 
@@ -232,20 +248,30 @@ def MountTracks(input, output, session, S, noticequeue):
     def track_reconstruction_normalized():
         return output_track_reconstruction_normalized.result()
 
-    @render.download(filename=f"Normalized Track Reconstruction {date.today()}.svg")
-    def tnr_download():
-        req(
-            S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-        )
+    @render.download(filename=f"Normalized Track Reconstruction {date.today()}.svg", media_type="svg")
+    def tnr_download_svg():
+        req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).Normalized(all_data=S.SPOTSTATS.get())
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Normalized Track Reconstruction {date.today()}.png", media_type="png")
+    def tnr_download_png():
+        req(not is_empty(S.SPOTSTATS.get()) and not is_empty(S.TRACKSTATS.get()))
+
+        kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
+        fig = ReconstructTracks(**kwargs).Normalized(all_data=S.SPOTSTATS.get())
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
                 yield buffer.getvalue()
 
 
@@ -274,7 +300,7 @@ def MountTracks(input, output, session, S, noticequeue):
             i = 0 if i < 0 else (n - 1 if i >= n else i)
             session.send_input_message("frame_replay", {"value": i})
         except Exception as e:
-            print(f"Error in set_frame: {e}")
+            Reporter(Level.error, f"Failed to set frame: {e}", noticequeue=noticequeue)
 
     @reactive.Effect
     @reactive.event(input.prev)
@@ -368,6 +394,7 @@ def MountTracks(input, output, session, S, noticequeue):
         )
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         stack = output_track_reconstruction_animated.result()
         req(stack is not None)
 
@@ -388,19 +415,30 @@ def MountTracks(input, output, session, S, noticequeue):
 
 
     @render.download(filename=f"Lut Map {date.today()}.svg")
-    def download_lut_map_svg():
-        req(
-            S.SPOTSTATS.get() is not None and not S.SPOTSTATS.get().empty
-            and S.TRACKSTATS.get() is not None and not S.TRACKSTATS.get().empty
-            and "Condition" in S.SPOTSTATS.get().columns and "Replicate" in S.SPOTSTATS.get().columns
-        )
+    def tr_download_lut_map_svg():
+        req(not is_empty(S.SPOTSTATS.get()))
 
         kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
         fig = ReconstructTracks(**kwargs).GetLutMap(units=S.UNITS.get(), _extend=input.tracks_lutmap_extend_edges())
 
         if fig is not None:
             with io.BytesIO() as buffer:
                 fig.savefig(buffer, format="svg", bbox_inches="tight")
+                yield buffer.getvalue()
+
+    @render.download(filename=f"Lut Map {date.today()}.png")
+    def tr_download_lut_map_png():
+        req(not is_empty(S.SPOTSTATS.get()))
+
+        kwargs = _reconstruct_tracks_kwargs()
+        kwargs["text_color"] = 'black'  # Override text color on download
+
+        fig = ReconstructTracks(**kwargs).GetLutMap(units=S.UNITS.get(), _extend=input.tracks_lutmap_extend_edges())
+
+        if fig is not None:
+            with io.BytesIO() as buffer:
+                fig.savefig(buffer, format="png", bbox_inches="tight")
                 yield buffer.getvalue()
 
     

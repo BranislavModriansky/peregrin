@@ -35,14 +35,14 @@ subpanel_msd = ui.nav_panel(
                 ui.row(
                     ui.column(4, ui.input_selectize(id="replicates_msd", label="Replicates:", choices=[], selected=[], multiple=True, options={"placeholder": "Select replicates"})),
                     ui.column(1, ui.input_action_button(id="replicates_reset_msd", label="🗘", class_="btn-noframe")),
-                    ui.column(4, ui.div(
-                        ui.input_checkbox(id="replicates_separate_msd", label="Separate replicates", value=False)),
-                        style="margin-top: 38px; margin-left: -40px;"
-                    )
+                    # ui.column(4, ui.div(
+                    #     ui.input_checkbox(id="replicates_separate_msd", label="Separate replicates", value=False)),
+                    #     style="margin-top: 38px; margin-left: -40px;")
                 )
             ),
             ui.accordion_panel(
                 "Compose",
+                ui.input_selectize(id="aggregation_msd", label="Aggregation method:", choices=['Condition', 'Replicate'], selected='Condition', width="185px"),
                 ui.accordion(
                     ui.accordion_panel(
                         'Line and Scatter',
@@ -63,63 +63,42 @@ subpanel_msd = ui.nav_panel(
                         ui.input_checkbox("fit_show_msd", "Show linear fit", True),
                     ),
                     ui.accordion_panel(
-                        'Error band',
+                        'Dispersion',
                         ui.row(
-                            ui.column(2, 
-                                ui.input_checkbox("error_band_show_msd", "Show error band", True)
-                            ),
-                            ui.column(2, 
-                                ui.panel_conditional(
-                                    "input.error_band_show_msd == true",
-                                    ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci'], selected='sd', width="120px"),
-                                )
-                            )
+                            ui.column(2, ui.input_selectize("error_band_type_msd", None, choices=['sd', 'sem', 'min-max', 'ci', 'none'], selected='sd', width="120px")),
                         )
                     ),
                     ui.accordion_panel(
                         'Decoratives',
                         ui.input_checkbox("grid_show_msd", "Show grid", True),
                     ),
-                )
-            ),
-            ui.accordion_panel(
-                'Color',
-                ui.row(
-                    ui.column(3, 
-                        ui.input_selectize("c_mode_msd", "Color mode:", choices=['differentiate conditions', 'differentiate replicates', 'single color'], selected='differentiate conditions'),
-                    ),
-                    ui.column(2,
-                        ui.panel_conditional(
-                            "input.c_mode_msd == 'single color'",
-                            ui.div(
-                                ui.input_selectize("only_one_color_msd", "Color:", Dyes.Colors),
-                                style="margin-left: 15px;"
-                            )
-                        ),
-                        ui.panel_conditional(
-                            "input.c_mode_msd != 'single color'",
-                            ui.div(
-                                ui.input_checkbox("palette_stock_msd", "Use stock palette", True),
-                                style="margin-top: 38px; margin-left: 15px;"
+                    ui.accordion_panel(
+                        'Color',
+                        ui.row(
+                            ui.column(2, ui.div(
+                                    ui.input_checkbox("palette_stock_msd", "Use stock palette", True),
+                                    style="margin-top: 38px; margin-left: 15px;"
+                                )
+                            ),
+                            ui.column(2, 
+                                ui.panel_conditional(
+                                    "input.palette_stock_msd == true",
+                                    ui.div(
+                                        ui.input_selectize("palette_stock_type_msd", "Palette:", Dyes.PaletteQualitativeMatplotlib), # TODO: extend the palette options for seaborn qualitative colormaps <- first modify the Painter.StockQualPalette function to include the new colormaps
+                                        style="margin-left: -15px;"
+                                    )
+                                )
                             )
                         )
-                    ),
-                    ui.column(2, 
-                        ui.panel_conditional(
-                            "input.c_mode_msd != 'single color' && input.palette_stock_msd == true",
-                            ui.div(
-                                ui.input_selectize("palette_stock_type_msd", "Palette:", Dyes.PaletteQualitativeMatplotlib),    
-                                style="margin-left: -15px;"
-                            )
-                        )
-                    ),
-                )
+                    )
+                ),
+                ui.br(),
+                ui.row(ui.input_text(id="title_msd", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
             ),
             class_="accordion02",
         ),
         ui.br(),
         # TODO: create a class for text inputs for plot titling which makes it so thaat the inputed text as well as the placeholder are in the center of the window
-        ui.row(ui.input_text(id="title_msd", label=None, placeholder="Title me!", width="100%"), style="margin-left: 1px; margin-right: 1px;"),
         ui.input_task_button(id="generate_msd", label="Generate", class_="btn-secondary task-btn", width="100%"),
     ),
     ui.br(),
@@ -128,5 +107,8 @@ subpanel_msd = ui.nav_panel(
         full_screen=True,
         height="800px",
     ),
-    ui.download_button("download_plot_msd", "Download", width="100%")
+    ui.row(
+        ui.column(6, ui.download_button("msd_download_svg", "Download SVG", width="100%")),
+        ui.column(6, ui.download_button("msd_download_png", "Download PNG", width="100%")),
+    )
 )

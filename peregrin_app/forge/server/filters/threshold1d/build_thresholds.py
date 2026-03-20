@@ -28,7 +28,7 @@ def mount_thresholds_build(input, output, session, S):
                         ui.input_selectize("reference_value_1", "Reference value", choices=["Mean", "Median", "My own value"]),
                         ui.panel_conditional(
                             "input.reference_value_1 == 'My own value'",
-                            ui.input_numeric("my_own_value_1", "My own value", value=0, step=1)
+                            ui.input_numeric("my_own_value_1", "My own value", value=0, step=1, update_on="blur")
                         ),
                     ),
                     ui.output_ui("manual_threshold_value_setting_placeholder_1"),
@@ -43,7 +43,7 @@ def mount_thresholds_build(input, output, session, S):
         return ui.accordion(
             ui.accordion_panel(
                 "Settings",
-                ui.input_numeric("bins", "Number of bins", value=15, min=1, step=1),
+                ui.input_numeric("bins", "Number of bins", value=15, min=1, step=1, update_on="blur"),
                 ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
             ),
 
@@ -66,7 +66,7 @@ def mount_thresholds_build(input, output, session, S):
                     ui.input_selectize(f"reference_value_{id}", "Reference value", choices=["Mean", "Median", "My own value"]),
                     ui.panel_conditional(
                         f"input.reference_value_{id} == 'My own value'",
-                        ui.input_numeric(f"my_own_value_{id}", "My own value", value=0, step=1)
+                        ui.input_numeric(f"my_own_value_{id}", "My own value", value=0, step=1, update_on="blur")
                     )
                 ),
                 ui.output_ui(f"manual_threshold_value_setting_placeholder_{id}"),

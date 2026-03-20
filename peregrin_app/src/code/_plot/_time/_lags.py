@@ -29,19 +29,18 @@ class MSD:
     BRIGHTNESS_MIN = 0.06
 
 
-    def __init__(
-            self, data: pd.DataFrame, conditions: list, replicates: list, *, 
-            c_mode: str = None, separate_replicates: bool = False, **kwargs):
+    def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
+                 *, level: str = 'Condition', **kwargs):
         
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
         
-        self.aggregate = not separate_replicates
+        self.level = level
         self.disaggregate = False
-        self.c_mode = c_mode
 
         self.color = kwargs.get('color', None)
+        self.stock_palette = kwargs.get('stock_palette', None)
         self.palette = kwargs.get('palette', None)
         self.noticequeue = kwargs.get('noticequeue', None)
 
@@ -55,39 +54,40 @@ class MSD:
     def plot(self,
              statistic: str = 'mean',
              linear_fit: bool = False,
-             errorband: Optional[Literal['sd', 'sem', 'min-max', 'ci', False]] = False,
+             disper: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
              *,
              line: bool = True,
              scatter: bool = False,
              **kwargs) -> plt.Figure:
 
         from ..._compute._stats import Stats
-
-        fig, ax = plt.subplots(figsize=(kwargs.get('fig_height', 5), kwargs.get('fig_width', 3.5)))
         
-        if self.aggregate:
+        if self.level == 'Condition':
             prefix = '{per condition}'
             if not any('{per condition}' in col for col in self.data.columns.to_list()):
                 Reporter(Level.warning, "Expected aggregated data per condition but no columns with '{per condition}' found. Going to use '{per replicate}' data instead.", noticequeue=self.noticequeue)
                 prefix = '{per replicate}'
         else:
             prefix = '{per replicate}'
-        
+
+        fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 5), kwargs.get('fig_height', 3.5)))
 
         self.agg_dict, cols = self._build_agg_dict(prefix, Stats.CI_STATISTIC, Stats.CONFIDENCE_LEVEL)
+        
+        # Extract colors BEFORE aggregation drops the color columns
+        color_map = self._get_colors()
+        
         self._arrange_data()
 
         mi = cols['mean'] if statistic == 'mean' else cols['median']
 
         self._set_axis_labels(ax)
             
-        color_map = self._get_colors()
-        
         # Plot each condition
         for idx, condition in enumerate(self.conditions):
             cond_data = self.data[self.data['Condition'] == condition]
 
-            if self.aggregate:
+            if self.level == 'Condition':
                 # grouped replicates
                 groups = [(condition, None, cond_data)]
             else:
@@ -101,13 +101,13 @@ class MSD:
                 x_data = gdata['Frame lag'].values
                 y_data = gdata[f'{prefix} MSD {statistic}'].values
               
-                match errorband:
+                match disper:
 
-                    case 'sd':
+                    case 'sd' | 'std':
 
                         if statistic != 'mean':
-                            Reporter(Level.warning, "Error band with SD is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
-                            errorband = False
+                            Reporter(Level.warning, "Error band with 'sd' is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
+                            disper = False
                         else:
                             err_data = gdata[f'{prefix} MSD sd'].values / 2
 
@@ -115,12 +115,12 @@ class MSD:
 
                         if f'{prefix} MSD sem' not in gdata.columns:
                             Reporter(Level.error, "SEM data not available for error band. Make sure to compute SEM in the statistics step. Ignoring error band.", noticequeue=self.noticequeue)
-                            errorband = False
+                            disper = False
 
                         else:
                             if statistic != 'mean':
-                                Reporter(Level.warning, "Error band with SEM is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
-                                errorband = False
+                                Reporter(Level.warning, "Error band with 'sem' is only meaningful when plotting the mean. Ignoring error band.", noticequeue=self.noticequeue)
+                                disper = False
                             else:
                                 err_data = gdata[f'{prefix} MSD sem'].values
 
@@ -131,37 +131,40 @@ class MSD:
                         
                         if f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} low' not in gdata.columns or f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} high' not in gdata.columns:
                             Reporter(Level.error, "Confidence interval data not available for error band. Make sure to compute confidence intervals in the statistics step. Ignoring error band.", noticequeue=self.noticequeue)
-                            errorband = False
+                            disper = False
 
                         else:
                             if statistic != Stats.CI_STATISTIC:
                                 Reporter(Level.warning, f"Confidence interval was coputed for {Stats.CI_STATISTIC}, not {statistic}. Ignoring error band.", noticequeue=self.noticequeue)
-                                errorband = False
+                                disper = False
                             else:
                                 err_data = (gdata[f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} high'].values, gdata[f'{prefix} MSD {Stats.CI_STATISTIC} ci{Stats.CONFIDENCE_LEVEL} low'].values)
 
-                    case _:
-                        Reporter(Level.error, f"Invalid errorband type '{errorband}'.", noticequeue=self.noticequeue)
-                        errorband = False
+                    case 'none' | None | False:
+                        disper = False
 
-                if errorband:
+                    case _:
+                        Reporter(Level.error, f"Invalid 'disper' (dispersion) type '{disper}'.", noticequeue=self.noticequeue)
+                        disper = False
+
+                if disper:
                     if isinstance(err_data, tuple):
                         band_top_y, band_bottom_y = err_data
                     else:
                         band_bottom_y = np.maximum(y_data - err_data, 0.0)
                         band_top_y = y_data + err_data
                 
-                color = color_map.get(cond_name) if self.c_mode == 'differentiate conditions' else color_map.get(rep_name)
-                color = self._resolve_color(color, idx if self.aggregate else g_idx)
+                color = color_map.get(cond_name) if self.level == 'Condition' else color_map.get(rep_name)
+                color = self._resolve_color(color, idx if self.level == 'Condition' else g_idx)
 
                 # label: show replicate name only once in legend when not grouped
-                if self.aggregate:
+                if self.level == 'Condition':
                     label = cond_name
                 else:
                     label = f"{cond_name} | {rep_name}"
 
                 # Plot error band
-                if errorband:
+                if disper:
                     mask = ~np.isnan(band_bottom_y) & ~np.isnan(band_top_y)
                     if np.any(mask):
                         ax.fill_between(
@@ -169,7 +172,7 @@ class MSD:
                             band_bottom_y[mask],
                             band_top_y[mask],
                             color=color,
-                            alpha=0.08 if self.aggregate else 0.05,
+                            alpha=0.08 if self.level == 'Condition' else 0.05,
                             linewidth=0,
                             zorder=2
                         )
@@ -183,7 +186,7 @@ class MSD:
                         label=label,
                         linestyle='-',
                         color=color,
-                        alpha=1 if self.aggregate else 0.8,
+                        alpha=1 if self.level == 'Condition' else 0.8,
                         zorder=6
                     )
                 
@@ -203,15 +206,15 @@ class MSD:
                 # Add linear fit (per replicate when not grouped)
                 if linear_fit:
                     # pass a unique condition key for annotation placement
-                    fit_key = f"{condition}" if self.aggregate else f"{condition}-{rep_name}"
+                    fit_key = f"{condition}" if self.level == 'Condition' else f"{condition}-{rep_name}"
                     self._add_linear_fit(
                         ax,
                         x_data,
                         y_data,
                         fit_key,
                         color,
-                        idx if self.aggregate else g_idx,
-                        len(self.conditions) if self.aggregate else len(groups)
+                        idx if self.level == 'Condition' else g_idx,
+                        len(self.conditions) if self.level == 'Condition' else len(groups)
                     )
         
         # Set y-limits
@@ -238,7 +241,7 @@ class MSD:
             data=self.data,
             conditions=self.conditions,
             replicates=self.replicates,
-            aggby=['Condition', 'Frame lag'] if self.aggregate else ['Condition', 'Replicate', 'Frame lag'],
+            aggby=['Condition', 'Frame lag'] if self.level == 'Condition' else ['Condition', 'Replicate', 'Frame lag'],
             aggdict=self.agg_dict,
             noticequeue=self.noticequeue
         )()
@@ -246,34 +249,24 @@ class MSD:
     
     def _get_colors(self) -> dict:
 
-        tag = 'Condition' if self.c_mode == 'differentiate conditions' else 'Replicate'
-        tags = self.conditions if self.c_mode == 'differentiate conditions' else self.replicates
+        tags = self.conditions if self.level == 'Condition' else self.replicates
 
-        if self.c_mode in ['differentiate conditions', 'differentiate replicates']:
-            mp = {}
-            if self.palette:
-                try:
-                    mp = self.painter.StockQualPalette(data=self.data, tag=tag, palette=self.palette)
-                except Exception as e:
-                    Reporter(Level.error, f"Failed to apply palette '{self.palette}'. Falling back to default colors.", details=traceback.format_exc(), noticequeue=self.noticequeue)
-                    pass
+        if self.stock_palette:
+            try:
+                return self.painter.StockQualPalette(self.data, self.level, self.palette, which=tags)
+            except Exception as e:
+                Reporter(Level.error, f"Failed to apply palette '{self.palette}'. Falling back to default colors.", details=traceback.format_exc(), noticequeue=self.noticequeue)
+                pass
 
-            else:
-                mp = self.painter.BuildQualPalette(
-                    data=self.data,
-                    tag=tag,
-                    which=tags
-                )
+        else:
+            try:
+                return self.painter.BuildQualPalette(self.data, self.level, which=tags)
+            except Exception as e:
+                Reporter(Level.error, f"Failed to build color palette for tag '{self.level}'. Falling back to default colors. Error: {e}", details=traceback.format_exc(), noticequeue=self.noticequeue)
+                return self.painter.StockQualPalette(self.data, self.level, self.palette, which=tags)
+            
+        
 
-            return mp
-
-        elif self.c_mode == 'single color':
-            safe_single = self._resolve_color(self.color, 0)
-            keys = list(self.conditions) + list(self.replicates) + [None]
-            return {k: safe_single for k in keys}
-
-        # fallback for undefined c_mode
-        return {k: self._resolve_color(None, i) for i, k in enumerate(list(self.conditions) + list(self.replicates) + [None])}
 
     def _resolve_color(self, color: Optional[str], idx: int = 0) -> str:
         if color is not None and mcolors.is_color_like(color):
@@ -375,6 +368,10 @@ class MSD:
             median:  'median',
         }
 
+        # Preserve color columns through aggregation
+        if f'{self.level} color' in self.data.columns:
+            agg_dict[f'{self.level} color'] = 'first'
+
         if sem in self.data.columns:
             agg_dict.update({
                 sem: 'mean',
@@ -386,113 +383,81 @@ class MSD:
                 ci_high: 'mean'
             })
 
-        cols = {v: k for k, v in agg_dict.items()}
-
-        # if self.aggregate:
-        #     agg_dict.pop('Replicate', None)
+        cols = {
+            'mean': mean,
+            'median': median,
+        }
 
         return agg_dict, cols
 
 
     def _check_errors(self) -> None:
-        if not self.aggregate:
+        if not self.level == 'Replicate':
             if 'Replicate' not in self.data.columns or not any('{per replicate}' in col for col in self.data.columns.to_list()):
-                Reporter(f"Cannot separate replicates <- missing 'Replicate' data.", noticequeue=self.noticequeue)
-                self.aggregate = True
+                Reporter(Level.error, f"Cannot separate replicates <- missing 'Replicate' data.", noticequeue=self.noticequeue)
+                self.level = 'Condition'
                 self.disaggregate = False
-        if not self.aggregate and self.c_mode == 'differentiate conditions':
-            self.c_mode = 'differentiate replicates'
-            Reporter("Cannot differentiate conditions when replicate grouping is disabled. Switching to differentiating replicates instead.", noticequeue=self.noticequeue)
         
-        if self.aggregate:
+        if self.level == 'Condition':
             if 'Condition' not in self.data.columns or not any('{per condition}' in col for col in self.data.columns.to_list()):
-                Reporter(f"Cannot aggregate per condition <- missing 'Condition' data.", noticequeue=self.noticequeue)
-                self.aggregate = False
+                Reporter(Level.error, f"Cannot aggregate per condition <- missing 'Condition' data.", noticequeue=self.noticequeue)
+                self.level = 'Replicate'
                 self.disaggregate = True
-        if self.aggregate and self.c_mode == 'differentiate replicates':
-            self.c_mode = 'differentiate conditions'
-            Reporter("Cannot differentiate replicates when replicate grouping is enabled. Switching to differentiating conditions instead.", noticequeue=self.noticequeue)
 
 
-        # if self.aggregate and self.c_mode == 'differentiate replicates':
-        #     self.aggregate = False
-        #     self.disaggregate = True
+def TurnAnglesHeatmap(data: pd.DataFrame, condition: str, replicates: list[str], *, angle_range: int = 15, tlag_range: int = 1, cmap="plasma", **kwargs) -> plt.Figure:
+    """ Plot directional change (turning angle) over time lags as a colormesh. """
 
-
-
-def TurnAnglesHeatmap(
-        data: pd.DataFrame,
-        conditions: list[str],
-        replicates: list[str],
-        *,
-        angle_range: int = 15,
-        cmap="plasma",
-        **kwargs
-    ) -> plt.Figure:
-    """
-    #### *Plots a heatmap of mean turn angles across frame lags.*
-
-    This function creates a colormesh showing the distribution of mean turn angles (0-180°) across different frame lags in the data. 
-    The x-axis represents binned mean turn angles, while the y-axis represents frame lags. 
-    The color intensity indicates the fraction of data points within each angle-lag bin.
-    """
-
-    # Keyword arguments
     noticequeue = kwargs.get('noticequeue', None)
     text_color = kwargs.get('text_color', 'black')
-    title = kwargs.get('title', None)
-    strip_background = kwargs.get('strip_background', True)
-    
-    # Define angle bins based on the specified range
-    angle_bin_edges = np.arange(0, 181, angle_range)
-    
-    # Get data of selected categories
+    title = kwargs.get('title', '')
+
+    fig, ax = plt.subplots(figsize=(kwargs.get('figsize', (6, 6))))
+
+    if is_empty(data):
+        Reporter(Level.warning, "No data available for plotting.", noticequeue=noticequeue)
+        return None
+
+    if isinstance(condition, list | tuple):
+        condition = condition[0]
+        if len(condition) > 1:
+            Reporter(Level.info, "Multiple conditions selecting for colormesh. ", noticequeue=noticequeue)
+            condition = condition[0]
+
     data = Categorizer(
         data=data,
-        conditions=conditions,
+        conditions=[condition],
         replicates=replicates,
         noticequeue=noticequeue
     )()
 
-    # Check if data is empty after categorization
-    if is_empty(data):
-        noticequeue.Report(Level.info, "No data. Cannot generate heatmap.")
+    cmap = Painter(noticequeue=noticequeue).GetCmap(cmap)
+
+    xvals = data['{per replicate} Directional change mean'].to_numpy()
+    yvals = data['Frame lag'].to_numpy()
+    lags = data['Frame lag'].unique()
+
+    if lags.size < 2:
         return None
     
-    cmap = Painter(noticequeue=noticequeue).GetCmap(cmap)
-    
-    # Initialize the plot
-    fig, ax = plt.subplots(figsize=(4, 3.8))
+    n = len(replicates)
 
-    # X (mean turn angles - clipped to [0, 180]) and Y (frame lags) values for the heatmap
-    xvals = np.clip(data['{per condition} Turn mean'].to_numpy(float), 0, 180)
-    yvals = data['Frame lag'].to_numpy(float)
+    x_bins = np.arange(0, 181, angle_range)
+    y_bins = np.arange(0, lags.max(), tlag_range)
 
-    # Build contiguous lag edges -> each lag becomes a row
-    lags = np.unique(yvals)
-    # Create a bin for each lag value. Lag value <- bin's center value <- boundaries halfway to the next lag value.
-    if lags.size > 1:
-        mids = (lags[1:] + lags[:-1]) / 2
-        y_edges = np.r_[lags[0]-(mids[0]-lags[0]), mids, lags[-1]+(lags[-1]-mids[-1])]
-    else:
-        y_edges = np.array([lags[0]-0.5, lags[0]+0.5])
+    H, xe, ye = np.histogram2d(xvals, yvals, bins=[x_bins, y_bins])
 
-    # Compute 2D histogram of mean turn angles vs frame lags
-    H, xe, ye = np.histogram2d(xvals, yvals, bins=[angle_bin_edges, y_edges])
-
-    # Create a colormesh plot using the histogram data
     pcm = ax.pcolormesh(
-        xe, ye, H.T, 
-        cmap=cmap, shading="auto",
-        norm=mcolors.Normalize(vmin=0, vmax=np.nanmax(H)),
+        xe, ye, H.T / n,
+        cmap=cmap, shading='auto',
+        norm=mcolors.Normalize(vmin=0, vmax=np.nanmax(H / n)),
     )
 
     # Set axis labels, limits, ticks, and title
-    ax.set_xlabel("Mean turn angle (°)", color=text_color)
+    ax.set_xlabel("Mean directional change (°)", color=text_color)
     ax.set_ylabel("Frame lag", color=text_color)
-    ax.set_xlim(angle_bin_edges[0], angle_bin_edges[-1])
-    ax.set_xticks(np.arange(0, 181, 30))
     ax.tick_params(colors=text_color, width=0.5)
+    ax.grid(False)
 
     for spine in ax.spines.values():
         spine.set_visible(True)
@@ -501,17 +466,14 @@ def TurnAnglesHeatmap(
 
     ax.set_title(title, color=text_color)
 
-    if strip_background:
+    if kwargs.get('strip_background', True):
         fig.set_facecolor('none')
 
-    # Add colorbar with custom ticks and labels
+    # Add colorbar with custom ticks and labels (0–1 fractions)
     cbar = plt.colorbar(pcm, ax=ax, aspect=25, pad=0.04)
-    cbar.set_label("Data fraction per lag", color=text_color)
-    cbar.set_ticks(np.linspace(0.0, 1.0, 5))
-    cbar.formatter = mticker.FormatStrFormatter("%.2f")
-    cbar.update_ticks()
+    cbar.set_label('Fraction of replicates', color=text_color)
     cbar.ax.tick_params(colors=text_color, width=0.5)
-    
+
     for spine in cbar.ax.spines.values():
         spine.set_color(text_color)
         spine.set_linewidth(0.5)
