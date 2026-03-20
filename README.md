@@ -62,7 +62,7 @@ Peregrin is a an application designed for researchers studying cell migration. I
     - Mean turning angles per frame lags colormesh
     - Motion flow plots (experimental)
 
-- Export figures in SVG format.
+- Export figures in `.svg`, `.png`, `.mp4` formats.
 
 
 
