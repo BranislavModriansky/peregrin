@@ -457,6 +457,12 @@ class Stats:
             - **`Replicate`**
             - **`Track ID`**
             - **`Track UID`**
+
+            - **`Y location`**-
+            The mean Y position of the track's starting position.
+
+            - **`X location`**-
+            The mean X position of the track's starting position.
             
             - **`Track length`**- 
             Total length of the track (sum of `Distance`).
@@ -554,6 +560,9 @@ class Stats:
         agg_spec['end_x']   = ('X coordinate', 'last')
         agg_spec['start_y'] = ('Y coordinate', 'first')
         agg_spec['end_y']   = ('Y coordinate', 'last')
+
+        agg_spec['X location'] = ('X coordinate', 'mean')
+        agg_spec['Y location'] = ('Y coordinate', 'mean')
 
         agg_spec['Max distance reached'] = ('Cumulative track displacement', 'max')
 
