@@ -56,7 +56,7 @@ class Filter1D:
         self.EPS = eps
 
 
-    def Apply(self) -> pd.DataFrame:
+    def Apply(self, **kwargs) -> pd.DataFrame:
         """
         Returns:
             tuple: (spotstats, trackstats, framestats, tintervalstats)
@@ -84,8 +84,15 @@ class Filter1D:
         trackstats = trackstats.loc[mask]
         
         # Regenerate frame and time interval stats from filtered spots
-        stats = Stats(noticequeue=self.noticequeue)
+        stats = Stats(
+            noticequeue=self.noticequeue, 
+            cat_infer_err=kwargs.get("cat_infer_err", False),
+            bootstrap_ci=kwargs.get("bootstrap_ci", False)
+        )
 
+        stats.CI_STATISTIC = kwargs.get("ci_statistic", "mean")
+        stats.CONFIDENCE_LEVEL = kwargs.get("confidence_level", 0.95)
+        stats.BOOTSTRAP_RESAMPLES = kwargs.get("bootstrap_resamples", 1000)
 
         framestats = stats.Frames(spotstats)
         tintervalstats = stats.TimeIntervals(spotstats)

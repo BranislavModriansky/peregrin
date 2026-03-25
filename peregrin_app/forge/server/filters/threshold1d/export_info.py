@@ -6,10 +6,12 @@ import shiny.ui as ui
 from shiny import render
 from html import escape
 from datetime import date
-
+from textwrap import dedent
 
 
 def mount_thresholds_info_export(input, output, session, S):
+    def _html(s: str):
+        return ui.HTML(dedent(s).strip())
 
     @output()
     @render.ui
@@ -35,7 +37,7 @@ def mount_thresholds_info_export(input, output, session, S):
                     data_after = len(t_state_after_mask)
 
                     out = data - data_after
-                    out_percent = round(out / data * 100)
+                    out_percent = round(out / data * 100) if data else 0
 
                     prop = input[f"threshold_property_{t+1}"]()
                     ftype = input[f"threshold_type_{t+1}"]()
@@ -45,19 +47,23 @@ def mount_thresholds_info_export(input, output, session, S):
                             ref_val = input[f"my_own_value_{t+1}"]()
                         else:
                             ref_val = ref
-                        reference = f"<br>Reference: <br><i><b>{ref}</b> (<b>{ref_val}</b>)</i><br>" if not isinstance(ref_val, str) else f"<br>Reference: <br><i><b>{ref}</b></i><br>"
+                        reference = (
+                            f"<br>Reference: <br><i><b>{ref}</b> (<b>{ref_val}</b>)</i><br>"
+                            if not isinstance(ref_val, str)
+                            else f"<br>Reference: <br><i><b>{ref}</b></i><br>"
+                        )
                     else:
-                        reference =  ""
+                        reference = ""
                     vals = input[f"floor_threshold_value_{t+1}"](), input[f"ceil_threshold_value_{t+1}"]()
 
                 except Exception:
                     break
 
                 blocks.append(
-                    ui.markdown(
+                    _html(
                         f"""
                         <div style="height:5px;"></div>
-                            <hr style="border:0; border-top:1px solid #000000; margin:8px 0;">
+                        <hr style="border:0; border-top:1px solid #000000; margin:8px 0;">
                         <div style="height:5px;"></div>
                         <p style="margin-bottom:8px; margin-top:10px;">
                             <b><h5>Threshold {t+1}</h5></b>
@@ -72,15 +78,28 @@ def mount_thresholds_info_export(input, output, session, S):
                             Range: <br>
                             <i><b>{vals[0]}</b> - <b>{vals[1]}</b></i>
                             {reference}
+                        </p>
                         """
                     )
                 )
 
         except Exception:
-            pass
+            blocks = []
+            thresholds = S.THRESHOLDS.get()
+
+        conditions = S.UNFILTERED_TRACKSTATS.get()["Condition"].unique() if "Condition" in S.UNFILTERED_TRACKSTATS.get().columns else []
+        replicates = S.UNFILTERED_TRACKSTATS.get()["Replicate"].unique() if "Replicate" in S.UNFILTERED_TRACKSTATS.get().columns else []
+
+        total_per_condition = {}
+        total_per_replicate = {}
+
+        for c in conditions:
+            total_per_condition[c] = len(S.UNFILTERED_TRACKSTATS.get()[S.UNFILTERED_TRACKSTATS.get()["Condition"] == c])
+        for r in replicates:
+            total_per_replicate[r] = len(S.UNFILTERED_TRACKSTATS.get()[S.UNFILTERED_TRACKSTATS.get()["Replicate"] == r])
 
         total_tracks = len(S.UNFILTERED_TRACKSTATS.get())
-        
+
         mask = thresholds.get(S.THRESHOLDS_ID.get()).get("mask")
         filtered_tracks = len(np.unique(mask)) if mask is not None else total_tracks
 
@@ -88,12 +107,65 @@ def mount_thresholds_info_export(input, output, session, S):
             round(filtered_tracks / total_tracks * 100) if total_tracks else 0
         )
 
+        filtered_per_condition = {}
+        filtered_per_replicate = {}
+
+        for c in conditions:
+            try:
+                filtered_per_condition[c] = len(S.TRACKSTATS.get()[S.TRACKSTATS.get()["Condition"] == c])
+            except Exception:
+                filtered_per_condition[c] = None
+        for r in replicates:
+            try:
+                filtered_per_replicate[r] = len(S.TRACKSTATS.get()[S.TRACKSTATS.get()["Replicate"] == r])
+            except Exception:
+                filtered_per_replicate[r] = None
+
+        def _categories():
+            cats = [ui.markdown("<br></br><i>Category information is updated upon setting the thresholds.</i>")]
+            if conditions is not None and len(conditions) > 0:
+                cond_lines = []
+                for c in conditions:
+                    f = filtered_per_condition.get(c, None)
+                    t = total_per_condition.get(c, 0)
+                    pct = round((f / t) * 100, 1) if (f is not None and t > 0) else "N/A"
+                    cond_lines.append(f"<i><b>{c}</b>: <b>{f if f is not None else 'N/A'} / {t}</b> (<b>{pct}%</b>)</i>")
+                cats.append(
+                    _html(
+                        f"""
+                        <p style="margin-bottom:8px; margin-top:12px;">
+                            By Condition:<br>
+                            {'<br>'.join(cond_lines)}
+                        </p>
+                        """
+                    )
+                )
+            if replicates is not None and len(replicates) > 0:
+                repl_lines = []
+                for r in replicates:
+                    f = filtered_per_replicate.get(r, None)
+                    t = total_per_replicate.get(r, 0)
+                    pct = round((f / t) * 100, 1) if (f is not None and t > 0) else "N/A"
+                    repl_lines.append(f"<i><b>{r}</b>: <b>{f if f is not None else 'N/A'} / {t}</b> (<b>{pct}%</b>)</i>")
+                cats.append(
+                    _html(
+                        f"""
+                        <p style="margin-bottom:8px; margin-top:12px;">
+                            By Replicate:<br>
+                            {'<br>'.join(repl_lines)}
+                        </p>
+                        """
+                    )
+                )
+            return cats
+
         # --- Header + summary block
-        blocks.insert(0,
-            ui.markdown(
+        blocks.insert(
+            0,
+            _html(
                 f"""
                 <p style="margin-bottom:0px; margin-top:0px;">
-                    <h4> <b> Info </b> </h4>
+                    <h4><b>Info</b></h4>
                 </p>
                 <p style="margin-bottom:8px; margin-top:12px;">
                     Cells in total: <br>
@@ -104,10 +176,12 @@ def mount_thresholds_info_export(input, output, session, S):
                     <i><b>{filtered_tracks}</b> (<b>{filtered_tracks_percent}%</b>)</i>
                 </p>
                 """
-            )
+            ),
         )
 
-        # Return a single well with all blocks as children
+        # flatten category elements into blocks
+        blocks[1:1] = _categories()
+
         return ui.panel_well(*blocks)
 
 
@@ -259,4 +333,4 @@ def mount_thresholds_info_export(input, output, session, S):
     #     svg = GetInfoSVG()
     #     yield svg.encode("utf-8")
 
-        
+
