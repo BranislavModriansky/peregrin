@@ -118,8 +118,8 @@ def mount_superplots(input, output, session, S, noticequeue):
 
             violins=input.sp_show_violins_2(),
             violin_fill_color=input.sp_violin_fill_color_2(),
-            violin_outline_width=input.sp_violin_outline_lw_2() if input.sp_show_violins_2() else 0,
-            violin_outline_color=input.sp_violin_outline_color_2() if input.sp_show_violins_2() else None,
+            violin_outline_width=input.sp_violin_outline_lw_2() if input.sp_violin_outline_2() else 0,
+            violin_outline_color=input.sp_violin_outline_color_2() if input.sp_violin_outline_2() else None,
             violin_alpha=input.sp_violin_fill_alpha_2(),
 
             scatter=input.sp_show_scatter(),
