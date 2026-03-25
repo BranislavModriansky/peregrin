@@ -14,10 +14,10 @@ def mount_superplots(input, output, session, S, noticequeue):
     def update_choices():
 
         @reactive.Effect
-        @reactive.event(S.TRACKSTATS)
+        @reactive.event(S.UNFILTERED_TRACKSTATS)
         def _():
-            req(not is_empty(S.TRACKSTATS.get()))
-            ui.update_selectize(id="metric_sp", choices=S.TRACKSTATS_COLUMNS.get(), selected="Straightness index")
+            req(not is_empty(S.UNFILTERED_TRACKSTATS.get()))
+            ui.update_selectize(id="metric_sp", choices={"SPOTS": S.SPOTSTATS_COLUMNS.get(), "TRACKS": S.TRACKSTATS_COLUMNS.get()}, selected="Track straightness ratio")
 
         @reactive.Effect
         @reactive.event(S.TRACKSTATS)
@@ -71,7 +71,7 @@ def mount_superplots(input, output, session, S, noticequeue):
     def _superplot_common_kwargs() -> dict:
 
         return dict(
-            data=S.TRACKSTATS.get(),
+            data=S.TRACKSTATS.get() if input.metric_sp() in S.TRACKSTATS_COLUMNS.get() else S.SPOTSTATS.get(),
             statistic=input.metric_sp(),
             conditions=input.conditions_sp(),
             replicates=input.replicates_sp(),

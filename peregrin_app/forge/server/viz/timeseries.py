@@ -65,6 +65,7 @@ def mount_plot_ts(input, output, session, S, noticequeue):
                 selected=S.FRAMESTATS.get()["Replicate"].unique().tolist()
             )
 
+
     def _ts_kwargs() -> dict:
         return dict(
             data = S.FRAMESTATS.get(),

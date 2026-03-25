@@ -18,7 +18,7 @@ class TSeries:
     REPLICATES_ALPHA = 0.3
 
     STAT_COLS = ['mean', 'median', 'min', 'max']
-    ERR_COLS  = ['sem', 'sd', 'min-max', 'ci', 'iqr']
+    DISPER_COLS  = ['sem', 'sd', 'min-max', 'ci', 'iqr', 'none', None]
 
 
     def __init__(self, data: pd.DataFrame, conditions: list = None, replicates: list = None, metric: str = None,
@@ -85,7 +85,7 @@ class TSeries:
             Reporter(Level.error, f"Unexpected statistic '{self.stat}' for metric '{self.metric}'.", noticequeue=self.noticequeue)
             self._error = True
 
-        elif self.disper is not None and self.disper not in self.ERR_COLS:
+        elif self.disper is not None and self.disper not in self.DISPER_COLS:
             Reporter(Level.error, f"Unexpected dispersion type '{self.disper}' for metric '{self.metric}'.", noticequeue=self.noticequeue)
             self._error = True
 

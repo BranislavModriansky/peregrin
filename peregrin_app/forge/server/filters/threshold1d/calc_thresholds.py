@@ -433,7 +433,21 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     def threshold_data():
 
         try:
-            spotstats, trackstats, framestats, tintervalstats = Filter1D().Apply()
+            _kwargs = dict(
+                cat_infer_err=input.inferential_error(),
+                bootstrap_ci=False,
+                ci_statistic='mean',
+                ci_confidence='95',
+                ci_resamples=1000,
+            )
+            if _kwargs["cat_infer_err"]: 
+                _kwargs["bootstrap_ci"] = input.confidence_intervals()
+            if _kwargs["bootstrap_ci"]:
+                _kwargs["ci_statistic"] = input.ci_statistic()
+                _kwargs["confidence_level"] = input.ci_confidence()
+                _kwargs["bootstrap_resamples"] = input.ci_resamples()
+
+            spotstats, trackstats, framestats, tintervalstats = Filter1D().Apply(**_kwargs)
 
             S.SPOTSTATS.set(spotstats)
             S.TRACKSTATS.set(trackstats)

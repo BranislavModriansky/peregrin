@@ -65,7 +65,8 @@ class SuperPlots:
             **kwargs
         ):
 
-        self.data = data
+        data = data.copy()
+        self.data = data.reset_index(drop=True)
         self.statistic = statistic
         self.conditions = conditions
         self.replicates = replicates
@@ -1223,4 +1224,4 @@ class SuperPlots:
                     case (a, _, _):
                         error_label = f"{a.capitalize()} CI{self.confidence_level}%"
 
-        return error_label
+            return error_label
