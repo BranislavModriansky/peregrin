@@ -9,7 +9,7 @@ def mount_statcols(input, output, session, S, noticequeue):
     @reactive.Effect()
     @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, S.UNFILTERED_FRAMESTATS, S.UNFILTERED_TINTERVALSTATS, ignore_init=True, ignore_none=True)
     def update_statcols():
-
+        
         try:
             spot_cols = S.UNFILTERED_SPOTSTATS.get().columns.tolist()
             track_cols = S.UNFILTERED_TRACKSTATS.get().columns.tolist()

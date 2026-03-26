@@ -13,47 +13,48 @@ def mount_thresholds_build(input, output, session, S):
     @render.ui
     def sidebar_accordion_placeholder():
 
-        if all(not is_empty(df) 
-               for df in [S.UNFILTERED_SPOTSTATS.get(), 
-                          S.UNFILTERED_TRACKSTATS.get(), 
-                          S.UNFILTERED_FRAMESTATS.get(), 
-                          S.UNFILTERED_TINTERVALSTATS.get()]):
-            
-            threshold_1 = [
-                ui.panel_well(
-                    ui.input_selectize("threshold_property_1", "Property", choices={'SPOT METRICS': S.SPOTSTATS_COLUMNS.get(), 'TRACK METRICS': S.TRACKSTATS_COLUMNS.get()}, selected='Track displacement', multiple=False),
-                    ui.input_selectize("threshold_type_1", "Threshold type", choices=Modes.Thresholding),
-                    ui.panel_conditional(
-                        "input.threshold_type_1 == 'Relative to...'",
-                        ui.input_selectize("reference_value_1", "Reference value", choices=["Mean", "Median", "My own value"]),
+        with reactive.isolate():
+            if all(not is_empty(df) 
+                for df in [S.UNFILTERED_SPOTSTATS.get(), 
+                            S.UNFILTERED_TRACKSTATS.get(), 
+                            S.UNFILTERED_FRAMESTATS.get(), 
+                            S.UNFILTERED_TINTERVALSTATS.get()]):
+                
+                threshold_1 = [
+                    ui.panel_well(
+                        ui.input_selectize("threshold_property_1", "Property", choices={'SPOT METRICS': S.SPOTSTATS_COLUMNS.get(), 'TRACK METRICS': S.TRACKSTATS_COLUMNS.get()}, selected='Track displacement', multiple=False),
+                        ui.input_selectize("threshold_type_1", "Threshold type", choices=Modes.Thresholding),
                         ui.panel_conditional(
-                            "input.reference_value_1 == 'My own value'",
-                            ui.input_numeric("my_own_value_1", "My own value", value=0, step=1, update_on="blur")
+                            "input.threshold_type_1 == 'Relative to...'",
+                            ui.input_selectize("reference_value_1", "Reference value", choices=["Mean", "Median", "My own value"]),
+                            ui.panel_conditional(
+                                "input.reference_value_1 == 'My own value'",
+                                ui.input_numeric("my_own_value_1", "My own value", value=0, step=1, update_on="blur")
+                            ),
                         ),
+                        ui.output_ui("manual_threshold_value_setting_placeholder_1"),
+                        ui.output_plot("thresholding_histogram_placeholder_1"),
                     ),
-                    ui.output_ui("manual_threshold_value_setting_placeholder_1"),
-                    ui.output_plot("thresholding_histogram_placeholder_1"),
+                ]
+
+            else:
+
+                threshold_1 = [""]
+
+            return ui.accordion(
+                ui.accordion_panel(
+                    "Settings",
+                    ui.input_numeric("bins", "Number of bins", value=15, min=1, step=1, update_on="blur"),
+                    ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
                 ),
-            ]
 
-        else:
-
-            threshold_1 = [""]
-
-        return ui.accordion(
-            ui.accordion_panel(
-                "Settings",
-                ui.input_numeric("bins", "Number of bins", value=15, min=1, step=1, update_on="blur"),
-                ui.markdown("<p style='line-height:0.1;'> <br> </p>"),
-            ),
-
-            ui.accordion_panel(
-                f"Threshold 1",
-                *threshold_1
-            ),
-            id="threshold_accordion",
-            open="Threshold 1",
-        )
+                ui.accordion_panel(
+                    f"Threshold 1",
+                    *threshold_1
+                ),
+                id="threshold_accordion",
+                open="Threshold 1",
+            )
     
     def render_threshold_accordion_panel(id):
         return ui.accordion_panel(
@@ -146,10 +147,12 @@ def mount_thresholds_build(input, output, session, S):
 
     @reactive.Effect
     def initialize_append():
-        if all(not is_empty(df) 
-               for df in [S.UNFILTERED_SPOTSTATS.get(), 
-                          S.UNFILTERED_TRACKSTATS.get(), 
-                          S.UNFILTERED_FRAMESTATS.get(), 
-                          S.UNFILTERED_TINTERVALSTATS.get()]): _sync_threshold_buttons(S.THRESHOLDS_ID.get())
+
+        with reactive.isolate():
+            if all(not is_empty(df) 
+                for df in [S.UNFILTERED_SPOTSTATS.get(), 
+                           S.UNFILTERED_TRACKSTATS.get(), 
+                           S.UNFILTERED_FRAMESTATS.get(), 
+                           S.UNFILTERED_TINTERVALSTATS.get()]): _sync_threshold_buttons(S.THRESHOLDS_ID.get())
 
 

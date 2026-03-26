@@ -22,6 +22,7 @@ def build_state():
         }),
         "RAWDATA": reactive.Value(pd.DataFrame()),
         "UNITS": reactive.Value(),
+        "IGNORE": reactive.Value(False),
         "UNFILTERED_SPOTSTATS": reactive.Value(pd.DataFrame()),
         "UNFILTERED_TRACKSTATS": reactive.Value(pd.DataFrame()),
         "UNFILTERED_FRAMESTATS": reactive.Value(pd.DataFrame()),

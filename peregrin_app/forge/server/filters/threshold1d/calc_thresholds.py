@@ -1,5 +1,6 @@
 import time
 import traceback
+from time import sleep
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -71,6 +72,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     @reactive.Effect
     @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
     def initialize_inventory():
+
+        if S.IGNORE.get(): return
 
         Inventory1D.spot_data = S.UNFILTERED_SPOTSTATS.get()
         Inventory1D.track_data = S.UNFILTERED_TRACKSTATS.get()
@@ -331,6 +334,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
     @reactive.Effect
     @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS)
     def _():
+        if S.IGNORE.get(): return
+
         if is_empty(S.UNFILTERED_SPOTSTATS.get()) and is_empty(S.UNFILTERED_TRACKSTATS.get()):
             return
 
@@ -462,3 +467,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
             )
 
 
+    @reactive.Effect
+    @reactive.event(S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, S.UNFILTERED_FRAMESTATS, S.UNFILTERED_TINTERVALSTATS, S.THRESHOLDS)
+    def _():
+        if S.IGNORE.get():
+            S.IGNORE.set(False)

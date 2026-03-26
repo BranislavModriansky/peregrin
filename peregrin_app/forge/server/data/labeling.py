@@ -329,6 +329,7 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                 
         # ── Push all changes at once ──
         for key in dataframes:
+            S.IGNORE.set(True)
             getattr(S, key).set(dataframes[key])
 
 
