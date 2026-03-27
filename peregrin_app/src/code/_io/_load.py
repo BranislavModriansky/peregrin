@@ -93,8 +93,14 @@ class DataLoader:
                 rep_label = op.basename(fileinfo).split("#")[2]
 
             else:
-                cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
-                rep_label = rep_labels[file_idx-1] if rep_labels is not None else file_idx
+                try:
+                    cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
+                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name")
+                except Exception as e:
+                    Reporter(Level.error, f"Error occurred while setting category labels -> defaulting to index int", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                    cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
+                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name", file_idx)
+
 
             extracted["Condition"] = str(cond_label)
             extracted["Replicate"] = str(rep_label)
