@@ -3,13 +3,14 @@ import traceback
 import pandas as pd
 import numpy as np
 import shiny.ui as ui
-from shiny import render
+from shiny import render, req
 from html import escape
 from datetime import date
 from textwrap import dedent
 
 
 def mount_thresholds_info_export(input, output, session, S):
+
     def _html(s: str):
         return ui.HTML(dedent(s).strip())
 
@@ -100,7 +101,11 @@ def mount_thresholds_info_export(input, output, session, S):
 
         total_tracks = len(S.UNFILTERED_TRACKSTATS.get())
 
-        mask = thresholds.get(S.THRESHOLDS_ID.get()).get("mask")
+        try:
+            mask = thresholds.get(S.THRESHOLDS_ID.get()).get("mask")
+        except AttributeError:
+            mask = None
+        
         filtered_tracks = len(np.unique(mask)) if mask is not None else total_tracks
 
         filtered_tracks_percent = (

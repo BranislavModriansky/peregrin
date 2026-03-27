@@ -125,7 +125,7 @@ class MotionFlowPlot:
         cell_w       = x_range / self.n_arrows_x
         cell_h       = y_range / self.n_arrows_y
 
-        fig, ax = plt.subplots(figsize=(self.kwargs.get('fig_width', 13), self.kwargs.get('fig_height', 10)))
+        fig, ax = plt.subplots(figsize=(self.kwargs.get('fig_width', 12), self.kwargs.get('fig_height', 10)))
 
         colormap = Painter().GetCmap(self.cmap)
         norm     = mcolors.Normalize(vmin=sv_min,vmax=sv_max)

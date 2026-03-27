@@ -742,8 +742,6 @@ class Stats:
 
         # Stats are driven by configured category lists
         requested_stats = self.DESCR + self.DESCR_ERR + self.INFER_ERR
-        print(f"Requested stats: {requested_stats}")
-        resolved_stats = self.resolve(requested_stats) if requested_stats else {}
 
         # helper, converting 'std' to 'sd'
         def _stat_label(stat_name: str) -> str:
