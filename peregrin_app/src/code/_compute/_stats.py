@@ -96,6 +96,8 @@ class Stats:
     
     """
 
+    t_window: float = 60.0
+    t_unit: str = 's'
     
     SIGNIFICANT_FIGURES: None | int = None
     DECIMALS_PLACES: None | int = None
@@ -155,7 +157,6 @@ class Stats:
                 self.INFER_ERR.append('ci')
         else:
             self.INFER_ERR = []
-        
 
         self.CUSTOM_AGG_FUNCTIONS = {
             'q25':        self._q25,
@@ -321,6 +322,8 @@ class Stats:
 
         grp = df.groupby(gkeys, sort=False)
 
+        self.t_window = grp['Time point'].diff().median()
+
         # Provides a unique trajectory identifier (Track UID) as index that is consistent throughout dataflow and is used for grouping, iterating, filtering, and merging.
         df['Track UID'] = grp.ngroup()
         df.set_index(['Track UID'], drop=False, append=False, inplace=True, verify_integrity=False)
@@ -362,10 +365,10 @@ class Stats:
         df['Cumulative straightness ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
         # Cumulative speed -> mean speed from the starting to the current position
-        df['Cumulative speed'] = df['Cumulative track length'] / df['Frame'].replace(0, np.nan)
+        df['Cumulative speed'] = df['Cumulative track length'] / df['Time point'].replace(0, np.nan)
 
-        df['Cumulative straight line speed'] = df['Cumulative track displacement'] / _temp.replace(0, np.nan)
-        df['Cumulative forward progression linearity'] = df['Cumulative straight line speed'] / df['Cumulative speed']
+        df['Cumulative mean straight line speed'] = df['Cumulative track displacement'] / (_temp.replace(0, np.nan) * self.t_window)
+        df['Cumulative forward progression linearity'] = df['Cumulative mean straight line speed'] / df['Cumulative speed']
 
         # Instantaneous direction of motion (rad) -> difference between the previous and current position
         df['Direction'] = np.arctan2(
@@ -391,31 +394,33 @@ class Stats:
         df.loc[df['Directional change'].isna(), ['Cumulative mean directional change']] = np.nan
 
         # Cumulative direction of motion (circular mean and variance) calculations
-        theta_from_start = np.arctan2(
-            df['Y coordinate'] - start['Y coordinate'],
-            df['X coordinate'] - start['X coordinate'],
+        df['_dir'] = np.arctan2(
+            grp['Y coordinate'].diff(),
+            grp['X coordinate'].diff()
         )
 
-        # Exclude the first frame from cumulative direction stats (no angle data there)
-        valid = df['Frame'].gt(0) & theta_from_start.notna()
+        # Cumulative direction of motion (circular mean and variance) calculations
+        df['_sin'] = np.sin(df['_dir'])
+        df['_cos'] = np.cos(df['_dir'])
 
-        # Calculate sin and cos of the cumulated direction mean for each point excluding first frame
-        sinv = pd.Series(np.where(valid, np.sin(theta_from_start), np.nan), index=df.index)
-        cosv = pd.Series(np.where(valid, np.cos(theta_from_start), np.nan), index=df.index)
+        # Cumulative sums respect track boundaries via grp
+        cum_sin = grp['_sin'].cumsum()
+        cum_cos = grp['_cos'].cumsum()
 
-        gkeys_arrays = [df[k] for k in gkeys]
+        # Number of contributing angles (0 at first timepoint, 1 at second, ...)
+        tp_rank  = df.groupby(gkeys, sort=False)['Time point'].rank(method='first')
+        n_angles = tp_rank - 1
 
-        # Cumulative sums of sin and cos components
-        cum_sin = sinv.groupby(gkeys_arrays, sort=False).cumsum()
-        cum_cos = cosv.groupby(gkeys_arrays, sort=False).cumsum()
-
-        # Number of contributing angles so far (starts at 0 on frame 1)
-        n_angles = valid.astype(int).groupby(gkeys_arrays, sort=False).cumsum().replace(0, np.nan)
-
-        # Cumulative direction mean and variance
+        # Cumulative direction mean and circular variance
         df['Cumulative direction mean'] = np.arctan2(cum_sin, cum_cos)
-        R = (np.hypot(cum_sin, cum_cos) / n_angles)
-        df['Cumulative direction var'] = (1.0 - R)
+
+        R = np.hypot(cum_sin, cum_cos) / n_angles.replace(0, np.nan)
+        df['Cumulative direction var'] = 1.0 - R
+
+        df.loc[n_angles == 0, 'Cumulative direction var'] = np.nan
+        df.loc[n_angles == 1, 'Cumulative direction var'] = 0.0
+
+        df.drop(columns=['_dir', '_sin', '_cos'], inplace=True)
 
         # Drop all-NaN columns (if any are present)
         df.dropna(how='all', axis='columns', inplace=True)
@@ -482,7 +487,7 @@ class Stats:
             - **`Track displacement`**- 
             Euclidean distance from the starting position to the end position of the track.
 
-            - **`Track straightness ratio`**- 
+            - **``**- 
             Track's straigtness calculated as `Track displacement` / `Track length`.
 
             - **`Mean straight line speed`**-
@@ -567,7 +572,16 @@ class Stats:
         agg_spec['Max distance reached'] = ('Cumulative track displacement', 'max')
 
         agg_spec['Track start frame'] = ('Frame', 'min')
+        agg_spec['Track start time'] = ('Time point', 'min')
         agg_spec['Track end frame'] = ('Frame', 'max')
+        agg_spec['Track end time'] = ('Time point', 'max')
+        
+        agg_spec['Mean straight line speed'] = ('Cumulative mean straight line speed', 'last')
+        agg_spec['Forward progression linearity'] = ('Cumulative forward progression linearity', 'last')
+
+        agg_spec['Direction mean'] = ('Cumulative direction mean', 'last')
+        agg_spec['Direction var'] = ('Cumulative direction var', 'last')
+        agg_spec['Mean directional change'] = ('Cumulative mean directional change', 'last')
 
         agg = grp.agg(**agg_spec)
 
@@ -579,8 +593,8 @@ class Stats:
             colors = grp['Condition color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
 
-        # Other general stats if the input data were not stripped
-        other = self._general_agg_stats(df, exclude=self._COLUMNS['SPOTS'])
+        # # Other general stats if the input data were not stripped
+        # other = self._general_agg_stats(df, exclude=self._COLUMNS['SPOTS'])
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
@@ -590,39 +604,16 @@ class Stats:
         # Points/ per track
         n = grp.size().rename('Track points')
         agg = agg.merge(n, left_index=True, right_index=True)
-
-        agg['Mean straight line speed'] = agg['Track displacement'] / agg['Track points']
-        agg['Forward progression linearity'] = agg['Mean straight line speed'] / agg['Speed mean']
-
-        # Sin/Cos values for circular statistics
-        sin_cos = df.assign(
-            _sin=np.sin(df['Direction']), 
-            _cos=np.cos(df['Direction'])
-        )
-        # Group and aggregate sin/cos components along tracks, getting mean sin and cos for each track
-        dir_agg = sin_cos.groupby(uid, sort=False).agg(
-            mean_sin=('_sin','mean'),
-            mean_cos=('_cos','mean')
-        )
-
-        # Get circular mean from the aggregated sin/cos
-        dir_agg['Direction mean'] = np.arctan2(dir_agg['mean_sin'], dir_agg['mean_cos'])
-
-        # Circular variance
-        R = np.hypot(dir_agg['mean_sin'], dir_agg['mean_cos'])
-        dir_agg['Direction var'] = (1.0 - R)
-
-        # Remove temporary columns
-        dir_agg = dir_agg.drop(columns=['mean_sin','mean_cos'])
-
-        # Mean directional change: mean of absolute directional changes per track (degrees) — constant per track, take any value
-        mean_dir_change = df['Cumulative mean directional change'].groupby(uid, sort=False).last()
-        dir_agg['Mean directional change'] = mean_dir_change
-
-        # Merge results
-        df = agg.merge(dir_agg, left_index=True, right_index=True)
-        df = df.merge(other, left_index=True, right_index=True, how='right')
+        # other = other.merge(agg, left_index=True, right_index=True, how='right')
+        # df = df.merge(other, left_index=True, right_index=True, how='right')
+        df = df.merge(agg, left_index=True, right_index=True, how='right')
+        df = df.drop(['Condition', 'Replicate', 'Track ID'], axis=1, errors='ignore')
         df = stash.merge(df, left_index=True, right_index=True, how='right')
+
+        for col in self._COLUMNS['SPOTS']:
+            if col in df.columns and col not in self._COLUMNS['TRACKS']:
+                print(col)
+                df = df.drop(columns=[col])
 
         df.drop_duplicates(inplace=True)
         
@@ -731,7 +722,7 @@ class Stats:
             'Cumulative straightness ratio',
             'Cumulative speed',
             'Distance',
-            'Cumulative straight line speed',
+            'Cumulative mean straight line speed',
             'Cumulative forward progression linearity',
             'Cumulative sum directional change',
             'Cumulative mean directional change',
@@ -1533,6 +1524,7 @@ class Stats:
                 Reporter(Level.error, f"Confidence interval computation failed: {e}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
                 return (np.nan, np.nan)
     
+
     def sem(self, x: np.ndarray | pd.Series) -> float:
         """ Standard error of the mean. """
         if isinstance(x, np.ndarray):
@@ -1546,6 +1538,71 @@ class Stats:
             if n < 2:
                 return np.nan
             return x.std(ddof=1) / np.sqrt(n)
+
+
+    def get_units(self, _overridden_t_unit: str = None, col: str = None) -> dict[str, str]:
+        """ Returns a dictionary mapping metric names to their corresponding units """
+
+        if _overridden_t_unit is not None:
+            t_unit = _overridden_t_unit
+        else:
+            t_unit = self.t_unit
+
+        units = {
+
+            # Spotstats metrics
+            'X coordinate': 'µm',
+            'Y coordinate': 'µm',
+            'Time point': f'{t_unit}',
+            'Distance': 'µm',
+            'Cumulative track length': 'µm',
+            'Cumulative track displacement': 'µm',
+            'Cumulative speed': 'µm ⋅ {t_unit}⁻¹',
+            'Cumulative straight line speed': 'µm ⋅ {t_unit}⁻¹',
+            'Direction': 'rad',
+            'Directional change': 'rad',
+            'Cumulative sum directional change': 'rad',
+            'Cumulative mean directional change': 'rad',
+            'Cumulative direction mean': 'rad',
+
+            # Trackstats metrics
+            'Y location': 'µm',
+            'X location': 'µm',
+            'Track length': 'µm',
+            'Track displacement': 'µm',
+            'Speed min': 'µm ⋅ {t_unit}⁻¹',
+            'Speed max': 'µm ⋅ {t_unit}⁻¹',
+            'Speed mean': 'µm ⋅ {t_unit}⁻¹',
+            'Speed sd': 'µm ⋅ {t_unit}⁻¹',
+            'Speed median': 'µm ⋅ {t_unit}⁻¹',
+            'Mean straight line speed': 'µm ⋅ {t_unit}⁻¹',
+            'Max distance reached': 'µm',
+            'Direction mean': 'rad',
+            'Mean directional change': 'rad',
+
+            # Framestats metrics
+            'Time point': f'{t_unit}',
+            'Frame': 'px',
+            'Cumulative track length': 'µm',
+            'Cumulative track displacement': 'µm',
+            'Cumulative speed': 'µm ⋅ {t_unit}⁻¹',
+            'Instantaneous speed': 'µm ⋅ {t_unit}⁻¹',
+            'Cumulative straight line speed': 'µm ⋅ {t_unit}⁻¹',
+            'Cumulative sum directional change': 'rad',
+            'Cumulative mean directional change': 'rad',
+            'Instantaneous direction mean': 'rad',
+            'Cumulative direction mean': 'rad',
+
+            # Timeintervalstats metrics
+            'Time lag': f'{t_unit}',
+            'MSD': 'µm',
+            'Directional change mean': 'rad'
+        }
+
+        if col is not None:
+            return units.get(col, None)
+
+        return units
 
     
     
@@ -1592,4 +1649,3 @@ class Summarize:
             "distinct": int(series.nunique(dropna=True)),
             "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],
         }
-

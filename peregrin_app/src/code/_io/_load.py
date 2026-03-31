@@ -44,13 +44,11 @@ class DataLoader:
     def load_data(self, files: List[str | dict], strip_data: bool = True, cols: dict = {'id': None, 't': None, 'x': None, 'y': None}, 
                   *args, cond_label: str | int | None = None, rep_labels: List[str | int] | None = None, auto_label: bool = False,
                   **kwargs) -> pd.DataFrame | List[pd.DataFrame]:
-        
-        """
-        
-        """
 
         cache = "cache" in kwargs
         data_cache = kwargs.get("cache", [])
+        self.t_unit = kwargs.get('time_units', 's')
+        self.kwargs = kwargs
 
 
         for file_idx, fileinfo in enumerate(files, start=1):
@@ -118,7 +116,6 @@ class DataLoader:
             raise ValueError("No valid data could be loaded from the provided files.")
 
 
-
     def GetDataFrame(self, filepath: str) -> pd.DataFrame:
         """
         Loads a DataFrame from a file based on its extension.
@@ -184,7 +181,12 @@ class DataLoader:
             x_mid = (df[x_col].min() + df[x_col].max()) / 2
             df[x_col] = 2 * x_mid - df[x_col]
 
-        return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
+        df = df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
+
+        if self.kwargs.get('time_conversion', None) in ('s', 'min', 'h'):
+            df = self._convert_time(df)
+
+        return df
     
 
     def ExtractFull(self, df: pd.DataFrame, cols: dict = {'id': None, 't': None, 'x': None, 'y': None}, 
@@ -244,7 +246,10 @@ class DataLoader:
             pass
         
         self._py_numeric_df(df)
-            
+
+        if self.kwargs.get('time_conversion', None) in ('s', 'min', 'h'):
+            df = self._convert_time(df)
+         
         return df
     
 
@@ -318,6 +323,29 @@ class DataLoader:
         return name
     
 
+    def _convert_time(self, df: pd.DataFrame) -> pd.DataFrame:
+        match (self.t_unit, self.kwargs.get('time_conversion', None)):
+            case ('s', 'min') | ('min', 'h'):
+                df['Time point'] = df['Time point'] / 60
+            case ('s', 'h'):
+                df['Time point'] = df['Time point'] / 3600
+            case ('s', 'day'):
+                df['Time point'] = df['Time point'] / 86400
+            case ('min', 'day'):
+                df['Time point'] = df['Time point'] / 1440
+            case ('h', 'day'):
+                df['Time point'] = df['Time point'] / 24
 
+            case ('h', 'min') | ('min', 's'):
+                df['Time point'] = df['Time point'] * 60
+            case ('h', 's'):
+                df['Time point'] = df['Time point'] * 3600
+            case ('day', 's'):
+                df['Time point'] = df['Time point'] * 86400
+            case ('day', 'min'):
+                df['Time point'] = df['Time point'] * 1440
+            case ('day', 'h'):
+                df['Time point'] = df['Time point'] * 24
 
-
+        return df
+            

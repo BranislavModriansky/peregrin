@@ -623,17 +623,23 @@ class SuperPlots:
 
     def _init_orientation(self, **kwargs) -> tuple[plt.Figure, plt.Axes]:
 
+        m_label = Stats().get_units(_overridden_t_unit=kwargs.get('t_unit', None), col=self.statistic)
+        if m_label is not None:
+            m_label = f" [{m_label}]"
+        else:
+            m_label = ""
+
         if kwargs.get('orient', 'v') == 'v':
             height = kwargs.get('fig_height', 9)
             width = kwargs.get('fig_width', 15)
             xlabel = kwargs.get('xlabel', 'Condition')
-            ylabel = kwargs.get('ylabel', f"{self.statistic} {kwargs.get('units', '')}")
+            ylabel = kwargs.get('ylabel', f"{self.statistic}{m_label}")
             xtickparams = dict(length=7, width=1.5, direction='out', color='black', rotation=345)
             ytickparams = dict(length=5, width=1.5, direction='out', color='black')
         else:
             height = kwargs.get('fig_width', 15)
             width = kwargs.get('fig_height', 9)
-            xlabel = kwargs.get('xlabel', f"{self.statistic} {kwargs.get('units', '')}")
+            xlabel = kwargs.get('xlabel', f"{self.statistic}{m_label}")
             ylabel = kwargs.get('ylabel', 'Condition')
             xtickparams = dict(length=5, width=1.5, direction='out', color='black')
             ytickparams = dict(length=7, width=1.5, direction='out', color='black', rotation=45)

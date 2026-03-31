@@ -62,10 +62,10 @@ class Filter1D:
             tuple: (spotstats, trackstats, framestats, tintervalstats)
         """
 
-        spotstats = BaseDataInventory.Spots
-        trackstats = BaseDataInventory.Tracks
-        framestats = BaseDataInventory.Frames
-        tintervalstats = BaseDataInventory.TimeIntervals
+        spotstats = BaseDataInventory.Spots.copy()
+        trackstats = BaseDataInventory.Tracks.copy()
+        framestats = BaseDataInventory.Frames.copy()
+        tintervalstats = BaseDataInventory.TimeIntervals.copy()
 
         # Return empty dataframes if any input is empty
         if any(is_empty(df) for df in [spotstats, trackstats, framestats, tintervalstats]):
@@ -77,11 +77,11 @@ class Filter1D:
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         
         # Filter using index intersection to avoid KeyError
-        # valid_spot_indices = spotstats.index.intersection(mask)
-        # valid_track_indices = trackstats.index.intersection(mask)
+        valid_spot_indices = spotstats.index.intersection(mask)
+        valid_track_indices = trackstats.index.intersection(mask)
         
-        spotstats = spotstats.loc[mask]
-        trackstats = trackstats.loc[mask]
+        spotstats = spotstats.loc[valid_spot_indices]
+        trackstats = trackstats.loc[valid_track_indices]
         
         # Regenerate frame and time interval stats from filtered spots
         stats = Stats(
@@ -93,6 +93,7 @@ class Filter1D:
         stats.CI_STATISTIC = kwargs.get("ci_statistic", "mean")
         stats.CONFIDENCE_LEVEL = kwargs.get("confidence_level", 0.95)
         stats.BOOTSTRAP_RESAMPLES = kwargs.get("bootstrap_resamples", 1000)
+        stats.t_unit = kwargs.get("t_unit", "s")
 
         framestats = stats.Frames(spotstats)
         tintervalstats = stats.TimeIntervals(spotstats)
