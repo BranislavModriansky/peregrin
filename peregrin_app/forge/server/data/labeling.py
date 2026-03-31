@@ -327,37 +327,15 @@ def mount_data_labeling(input, output, session, S, noticequeue):
                         )
 
                 
-        # ── Push all changes at once ──
+        # Fetch data changes
         for key in dataframes:
             S.IGNORE.set(True)
             getattr(S, key).set(dataframes[key])
 
+        BaseDataInventory.Spots = S.UNFILTERED_SPOTSTATS.get().copy()
+        BaseDataInventory.Tracks = S.UNFILTERED_TRACKSTATS.get().copy() 
+        BaseDataInventory.Frames = S.UNFILTERED_FRAMESTATS.get().copy()
+        BaseDataInventory.TimeIntervals = S.UNFILTERED_TINTERVALSTATS.get().copy()
 
-    @DebounceCalc(3)
-    @reactive.calc
-    def _feed_data():
-        BaseDataInventory.Spots = S.UNFILTERED_SPOTSTATS.get()
-        BaseDataInventory.Tracks = S.UNFILTERED_TRACKSTATS.get()
-        BaseDataInventory.Frames = S.UNFILTERED_FRAMESTATS.get()
-        BaseDataInventory.TimeIntervals = S.UNFILTERED_TINTERVALSTATS.get()
-
-
-    @reactive.Effect()
-    @reactive.event(
-        S.UNFILTERED_SPOTSTATS, S.UNFILTERED_TRACKSTATS, 
-        S.UNFILTERED_FRAMESTATS, S.UNFILTERED_TINTERVALSTATS, 
-        ignore_init=True
-    )
-    def feed_data():
-
-        req(all(not is_empty(df) for df in [S.UNFILTERED_SPOTSTATS.get(), BaseDataInventory.Spots,
-                                            S.UNFILTERED_TRACKSTATS.get(), BaseDataInventory.Tracks,
-                                            S.UNFILTERED_FRAMESTATS.get(), BaseDataInventory.Frames,
-                                            S.UNFILTERED_TINTERVALSTATS.get(), BaseDataInventory.TimeIntervals]))
-
-        if all(r_df.equals(b_df) for r_df, b_df in [
-              (S.UNFILTERED_SPOTSTATS.get(), BaseDataInventory.Spots),
-              (S.UNFILTERED_TRACKSTATS.get(), BaseDataInventory.Tracks),
-              (S.UNFILTERED_FRAMESTATS.get(), BaseDataInventory.Frames),
-              (S.UNFILTERED_TINTERVALSTATS.get(), BaseDataInventory.TimeIntervals)]
-        ): _feed_data()
+        print(BaseDataInventory.Spots['Condition'].head())
+        print(BaseDataInventory.Tracks['Condition'].head())

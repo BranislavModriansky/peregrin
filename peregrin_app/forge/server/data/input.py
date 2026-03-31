@@ -33,6 +33,7 @@ def mount_data_input(input, output, session, S, noticequeue):
                             ui.div(  
                                 ui.input_action_link("explain_auto_label", "What's Auto-label?", class_="plain-link"),
                                 ui.input_checkbox("auto_label", "Auto-label", False),
+                                ui.input_selectize("time_conversion", "Convert time units:", ["No conversion", "s", "min", "h"], selected="No conversion", width="150px"),
 
                                 ui.br(),
                                 ui.div("Compute:", style="font-size: 18px; font-weight: 550; margin-bottom: 12px; margin-left: 2px;"),
@@ -271,7 +272,9 @@ def mount_data_input(input, output, session, S, noticequeue):
                     cache=all_data,
                     iteration=idx,
                     mirror_y=True,  #TODO: add UI control
-                    mirror_x=False  #TODO: add UI control
+                    mirror_x=False, #TODO: add UI control
+                    t_unit=input.select_t_unit(),
+                    time_conversion=input.time_conversion() if input.time_conversion() != "No conversion" else None,
                 )
 
                     
@@ -282,6 +285,7 @@ def mount_data_input(input, output, session, S, noticequeue):
 
                 with reactive.isolate():
                     Stats.B_RESAMPLES = input.ci_resamples()
+                    Stats.t_unit = input.select_t_unit() if input.time_conversion() == "No conversion" else input.time_conversion()
 
                     stats = Stats(
                         cat_descr_err=True,
@@ -362,6 +366,7 @@ def mount_data_input(input, output, session, S, noticequeue):
                 df['Track UID'] = pd.to_numeric(df['Track UID'], errors='coerce').astype('Int64')
 
             stats = Stats(noticequeue=noticequeue)
+            stats.t_unit = input.select_t_unit() if input.time_conversion() == "No conversion" else input.time_conversion()
 
             # Running Spots() -> set Track UID index is necessaryfor other Stats methods.
             Spots = stats.Spots(df)

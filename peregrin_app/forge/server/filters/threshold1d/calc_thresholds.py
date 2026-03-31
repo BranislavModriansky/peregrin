@@ -451,6 +451,8 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 _kwargs["ci_statistic"] = input.ci_statistic()
                 _kwargs["confidence_level"] = input.ci_confidence()
                 _kwargs["bootstrap_resamples"] = input.ci_resamples()
+                
+            _kwargs["t_unit"] = input.select_t_unit() if input.time_conversion() == "No conversion" else input.time_conversion()
 
             spotstats, trackstats, framestats, tintervalstats = Filter1D().Apply(**_kwargs)
 
