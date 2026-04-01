@@ -96,7 +96,6 @@ class Stats:
     
     """
 
-    t_window: float = 60.0
     t_unit: str = 's'
     
     SIGNIFICANT_FIGURES: None | int = None
@@ -317,12 +316,12 @@ class Stats:
 
         df.sort_values(self.tier + ['Track ID', 'Time point'], inplace=True)
 
+        t_step = float(np.diff(df['Time point'].unique())[0])
+
         # Define grouping keys
         gkeys = self.tier + ['Track ID']
 
         grp = df.groupby(gkeys, sort=False)
-
-        self.t_window = grp['Time point'].diff().median()
 
         # Provides a unique trajectory identifier (Track UID) as index that is consistent throughout dataflow and is used for grouping, iterating, filtering, and merging.
         df['Track UID'] = grp.ngroup()
@@ -365,9 +364,12 @@ class Stats:
         df['Cumulative straightness ratio'] = (df['Cumulative track displacement'] / df['Cumulative track length'].replace(0, np.nan)).fillna(np.nan)
 
         # Cumulative speed -> mean speed from the starting to the current position
-        df['Cumulative speed'] = df['Cumulative track length'] / df['Time point'].replace(0, np.nan)
+        track_start_time = grp['Time point'].transform('first')
+        elapsed = (df['Time point'] - track_start_time).replace(0, np.nan)
+        df['Cumulative speed'] = df['Cumulative track length'] / elapsed
 
-        df['Cumulative mean straight line speed'] = df['Cumulative track displacement'] / (_temp.replace(0, np.nan) * self.t_window)
+        cumulative_count = (grp.cumcount() + 1).values  # strip index → plain numpy array
+        df['Cumulative mean straight line speed'] = df['Cumulative track displacement'] / (cumulative_count * t_step)
         df['Cumulative forward progression linearity'] = df['Cumulative mean straight line speed'] / df['Cumulative speed']
 
         # Instantaneous direction of motion (rad) -> difference between the previous and current position
@@ -542,14 +544,16 @@ class Stats:
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
         uid = ['Track UID']
 
+        t_step = float(np.diff(df['Time point'].unique())[0])
+
         grp = df.groupby(level=uid, sort=False)
 
         speed_agg_spec = {
-            'Speed min':    lambda x: x.min() / self.t_window,
-            'Speed max':    lambda x: x.max() / self.t_window,
-            'Speed mean':   lambda x: x.mean() / self.t_window,
-            'Speed sd':     lambda x: x.std() / self.t_window,
-            'Speed median': lambda x: x.median() / self.t_window,
+            'Speed min':    lambda x: x.min() / t_step,
+            'Speed max':    lambda x: x.max() / t_step,
+            'Speed mean':   lambda x: x.mean() / t_step,
+            'Speed sd':     lambda x: x.std() / t_step,
+            'Speed median': lambda x: x.median() / t_step,
         }
 
         # Build the named agg dict: each entry is (column, func)
@@ -1588,7 +1592,7 @@ class Stats:
 
             # Timeintervalstats metrics
             'Time lag': f'{t_unit}',
-            'MSD': 'µm',
+            'MSD': 'µm²',
             'Directional change mean': 'rad'
         }
 
