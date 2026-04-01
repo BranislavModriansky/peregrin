@@ -63,7 +63,7 @@ class TSeries:
         self.painter = Painter(noticequeue=self.noticequeue)
         self.figsize = kwargs.get('figsize', (8, 5))
         self.xscale = kwargs.get('xscale', 'literal')
-        self.time_units = kwargs.get('time_units', 's')
+        self.time_units = kwargs.get('time_units', None)
         self.yscale = kwargs.get('yscale', 'literal')
         self.title = kwargs.get('title', None)
         self.darkmode = kwargs.get('darkmode', False)
@@ -166,9 +166,17 @@ class TSeries:
                     ax.fill_between(x_vals, y_vals - disper_vals, y_vals + disper_vals,
                                     color=c, alpha=self.FILL_ALPHA, linewidth=0)
 
+        # Y units
+        time_unit = Stats.t_unit if self.time_units is None else self.time_units
+        y_units = Stats().get_units(self.metric, time_unit=time_unit, time_data=True)
+        if y_units is not None:
+            y_units = f' [{y_units}]'
+        else:
+            y_units = ''
+
         # Labels and title
-        ax.set_xlabel(f"{'Time' if x_col == 'Time point' else 'Frame'}{f' [{self.time_units}]' if x_col == 'Time point' else ''}")
-        ax.set_ylabel(f"{y_col.replace('_', ' ')}")
+        ax.set_xlabel(f"{'Time [{time_unit}]' if x_col == 'Time point' else 'Frame'}")
+        ax.set_ylabel(f"{y_col}{y_units}")
         ax.set_title(self.title)
         ax.legend(loc='best', frameon=True, framealpha=0.9)
 

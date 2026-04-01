@@ -286,7 +286,7 @@ class MSD:
         return mcolors.to_hex(mcolors.hsv_to_rgb(hsv))
     
     def _set_axis_labels(self, ax: plt.Axes):
-        ax.set_xlabel('Time lag [frame]')
+        ax.set_xlabel('Frame lag [frame]')
         ax.set_ylabel('MSD [μm²]')
     
     def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray):
@@ -454,7 +454,7 @@ def TurnAnglesHeatmap(data: pd.DataFrame, condition: str, replicates: list[str],
     )
 
     # Set axis labels, limits, ticks, and title
-    ax.set_xlabel("Mean directional change (°)", color=text_color)
+    ax.set_xlabel("Mean directional change [°]", color=text_color)
     ax.set_ylabel("Frame lag", color=text_color)
     ax.tick_params(colors=text_color, width=0.5)
     ax.grid(False)

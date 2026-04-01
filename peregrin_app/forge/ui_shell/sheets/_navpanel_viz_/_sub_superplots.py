@@ -45,7 +45,7 @@ subpanel_superplots = ui.nav_panel(
             ui.accordion_panel(
                 "Compose",
                 ui.row(
-                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=[], width="250px")),
+                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=[], width="265px")),
                     ui.column(2, ui.input_radio_buttons(id="sp_orientation", label=None, choices={"v": "Vertical orientation", "h": "Horizontal orientation"}, selected="v")),
                     ui.panel_conditional(
                         "input.superplot_type == 'Hybrid Superplots'",
@@ -85,6 +85,12 @@ subpanel_superplots = ui.nav_panel(
                                 )
                             )
                         ),
+                        ui.panel_conditional(
+                            "input.sp_cond_mean == true || input.sp_cond_median == true || input.sp_error == true",
+                            ui.row(
+                                ui.input_numeric(id="sp_skeleton_width", label="Skeleton line width:", value=2, min=0, step=0.1, width="175px"),
+                            )
+                        )
                     ),
                     
                     ui.accordion_panel(
@@ -95,8 +101,8 @@ subpanel_superplots = ui.nav_panel(
                                 ui.column(2, ui.input_checkbox(id="sp_rep_means", label="Show replicate means", value=False)),
                                 ui.panel_conditional(
                                     "input.sp_rep_means == true",
-                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_size", label="Marker size:", value=80, min=0, step=1, width="115px")),
-                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_alpha", label="Marker opacity:", value=1, min=0, max=1, step=0.1, width="125px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_size", label="Marker size:", value=100, min=0, step=1, width="115px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_alpha", label="Marker opacity:", value=1.5, min=0, max=1, step=0.1, width="125px")),
                                     ui.column(2, ui.input_numeric(id="sp_rep_mean_marker_outline_lw", label="Marker outline width:", value=0.75, min=0, step=0.05, width="175px")),
                                     ui.column(2, ui.input_checkbox(id="sp_rep_mean_marker_join", label="Join consecutive", value=True)),
                                     ui.panel_conditional(
@@ -109,9 +115,9 @@ subpanel_superplots = ui.nav_panel(
                                 ui.column(2, ui.input_checkbox(id="sp_rep_medians", label="Show replicate medians", value=True)),
                                 ui.panel_conditional(
                                     "input.sp_rep_medians == true",
-                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_size", label="Marker size:", value=50, min=0, step=1, width="115px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_size", label="Marker size:", value=125, min=0, step=1, width="115px")),
                                     ui.column(2, ui.input_numeric(id="sp_rep_median_marker_alpha", label="Marker opacity:", value=1, min=0, max=1, step=0.1, width="125px")),
-                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_outline_lw", label="Marker outline width:", value=0.75, min=0, step=0.05, width="175px")),
+                                    ui.column(2, ui.input_numeric(id="sp_rep_median_marker_outline_lw", label="Marker outline width:", value=1.5, min=0, step=0.05, width="175px")),
                                     ui.column(2, ui.input_checkbox(id="sp_rep_median_marker_join", label="Join consecutive", value=True)),
                                     ui.panel_conditional(
                                         "input.sp_rep_median_marker_join == true",
@@ -155,7 +161,7 @@ subpanel_superplots = ui.nav_panel(
                                 ui.column(2, ui.input_checkbox(id="sp_show_violins_2", label="Show violins", value=True)),
                                 ui.panel_conditional(
                                     "input.sp_show_violins_2 == true",
-                                    ui.column(2, ui.input_checkbox(id="sp_violin_outline_2", label="Outline violins", value=True)),
+                                    ui.column(2, ui.input_checkbox(id="sp_violin_outline_2", label="Outline violins", value=False)),
                                     ui.panel_conditional(
                                         "input.sp_violin_outline_2 == true",
                                         ui.column(2, ui.input_numeric(id="sp_violin_outline_lw_2", label="Violin outline width:", value=1, min=0, step=0.1, width="175px")),
@@ -181,7 +187,7 @@ subpanel_superplots = ui.nav_panel(
                                 ui.panel_conditional(
                                     "input.sp_show_scatter == true",
                                     ui.column(2, ui.input_selectize(id="sp_scatter_type", label="Scatter method:", choices={"sina": "Sinaplot", "swarm": "Swarmplot"}, selected="sina", width="135px")),
-                                    ui.column(2, ui.input_numeric(id="sp_scatter_marker_size", label="Marker size:", value=5, min=0, step=1, width="115px")),
+                                    ui.column(2, ui.input_numeric(id="sp_scatter_marker_size", label="Marker size:", value=35, min=0, step=1, width="115px")),
                                     ui.column(2, ui.input_numeric(id="sp_scatter_marker_alpha", label="Marker opacity:", value=0.8, min=0, max=1, step=0.1, width="125px")),
                                     ui.column(2, ui.input_numeric(id="sp_scatter_marker_outline_lw", label="Marker outline width:", value=0, min=0, step=0.5, width="175px")),
                                 )
@@ -198,15 +204,15 @@ subpanel_superplots = ui.nav_panel(
                         ui.panel_conditional(
                             "input.superplot_type == 'Hybrid Superplots'",
                             ui.row(
-                                ui.column(2, ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=False)),
+                                ui.column(2, ui.input_checkbox(id="sp_show_kde", label="Show KDE", value=True)),
                                 ui.panel_conditional(
                                     "input.sp_show_kde == true",
-                                    ui.column(2, ui.input_checkbox(id="sp_kde_outline", label="KDE outline", value=False)),
+                                    ui.column(2, ui.input_checkbox(id="sp_kde_outline", label="KDE outline", value=True)),
                                     ui.panel_conditional(
                                         "input.sp_kde_outline == true",
-                                        ui.column(2, ui.input_numeric(id="sp_kde_outline_lw", label="KDE line width:", value=1, min=0, step=0.1, width="150px"))
+                                        ui.column(2, ui.input_numeric(id="sp_kde_outline_lw", label="KDE line width:", value=2, min=0, step=0.1, width="150px"))
                                     ),
-                                    ui.column(2, ui.input_checkbox(id="sp_kde_fill", label="Fill KDE area", value=True)),
+                                    ui.column(2, ui.input_checkbox(id="sp_kde_fill", label="Fill KDE area", value=False)),
                                     ui.panel_conditional(
                                         "input.sp_kde_fill == true",
                                         ui.column(2, ui.input_numeric(id="sp_kde_fill_alpha", label="KDE fill opacity:", value=0.5, min=0, max=1, step=0.1, width="175px")),

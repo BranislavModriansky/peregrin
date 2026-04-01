@@ -551,7 +551,7 @@ class SuperPlots:
 
             cond_mean = row['mean'].values[0]
             cond_median = row['median'].values[0]
-            cond_count = row['count'].values[0]
+            # cond_count = row['count'].values[0]
 
             # Error value
             if error_type == 'sem' and 'sem' in row.columns:
@@ -602,7 +602,7 @@ class SuperPlots:
                 upper = central + err
                 lower = central - err
                 cap_span = kwargs.get('errorbar_capsize_span', median_width / 4.5)
-                elw = kwargs.get('errorbar_lw', 1)
+                elw = float(kwargs.get('line_width', 1))
                 ecolor = kwargs.get('errorbar_color', 'black')
 
                 if orient == 'v':
@@ -623,7 +623,7 @@ class SuperPlots:
 
     def _init_orientation(self, **kwargs) -> tuple[plt.Figure, plt.Axes]:
 
-        m_label = Stats().get_units(_overridden_t_unit=kwargs.get('t_unit', None), col=self.statistic)
+        m_label = Stats().get_units(col=self.statistic, time_unit=kwargs.get('t_unit', None))
         if m_label is not None:
             m_label = f" [{m_label}]"
         else:
@@ -908,7 +908,7 @@ class SuperPlots:
                 y=self.statistic if kwargs.get('orient', 'v') == 'v' else None,
                 x=None if kwargs.get('orient', 'v') == 'v' else self.statistic,
                 hue=hue, palette=palette, color=self.monochrome_color,
-                fill=kwargs.get('kde_fill', False), alpha=kwargs.get('kde_alpha', 0.5), 
+                fill=kwargs.get('kde_fill', False), alpha=kwargs.get('kde_alpha', 1) if kwargs.get('kde_fill', True) else 1,
                 lw=kwargs.get('kde_outline_lw', 1.5) if kwargs.get('kde_outline', True) else 0,
                 ax=inset_ax, legend=False, zorder=0, clip=(scale_ax_min, scale_ax_max)
             )
@@ -1068,7 +1068,7 @@ class SuperPlots:
             ax.errorbar(
                 **pos_args, fmt='none', 
                 color=kwargs.get('errorbar_color', 'black'), alpha=kwargs.get('errorbar_alpha', 0.8),
-                linewidth=kwargs.get('errorbar_lw', 2), capsize=kwargs.get('errorbar_capsize', 5),
+                linewidth=kwargs.get('line_width', 2), capsize=kwargs.get('errorbar_capsize', 5),
                 zorder=3, label=(kwargs.get('error_type', 'sd'))
             )
 
@@ -1127,7 +1127,7 @@ class SuperPlots:
 
                         if kwargs.get('error_type', 'sd') != 'ci' or (kwargs.get('error_type', 'ci') == 'ci' and self.ci_statistic == 'mean'):
                             handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                           linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                           linestyle='-', linewidth=kwargs.get('line_width', 2),
                                            marker='_', markersize=10,
                                            label=f'Mean ± {err_lbl}'))
                             labels.append(f'Mean ± {err_lbl}')
@@ -1138,7 +1138,7 @@ class SuperPlots:
                                            label='Mean'))
                             labels.append('Mean')
                             handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                           linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                           linestyle='-', linewidth=kwargs.get('line_width', 2),
                                            marker='_', markersize=10,
                                            label=f'{err_lbl}'))
                             labels.append(f'{err_lbl}')
@@ -1147,7 +1147,7 @@ class SuperPlots:
 
                         if kwargs.get('error_type', 'ci') == 'ci' and self.ci_statistic == 'median':
                             handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                           linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                           linestyle='-', linewidth=kwargs.get('line_width', 2),
                                            marker='_', markersize=10,
                                            label=f'Median ± {err_lbl}'))
                             labels.append(f'Median ± {err_lbl}')
@@ -1158,14 +1158,14 @@ class SuperPlots:
                                            label='Median'))
                             labels.append('Median')
                             handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                           linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                           linestyle='-', linewidth=kwargs.get('line_width', 2),
                                            marker='_', markersize=10,
                                            label=f'{err_lbl}'))
                             labels.append(f'{err_lbl}')
 
                     case (False, False):
                         handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                       linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                       linestyle='-', linewidth=kwargs.get('line_width', 2),
                                        marker='_', markersize=10,
                                        label=f'{err_lbl}'))
                         labels.append(f'{err_lbl}')
@@ -1174,7 +1174,7 @@ class SuperPlots:
 
                         if kwargs.get('error_type', 'sd') != 'ci' or ((kwargs.get('error_type', 'ci') == 'ci' and self.ci_statistic == 'mean')):
                             handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                           linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                           linestyle='-', linewidth=kwargs.get('line_width', 2),
                                            marker='_', markersize=10,
                                            label=f'Mean ± {err_lbl}'))
                             labels.append(f'Mean ± {err_lbl}')
@@ -1185,7 +1185,7 @@ class SuperPlots:
 
                         elif kwargs.get('error_type', 'ci') == 'ci' and self.ci_statistic == 'median':
                             handles.append(mlines.Line2D([], [], color=kwargs.get('errorbar_color', 'black'),
-                                           linestyle='-', linewidth=kwargs.get('errorbar_lw', 2),
+                                           linestyle='-', linewidth=kwargs.get('line_width', 2),
                                            marker='_', markersize=10,
                                            label=f'Median ± {err_lbl}'))
                             labels.append(f'Median ± {err_lbl}')

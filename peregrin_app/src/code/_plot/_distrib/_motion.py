@@ -9,6 +9,7 @@ import matplotlib.colors as mcolors
 from .._common import Categorizer, Painter
 from ..._handlers._reports import Reporter, Level
 from ..._general import is_empty
+from ..._compute._stats import Stats
 
 
 
@@ -141,8 +142,8 @@ class MotionFlowPlot:
         
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
-        ax.set_xlabel('X coordinate')
-        ax.set_ylabel('Y coordinate')
+        ax.set_xlabel('X coordinate [µm]')
+        ax.set_ylabel('Y coordinate [µm]')
         ax.set_title(self.kwargs.get('title', None),
                      fontsize=self.kwargs.get('title_fontsize', 12),
                      color=self.kwargs.get('text_color', 'black'))
@@ -347,32 +348,29 @@ class MotionFlowPlot:
         if self.scale_by == 'density' or self.scale_method == 'density':
             return None
 
-        match self.scale_by:
+        if self.scale_by == 'density': 
+            return None
+        
+        elif isinstance(self.scale_by, str):
+            if self.scale_by not in self.data.columns:
+                Reporter(Level.warning, f"Column '{self.scale_by}' not found in data for scale_by -> Falling back to 'density'.")
+                return None    
+            return self.data[self.scale_by].values
 
-            case 'density': 
-                return None
-            
-            case str():
-                if self.scale_by not in self.data.columns:
-                    Reporter(Level.warning, f"Column '{self.scale_by}' not found in data for scale_by -> Falling back to 'density'.")
+        elif isinstance(self.scale_by, (tuple, list)) and len(self.scale_by) == 2:
+            for col in self.scale_by:
+                if col not in self.data.columns:
+                    Reporter(Level.warning, f"Column '{col}' not found in data for scale_by -> Falling back to 'density'.")
                     return None
                 
-                return self.data[self.scale_by].values
-
-            case (str(), str()) | [str(), str()]:
-                for col in self.scale_by:
-                    if col not in self.data.columns:
-                        Reporter(Level.warning, f"Column '{col}' not found in data for scale_by -> Falling back to 'density'.")
-                        return None
-                    
-                return self.data[self.scale_by[0]].values, self.data[self.scale_by[1]].values
+            return self.data[self.scale_by[0]].values, self.data[self.scale_by[1]].values
             
-            case _:
-                if len(self.scale_by) > 2:
-                    Reporter(Level.warning, f"<scale_by> must be either a single str or a tuple/list of two str from the column names -> Falling back to 'density'.")
-                else:
-                    Reporter(Level.warning, f"Invalid scale_by '{self.scale_by}' -> Falling back to 'density'.")
-                return None
+        else:
+            if len(self.scale_by) > 2:
+                Reporter(Level.warning, f"<scale_by> must be either a single str or a tuple/list of two str from the column names -> Falling back to 'density'.")
+            else:
+                Reporter(Level.warning, f"Invalid scale_by '{self.scale_by}' -> Falling back to 'density'.")
+            return None
 
 
 
@@ -464,16 +462,29 @@ class MotionFlowPlot:
 
 
     def _write_cbar_label(self, scale_by, scale_method):
-        match scale_by:
-            case 'density': 
+        match scale_method:
+            case 'density':
                 return 'Track point count'
             
-            case str():
-                return f'{scale_by} ({scale_method})'
+            case 'min' | 'max' | 'mean' | 'median' | 'sum' | 'sd':
+                units = Stats().get_units(scale_by)
+                if units is None:
+                    units = ''
+                else:
+                    units = f' [{units}]'
+                return f'{scale_by} {scale_method} {units}'
+            
+            case 'add' | 'subtract' | 'multiply' | 'divide':
+                units = Stats().get_units(scale_by[0]), Stats().get_units(scale_by[1])
+                for unit in units:
+                    if unit is None:
+                        unit = ''
+                    else:
+                        unit = f' [{unit}]'
+                    units[units.index(unit)] = unit
 
-            case (str(), str()) | [str(), str()]:
-                return f'{scale_by[0]} {self._operator(scale_method)} {scale_by[1]}'
-
+                return f'{scale_by[0]}{units[0]} {self._operator(scale_method)} {scale_by[1]}{units[1]}'
+            
             case _:
                 return f'Scale ({scale_method})'
             

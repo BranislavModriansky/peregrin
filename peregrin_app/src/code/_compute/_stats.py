@@ -544,21 +544,20 @@ class Stats:
 
         grp = df.groupby(level=uid, sort=False)
 
-        # Resolve the aggregation functions for speed statistics
-        speed_agg_spec = self.resolve({
-            'Speed min':    'min',
-            'Speed max':    'max',
-            'Speed mean':   'mean',
-            'Speed sd':     'std',
-            'Speed median': 'median'
-        })
+        speed_agg_spec = {
+            'Speed min':    lambda x: x.min() / self.t_window,
+            'Speed max':    lambda x: x.max() / self.t_window,
+            'Speed mean':   lambda x: x.mean() / self.t_window,
+            'Speed sd':     lambda x: x.std() / self.t_window,
+            'Speed median': lambda x: x.median() / self.t_window,
+        }
 
         # Build the named agg dict: each entry is (column, func)
         agg_spec = {
             'Track length': ('Distance', 'sum'),
         }
         for label, func in speed_agg_spec.items():
-            agg_spec[label] = ('Distance', func)
+            agg_spec[label] = ('Distance', func) 
 
         # Add coordinates first/last for displacement calculation
         agg_spec['start_x'] = ('X coordinate', 'first')
@@ -593,9 +592,6 @@ class Stats:
             colors = grp['Condition color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
 
-        # # Other general stats if the input data were not stripped
-        # other = self._general_agg_stats(df, exclude=self._COLUMNS['SPOTS'])
-
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
         agg['Track straightness ratio'] = (agg['Track displacement'] / agg['Track length'])
@@ -604,15 +600,12 @@ class Stats:
         # Points/ per track
         n = grp.size().rename('Track points')
         agg = agg.merge(n, left_index=True, right_index=True)
-        # other = other.merge(agg, left_index=True, right_index=True, how='right')
-        # df = df.merge(other, left_index=True, right_index=True, how='right')
         df = df.merge(agg, left_index=True, right_index=True, how='right')
         df = df.drop(['Condition', 'Replicate', 'Track ID'], axis=1, errors='ignore')
         df = stash.merge(df, left_index=True, right_index=True, how='right')
 
         for col in self._COLUMNS['SPOTS']:
             if col in df.columns and col not in self._COLUMNS['TRACKS']:
-                print(col)
                 df = df.drop(columns=[col])
 
         df.drop_duplicates(inplace=True)
@@ -1540,11 +1533,22 @@ class Stats:
             return x.std(ddof=1) / np.sqrt(n)
 
 
-    def get_units(self, _overridden_t_unit: str = None, col: str = None) -> dict[str, str]:
-        """ Returns a dictionary mapping metric names to their corresponding units """
+    def get_units(self, col: str = None, *, time_unit: str = None, **kwargs) -> dict[str, str]:
+        """ Returns a dictionary mapping metric names to their corresponding units 
+        
+        Parameters
+        ----------
+        col : str, optional
+            *If provided, returns the unit for the specified column. If not provided, returns a dictionary of all column-unit mappings.*
+        time_unit : str, optional
+            *If provided, overrides the default time unit for all time-related metrics in the returned mapping.*
+        **kwargs : dict
+            *Additional keyword arguments*
+            - `time_data` (bool): If `True`, strips certain metrics of their time component as the time series chart itself is expected to include a time axis.*
+        """
 
-        if _overridden_t_unit is not None:
-            t_unit = _overridden_t_unit
+        if time_unit is not None:
+            t_unit = time_unit
         else:
             t_unit = self.t_unit
 
@@ -1557,8 +1561,8 @@ class Stats:
             'Distance': 'µm',
             'Cumulative track length': 'µm',
             'Cumulative track displacement': 'µm',
-            'Cumulative speed': 'µm ⋅ {t_unit}⁻¹',
-            'Cumulative straight line speed': 'µm ⋅ {t_unit}⁻¹',
+            'Cumulative speed': f'µm ⋅ {t_unit}⁻¹',
+            'Cumulative straight line speed': f'µm ⋅ {t_unit}⁻¹',
             'Direction': 'rad',
             'Directional change': 'rad',
             'Cumulative sum directional change': 'rad',
@@ -1570,34 +1574,39 @@ class Stats:
             'X location': 'µm',
             'Track length': 'µm',
             'Track displacement': 'µm',
-            'Speed min': 'µm ⋅ {t_unit}⁻¹',
-            'Speed max': 'µm ⋅ {t_unit}⁻¹',
-            'Speed mean': 'µm ⋅ {t_unit}⁻¹',
-            'Speed sd': 'µm ⋅ {t_unit}⁻¹',
-            'Speed median': 'µm ⋅ {t_unit}⁻¹',
-            'Mean straight line speed': 'µm ⋅ {t_unit}⁻¹',
+            'Speed min': f'µm ⋅ {t_unit}⁻¹',
+            'Speed max': f'µm ⋅ {t_unit}⁻¹',
+            'Speed mean': f'µm ⋅ {t_unit}⁻¹',
+            'Speed sd': f'µm ⋅ {t_unit}⁻¹',
+            'Speed median': f'µm ⋅ {t_unit}⁻¹',
+            'Mean straight line speed': f'µm ⋅ {t_unit}⁻¹',
             'Max distance reached': 'µm',
             'Direction mean': 'rad',
             'Mean directional change': 'rad',
 
-            # Framestats metrics
-            'Time point': f'{t_unit}',
-            'Frame': 'px',
-            'Cumulative track length': 'µm',
-            'Cumulative track displacement': 'µm',
-            'Cumulative speed': 'µm ⋅ {t_unit}⁻¹',
-            'Instantaneous speed': 'µm ⋅ {t_unit}⁻¹',
-            'Cumulative straight line speed': 'µm ⋅ {t_unit}⁻¹',
-            'Cumulative sum directional change': 'rad',
-            'Cumulative mean directional change': 'rad',
-            'Instantaneous direction mean': 'rad',
-            'Cumulative direction mean': 'rad',
+            
 
             # Timeintervalstats metrics
             'Time lag': f'{t_unit}',
             'MSD': 'µm',
             'Directional change mean': 'rad'
         }
+
+        if kwargs.get('time_data', False):
+            units.update({
+                # Framestats metrics
+                'Time point': f'{t_unit}',
+                'Frame': 'px',
+                'Cumulative track length': 'µm',
+                'Cumulative track displacement': 'µm',
+                'Cumulative speed': 'µm',
+                'Instantaneous speed': 'µm',
+                'Cumulative mean straight line speed': 'µm',
+                'Cumulative sum directional change': 'rad',
+                'Cumulative mean directional change': 'rad',
+                'Instantaneous direction mean': 'rad',
+                'Cumulative direction mean': 'rad',
+            })
 
         if col is not None:
             return units.get(col, None)

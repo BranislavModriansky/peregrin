@@ -4,33 +4,14 @@ from forge import app_ui, Server
 
 app = App(app_ui, Server)
 
-# !IMPORTANT! Helge Hecht meeting:
-# Chceck whether all source code is separated properly
-# Divide the UI layout code into multiple objects = navpanels and even subdivide navpanels
-# Use conda for installing packages into the environment, conda doesnt see pip installments
-# Package all source code code into a peregrin library and use that inside of the shiny framework
-# Templates for making a package in the temas chat with Helge Hecht
 
 
-
-
-# TODO: !!!! ADD PLOT DOWNLOADS AS SVGs AND PNGs !!!!!
-
-
-
-# TODO: make two options for chart downloads - an svg with no background and a png
-#       -> the buttons can have width 50% each and be side by side
 
 # TODO: MAKE A PACKAGE OUT OF THE PLOTTING FUNCTIONS + other useful utility functions
 
 # TODO: Add a checkbox control to enable/disable y-mirroring when loading data 
 
-# TODO - make an option to convert the time units (e.g. user inputs a df in seconds but wants to see minutes/hours in the graphs and calculations)
-
 # TODO - Make it possible to save/load threshold configurations
-# TODO - Mean directional change rate
-# TODO - Again add rendered text showing the total number of cells in the input and the number of output cells
-# TODO - Option to download a simple legend showing how much data was filtered out and how so
 
 # TODO - VERY IMPORTANT
 #      - Must have an option to download the whole app settings together with the data 
