@@ -70,7 +70,7 @@ class MSD:
         else:
             prefix = '{per replicate}'
 
-        fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 5), kwargs.get('fig_height', 3.5)))
+        fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 11), kwargs.get('fig_height', 7.5)))
 
         self.agg_dict, cols = self._build_agg_dict(prefix, Stats.CI_STATISTIC, Stats.CONFIDENCE_LEVEL)
         
