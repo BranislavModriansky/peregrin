@@ -113,7 +113,7 @@ def mount_data_input(input, output, session, S, noticequeue):
                                     ui.input_selectize("select_t", "Time point:", ["e.g. POSITION_T"]),
                                     ui.row(
                                         ui.column(6,
-                                            ui.input_selectize(id="select_t_unit", label=None, choices=list(Metrics.Units.TimeUnits.keys()), selected="seconds"),
+                                            ui.input_selectize(id="select_t_unit", label=None, choices=Metrics.Units.TimeUnits, selected="seconds"),
                                             style_="margin-bottom: 5px;",
                                         )
                                     ),

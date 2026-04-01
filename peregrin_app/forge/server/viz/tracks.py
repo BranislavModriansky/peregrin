@@ -7,7 +7,7 @@ from matplotlib.pyplot import text
 import pandas as pd
 
 from shiny import render, reactive, ui, req
-from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes, is_empty, Level, Reporter
+from src.code import Markers, frame_interval_ms, ReconstructTracks, Values, Dyes, is_empty, Level, Reporter, Stats
 
 import numpy as np
 from io import BytesIO
@@ -135,7 +135,6 @@ def MountTracks(input, output, session, S, noticequeue):
             use_stock_palette=input.tracks_use_stock_palette(), # TODO: not pass this arg and work with it as in the lut min max value setting, only in the forge (front-end of the app)
             stock_palette=input.tracks_stock_palette(),
             dpi=input.tar_dpi(),
-            units_time=S.UNITS.get().get("Time point", "s"),
             noticequeue=noticequeue,
             text_color='whitesmoke' if input.app_theme() == 'dark' else 'dimgrey',
             annotate_r=annotate_r,
@@ -306,7 +305,7 @@ def MountTracks(input, output, session, S, noticequeue):
     @reactive.event(input.prev)
     def _prev():
         try:
-            ui.update_slider("frame_replay", value=input.frame_replay())
+            ui.update_slider("frame_replay", value=input.frame_replay() - 1)
         except Exception:
             pass
 
@@ -314,7 +313,7 @@ def MountTracks(input, output, session, S, noticequeue):
     @reactive.event(input.next)
     def _next():
         try:
-            ui.update_slider("frame_replay", value=input.frame_replay())
+            ui.update_slider("frame_replay", value=input.frame_replay() + 1)
         except Exception:
             pass
 
@@ -331,7 +330,6 @@ def MountTracks(input, output, session, S, noticequeue):
                 )
                 return ReconstructTracks(**_kwargs).ImageStack(
                     dpi=_kwargs.get("dpi", 100),
-                    units_time=_kwargs.get("units_time", "s"),
                 )
 
         return await asyncio.get_running_loop().run_in_executor(None, _build)

@@ -97,6 +97,8 @@ def mount_superplots(input, output, session, S, noticequeue):
             error=input.sp_error(),
             error_type=input.sp_error_type(),
 
+            line_width=input.sp_skeleton_width(),
+
             use_stock_palette=input.stock_palette_sp(),
             palette=input.palette_sp(),
 

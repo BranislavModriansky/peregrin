@@ -8,12 +8,15 @@ from scipy.stats import vonmises
 from scipy.special import i0, i1
 
 from .._common import Painter, Categorizer
+from ..._compute._stats import Stats
 from ..._general import Values
 from ..._handlers._reports import Level
 
 
 
 class PolarDataDistribute:
+
+    n_line_points=1440
 
     def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
                  *args, normalization: str = 'globally', 
@@ -121,8 +124,21 @@ class PolarDataDistribute:
         sm = plt.cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
         cbar = plt.colorbar(sm, ax=ax, orientation='horizontal', pad=0.115, fraction=0.045)
         cbar.set_ticks([])
-        for cap in ('min', 'max'):
-            cbar.ax.text(0.035 if cap == 'min' else 0.965, -0.5, cap, va='center', ha='center', color=self.text_color, transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
+
+        caps = {
+            'min': self._min_density,
+            'max': self._max_density
+        }
+        for cap, value in caps.items():
+            if value == 0.0:
+                display_value = '0'
+            elif value == 1.0:
+                display_value = '1'
+            else:
+                display_value = f'{value:.2f}'
+
+            cbar.ax.text(0.015 if cap == 'min' else 0.985, -0.75, display_value, va='center', ha='center', color=self.text_color, transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
+
         cbar.set_label("Density", labelpad=10, color=self.text_color)
         
         fig.set_facecolor(self.face)
@@ -130,7 +146,6 @@ class PolarDataDistribute:
         return plt.gcf()
 
     def KDELinePlot(self) -> plt.Figure:
-        num_points=1440
 
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
 
@@ -138,8 +153,8 @@ class PolarDataDistribute:
 
         self._arrange_data()
 
-        self.theta, self.density = self._theta_density(self.angles, num_points=num_points)
-        self._density_norm(num_points=num_points)
+        self.theta, self.density = self._theta_density(self.angles, num_points=self.n_line_points)
+        self._density_norm(num_points=self.n_line_points)
 
         if self.outline:
             ax.plot(
@@ -192,7 +207,7 @@ class PolarDataDistribute:
     def get_density_range(self) -> tuple[float, float]:
 
         self.kappa = self._bandwidth_to_kappa()
-        
+
         self._arrange_data()
         self.theta, self.density = self._theta_density(self.angles)
         self._density_norm()
@@ -758,7 +773,12 @@ class PolarDataDistribute:
 
         # Style
         cbar.ax.tick_params(axis="x", length=0, pad=4, colors=self.text_color)
-        cbar.set_label(self.discretize, color=self.text_color, fontsize=10, labelpad=10)
+        units = Stats().get_units(self.discretize)
+        if units is None:
+            units = ""
+        else:
+            units = f' [{units}]'
+        cbar.set_label(f'{self.discretize}{units}', color=self.text_color, fontsize=10, labelpad=10)
 
         # Edge labels from quantiles / global_edges
         def fmt_val(v):

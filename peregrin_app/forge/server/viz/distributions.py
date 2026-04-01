@@ -86,24 +86,6 @@ def MountDistributions(input, output, session, S, noticequeue):
             _kwargs.pop(key, None)
 
         return _kwargs
-    
-    
-    def _density_caps_kwargs() -> dict:
-        if not input.dd_kde_colormesh_auto_scale_lut():
-            min_density=input.dd_kde_colormesh_lutmap_scale_min()
-            max_density=input.dd_kde_colormesh_lutmap_scale_max()
-        else:
-            min_density=0.0
-            max_density=1.0
-
-        return dict(
-            **_common_kwargs(),
-            bandwidth=input.dd_kde_colormesh_bandwidth(),
-            auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
-            cmap=input.dd_kde_colormesh_lut_map(),
-            min_density=min_density,
-            max_density=max_density,
-        )
 
      
     def _distribution_kde_colormesh_kwargs() -> dict:
@@ -308,12 +290,12 @@ def MountDistributions(input, output, session, S, noticequeue):
 
         if (not is_empty(S.TRACKSTATS.get())):
 
-            kwargs = _density_caps_kwargs()
+            kwargs = _distribution_kde_colormesh_kwargs()
 
             min, max = PolarDataDistribute(**kwargs).get_density_range()
             S.MIN_DENSITY.set(f'{min:.4f}'); S.MAX_DENSITY.set(f'{max:.4f}')
 
-        if (not is_empty(S.TRACKSTATS.get())
+        if (is_empty(S.TRACKSTATS.get())
             or S.MIN_DENSITY.get() is None
             or S.MAX_DENSITY.get() is None
         ): return "No data."

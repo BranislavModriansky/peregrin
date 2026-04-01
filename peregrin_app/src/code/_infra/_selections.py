@@ -63,10 +63,10 @@ class Metrics:
         """
 
         TimeUnits = {
-            "seconds": "s",
-            "minutes": "min",
-            "hours": "h",
-            "days": "d",
+            "s": "seconds",
+            "min": "minutes",
+            "h": "hours",
+            "day": "days",
         }
 
         @staticmethod

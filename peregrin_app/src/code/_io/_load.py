@@ -48,7 +48,7 @@ class DataLoader:
         cache = "cache" in kwargs
         data_cache = kwargs.get("cache", [])
         self.t_unit = kwargs.get('time_units', 's')
-        self.kwargs = kwargs
+        self.time_conversion = kwargs.get('time_conversion', None)
 
 
         for file_idx, fileinfo in enumerate(files, start=1):
@@ -183,7 +183,7 @@ class DataLoader:
 
         df = df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
 
-        if self.kwargs.get('time_conversion', None) in ('s', 'min', 'h'):
+        if self.time_conversion in ('s', 'min', 'h'):
             df = self._convert_time(df)
 
         return df
@@ -247,7 +247,7 @@ class DataLoader:
         
         self._py_numeric_df(df)
 
-        if self.kwargs.get('time_conversion', None) in ('s', 'min', 'h'):
+        if self.time_conversion in ('s', 'min', 'h'):
             df = self._convert_time(df)
          
         return df
@@ -324,7 +324,7 @@ class DataLoader:
     
 
     def _convert_time(self, df: pd.DataFrame) -> pd.DataFrame:
-        match (self.t_unit, self.kwargs.get('time_conversion', None)):
+        match (self.t_unit, self.time_conversion):
             case ('s', 'min') | ('min', 'h'):
                 df['Time point'] = df['Time point'] / 60
             case ('s', 'h'):

@@ -336,6 +336,3 @@ def mount_data_labeling(input, output, session, S, noticequeue):
         BaseDataInventory.Tracks = S.UNFILTERED_TRACKSTATS.get().copy() 
         BaseDataInventory.Frames = S.UNFILTERED_FRAMESTATS.get().copy()
         BaseDataInventory.TimeIntervals = S.UNFILTERED_TINTERVALSTATS.get().copy()
-
-        print(BaseDataInventory.Spots['Condition'].head())
-        print(BaseDataInventory.Tracks['Condition'].head())

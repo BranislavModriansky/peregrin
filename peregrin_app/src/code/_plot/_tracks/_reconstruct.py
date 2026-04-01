@@ -10,6 +10,7 @@ from ..._general import Values
 from io import BytesIO
 from ..._handlers._reports import Level
 from ..._infra._selections import Metrics
+from ..._compute._stats import Stats
 
 class ReconstructTracks:
 
@@ -80,8 +81,8 @@ class ReconstructTracks:
             ax.set_ylim(np.nanmin(y), np.nanmax(y))
 
         ax.set_aspect('equal', adjustable='box')
-        ax.set_xlabel('X coordinate [microns]', color=self.text_color)
-        ax.set_ylabel('Y coordinate [microns]', color=self.text_color)
+        ax.set_xlabel('X coordinate [µm]', color=self.text_color)
+        ax.set_ylabel('Y coordinate [µm]', color=self.text_color)
         ax.set_title(self.title, fontsize=12, color=self.text_color)
         self._background_color(); ax.set_facecolor(self.face_color)
 
@@ -152,8 +153,6 @@ class ReconstructTracks:
         self,
         frames_mode: str = "cumulative",  # 'cumulative' | 'per_frame'
         dpi: int = 100,
-        units_time: str = "s",
-        units_space: str = "μm",
         size: tuple[int, int] = (975, 750),
     ) -> np.ndarray | None:
         """
@@ -226,13 +225,13 @@ class ReconstructTracks:
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlim(*xlim)
             ax.set_ylim(*ylim)
-            ax.set_xlabel(f"X coordinate [{units_space}]", color=self.text_color)
-            ax.set_ylabel(f"Y coordinate [{units_space}]", color=self.text_color)
+            ax.set_xlabel(f"X coordinate [µm]", color=self.text_color)
+            ax.set_ylabel(f"Y coordinate [µm]", color=self.text_color)
 
             if self.title:
-                ax.set_title(f"{self.title} | Time point: {t} {units_time}", fontsize=12, text_color=self.text_color)
+                ax.set_title(f"{self.title} | Time: {t} {Stats.t_unit}", fontsize=12, text_color=self.text_color)
             else:
-                ax.set_title(f"Time point: {t} {units_time}", fontsize=12, color=self.text_color)
+                ax.set_title(f"Time: {t} {Stats.t_unit}", fontsize=12, color=self.text_color)
 
             self._background_color()
             ax.set_facecolor(self.face_color)
