@@ -6,7 +6,10 @@ import os.path as op
 from typing import List
 
 from .._handlers._reports import Level, Reporter
+from .._compute._stats import Stats
+from .._handlers._log import get_logger
 
+_log = get_logger(__name__)
 
 
 
@@ -181,7 +184,24 @@ class DataLoader:
             x_mid = (df[x_col].min() + df[x_col].max()) / 2
             df[x_col] = 2 * x_mid - df[x_col]
 
-        df = df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
+        # rename main columns
+        df = self._standname(df, id_col, t_col, x_col, y_col)
+
+        df.sort_values('Time point', inplace=True)
+        t_steps = np.diff(df['Time point'].unique())
+
+        _log.info(f"[INFO] Parsing data -> stripped to key columns: Track ID = {id_col}, Time point = {t_col}, X coordinate = {x_col}, Y coordinate = {y_col}")
+        _log.info(f"[INFO] Observed time steps:\n{t_steps}")
+        _log.info(f"[INFO] Between unique time points: \n{df['Time point'].unique()}")
+
+        try:
+            if np.all(t_steps == t_steps[0]):
+                Stats.t_step = float(t_steps[0])
+            else:
+                Stats.t_step = float(np.median(t_steps))
+                Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation.", details=f"Observed time steps:\n{t_steps}\nUsing: {Stats.t_step}", noticequeue=self.noticequeue)
+        except Exception as e:
+            Reporter(Level.error, f'{e} (spot stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
 
         if self.time_conversion in ('s', 'min', 'h'):
             df = self._convert_time(df)
@@ -231,18 +251,28 @@ class DataLoader:
             df[x_col] = 2 * x_mid - df[x_col]
 
         # rename main columns
-        rename_map = {
-            id_col: "Track ID",
-            t_col: "Time point",
-            x_col: "X coordinate",
-            y_col: "Y coordinate",
-        }
-        df = df.rename(columns=rename_map)
+        df = self._standname(df, id_col, t_col, x_col, y_col)
+
+        df.sort_values('Time point', inplace=True)
+        t_steps = np.diff(df['Time point'].unique())
+
+        _log.info(f"[INFO] Parsing data -> preserving all columns")
+        _log.info(f"[INFO] Observed time steps:\n{t_steps}")
+        _log.info(f"[INFO] Between unique time points: \n{df['Time point'].unique()}")
+
+        try:
+            if np.all(t_steps == t_steps[0]):
+                Stats.t_step = float(t_steps[0])
+            else:
+                Stats.t_step = float(np.median(t_steps))
+                Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation.", details=f"Observed time steps:\n{t_steps}\nUsing: {Stats.t_step}", noticequeue=self.noticequeue)
+        except Exception as e:
+            Reporter(Level.error, f'{e} on loading data', trace=traceback.format_exc(), noticequeue=self.noticequeue)
 
         # normalize other column names
         try:
             df.columns = [self._clean_name(c) if c != 'Track ID' else c for c in df.columns]
-        except Exception as e:
+        except Exception:
             pass
         
         self._py_numeric_df(df)
@@ -323,29 +353,55 @@ class DataLoader:
         return name
     
 
+    def _standname(self, df, id_col: str, t_col: str, x_col: str, y_col: str) -> pd.DataFrame:
+        return df.rename(columns={id_col: 'Track ID', t_col: 'Time point', x_col: 'X coordinate', y_col: 'Y coordinate'})
+    
+
     def _convert_time(self, df: pd.DataFrame) -> pd.DataFrame:
+        divide   = False
+        multiply = False
         match (self.t_unit, self.time_conversion):
             case ('s', 'min') | ('min', 'h'):
-                df['Time point'] = df['Time point'] / 60
+                divide = True
+                factor = 60
             case ('s', 'h'):
-                df['Time point'] = df['Time point'] / 3600
+                divide = True
+                factor = 3600
             case ('s', 'day'):
-                df['Time point'] = df['Time point'] / 86400
+                divide = True
+                factor = 86400
             case ('min', 'day'):
-                df['Time point'] = df['Time point'] / 1440
+                divide = True
+                factor = 1440
             case ('h', 'day'):
-                df['Time point'] = df['Time point'] / 24
+                divide = True
+                factor = 24
+
 
             case ('h', 'min') | ('min', 's'):
-                df['Time point'] = df['Time point'] * 60
+                multiply = True
+                factor = 60
             case ('h', 's'):
-                df['Time point'] = df['Time point'] * 3600
+                multiply = True
+                factor = 3600
             case ('day', 's'):
-                df['Time point'] = df['Time point'] * 86400
+                multiply = True
+                factor = 86400
             case ('day', 'min'):
-                df['Time point'] = df['Time point'] * 1440
+                multiply = True
+                factor = 1440
             case ('day', 'h'):
-                df['Time point'] = df['Time point'] * 24
+                multiply = True
+                factor = 24
+
+        if divide:
+            df['Time point'] = df['Time point'] / factor
+            Stats.t_step = Stats.t_step / factor
+            _log.info(f"[INFO] Time data converted from {self.t_unit} to {self.time_conversion} <- time point values and time step divided by {factor}.")
+        elif multiply:
+            df['Time point'] = df['Time point'] * factor
+            Stats.t_step = Stats.t_step * factor
+            _log.info(f"[INFO] Time data converted from {self.t_unit} to {self.time_conversion} <- time point values and time step multiplied by {factor}.")
 
         return df
             

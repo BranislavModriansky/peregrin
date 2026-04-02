@@ -4,5 +4,6 @@ from ._navpanel_inputs import navpanel_inputs
 from ._navpanel_dashboard import navpanel_dashboard
 from ._navpanel_gates import navpanel_gates
 from ._navpanel_viz_ import navpanel_viz
+from ._log_panel import log_panel_ui
 
-__all__ = ["sidebar", "navpanel_about", "navpanel_inputs", "navpanel_dashboard", "navpanel_gates", "navpanel_viz"]
+__all__ = ["sidebar", "navpanel_about", "navpanel_inputs", "navpanel_dashboard", "navpanel_gates", "navpanel_viz", "log_panel_ui"]

@@ -12,6 +12,7 @@ from ._plot._distrib._polar import PolarDataDistribute
 from . _plot._distrib._motion import MotionFlowPlot
 from ._handlers._scheduling import *
 from ._handlers._reports import Level, NoticeQueue
+from ._handlers._log import LogQueue
 
 from ._general import *
 
@@ -31,5 +32,5 @@ __all__ = [
     "DebounceCalc", "ThrottleCalc", "DebounceEffect",
     "Level", "NoticeQueue",
     'MSD', 'TurnAnglesHeatmap', 'TSeries',
-    "is_empty", "clock"
+    "is_empty", "clock", "LogQueue"
 ]

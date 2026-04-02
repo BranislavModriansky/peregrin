@@ -9,6 +9,9 @@ from typing import *
 
 from .._general import Values
 from .._handlers._reports import Level, Reporter
+from .._handlers._log import get_logger
+
+_log = get_logger("peregrin.stats")
 
 
 @dataclass
@@ -96,6 +99,7 @@ class Stats:
     
     """
 
+    t_step: float = None
     t_unit: str = 's'
     
     SIGNIFICANT_FIGURES: None | int = None
@@ -316,7 +320,23 @@ class Stats:
 
         df.sort_values(self.tier + ['Track ID', 'Time point'], inplace=True)
 
-        t_step = float(np.diff(df['Time point'].unique())[0])
+        if self.t_step is None:
+            _t = df.copy()
+            _t.sort_values('Time point', inplace=True)
+            t_steps = np.diff(_t['Time point'].unique())
+            try:
+                if np.all(t_steps == t_steps[0]):
+                    t_step = float(t_steps[0])
+                else:
+                    t_step = float(np.median(t_steps))
+                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (spot stats + time stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", noticequeue=self.noticequeue)
+            except Exception as e:
+                Reporter(Level.error, f'{e} (spot stats + time stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
+        else:
+            t_step = self.t_step
+        
+        _log.info(f"[INFO] Time step: {t_step} {self.t_unit}")
+        _log.info(f"[INFO] Computing spot statistics for {len(df)} track points across {df['Track ID'].nunique()} tracks and {df['Time point'].nunique()} time points.")
 
         # Define grouping keys
         gkeys = self.tier + ['Track ID']
@@ -537,14 +557,27 @@ class Stats:
 
         if df.empty:
             return pd.DataFrame(columns=self._COLUMNS['TRACKS'])
+        
+        if self.t_step is None:
+            _t = df.copy()
+            _t.sort_values('Time point', inplace=True)
+            t_steps = np.diff(_t['Time point'].unique())
+            try:
+                if np.all(t_steps == t_steps[0]):
+                    t_step = float(t_steps[0])
+                else:
+                    t_step = float(np.median(t_steps))
+                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (track stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", noticequeue=self.noticequeue)
+            except Exception as e:
+                Reporter(Level.error, f'{e} (track stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
+        else:
+            t_step = self.t_step
 
         # Stash the categorical identifiers for merging them back into the aggregated result DataFrame
         stash = df[self.tier + ['Track ID']].drop_duplicates()
 
         df = df.set_index('Track UID', drop=True, verify_integrity=False)
         uid = ['Track UID']
-
-        t_step = float(np.diff(df['Time point'].unique())[0])
 
         grp = df.groupby(level=uid, sort=False)
 
@@ -672,7 +705,7 @@ class Stats:
                 - **`Cumulative straightness ratio`**
                 - **`Instantaneous speed`**
                 - **`Cumulative speed`**
-                - **`Cumulative straight line speed`**
+                - **`Cumulative mean straight line speed`**
                 - **`Cumulative forward progression linearity`**
                 - **`Instantaneous direction`**
                 - **`Cumulative direction`**
@@ -987,7 +1020,20 @@ class Stats:
             return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
 
         # Unique time steps (time interval)
-        t_step = float(np.diff(t_unique)[0])
+        if self.t_step is None:
+            _t = df.copy()
+            _t.sort_values('Time point', inplace=True)
+            t_steps = np.diff(_t['Time point'].unique())
+            try:
+                if np.all(t_steps == t_steps[0]):
+                    t_step = float(t_steps[0])
+                else:
+                    t_step = float(np.median(t_steps))
+                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (time interval stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", noticequeue=self.noticequeue)
+            except Exception as e:
+                Reporter(Level.error, f'{e} (time interval stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
+        else:
+            t_step = self.t_step
 
         df.reset_index(drop=True, inplace=True)
 
@@ -1566,7 +1612,7 @@ class Stats:
             'Cumulative track length': 'µm',
             'Cumulative track displacement': 'µm',
             'Cumulative speed': f'µm ⋅ {t_unit}⁻¹',
-            'Cumulative straight line speed': f'µm ⋅ {t_unit}⁻¹',
+            'Cumulative mean straight line speed': f'µm ⋅ {t_unit}⁻¹',
             'Direction': 'rad',
             'Directional change': 'rad',
             'Cumulative sum directional change': 'rad',

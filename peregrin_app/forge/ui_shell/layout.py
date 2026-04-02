@@ -31,7 +31,8 @@ app_ui = ui.page_sidebar(
 
         ui.nav_control(
             ui.output_ui("theme_css_injector"),
-            ui.input_dark_mode(id="app_theme")
+            ui.input_dark_mode(id="app_theme"),
+            log_panel_ui
         ),
         
         title=ui.tags.span(

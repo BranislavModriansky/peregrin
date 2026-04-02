@@ -1,5 +1,6 @@
 from pathlib import Path
 from shiny import ui
+from ._log_panel import log_panel_ui
 
 
 styles_path = Path(__file__).parents[3] / "src" / "styles"

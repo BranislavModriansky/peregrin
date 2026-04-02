@@ -30,7 +30,7 @@ class Metrics:
 
     Time = [
         'Cumulative track length', 'Cumulative track displacement', 'Cumulative straightness ratio', 
-        'Cumulative speed', 'Instantaneous speed', 'Cumulative straight line speed', 'Cumulative forward progression linearity',
+        'Cumulative speed', 'Instantaneous speed', 'Cumulative mean straight line speed', 'Cumulative forward progression linearity',
         'Cumulative sum directional change', 'Cumulative mean directional change', 
         'Instantaneous direction', 'Cumulative direction'
     ]
