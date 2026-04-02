@@ -24,6 +24,7 @@ from .bg_jobs.buttons import mount_buttons
 from .bg_jobs.notify import mount_notifier
 from .bg_jobs.theme import set_theme
 from .bg_jobs.statcols import mount_statcols
+from .bg_jobs.logger import mount_logger
 
 
     
@@ -55,6 +56,7 @@ def Server(input: Inputs, output: Outputs, session: Session):
     mount_thresholds_info_export(*args)
     mount_plot_turnangles(*args, **kwargs)
     mount_references(*args, **kwargs)
+    mount_logger()
 
 
     # MountTracks.realistic_reconstruction(*args, **kwargs)

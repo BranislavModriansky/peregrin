@@ -45,7 +45,7 @@ subpanel_superplots = ui.nav_panel(
             ui.accordion_panel(
                 "Compose",
                 ui.row(
-                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=[], width="265px")),
+                    ui.column(2, ui.input_selectize(id="metric_sp", label=None, choices=[], width="295px")),
                     ui.column(2, ui.input_radio_buttons(id="sp_orientation", label=None, choices={"v": "Vertical orientation", "h": "Horizontal orientation"}, selected="v")),
                     ui.panel_conditional(
                         "input.superplot_type == 'Hybrid Superplots'",
