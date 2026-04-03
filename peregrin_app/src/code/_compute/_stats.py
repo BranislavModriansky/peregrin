@@ -136,7 +136,7 @@ class Stats:
             'Speed min','Speed max','Speed mean','Speed sd','Speed median',
             'Mean straight line speed', 'Forward progression linearity',  # https://imagej.net/plugins/trackmate/analyzers/
             'Max distance reached','Track start frame','Track end frame',
-            'Direction mean','Direction var','Mean directional change'
+            'Direction mean','Direction var','Mean directional change','Mean directional change rate'
         ],
         'FRAMES':        ['Condition','Replicate','Time point','Frame'],
         'TIMEINTERVALS': ['Condition','Replicate','Time lag','Frame lag']
@@ -265,7 +265,7 @@ class Stats:
             Mean speed (`Distance`) from the starting to the current position <- `Cumulative track length` / `Frame`.
 
             - **`Cumulative mean straight line speed`**-
-            Calculated as `Cumulative track displacement` / Track point count.
+            Calculated as `Cumulative track displacement` / (current track point count * `t_step`).
 
             - **`Cumulative forward progression linearity`**-
             Calculated as `Cumulative mean straight line speed` / `Cumulative speed`
@@ -281,6 +281,9 @@ class Stats:
 
             - **`Cumulative mean directional change`**- 
             Mean of all absolute `Directional change` values along the track up to the current position
+
+            - **`Cumulative mean directional change rate`**- 
+            Mean of all absolute `Directional change` values / (current track point count * `t_step`).
 
             - **`Cumulative direction mean`**- 
             Mean of directions of motion from the starting to the current position.
@@ -415,6 +418,9 @@ class Stats:
         # First two points of each track have no directional change; set them to NaN
         df.loc[df['Directional change'].isna(), ['Cumulative mean directional change']] = np.nan
 
+        df['Cumulative mean directional change rate'] = df['Cumulative mean directional change'] / (cumulative_count * t_step)
+        _log.info(f"[INFO] Cumulative mean directional change rate calculated using t_step = {t_step} and current track point count = {cumulative_count}: \n{df['Cumulative mean directional change rate']}")
+
         # Cumulative direction of motion (circular mean and variance) calculations
         df['_dir'] = np.arctan2(
             grp['Y coordinate'].diff(),
@@ -509,11 +515,11 @@ class Stats:
             - **`Track displacement`**- 
             Euclidean distance from the starting position to the end position of the track.
 
-            - **``**- 
+            - **`Track straightness ratio`**- 
             Track's straigtness calculated as `Track displacement` / `Track length`.
 
             - **`Mean straight line speed`**-
-            Calculated as `Track displacement` / `Track points`
+            Calculated as `Track displacement` / (`Track points` * `t_step`).
 
             - **`Forward progression linearity`**-
             Calculated as `Mean straight line speed` / `Speed mean`
@@ -526,6 +532,9 @@ class Stats:
 
             - **`Mean directional change`**- 
             Mean of absolute directional changes per track (degrees).
+
+            - **`Mean directional change rate`**-
+            `Mean directional change` / (`Track points` * `t_step`)
 
             - **`Direction var`**- 
             Circular variance of the `Direction` values.
@@ -618,6 +627,7 @@ class Stats:
         agg_spec['Direction mean'] = ('Cumulative direction mean', 'last')
         agg_spec['Direction var'] = ('Cumulative direction var', 'last')
         agg_spec['Mean directional change'] = ('Cumulative mean directional change', 'last')
+        agg_spec['Mean directional change rate'] = ('Cumulative mean directional change rate', 'last')
 
         agg = grp.agg(**agg_spec)
 
@@ -1609,6 +1619,7 @@ class Stats:
             'Y coordinate': 'µm',
             'Time point': f'{t_unit}',
             'Distance': 'µm',
+            'Instantaneous speed': f'µm ⋅ {t_unit}⁻¹',
             'Cumulative track length': 'µm',
             'Cumulative track displacement': 'µm',
             'Cumulative speed': f'µm ⋅ {t_unit}⁻¹',
@@ -1617,6 +1628,7 @@ class Stats:
             'Directional change': 'rad',
             'Cumulative sum directional change': 'rad',
             'Cumulative mean directional change': 'rad',
+            'Cumulative mean directional change rate': f' rad ⋅ {t_unit}⁻¹',
             'Cumulative direction mean': 'rad',
 
             # Trackstats metrics
@@ -1633,13 +1645,13 @@ class Stats:
             'Max distance reached': 'µm',
             'Direction mean': 'rad',
             'Mean directional change': 'rad',
-
+            'Mean directional change rate': f'rad ⋅ {t_unit}⁻¹',
             
 
             # Timeintervalstats metrics
             'Time lag': f'{t_unit}',
             'MSD': 'µm²',
-            'Directional change mean': 'rad'
+            'Directional change mean': 'rad',
         }
 
         if kwargs.get('time_data', False):
@@ -1654,6 +1666,7 @@ class Stats:
                 'Cumulative mean straight line speed': 'µm',
                 'Cumulative sum directional change': 'rad',
                 'Cumulative mean directional change': 'rad',
+                'Cumulative mean directional change rate': 'rad',
                 'Instantaneous direction mean': 'rad',
                 'Cumulative direction mean': 'rad',
             })
