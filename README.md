@@ -37,7 +37,7 @@ Peregrin is a an application designed for researchers studying cell migration. I
 
 #### Import Data
 
-- Import: CSV / XLSX / XLS / XML / JSON - data files containing information about spots of individual trajectories;
+- Import: CSV / XLSX / XLS / XML / JSON / PARQUET- data files containing information about spots of individual trajectories;
 - Imported data must contain *track identificator*, *time point*, *x coordinate* and *y coordinate* columns;
 - Optionally, input may also contain other information;
 
