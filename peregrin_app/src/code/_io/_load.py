@@ -96,11 +96,11 @@ class DataLoader:
             else:
                 try:
                     cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
-                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name")
+                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name") + f" (file {file_idx})" if isinstance(fileinfo, dict) else op.basename(fileinfo) + f" (file {file_idx})"
                 except Exception as e:
                     Reporter(Level.error, f"Error occurred while setting category labels -> defaulting to index int", trace=traceback.format_exc(), noticequeue=self.noticequeue)
                     cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
-                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name", file_idx)
+                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name", file_idx) + f" (file {file_idx})" if isinstance(fileinfo, dict) else op.basename(fileinfo) + f" (file {file_idx})"
 
 
             extracted["Condition"] = str(cond_label)

@@ -11,7 +11,7 @@ from .._general import Values
 from .._handlers._reports import Level, Reporter
 from .._handlers._log import get_logger
 
-_log = get_logger("peregrin.stats")
+_log = get_logger(__name__)
 
 
 @dataclass
@@ -127,6 +127,7 @@ class Stats:
             'Cumulative speed','Cumulative mean straight line speed',
             'Cumulative forward progression linearity','Direction','Directional change',
             'Cumulative sum directional change','Cumulative mean directional change',
+            'Cumulative mean directional change rate',
             'Cumulative direction mean','Cumulative direction var'
         ],
         'TRACKS': [
@@ -419,7 +420,7 @@ class Stats:
         df.loc[df['Directional change'].isna(), ['Cumulative mean directional change']] = np.nan
 
         df['Cumulative mean directional change rate'] = df['Cumulative mean directional change'] / (cumulative_count * t_step)
-        _log.info(f"[INFO] Cumulative mean directional change rate calculated using t_step = {t_step} and current track point count = {cumulative_count}: \n{df['Cumulative mean directional change rate']}")
+        # _log.info(f"[INFO] Cumulative mean directional change rate calculated using t_step = {t_step} and current track point count = {cumulative_count}: \n{df['Cumulative mean directional change rate']}")
 
         # Cumulative direction of motion (circular mean and variance) calculations
         df['_dir'] = np.arctan2(
@@ -515,7 +516,7 @@ class Stats:
             - **`Track displacement`**- 
             Euclidean distance from the starting position to the end position of the track.
 
-            - **`Track straightness ratio`**- 
+            - **`Straightness ratio`**- 
             Track's straigtness calculated as `Track displacement` / `Track length`.
 
             - **`Mean straight line speed`**-
@@ -631,6 +632,8 @@ class Stats:
 
         agg = grp.agg(**agg_spec)
 
+        # _log.info(f"Aggregated track-level statistics (before post-processing):\ncolumns: {agg.columns.tolist()}\nrows: {len(agg)}")
+
         # If colors were assigned, carry them over
         if 'Replicate color' in df.columns:
             colors = grp['Replicate color'].first()
@@ -641,7 +644,7 @@ class Stats:
 
         # Displacement and straightness
         agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
-        agg['Track straightness ratio'] = (agg['Track displacement'] / agg['Track length'])
+        agg['Straightness ratio'] = (agg['Track displacement'] / agg['Track length'])
         agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
         # Points/ per track
@@ -655,7 +658,11 @@ class Stats:
             if col in df.columns and col not in self._COLUMNS['TRACKS']:
                 df = df.drop(columns=[col])
 
+        # _log.info(f"Track stats after merging aggregated stats and dropping spot-level columns: \ncolumns: {df.columns.tolist()}\nrows: {len(df)}")
+
         df.drop_duplicates(inplace=True)
+
+        # _log.info(f"Track stats after dropping duplicates: \ncolumns: {df.columns.tolist()}\nrows: {len(df)}")
         
         # Insert Track UID as a column right after Track ID
         df.insert(df.columns.get_loc('Track ID') + 1, 'Track UID', df.index)
