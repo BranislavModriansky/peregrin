@@ -1,7 +1,9 @@
 import traceback
 from shiny import reactive, ui, render, req
 
-from src.code import Level, Reporter
+from src.code import Level, Reporter, get_logger
+
+_log = get_logger(__name__)
 
 
 def mount_statcols(input, output, session, S, noticequeue):
@@ -38,6 +40,8 @@ def mount_statcols(input, output, session, S, noticequeue):
             
             S.SPOTSTATS_COLUMNS.set(spot_cols)
             S.TRACKSTATS_COLUMNS.set(track_cols)
+
+            _log.info(f"[INFO] Updated stats column lists: \nspots columns: {spot_cols}\ntracks columns: {track_cols}")
             
         except Exception as e:
             Reporter(Level.error, f"Error updating statcols: {e}", noticequeue=noticequeue, trace=traceback.format_exc())

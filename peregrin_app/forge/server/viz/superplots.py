@@ -4,7 +4,9 @@ import warnings
 import pandas as pd
 from datetime import date
 from shiny import ui, reactive, req, render
-from src.code import SuperPlots, DebounceCalc, Dyes, is_empty
+from src.code import SuperPlots, DebounceCalc, Dyes, is_empty, get_logger
+
+_log = get_logger(__name__)
 
 
 def mount_superplots(input, output, session, S, noticequeue):
@@ -17,7 +19,7 @@ def mount_superplots(input, output, session, S, noticequeue):
         @reactive.event(S.UNFILTERED_TRACKSTATS)
         def _():
             req(not is_empty(S.UNFILTERED_TRACKSTATS.get()))
-            ui.update_selectize(id="metric_sp", choices={"SPOTS": S.SPOTSTATS_COLUMNS.get(), "TRACKS": S.TRACKSTATS_COLUMNS.get()}, selected="Track straightness ratio")
+            ui.update_selectize(id="metric_sp", choices={"SPOTS": S.SPOTSTATS_COLUMNS.get(), "TRACKS": S.TRACKSTATS_COLUMNS.get()}, selected="Straightness ratio")
 
         @reactive.Effect
         @reactive.event(S.TRACKSTATS)
@@ -69,6 +71,12 @@ def mount_superplots(input, output, session, S, noticequeue):
 
 
     def _superplot_common_kwargs() -> dict:
+        if input.metric_sp() in S.TRACKSTATS_COLUMNS.get():
+            data = S.TRACKSTATS.get()
+            _log.info(f"[INFO] Using TRACKSTATS for superplot with metric '{input.metric_sp()}'.")
+        else:
+            data = S.SPOTSTATS.get()
+            _log.info(f"[INFO] Using SPOTSTATS for superplot with metric '{input.metric_sp()}'.")
 
         return dict(
             data=S.TRACKSTATS.get() if input.metric_sp() in S.TRACKSTATS_COLUMNS.get() else S.SPOTSTATS.get(),
