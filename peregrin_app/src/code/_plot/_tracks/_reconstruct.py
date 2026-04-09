@@ -8,7 +8,7 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from .._common import Painter, Categorizer
 from ..._general import Values
 from io import BytesIO
-from ..._handlers._reports import Level
+from ..._handlers._reports import Level, Reporter
 from ..._infra._selections import Metrics
 from ..._compute._stats import Stats
 
@@ -174,12 +174,7 @@ class ReconstructTracks:
         required = ["Time point", "X coordinate", "Y coordinate"]
         missing = [c for c in required if c not in Spots.columns]
         if missing:
-            if self.noticequeue:
-                self.noticequeue.Report(
-                    Level.warning,
-                    "Cannot build animated track reconstruction.",
-                    f"Missing required columns in Spots_df: {missing}.",
-                )
+            Reporter(Level.error, f"Cannot build animated track reconstruction. -> Missing required columns in Spots_df: {missing}.", noticequeue=self.noticequeue)
             return None
 
         if Spots.empty:
@@ -492,11 +487,8 @@ class ReconstructTracks:
             # Fall back to grouping by columns
             missing = [c for c in self.KEY_COLS if c not in alldata.columns]
             if missing:
-                self.noticequeue.Report(
-                    Level.warning,
-                    'Invalid chart radius. Using default "100 μm".',
-                    f"Missing grouping columns for radius computation: {missing}.",
-                )
+                Reporter(Level.error, f"Cannot compute radius for polar plot. -> Missing required grouping columns: {missing}.", noticequeue=self.noticequeue)
+
                 self.y_max_global = 100.0
                 self.y_max_label_global = "100 μm"
                 return
@@ -512,28 +504,20 @@ class ReconstructTracks:
         self.y_max_label_global = f"{round(r.max()) + 10} μm"
 
         if not np.isfinite(self.y_max_global):
-            self.noticequeue.Report(
-                Level.warning,
-                'Invalid chart radius. Setting to "100 μm."',
-                f"Maximum radius was not finite: {self.y_max_global}.",
-            )
+            Reporter(Level.warning, f"Invalid maximum radius computed for polar plot. Setting to default '100 μm'.", details=f"Maximum radius was not finite: {self.y_max_global}.", noticequeue=self.noticequeue)
             self.y_max_global = 100.0
         if not (self.y_max_global > 0):
-            self.noticequeue.Report(
-                Level.warning,
-                'Negative maximum radius. Setting to default "100 μm".',
-                f"Maximum radius was a negative value: {self.y_max_global}.",
-            )
+            Reporter(Level.warning, 'Negative maximum radius. Setting to default "100 μm".', details=f"Maximum radius was a negative value: {self.y_max_global}.", noticequeue=self.noticequeue)
             self.y_max_global = 100.0
             self.y_max_label_global = "100 μm"
         
     def _smooth(self):
-        if isinstance(self.smoothing_index, (int, float)) and self.smoothing_index >= 1:
+        if (isinstance(self.smoothing_index, (int, float))) and self.smoothing_index >= 1:
             _smoothing_window = self.smoothing_index
             if isinstance(_smoothing_window, float):
                 _smoothing_window = round(self.smoothing_index)
-                self.noticequeue.Report(Level.warning, f"Smoothing index rounded to nearest integer: {_smoothing_window}.", f"Invalid smoothing index type: float ({self.smoothing_index}).")
-            
+                Reporter(Level.info, f"Smoothing index rounded to nearest integer: {_smoothing_window}.", f"Invalid smoothing index type: float ({self.smoothing_index}).", noticequeue=self.noticequeue)
+                
             self.Spots['X coordinate'] = (
                 self.Spots.groupby(level=self.KEY_COLS)['X coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
             )
@@ -541,7 +525,7 @@ class ReconstructTracks:
                 self.Spots.groupby(level=self.KEY_COLS)['Y coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
             )
         else:
-            self.noticequeue.Report(Level.warning, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1. {type(self.smoothing_index)}: {self.smoothing_index}.")
+            Reporter(Level.warning, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1. {type(self.smoothing_index)}: {self.smoothing_index}.", noticequeue=self.noticequeue)
 
     def _assign_colors(self):
         rng = np.random.default_rng(42)
