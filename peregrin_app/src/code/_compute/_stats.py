@@ -7,7 +7,7 @@ from scipy import stats
 from collections import defaultdict
 from typing import *
 
-from .._general import Values
+from .._general import Values, clock
 from .._handlers._reports import Level, Reporter
 from .._handlers._log import get_logger
 
@@ -1114,7 +1114,8 @@ class Stats:
 
             dx = shifted_x.values - x_arr
             dy = shifted_y.values - y_arr
-            sq_disp = dx**2 + dy**2
+
+            sq_disp = np.hypot(dy, dx)**2
 
             valid_idx = np.where(valid_mask)[0]
             if valid_idx.size == 0:
