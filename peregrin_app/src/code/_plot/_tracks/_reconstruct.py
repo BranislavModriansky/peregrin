@@ -516,14 +516,11 @@ class ReconstructTracks:
             _smoothing_window = self.smoothing_index
             if isinstance(_smoothing_window, float):
                 _smoothing_window = round(self.smoothing_index)
-                Reporter(Level.info, f"Smoothing index rounded to nearest integer: {_smoothing_window}.", f"Invalid smoothing index type: float ({self.smoothing_index}).", noticequeue=self.noticequeue)
                 
-            self.Spots['X coordinate'] = (
-                self.Spots.groupby(level=self.KEY_COLS)['X coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
-            )
-            self.Spots['Y coordinate'] = (
-                self.Spots.groupby(level=self.KEY_COLS)['Y coordinate'].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
-            )
+                Reporter(Level.info, f"Smoothing index rounded to nearest integer: {_smoothing_window}.", f"Invalid smoothing index type: float ({self.smoothing_index}).", noticequeue=self.noticequeue)
+            
+            for col in ['X coordinate', 'Y coordinate']:
+                self.Spots[col] = self.Spots.groupby(level=self.KEY_COLS)[col].transform(lambda s: s.rolling(_smoothing_window, min_periods=1).mean())
         else:
             Reporter(Level.warning, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1. {type(self.smoothing_index)}: {self.smoothing_index}.", noticequeue=self.noticequeue)
 
