@@ -906,7 +906,7 @@ class Stats:
     
     
     def TimeIntervals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """ Computes per-time-interval statistics, including mean squared displacement (MSD) and directional change:
+        """ Computes per-time-interval statistics, including mean or median squared displacement (MSD) and directional change:
 
         For each frame lag (1, 2, …, maximum), squared displacements and turning angles are computed across trajectories.
 

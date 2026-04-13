@@ -17,11 +17,11 @@ warnings.filterwarnings(
 
 
 subpanel_msd = ui.nav_panel(
-    "Mean Squared Displacement",
+    "MSD",
     ui.panel_well(
         ui.markdown(
             """
-            ### **Mean Squared Displacement**
+            ### **MSD**
             ___
             """
         ),
