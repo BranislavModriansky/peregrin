@@ -412,8 +412,8 @@ class Stats:
         _temp = df.groupby(gkeys, sort=False)['Directional change'].expanding()
 
         df['Cumulative sum directional change'], df['Cumulative mean directional change'] = (
-            _temp.sum().droplevel(list(range(len(gkeys)))),
-            _temp.mean().droplevel(list(range(len(gkeys))))
+            _temp.sum().droplevel(list(range(len(gkeys)))).values,
+            _temp.mean().droplevel(list(range(len(gkeys)))).values
         )
 
         # First two points of each track have no directional change; set them to NaN
