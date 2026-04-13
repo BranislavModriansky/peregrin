@@ -197,10 +197,10 @@ class MSD:
                         x_data,
                         y_data,
                         marker='|',
-                        markersize=5,
+                        markersize=8,
                         label=None,
                         linestyle='none',
-                        color='lightgrey',
+                        color='grey',
                         zorder=5
                     )
                 
