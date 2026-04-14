@@ -76,6 +76,12 @@ def MountDistributions(input, output, session, S, noticequeue):
                 id="dd_rosechart_discretize",
                 choices=S.TRACKSTATS_COLUMNS.get(),
             )
+
+            # ui.update_selectize(
+            #     id="dd_weight_by",
+            #     choices={**S.TRACKSTATS_COLUMNS.get(), None: "none"},
+            #     selected=None
+            # )
             
 
 
@@ -106,11 +112,12 @@ def MountDistributions(input, output, session, S, noticequeue):
 
         return dict(
             **_common_kwargs(),
+            # weight_by=input.dd_weight_by(),
             cmap=input.dd_kde_colormesh_lut_map(),
             text_color='black' if input.app_theme() == "light" else 'white',
             label_theta=input.dd_kde_colormesh_theta_labels(),
             bins=input.dd_kde_colormesh_bins(),
-            bandwidth=input.dd_kde_colormesh_bandwidth(),
+            kappa=input.dd_kde_colormesh_kappa(),
             auto_lut_scale=input.dd_kde_colormesh_auto_scale_lut(),
             min_density=min_density,
             max_density=max_density,
@@ -121,8 +128,10 @@ def MountDistributions(input, output, session, S, noticequeue):
     def _distribution_kde_line_kwargs() -> dict:
         return dict(
             **_common_kwargs(),
+            # weight_by=input.dd_weight_by(),
+
             text_color='black' if input.app_theme() == "light" else 'white',
-            bandwidth=input.dd_kde_line_bandwidth(),
+            kappa=input.dd_kde_line_kappa(),
             label_theta=input.dd_kde_line_theta_labels(),
             label_r=input.dd_kde_line_r_labels(),
             label_r_color=input.dd_kde_line_r_label_color(),

@@ -35,7 +35,8 @@ subpanel_dirdist = ui.nav_panel(
                 ),
                 ui.br(),
                 ui.row(
-                    ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories", "none": "No normalization"}, selected="globally"),
+                    ui.column(6, ui.input_radio_buttons(id="dd_normalization", label=None, choices={"globally": "Normalize globally", "locally": "Normalize to selected categories", "none": "No normalization"}, selected="globally")),
+                    # ui.column(6, ui.input_selectize(id="dd_weight_by", label="Weights:", choices=[], selected=[], multiple=False)),
                 )
             ),
             class_="accordion02"
@@ -122,7 +123,7 @@ subpanel_dirdist = ui.nav_panel(
                         "Compose",
                         ui.row(
                             ui.input_numeric("dd_kde_colormesh_bins", "Number of bins:", value=720, min=2, step=1, width="150px"),
-                            ui.input_numeric("dd_kde_colormesh_bandwidth", "Bandwidth:", value=0.05, min=0.0001, step=0.001, width="115px"),
+                            ui.input_numeric("dd_kde_colormesh_kappa", "Kappa:", value=25, min=0, step=1, width="115px"),
                         ),
                         ui.row(
                             ui.input_checkbox("dd_kde_colormesh_auto_scale_lut", "Auto scale LUT to min/max density", value=True),
@@ -166,7 +167,7 @@ subpanel_dirdist = ui.nav_panel(
                 ui.accordion(
                     ui.accordion_panel(
                         "Compose",
-                        ui.input_numeric(id="dd_kde_line_bandwidth", label="Bandwidth:", value=0.05, min=0.0, step=0.001, width="90px"),
+                        ui.input_numeric(id="dd_kde_line_kappa", label="Kappa:", value=25, min=0, step=1, width="90px"),
                         ui.input_checkbox(id="dd_kde_line_mean", label="Display circular mean", value=True),
                         ui.input_checkbox(id="dd_kde_line_peak_direction_trend", label="Display peak dial", value=False),
                         ui.row(
