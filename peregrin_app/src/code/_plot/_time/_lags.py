@@ -11,11 +11,12 @@ from typing import *
 from ..._handlers._reports import Level, Reporter
 from .._common import Categorizer, Painter
 from ..._general import is_empty
+from ..._compute._stats import Stats
 
 
 class MSD:
     """
-    #### *Mean Squared Displacement analysis and visualization class.*
+    #### *Mean or Median Squared Displacement analysis and visualization class.*
     
     Provides methods for computing and plotting MSD statistics across time lags,
     with support for multiple conditions, linear fitting, and various scaling options.
@@ -98,7 +99,7 @@ class MSD:
 
             for g_idx, (cond_name, rep_name, gdata) in enumerate(groups):
 
-                x_data = gdata['Frame lag'].values
+                x_data = gdata['Time lag'].values
                 y_data = gdata[f'{prefix} MSD {statistic}'].values
               
                 match disper:
@@ -196,10 +197,10 @@ class MSD:
                         x_data,
                         y_data,
                         marker='|',
-                        markersize=5,
+                        markersize=8,
                         label=None,
                         linestyle='none',
-                        color='lightgrey',
+                        color='grey',
                         zorder=5
                     )
                 
@@ -221,7 +222,12 @@ class MSD:
         self._set_ylim(ax, self.data[mi].values)
 
         if kwargs.get('title', None):
-            ax.set_title(kwargs.get('title'), color=kwargs.get('text_color', 'black'))
+            ax.set_title(
+                kwargs.get('title', None), 
+                color=kwargs.get('text_color', 'black'), 
+                fontsize=kwargs.get('title_fontsize', 14), 
+                fontweight=kwargs.get('title_fontweight', 'bold')
+            )
         
         if kwargs.get('grid', False):
             ax.grid(True, color='whitesmoke', zorder=0)
@@ -241,7 +247,7 @@ class MSD:
             data=self.data,
             conditions=self.conditions,
             replicates=self.replicates,
-            aggby=['Condition', 'Frame lag'] if self.level == 'Condition' else ['Condition', 'Replicate', 'Frame lag'],
+            aggby=['Condition', 'Time lag'] if self.level == 'Condition' else ['Condition', 'Replicate', 'Time lag'],
             aggdict=self.agg_dict,
             noticequeue=self.noticequeue
         )()
@@ -278,16 +284,14 @@ class MSD:
         base_rgb = mcolors.to_rgb(safe_color)
         hsv = mcolors.rgb_to_hsv(np.array(base_rgb))
 
-        hsv[1] = np.clip(hsv[1] * self.SATURATION_SCALE,
-                        self.SATURATION_MIN, self.SATURATION_MAX)
-        hsv[2] = np.clip(hsv[2] * self.BRIGHTNESS_SCALE,
-                        self.BRIGHTNESS_MIN, hsv[2])
+        hsv[1] = np.clip(hsv[1] * self.SATURATION_SCALE, self.SATURATION_MIN, self.SATURATION_MAX)
+        hsv[2] = np.clip(hsv[2] * self.BRIGHTNESS_SCALE, self.BRIGHTNESS_MIN, hsv[2])
 
         return mcolors.to_hex(mcolors.hsv_to_rgb(hsv))
     
     def _set_axis_labels(self, ax: plt.Axes):
-        ax.set_xlabel('Frame lag [frame]')
-        ax.set_ylabel('MSD [μm²]')
+        ax.set_xlabel(f'Time lag [{Stats.t_unit}]', fontsize=12)
+        ax.set_ylabel('MSD [μm²]', fontsize=12)
     
     def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray):
         miny, maxy = np.nanmin(y_vals), np.nanmax(y_vals)
@@ -434,11 +438,13 @@ def TurnAnglesHeatmap(data: pd.DataFrame, condition: str, replicates: list[str],
     cmap = Painter(noticequeue=noticequeue).GetCmap(cmap)
 
     xvals = data['{per replicate} Directional change mean'].to_numpy()
-    yvals = data['Frame lag'].to_numpy()
-    lags = data['Frame lag'].unique()
+    yvals = data['Time lag'].to_numpy()
+    lags = data['Time lag'].unique()
 
     if lags.size < 2:
         return None
+    
+    tlag_range = lags[1] - lags[0]
     
     n = len(replicates)
 
@@ -455,7 +461,7 @@ def TurnAnglesHeatmap(data: pd.DataFrame, condition: str, replicates: list[str],
 
     # Set axis labels, limits, ticks, and title
     ax.set_xlabel("Mean directional change [°]", color=text_color)
-    ax.set_ylabel("Frame lag", color=text_color)
+    ax.set_ylabel(f"Time lag [{Stats.t_unit}]", color=text_color)
     ax.tick_params(colors=text_color, width=0.5)
     ax.grid(False)
 

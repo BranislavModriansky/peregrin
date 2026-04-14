@@ -4,8 +4,10 @@ import numpy as np
 import pandas as pd
 import shiny.ui as ui
 from shiny import reactive, render, req
-from src.code import DataLoader, Stats, Metrics, Level, is_empty, Reporter, BaseDataInventory
+from src.code import DataLoader, Stats, Metrics, Level, is_empty, Reporter, BaseDataInventory, get_logger
 
+
+_log = get_logger("Data Input")
 
 
 
@@ -324,6 +326,9 @@ def mount_data_input(input, output, session, S, noticequeue):
 
             else:
                 pass
+
+        except Exception:
+            _log.error(f"An error occurred: {traceback.format_exc()}")
 
         finally:
             ui.update_task_button("run", state="ready")
