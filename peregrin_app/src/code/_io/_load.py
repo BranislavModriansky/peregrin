@@ -53,61 +53,77 @@ class DataLoader:
         self.t_unit = kwargs.get('time_units', 's')
         self.time_conversion = kwargs.get('time_conversion', None)
 
+        _rep_guard_list = []
+        self.rep_multiplicates = False
 
         for file_idx, fileinfo in enumerate(files, start=1):
             try:
-                if isinstance(fileinfo, dict) and "datapath" in fileinfo:
-                    df = self.GetDataFrame(fileinfo["datapath"])
-                else:
-                    df = self.GetDataFrame(fileinfo)
+                try:
+                    if isinstance(fileinfo, dict) and "datapath" in fileinfo:
+                        df = self.GetDataFrame(fileinfo["datapath"])
+                    else:
+                        df = self.GetDataFrame(fileinfo)
 
-                if strip_data:
-                    extracted = self.ExtractStripped(
-                        df,
-                        cols=cols,
-                        mirror_y=kwargs.get("mirror_y", True),
-                        mirror_x=kwargs.get("mirror_x", False),
-                    )
+                    if strip_data:
+                        extracted = self.ExtractStripped(
+                            df,
+                            cols=cols,
+                            mirror_y=kwargs.get("mirror_y", True),
+                            mirror_x=kwargs.get("mirror_x", False),
+                        )
+                    else:
+                        extracted = self.ExtractFull(
+                            df,
+                            cols=cols,
+                            mirror_y=kwargs.get("mirror_y", True),
+                            mirror_x=kwargs.get("mirror_x", False),
+                        )
+
+                except: continue
+
+                if (auto_label 
+                    and isinstance(fileinfo, dict) 
+                    and fileinfo.get("name") 
+                    and len(fileinfo.get("name").split("#")) >= 2):
+
+                    file_info = fileinfo.get("name")
+
+                    cond_label = file_info.split("#")[1]
+                    rep_label = file_info.split("#")[2]
+
+                    if file_idx > 1:
+                        extracted = self._guard_replicates(rep_label, file_info, extracted, _rep_guard_list)
+
+                elif (auto_label 
+                    and isinstance(fileinfo, str)
+                    and len(op.basename(fileinfo).split("#")) >= 2):
+
+                    cond_label = op.basename(fileinfo).split("#")[1]
+                    rep_label = op.basename(fileinfo).split("#")[2]
+
+                    if file_idx > 1:
+                        extracted = self._guard_replicates(rep_label, file_info, extracted, _rep_guard_list)
+
                 else:
-                    extracted = self.ExtractFull(
-                        df,
-                        cols=cols,
-                        mirror_y=kwargs.get("mirror_y", True),
-                        mirror_x=kwargs.get("mirror_x", False),
-                    )
+                    try:
+                        cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
+                        rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name") + f" (file {file_idx})" if isinstance(fileinfo, dict) else op.basename(fileinfo) + f" (file {file_idx})"
+                    except Exception:
+                        Reporter(Level.error, f"Error occurred while setting category labels -> defaulting to index int", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                        cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
+                        rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name", file_idx) + f" (file {file_idx})" if isinstance(fileinfo, dict) else op.basename(fileinfo) + f" (file {file_idx})"
+
+                _rep_guard_list.append(rep_label)
+
+                extracted["Condition"] = str(cond_label)
+                extracted["Replicate"] = str(rep_label)
+
+                data_cache.append(extracted)
+
+                if self.rep_multiplicates:
+                    Reporter(Level.info, f"Found multiple copies of the same replicate label -> Track IDs in these replicates have been prefixed to avoid conflicts.", noticequeue=self.noticequeue)
 
             except: continue
-
-            if (auto_label 
-                and isinstance(fileinfo, dict) 
-                and fileinfo.get("name") 
-                and len(fileinfo.get("name").split("#")) >= 2):
-
-                cond_label = fileinfo.get("name").split("#")[1]
-                rep_label = fileinfo.get("name").split("#")[2]
-
-            elif (auto_label 
-                  and isinstance(fileinfo, str)
-                  and len(op.basename(fileinfo).split("#")) >= 2):
-
-                cond_label = op.basename(fileinfo).split("#")[1]
-                rep_label = op.basename(fileinfo).split("#")[2]
-
-            else:
-                try:
-                    cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
-                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name") + f" (file {file_idx})" if isinstance(fileinfo, dict) else op.basename(fileinfo) + f" (file {file_idx})"
-                except Exception as e:
-                    Reporter(Level.error, f"Error occurred while setting category labels -> defaulting to index int", trace=traceback.format_exc(), noticequeue=self.noticequeue)
-                    cond_label = cond_label if cond_label not in (None, "") else kwargs.get("iteration", 1)
-                    rep_label = rep_labels[file_idx-1] if rep_labels is not None else fileinfo.get("name", file_idx) + f" (file {file_idx})" if isinstance(fileinfo, dict) else op.basename(fileinfo) + f" (file {file_idx})"
-
-
-            extracted["Condition"] = str(cond_label)
-            extracted["Replicate"] = str(rep_label)
-
-            data_cache.append(extracted)
-
 
         if cache and data_cache is not None:
             return data_cache
@@ -116,7 +132,7 @@ class DataLoader:
             return pd.concat(data_cache, axis=0)
         
         else:
-            raise ValueError("No valid data could be loaded from the provided files.")
+            _log.error(f"No valid data could be loaded from the provided files.\n{traceback.format_exc()}")
 
 
     def GetDataFrame(self, filepath: str) -> pd.DataFrame:
@@ -324,6 +340,20 @@ class DataLoader:
                     return col
         return None
     
+
+    def _guard_replicates(self, rep_label, file_info, data, _rep_guard_list) -> pd.DataFrame:
+
+        if rep_label in _rep_guard_list:
+
+            count = _rep_guard_list.count(rep_label)
+            data['Track ID'] = data['Track ID'].apply(lambda x: f"{count}{x}")
+
+            _log.info(f"[INFO] Multiple ({count+1}) replicate labels: '{rep_label}' \n-> adding prefix: {count} to replicate label: {rep_label}\nFile info: {file_info}")
+            self.rep_multiplicates = True
+        
+        return data
+
+
 
     def _try_reading(self, path, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> pd.DataFrame:
 
