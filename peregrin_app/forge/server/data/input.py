@@ -366,7 +366,7 @@ def mount_data_input(input, output, session, S, noticequeue):
             if 'Replicate' in df.columns:
                 df['Replicate'] = df['Replicate'].astype(str)
             if 'Track ID' in df.columns:
-                df['Track ID'] = pd.to_numeric(df['Track ID'], errors='coerce').astype('Int64')
+                df['Track ID'] = df['Track ID'].astype(str)
             if 'Track UID' in df.columns:
                 df['Track UID'] = pd.to_numeric(df['Track UID'], errors='coerce').astype('Int64')
 

@@ -8,8 +8,11 @@ import matplotlib.pyplot as plt
 from .._common import Categorizer, Painter
 from ..._general import is_empty
 from ..._handlers._reports import Reporter, Level
+from ..._handlers._log import get_logger
 from ..._compute._stats import Stats
 
+
+_log = get_logger(__name__)
 
 
 class TSeries:
@@ -175,7 +178,7 @@ class TSeries:
             y_units = ''
 
         # Labels and title
-        ax.set_xlabel(f"{'Time [{time_unit}]' if x_col == 'Time point' else 'Frame'}")
+        ax.set_xlabel(f"Time [{time_unit}]" if x_col == 'Time point' else 'Frame')
         ax.set_ylabel(f"{y_col}{y_units}")
         ax.set_title(self.title)
         ax.legend(loc='best', frameon=True, framealpha=0.9)
