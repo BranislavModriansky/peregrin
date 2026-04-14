@@ -346,7 +346,7 @@ class DataLoader:
         if rep_label in _rep_guard_list:
 
             count = _rep_guard_list.count(rep_label)
-            data['Track ID'] = data['Track ID'].apply(lambda x: f"{count}{x}")
+            data['Track ID'] = data['Track ID'].apply(lambda x: f"{count}_{x}")
 
             _log.info(f"[INFO] Multiple ({count+1}) replicate labels: '{rep_label}' \n-> adding prefix: {count} to replicate label: {rep_label}\nFile info: {file_info}")
             self.rep_multiplicates = True

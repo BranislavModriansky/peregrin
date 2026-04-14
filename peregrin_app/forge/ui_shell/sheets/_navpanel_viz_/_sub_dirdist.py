@@ -76,7 +76,7 @@ subpanel_dirdist = ui.nav_panel(
                             "input.dd_rosechart_cmode == 'n-tiles'",
                             ui.row(
                                 ui.input_numeric("dd_rosechart_ntiles", "n-tiles:", value=6, min=2, step=1, width="90px"),
-                                ui.input_selectize("dd_rosechart_discretize", "Discretize:", choices=Metrics.Track, selected="Track displacement", width="210px"),
+                                ui.input_selectize("dd_rosechart_discretize", "Discretize:", choices=[], width="210px"),
                             )
                         ),
                         ui.panel_conditional(

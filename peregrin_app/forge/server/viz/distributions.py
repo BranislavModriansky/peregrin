@@ -70,6 +70,14 @@ def MountDistributions(input, output, session, S, noticequeue):
                 selected=S.TRACKSTATS.get()["Replicate"].unique().tolist()
             )
 
+        @reactive.Effect
+        def _():
+            ui.update_selectize(
+                id="dd_rosechart_discretize",
+                choices=S.TRACKSTATS_COLUMNS.get(),
+            )
+            
+
 
     # _ _ _ FUNCTIONS FOR DRAWING KWARGS _ _ _
 
