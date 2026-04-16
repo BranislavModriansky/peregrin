@@ -56,7 +56,7 @@ subpanel_flow = ui.nav_panel(
                         ),
                         ui.row(
                             ui.column(2, ui.input_numeric(id="min_arrow_size_mf", label="Min arrow size:", value=0, min=0, step=1)),
-                            ui.column(2, ui.input_numeric(id="max_arrow_size_mf", label="Max arrow size:", value=5, min=0.1, step=1)),
+                            ui.column(2, ui.input_numeric(id="max_arrow_size_mf", label="Max arrow size:", value=5, min=0, step=1)),
                         ),
                         ui.row(
                             ui.column(2, ui.input_selectize(id="arrow_scaling_method_mf", label="Arrow scaling method:", 

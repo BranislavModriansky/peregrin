@@ -141,9 +141,12 @@ class MotionFlowPlot:
         plot_h = plot_y_max - plot_y_min
 
         # Figure size scales with data extent
-        fig_scale = self.kwargs.get('fig_scale', 0.02)
-        fig_width  = max(4.0, plot_w * fig_scale)
-        fig_height = max(3.0, plot_h * fig_scale)
+        if plot_w > plot_h:
+            fig_width = 6
+            fig_height = plot_h * 6 / plot_w
+        else:
+            fig_height = 5
+            fig_width = plot_w * 5 / plot_h
 
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
