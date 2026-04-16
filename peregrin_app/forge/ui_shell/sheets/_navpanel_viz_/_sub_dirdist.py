@@ -16,11 +16,11 @@ warnings.filterwarnings(
 
 
 subpanel_dirdist = ui.nav_panel(
-    "Directionality distribution",
+    "Circular distribution",
     ui.panel_well(
         ui.markdown(
             """
-            ### **Directionality distribution**
+            ### **Circular distribution**
             ___
             """
         ),

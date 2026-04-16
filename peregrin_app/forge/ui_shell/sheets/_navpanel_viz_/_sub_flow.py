@@ -44,8 +44,9 @@ subpanel_flow = ui.nav_panel(
                     ui.accordion_panel(
                         "Arrow parameters",
                         ui.row(
-                            ui.column(2, ui.input_numeric(id="n_arrows_y_mf", label="Number of arrows (y):", value=10, min=1)),
-                            ui.column(2, ui.input_numeric(id="n_arrows_x_mf", label="Number of arrows (x):", value=10, min=1)),
+                            # ui.column(2, ui.input_numeric(id="n_arrows_y_mf", label="Number of arrows (y):", value=10, min=1)),
+                            # ui.column(2, ui.input_numeric(id="n_arrows_x_mf", label="Number of arrows (x):", value=10, min=1)),
+                            ui.column(2, ui.input_numeric(id="arrow_grid_size_mf", label="Arrow grid size:", value=50, min=1, step=1)),
                             ui.panel_conditional(
                                 "chart_type_mf == 'stream'",
                                 ui.row(
@@ -55,7 +56,7 @@ subpanel_flow = ui.nav_panel(
                         ),
                         ui.row(
                             ui.column(2, ui.input_numeric(id="min_arrow_size_mf", label="Min arrow size:", value=0, min=0, step=1)),
-                            ui.column(2, ui.input_numeric(id="max_arrow_size_mf", label="Max arrow size:", value=5, min=0.1, step=1)),
+                            ui.column(2, ui.input_numeric(id="max_arrow_size_mf", label="Max arrow size:", value=5, min=0, step=1)),
                         ),
                         ui.row(
                             ui.column(2, ui.input_selectize(id="arrow_scaling_method_mf", label="Arrow scaling method:", 
@@ -68,10 +69,8 @@ subpanel_flow = ui.nav_panel(
                             ),
                             ui.panel_conditional(
                                 "['add', 'subtract', 'multiply', 'divide'].includes(input.arrow_scaling_method_mf)",
-                                ui.row(
-                                    ui.column(2, ui.input_selectize(id="arrow_scale_by_a_mf", label="Value A:", choices=[], multiple=False)),
-                                    ui.column(2, ui.input_selectize(id="arrow_scale_by_b_mf", label="Value B:", choices=[], multiple=False)),
-                                ),
+                                ui.column(2, ui.input_selectize(id="arrow_scale_by_a_mf", label="Value A:", choices=[], multiple=False)),
+                                ui.column(2, ui.input_selectize(id="arrow_scale_by_b_mf", label="Value B:", choices=[], multiple=False)),
                             )
                         )
                     ),
