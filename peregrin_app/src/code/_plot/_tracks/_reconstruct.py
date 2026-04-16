@@ -524,13 +524,27 @@ class ReconstructTracks:
                     self.Spots.groupby(
                         level=self.KEY_COLS
                     )[col].transform(
-                        lambda s: s.rolling(
-                            _smoothing_window, min_periods=1
-                        ).mean()
+                        lambda s: self._smooth_preserve_endpoints(s, _smoothing_window)
                     )
                 )
         else:
             Reporter(Level.warning, f"Invalid smoothing index. No smoothing applied.", f"Smoothing index must be an integer type and must be greater than 1. {type(self.smoothing_index)}: {self.smoothing_index}.", noticequeue=self.noticequeue)
+
+    @staticmethod
+    def _smooth_preserve_endpoints(s: pd.Series, window: int) -> pd.Series:
+        """Smooth a series with rolling mean, then linearly correct so endpoints are preserved."""
+        if len(s) < 2:
+            return s
+        original_start = s.iloc[0]
+        original_end = s.iloc[-1]
+        smoothed = s.rolling(window, min_periods=1).mean()
+        smoothed_start = smoothed.iloc[0]
+        smoothed_end = smoothed.iloc[-1]
+        n = len(smoothed)
+        # Linear correction: ramp from (original_start - smoothed_start) to (original_end - smoothed_end)
+        t = np.linspace(0, 1, n)
+        correction = (original_start - smoothed_start) * (1 - t) + (original_end - smoothed_end) * t
+        return smoothed + correction
 
     def _assign_colors(self):
         rng = np.random.default_rng(42)
