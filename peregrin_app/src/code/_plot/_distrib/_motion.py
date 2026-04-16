@@ -17,9 +17,13 @@ class MotionFlowPlot:
     """
     Creates a quiver/streamplot from cell trajectory spot data.
 
-    The spatial extent is divided into an (n_arrows_x × n_arrows_y) grid.
+    The spatial extent is divided into a grid of square cells with side length
+    ``cell_size``.  The number of columns and rows is determined automatically
+    from the data extent.  The figure aspect ratio mirrors the data extent so
+    the plot is never forced into a square.
+
     Each occupied cell computes:
-    * DIRECTION  — circular-mean / min / max of all 'Direction' values in that cell
+    * DIRECTION  — circular-mean of all 'Direction' values in that cell
     * SCALE      — aggregated scale_by metric (density or any numeric column)
 
     Two render modes:
@@ -37,8 +41,7 @@ class MotionFlowPlot:
         replicates: list = None,
         *,
         ignore_categories: bool = True,
-        n_arrows_x: int = 10,
-        n_arrows_y: int = 7,
+        cell_size: float = 50.0,
         cmap: str = 'viridis',
         scale_by: str | Tuple[str, str] = 'density',
         scale_method: str = 'mean',
@@ -50,27 +53,24 @@ class MotionFlowPlot:
         ----------
         data : pd.DataFrame
         conditions, replicates : list, optional
-        method : str
-            Direction aggregation: 'mean' (circular), 'min', 'max'.
-        n_arrows_x, n_arrows_y : int
-            Grid dimensions (number of arrows / streamline seed columns × rows).
+        cell_size : float
+            Side length of each square grid cell in data units (µm).
+            The grid dimensions (n_cols × n_rows) are computed automatically
+            so that cells tile the data extent evenly.
         cmap : str
             Matplotlib colormap name.
         scale_by : str
             'density' → point count per cell, or any numeric column name.
         scale_method : str
-            Aggregation for scale_by: 'density' | 'min' | 'max' | 'mean' | 'median' | 'sum' | 'sd' | 'add' | 'subtract' | 'multiply' | 'divide'.
+            Aggregation for scale_by.
         mode : str
-            'quiver' → straight centered arrows.
-            'stream' → curved streamlines via streamplot (matches reference image).
+            'quiver' or 'stream'.
 
         kwargs (styling)
         ----------------
-        fig_width, fig_height   : float   — figure size in inches
+        fig_scale              : float   — inches per data-unit for the figure (default: 0.02)
         max_arrow_size          : float   — maximum arrow/line length or linewidth
-                                            quiver: max arrow length in data units (default: auto = 90% of cell)
-                                            stream: max linewidth (default: 3.0)
-        min_arrow_frac          : float   — min size as fraction of max (default: 0.0 → invisible at zero)
+        min_arrow_frac          : float   — min size as fraction of max (default: 0.0)
         arrow_width             : float   — quiver shaft width in axes fraction (default: 0.002)
         head_width              : float   — quiver headwidth (default: 4)
         head_length             : float   — quiver headlength (default: 4)
@@ -90,8 +90,7 @@ class MotionFlowPlot:
         self.ignore_categories = ignore_categories
         self.conditions        = conditions  if conditions  is not None else []
         self.replicates        = replicates  if replicates  is not None else []
-        self.n_arrows_x        = n_arrows_x
-        self.n_arrows_y        = n_arrows_y
+        self.cell_size         = cell_size
         self.cmap              = cmap
         self.scale_by          = scale_by
         self.scale_method      = scale_method
@@ -116,20 +115,40 @@ class MotionFlowPlot:
             Reporter(Level.error, "No data left after dropping rows with missing 'Direction' values -> returning None.")
             return None
 
+        # Compute grid dimensions from cell_size and data extent
+        x_vals = self.data['X coordinate'].values
+        y_vals = self.data['Y coordinate'].values
+        x_min, x_max = x_vals.min(), x_vals.max()
+        y_min, y_max = y_vals.min(), y_vals.max()
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+
+        # Ensure at least 1 cell per axis
+        self.n_arrows_x = max(1, int(np.ceil(x_range / self.cell_size)))
+        self.n_arrows_y = max(1, int(np.ceil(y_range / self.cell_size)))
+
         grid_x, grid_y, U, V, S = self._build_grid()
         sv_norm, sv_min, sv_max = self._normalise_scale(S)
 
-        x_min, x_max = grid_x[0] - (grid_x[1]-grid_x[0])*0.5, grid_x[-1] + (grid_x[1]-grid_x[0])*0.5
-        y_min, y_max = grid_y[0] - (grid_y[1]-grid_y[0])*0.5, grid_y[-1] + (grid_y[1]-grid_y[0])*0.5
-        x_range      = x_max - x_min
-        y_range      = y_max - y_min
-        cell_w       = x_range / self.n_arrows_x
-        cell_h       = y_range / self.n_arrows_y
+        cell_w = self.cell_size
+        cell_h = self.cell_size
 
-        fig, ax = plt.subplots(figsize=(self.kwargs.get('fig_width', 12), self.kwargs.get('fig_height', 10)))
+        plot_x_min = grid_x[0]  - cell_w * 0.5
+        plot_x_max = grid_x[-1] + cell_w * 0.5
+        plot_y_min = grid_y[0]  - cell_h * 0.5
+        plot_y_max = grid_y[-1] + cell_h * 0.5
+        plot_w = plot_x_max - plot_x_min
+        plot_h = plot_y_max - plot_y_min
+
+        # Figure size scales with data extent
+        fig_scale = self.kwargs.get('fig_scale', 0.02)
+        fig_width  = max(4.0, plot_w * fig_scale)
+        fig_height = max(3.0, plot_h * fig_scale)
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
         colormap = Painter().GetCmap(self.cmap)
-        norm     = mcolors.Normalize(vmin=sv_min,vmax=sv_max)
+        norm     = mcolors.Normalize(vmin=sv_min, vmax=sv_max)
 
         if self.mode == 'quiver':
             self._render_quiver(ax, grid_x, grid_y, U, V, S, sv_norm,
@@ -140,8 +159,9 @@ class MotionFlowPlot:
         if self.kwargs.get('show_colorbar', True):
             self._make_cbar(fig, ax, colormap, norm)
         
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
+        ax.set_xlim(plot_x_min, plot_x_max)
+        ax.set_ylim(plot_y_min, plot_y_max)
+        ax.set_aspect('equal')
         ax.set_xlabel('X coordinate [µm]')
         ax.set_ylabel('Y coordinate [µm]')
         ax.set_title(self.kwargs.get('title', None),
@@ -161,16 +181,6 @@ class MotionFlowPlot:
                        cell_w, cell_h, colormap, norm):
         """
         Straight arrows rooted at cell centre, tip pointing in direction of motion.
-
-        kwargs
-        ------
-        min_arrow_frac : float  smallest arrow as a fraction of cell size  (default 0.0)
-        max_arrow_frac : float  longest  arrow as a fraction of cell size  (default 0.9)
-                                set > 1.0 to let arrows overflow their cell
-        arrow_width    : float  shaft width in axes-fraction units          (default 0.002)
-        head_width     : float  quiver headwidth                            (default 4)
-        head_length    : float  quiver headlength                           (default 4)
-        head_axislength: float  quiver headaxislength                       (default 3)
         """
 
         cell_size = min(cell_w, cell_h)
@@ -184,12 +194,11 @@ class MotionFlowPlot:
             for col in range(self.n_arrows_x):
 
                 if not np.isfinite(S[row, col]):
-                    continue # skip empty cells
+                    continue
 
                 sn     = float(sv_norm[row, col])
                 length = min_len + (max_len - min_len) * sn
 
-                # Fix the tail at the "cell" centre
                 cx, cy = grid_x[col], grid_y[row]
                 u,  v  = U[row, col], V[row, col]
 
@@ -212,28 +221,21 @@ class MotionFlowPlot:
                        colormap, norm):
         """
         Curved streamlines via ax.streamplot.
-
-        streamplot needs a *regular* grid and no NaNs in U/V (it will
-        terminate lines that hit masked regions).  We replace NaN cells
-        with zero-magnitude vectors so no line is seeded there.
         """
         min_frac   = self.kwargs.get('min_arrow_frac', 0.0)
-        max_lw     = self.kwargs.get('max_arrow_size', 3.0)   # linewidth units
+        max_lw     = self.kwargs.get('max_arrow_size', 3.0)
         arrowsize  = self.kwargs.get('stream_arrowsize', 1.2)
         density    = self.kwargs.get('stream_density', 1.0)
 
-        # Build per-cell linewidth array
         lw_grid = np.where(
             np.isfinite(sv_norm),
             max_lw * (min_frac + (1.0 - min_frac) * np.where(np.isfinite(sv_norm), sv_norm, np.nan)),
             np.nan
         )
 
-        # Replace NaN direction cells with zero-magnitude vectors (no line will be seeded there)
         U_plot = np.where(np.isfinite(U), U, np.nan)
         V_plot = np.where(np.isfinite(V), V, np.nan)
 
-        # Color grid: map actual scale values to colors, but fill NaN cells with the color of the minimum finite value (or leave as NaN to be transparent)
         fin        = S[np.isfinite(S)]
         fill_val   = fin.min() if len(fin) else np.nan
         color_grid = np.where(np.isfinite(S), S, fill_val)
@@ -271,7 +273,6 @@ class MotionFlowPlot:
         a_func, b_func = self.kwargs.get('metric_a_func', 'mean'), self.kwargs.get('metric_b_func', 'mean')
         
         return {
-            # 'density':  lambda v: len(v),
             'min':      np.min,      
             'max':      np.max,
             'mean':     np.mean,     
@@ -318,7 +319,6 @@ class MotionFlowPlot:
                 scale_acc.setdefault(key, []).append(scale_data[i] if isinstance(scale_data, np.ndarray) else (scale_data[0][i], scale_data[-1][i]))
 
 
-        # build 2D grids  (row = y axis, col = x axis)
         U = np.full((self.n_arrows_y, self.n_arrows_x), np.nan)
         V = np.full((self.n_arrows_y, self.n_arrows_x), np.nan)
         S = np.full((self.n_arrows_y, self.n_arrows_x), np.nan)
@@ -342,7 +342,6 @@ class MotionFlowPlot:
 
         return grid_x, grid_y, U, V, S
     
-
     def _scale_getitems(self) -> np.ndarray | None:
 
         if self.scale_by == 'density' or self.scale_method == 'density':
@@ -385,11 +384,10 @@ class MotionFlowPlot:
 
         if sv_min == sv_max:
             sv_max = sv_min + 1.0
-        sv_norm = (S - sv_min) / (sv_max - sv_min)   # NaN preserved
+        sv_norm = (S - sv_min) / (sv_max - sv_min)
 
         return sv_norm, sv_min, sv_max
     
-
     def _draw_grid(self, ax, grid_x, grid_y, cell_w, cell_h):
 
         kw = dict(color=self.kwargs.get('grid_color', 'grey'), 
@@ -506,5 +504,4 @@ class MotionFlowPlot:
         
         return not None in basket
 
-        
-        
+

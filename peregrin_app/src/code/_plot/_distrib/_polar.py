@@ -4,7 +4,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from typing import Any
-from scipy.stats import vonmises 
+from scipy import stats
 from scipy.special import i0, i1
 
 from .._common import Painter, Categorizer
@@ -55,7 +55,7 @@ class PolarDataDistribute:
         self.kappa = self._bandwidth_to_kappa()
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, weights=self.weights)
+        self.theta, self.density = self._theta_density(self.angles, bins)
         self._density_norm()
 
         D_THETA = 2 * np.pi / bins
@@ -87,11 +87,18 @@ class PolarDataDistribute:
         cbar.set_ticks([])
 
         caps = {
-            'min': '0',
-            'max': '1'
+            'min': self._min_density,
+            'max': self._max_density
         }
         for cap, value in caps.items():
-            cbar.ax.text(0.015 if cap == 'min' else 0.985, -0.75, value, va='center', ha='center', color=self.kwargs.get('text_color', 'black'), transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
+            if value == 0.0:
+                display_value = '0'
+            elif value == 1.0:
+                display_value = '1'
+            else:
+                display_value = f'{value:.2f}'
+
+            cbar.ax.text(0.015 if cap == 'min' else 0.985, -0.75, display_value, va='center', ha='center', color=self.kwargs.get('text_color', 'black'), transform=cbar.ax.transAxes, fontsize=9, fontstyle='italic')
 
         cbar.set_label("Density", labelpad=10, color=self.kwargs.get('text_color', 'black'))
         
@@ -116,7 +123,7 @@ class PolarDataDistribute:
 
         self._arrange_data()
 
-        self.theta, self.density = self._theta_density(self.angles, num_points=self.n_line_points, weights=self.weights)
+        self.theta, self.density = self._theta_density(self.angles, self.n_line_points)
         self._density_norm(num_points=self.n_line_points)
 
         _log.info(f"[DEBUG] KDE density range before normalization: [{np.nanmin(self.density)}, {np.nanmax(self.density)}]")
@@ -161,7 +168,7 @@ class PolarDataDistribute:
         self._arrange_data()
 
         self._define_bins()
-        self._plot_histogram(ax, fig=fig)
+        self._polar_hist(ax, fig=fig)
         self._annotate_theta_axis(ax)
         self._annotate_hist_r_axis(ax)
         ax.set_facecolor(self.kwargs.get('background', 'white'))
@@ -177,7 +184,7 @@ class PolarDataDistribute:
         self.kappa = self._bandwidth_to_kappa()
 
         self._arrange_data()
-        self.theta, self.density = self._theta_density(self.angles, weights=self.weights)
+        self.theta, self.density = self._theta_density(self.angles, self.n_line_points)
         self._density_norm()
 
         return self._min_density, self._max_density
@@ -218,9 +225,9 @@ class PolarDataDistribute:
             noticequeue=self.noticequeue
         )()
 
-        # wrapping to pi
+        # wrapping to [0, 2π]
         if wrap:
-            self.angles = ((self.data['Direction mean'] + np.pi) % (2 * np.pi)) - np.pi
+            self.angles = self.data['Direction mean'] % (2 * np.pi)
         else:
             self.angles = self.data['Direction mean']
 
@@ -242,38 +249,33 @@ class PolarDataDistribute:
             return w / w_sum if w_sum > 0 else np.ones(w.size) / max(w.size, 1)
         return None
 
-    def _theta_density(self, a: np.ndarray, wrap: bool = True, 
-                       num_points: int = None,
-                       weights: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
-        
-        bins = self.kwargs.get('bins', 16)
+    def _theta_density(self, a: np.ndarray, n: int = None) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Parameters:
+        -----------
+        a: array-like
+            Input angles in radians.
+        n: int, optional
+            Number of points to evaluate the density on. If None, defaults to 360 for smoothness.
+        """
 
         check = np.isfinite(a)
         angles = a[check]
 
-        # Filter weights to match the finite-angle subset
-        if weights is not None:
-            weights = weights[check]
-
-        n_pts = bins if num_points is None else num_points
+        n = 360 if n is None else n
 
         if angles.size < 2:
-            theta = np.linspace(-np.pi, np.pi, n_pts, endpoint=False)
-            density = np.zeros(n_pts, dtype=float)
+            theta = np.linspace(-np.pi, np.pi, n, endpoint=False)
+            density = np.zeros(n, dtype=float)
         else:
-            theta = np.linspace(-np.pi, np.pi, n_pts, endpoint=False)
+            theta = np.linspace(0, 2 * np.pi, n, endpoint=False)
 
-            _log.info(f"[DEBUG] theta range: [{theta[0]:.2f}, {theta[-1]:.2f}] with {n_pts} points\nData range: [{np.nanmin(angles):.2f}, {np.nanmax(angles):.2f}] with {angles.size} valid data points")
-
-            # kernel_matrix shape: (n_theta, n_data)
-            kernel_matrix = vonmises.pdf(theta[:, None], self.kappa, loc=angles)
-
-            if weights is not None:
-                # Weighted sum: each data point's kernel contribution is scaled by its weight
-                density = kernel_matrix @ weights  # (n_theta, n_data) @ (n_data,) -> (n_theta,)
-                _log.info(f"[DEBUG] kernel_matrix shape: {kernel_matrix.shape}\nkernel_matrix min: {np.nanmin(kernel_matrix)}\nkernel_matrix max: {np.nanmax(kernel_matrix)}\nWeights shape: {weights.shape}\nWeights min: {np.nanmin(weights)}\nWeights max: {np.nanmax(weights)}")
-            else:
-                density = np.sum(kernel_matrix, axis=1)
+            _log.info(f"[DEBUG] theta range: [{theta[0]:.2f}, {theta[-1]:.2f}] with {n} points\nData range: [{np.nanmin(angles):.2f}, {np.nanmax(angles):.2f}] with {angles.size} valid data points")
+        
+            density = np.mean(
+                stats.vonmises.pdf(theta[:, None], self.kappa, loc=angles),
+                axis=1
+            )
 
         return theta, density
     
@@ -287,17 +289,17 @@ class PolarDataDistribute:
         elif self.normalization == 'globally':
             # Use the ORIGINAL unfiltered data to compute the global density range
             all_angles_raw = np.asarray(self.data_cache['Direction mean'], dtype=float)
-            all_angles_raw = ((all_angles_raw + np.pi) % (2 * np.pi)) - np.pi if wrap else all_angles_raw
+            all_angles_raw = all_angles_raw % (2 * np.pi) if wrap else all_angles_raw
             global_weights = self._get_weights_for(self.data_cache)
-            _, all_density = self._theta_density(all_angles_raw, wrap=wrap, num_points=num_points, weights=global_weights)
+            _, all_density = self._theta_density(all_angles_raw, num_points)
             _min_density = np.min(all_density)
             _max_density = np.max(all_density)
         else:
             # No normalization: normalize by global max but r-axis zooms to local peak
             all_angles_raw = np.asarray(self.data_cache['Direction mean'], dtype=float)
-            all_angles_raw = ((all_angles_raw + np.pi) % (2 * np.pi)) - np.pi if wrap else all_angles_raw
+            all_angles_raw = all_angles_raw % (2 * np.pi) if wrap else all_angles_raw
             global_weights = self._get_weights_for(self.data_cache)
-            _, all_density = self._theta_density(all_angles_raw, wrap=wrap, num_points=num_points, weights=global_weights)
+            _, all_density = self._theta_density(all_angles_raw, num_points)
             _min_density = np.min(all_density)
             _max_density = np.max(all_density)
 
