@@ -251,7 +251,9 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
 
                 fig, ax = plt.subplots()
 
-                n, bins, patches = ax.hist(series, bins=bins, density=False)
+                plot_series = series
+
+                n, bins, patches = ax.hist(plot_series, bins=bins, density=False)
 
                 relative = False
 
@@ -264,13 +266,12 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                         relative = False
 
                     case "Percentile":
-                        bottom, top = bottom/100, top/100
-                        if not 0 <= bottom <= 1 or not 0 <= top <= 1:
-                            bottom, top = 0, 1
-
-                        bottom = np.quantile(series, bottom)
-                        top = np.quantile(series, top)
-
+                        # Convert percentile bounds to actual data values for coloring
+                        try:
+                            bottom = np.percentile(series, bottom) if len(series) > 0 else bottom
+                            top = np.percentile(series, top) if len(series) > 0 else top
+                        except Exception:
+                            bottom, top = 0, 0
                         relative = False
 
                     case "Relative to...":
@@ -293,7 +294,7 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                     else:
                         patches[i].set_facecolor("grey")
 
-                kde = gaussian_kde(series)
+                kde = gaussian_kde(plot_series)
                 x_kde = np.linspace(bins[0], bins[-1], 500)
                 y_kde = kde(x_kde)
                 y_kde_scaled = y_kde * (n.max() / y_kde.max()) if y_kde.max() != 0 else y_kde
@@ -307,8 +308,13 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
                 # Show only min and max values on the x-axis, no ticks
-                ax.set_xticks([min, max])
-                ax.set_xticklabels([str(min), str(max)], color=_color)
+                if filter[0] == "Percentile":
+                    min, max = Filter1D.clamp_range(series.min(), series.max())
+                    ax.set_xticks([min, max])
+                    ax.set_xticklabels([str(min), str(max)], color=_color)
+                else:
+                    ax.set_xticks([min, max])
+                    ax.set_xticklabels([str(min), str(max)], color=_color)
                 ax.tick_params(axis='x', length=0)
 
                 fig.set_facecolor('none')
