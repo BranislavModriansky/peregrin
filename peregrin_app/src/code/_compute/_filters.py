@@ -55,6 +55,24 @@ class Filter1D:
     def __init__(self, eps: float = 1e-12):
         self.EPS = eps
 
+    @staticmethod
+    def clamp_range(min: int | float, max: int | float) -> tuple[int, int]:
+        """
+        Clamps given min and max values to whole numbers.
+        """
+
+        if min is None or not isinstance(min, int | float | np.number):
+            min = 0
+        if max is None or not isinstance(max, int | float | np.number):
+            max = 100
+        if min > max:
+            min, max = max, min
+
+        min = floor(min)
+        max = ceil(max)
+
+        return min, max
+
 
     def Apply(self, **kwargs) -> pd.DataFrame:
         """
@@ -226,6 +244,7 @@ class Filter1D:
         prev_mask = Inventory1D.mask[idx - 1]
         prev_series = Inventory1D.series[idx - 1]
         selected = Inventory1D.selection[idx - 1]
+        prev_filter = Inventory1D.filter[idx - 1]
 
         if not isinstance(selected, (list, tuple)) or len(selected) != 2:
             return prev_mask
@@ -239,9 +258,27 @@ class Filter1D:
         if valid_mask.empty:
             return np.array([], dtype=prev_mask.dtype)
 
+        low, high = selected[0], selected[1]
+
+        # Convert percentile bounds to actual data values
+        if isinstance(prev_filter, (list, tuple)) and prev_filter[0] == "Percentile":
+            vals = prev_series.loc[valid_mask]
+            low = np.clip(low, 0, 100)
+            high = np.clip(high, 0, 100)
+            low = np.percentile(vals, low) if len(vals) > 0 else low
+            high = np.percentile(vals, high) if len(vals) > 0 else high
+
+        # Convert relative bounds to absolute range around reference
+        elif isinstance(prev_filter, (list, tuple)) and prev_filter[0] == "Relative to...":
+            ref = prev_filter[1]
+            if isinstance(ref, (int, float)):
+                low_abs, high_abs = sorted([abs(low), abs(high)])
+                low = ref - high_abs
+                high = ref + high_abs
+
         new_mask = prev_series.loc[valid_mask][
-            (prev_series.loc[valid_mask] >= selected[0]) 
-            & (prev_series.loc[valid_mask] <= selected[1])
+            (prev_series.loc[valid_mask] >= low) 
+            & (prev_series.loc[valid_mask] <= high)
         ].index.to_numpy()
 
         return new_mask
@@ -317,7 +354,7 @@ class Filter1D:
         if Inventory1D.series[idx] is not None and not Inventory1D.series[idx].empty:
             min, max = Inventory1D.series[idx].min(), Inventory1D.series[idx].max()
             if max > 1:
-                min, max = self._clamp(min, max)
+                min, max = self.clamp_range(min, max)
             else:
                 min, max = round(min, 2), round(max, 2)
                 
@@ -326,23 +363,6 @@ class Filter1D:
 
         return (min, max)
     
-
-    def _clamp(self, min: int | float, max: int | float) -> tuple[int, int]:
-        """
-        Clamps given min and max values to whole numbers.
-        """
-
-        if min is None or not isinstance(min, int | float | np.number):
-            min = 0
-        if max is None or not isinstance(max, int | float | np.number):
-            max = 100
-        if min > max:
-            min, max = max, min
-
-        min = floor(min)
-        max = ceil(max)
-
-        return (min, max)
     
 
     def _get_steps(self, max: int | float) -> int | float:
