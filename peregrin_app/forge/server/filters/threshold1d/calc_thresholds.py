@@ -307,11 +307,25 @@ def mount_thresholds_calc(input, output, session, S, noticequeue):
                 ax.set_yticks([])
                 ax.spines[["top", "left", "right"]].set_visible(False)
 
+                def _round_lbl(x):
+                    x = abs(x)
+                    if x >= 1:
+                        return str(round(x))
+                    elif x > 0.01:
+                        return str(round(x, 2))
+                    else:
+                        return str(round(x))
+
                 # Show only min and max values on the x-axis, no ticks
                 if filter[0] == "Percentile":
                     min, max = Filter1D.clamp_range(series.min(), series.max())
                     ax.set_xticks([min, max])
                     ax.set_xticklabels([str(min), str(max)], color=_color)
+                elif filter[0] == "Relative to...":
+                    x_min, x_max = ax.get_xlim()
+                    ax.set_xticks([x_min, reference, x_max])
+                    # ax.set_xticklabels([str(round(x_min, 2)), str(reference), str(round(x_max, 2))], color=_color)
+                    ax.set_xticklabels([str(_round_lbl(reference - x_min)), str(_round_lbl(reference)), str(_round_lbl(x_max))], color=_color)
                 else:
                     ax.set_xticks([min, max])
                     ax.set_xticklabels([str(min), str(max)], color=_color)
