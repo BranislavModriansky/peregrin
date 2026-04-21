@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from typing import Any
 from scipy import stats
-from scipy.special import i0, i1
 
 from .._common import Painter, Categorizer
 from ..._compute._stats import Stats
