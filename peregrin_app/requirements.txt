@@ -1,6 +1,5 @@
 # Minimal runtime
 shiny>=1.0
-shinywidgets>=0.3
 shiny_sortable
 pandas>=2.2
 numpy>=1.26
