@@ -1170,8 +1170,8 @@ class Stats:
 
         def _agg_msd_turn(msd_src: pd.DataFrame, turn_src: pd.DataFrame, by_cols: list[str], prefix: str) -> pd.DataFrame:
             """Aggregate pooled MSD pairs and turning-angle pairs for given grouping."""
-            msd_grp = msd_src.groupby(by_cols, sort=False)['sq_disp']
-            msd_keys = msd_src.groupby(by_cols, sort=False)
+            msd_grouped = msd_src.groupby(by_cols, sort=False, observed=True)
+            msd_grp = msd_grouped['sq_disp']
 
             agg_dict = {}
             if self.cat_descr:
@@ -1201,7 +1201,7 @@ class Stats:
                         agg_dict[c] = ci_unpacked[c]
 
             # Counts based on raw MSD pairs
-            agg_dict[f'{prefix} Tracks contributing'] = msd_keys['Track UID'].nunique().astype(int)
+            agg_dict[f'{prefix} Tracks contributing'] = msd_grouped['Track UID'].nunique().astype(int)
             agg_dict[f'{prefix} Position pairs contributing'] = msd_grp.size().astype(int)
 
             result = pd.DataFrame(agg_dict)
@@ -1212,7 +1212,7 @@ class Stats:
                     _s=np.sin(turn_src['dtheta'].values),
                     _c=np.cos(turn_src['dtheta'].values),
                 )
-                turn_circ = turn_sin.groupby(by_cols, sort=False).agg(
+                turn_circ = turn_sin.groupby(by_cols, sort=False, observed=True).agg(
                     ms=('_s', 'mean'),
                     mc=('_c', 'mean'),
                 )
@@ -1228,22 +1228,73 @@ class Stats:
 
             return result
 
-        # Base level aggregation
-        reps  = _agg_msd_turn(all_msd, all_turn, tier_lag_cols, '{per replicate}'); reps.reset_index(inplace=True)
-        conds = _agg_msd_turn(all_msd, all_turn, cond_lag_cols, '{per condition}'); conds.reset_index(inplace=True)
-        df = reps.merge(conds, on=cond_lag_cols, how='left')
+        # Low-memory path: aggregate each lag immediately instead of concatenating all lag-pairs
+        out_blocks = []
 
-        # Rename 'lag' -> 'Frame lag' and add 'Time lag'
-        df = df.rename(columns={'lag': 'Frame lag'})
-        df['Time lag'] = df['Frame lag'] * t_step
+        # We group once and iterate by lag
+        x_arr     = temp['X coordinate'].values
+        y_arr     = temp['Y coordinate'].values
+        theta_arr = temp['_theta'].values
+        pos_arr   = temp['_pos'].values
+        n_arr     = temp['_n'].values
+        cond_arr  = temp['Condition'].values
+        rep_arr   = temp['Replicate'].values
+        uid_arr   = temp['Track UID'].values if 'Track UID' in temp.columns else temp.index.get_level_values('Track UID').values
 
-        # Reorder: tier columns first, then Frame lag, Time lag, then stats
-        front_cols = self.tier + ['Frame lag', 'Time lag']
-        other_cols = [c for c in df.columns if c not in front_cols]
-        df = df[front_cols + other_cols]
+        for lag in range(1, max_lag + 1):
+            valid_mask = (pos_arr + lag) < n_arr
+            if not valid_mask.any():
+                break
 
-        # Sort
-        df = df.sort_values(self.tier + ['Frame lag'], ignore_index=True)
+            shifted_x = grp_temp['X coordinate'].shift(-lag)
+            shifted_y = grp_temp['Y coordinate'].shift(-lag)
+
+            dx = shifted_x.values - x_arr
+            dy = shifted_y.values - y_arr
+            sq_disp = np.hypot(dy, dx) ** 2
+
+            valid_idx = np.where(valid_mask)[0]
+            if valid_idx.size == 0:
+                continue
+
+            lag_msd = pd.DataFrame({
+                'Track UID': uid_arr[valid_idx],
+                'Condition': cond_arr[valid_idx],
+                'Replicate': rep_arr[valid_idx],
+                'sq_disp':   sq_disp[valid_idx],
+                'lag':       lag,
+            })
+
+            shifted_theta = grp_temp['_theta'].shift(-lag)
+            dtheta_all = shifted_theta.values - theta_arr
+            dtheta_all = (dtheta_all + np.pi) % (2 * np.pi) - np.pi
+
+            turn_valid = valid_mask & (pos_arr >= 1) & np.isfinite(theta_arr) & np.isfinite(shifted_theta.values)
+            turn_idx = np.where(turn_valid)[0]
+
+            if turn_idx.size > 0:
+                lag_turn = pd.DataFrame({
+                    'Track UID': uid_arr[turn_idx],
+                    'Condition': cond_arr[turn_idx],
+                    'Replicate': rep_arr[turn_idx],
+                    'dtheta':    dtheta_all[turn_idx],
+                    'lag':       lag,
+                })
+            else:
+                lag_turn = pd.DataFrame(columns=['Condition', 'Replicate', 'Track UID', 'dtheta', 'lag'])
+
+            reps_lag = _agg_msd_turn(lag_msd, lag_turn, tier_lag_cols, '{per replicate}')
+            reps_lag.reset_index(inplace=True)
+
+            conds_lag = _agg_msd_turn(lag_msd, lag_turn, cond_lag_cols, '{per condition}')
+            conds_lag.reset_index(inplace=True)
+
+            out_blocks.append(reps_lag.merge(conds_lag, on=cond_lag_cols, how='left'))
+
+        if not out_blocks:
+            return pd.DataFrame(columns=self._COLUMNS['TIMEINTERVALS'])
+
+        df = pd.concat(out_blocks, ignore_index=True, copy=False)
 
         # JSON-safe cleanup for Shiny/front-end serializers (no NaN/Inf in strict JSON)
         df = df.replace([np.inf, -np.inf], np.nan)
@@ -1630,6 +1681,7 @@ class Stats:
             'Instantaneous speed': f'µm ⋅ {t_unit}⁻¹',
             'Cumulative track length': 'µm',
             'Cumulative track displacement': 'µm',
+            'Cumulative straightness ratio': 'µm',
             'Cumulative speed': f'µm ⋅ {t_unit}⁻¹',
             'Cumulative mean straight line speed': f'µm ⋅ {t_unit}⁻¹',
             'Direction': 'rad',
