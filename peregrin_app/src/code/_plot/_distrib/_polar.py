@@ -9,7 +9,7 @@ from scipy import stats
 from .._common import Painter, Categorizer
 from ..._compute._stats import Stats
 from ..._general import Values
-from ..._handlers._reports import Level
+from ..._handlers._reports import Level, Reporter
 from ..._handlers._log import get_logger
 
 
@@ -60,7 +60,10 @@ class PolarDataDistribute:
         D_THETA = 2 * np.pi / bins
 
         # Use a 0-1 norm for color mapping based on normalized_density
-        colormesh_norm = Normalize(0.0, 1.0)
+        if self.normalization in ['locally', 'globally']:
+            colormesh_norm = Normalize(self._min_density, self._max_density)
+        else:
+            colormesh_norm = Normalize(0.0, 1.0)
 
         self._plot_tiles(
             ax, 
@@ -161,6 +164,7 @@ class PolarDataDistribute:
 
         return plt.gcf()
 
+
     def RoseChart(self) -> plt.Figure:
         fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
 
@@ -191,29 +195,61 @@ class PolarDataDistribute:
     # TODO: Extend this method to check input parameters
     def _check_input(self) -> None:
 
-        bins = self.kwargs.get('bins', 16)
-        ntiles = self.kwargs.get('ntiles', 10)
-        gap = float(self.kwargs.get('gap', 0.1))
-        r_loc = self.kwargs.get('r_loc', 75)
+        bins_raw = self.kwargs.get('bins', 16)
+        ntiles_raw = self.kwargs.get('ntiles', 10)
+        gap_raw = self.kwargs.get('gap', 0.1)
+        r_loc_raw = self.kwargs.get('r_loc', 75)
 
-        if 'Direction mean' not in self.data.columns:
-            self.noticequeue.Report(Level.error, "Missing Direction data in the input DataFrame.")
-
+        # sanitize integer-like inputs
+        try:
+            bins = int(bins_raw)
+        except (TypeError, ValueError):
+            bins = 16
+            if self.noticequeue is not None:
+                self.noticequeue.Report(Level.warning, "Invalid bins value. Resetting to 16.")
         if bins < 2:
-            self.kwargs['bins'] = 2
-            self.noticequeue.Report(Level.error, "Number of bins must be at least 2.")
-        
+            bins = 2
+            if self.noticequeue is not None:
+                self.noticequeue.Report(Level.error, "Number of bins must be at least 2.")
+        self.kwargs['bins'] = bins
+
+        try:
+            ntiles = int(ntiles_raw)
+        except (TypeError, ValueError):
+            ntiles = 10
+            if self.noticequeue is not None:
+                self.noticequeue.Report(Level.warning, "Invalid ntiles value. Resetting to 10.")
         if ntiles < 1:
-            self.kwargs['ntiles'] = 1
-            self.noticequeue.Report(Level.error, "Number of tiles must be at least 1.")
+            ntiles = 1
+            if self.noticequeue is not None:
+                self.noticequeue.Report(Level.error, "Number of tiles must be at least 1.")
+        self.kwargs['ntiles'] = ntiles
+
+        # sanitize floats
+        try:
+            gap = float(gap_raw)
+        except (TypeError, ValueError):
+            gap = 0.1
+
+        if not np.isfinite(gap):
+            gap = 0.1
 
         if not 0.0 <= gap <= 1.0:
-            self.kwargs['gap'] = Values.Clamp01(gap)
-            self.noticequeue.Report(Level.error, "Gap must be in range (0, 1). Clamped to: " + str(self.kwargs['gap']))
+            gap = Values.Clamp01(gap)
+            if self.noticequeue is not None:
+                self.noticequeue.Report(Level.error, "Gap must be in range (0, 1). Clamped to: " + str(gap))
+        self.kwargs['gap'] = gap
 
-        if not (0 <= r_loc <= 360):
-            self.kwargs['r_loc'] = 75
-            self.noticequeue.Report(Level.warning, "R axis labels position must be in range (0, 360). Resetting to 75.")
+        try:
+            r_loc = float(r_loc_raw)
+        except (TypeError, ValueError):
+            r_loc = 75.0
+
+        if not np.isfinite(r_loc) or not (0 <= r_loc <= 360):
+            r_loc = 75.0
+            if self.noticequeue is not None:
+                self.noticequeue.Report(Level.warning, "R axis labels position must be in range (0, 360). Resetting to 75.")
+        self.kwargs['r_loc'] = r_loc
 
 
     def _arrange_data(self, wrap: bool = True) -> None:
@@ -224,11 +260,17 @@ class PolarDataDistribute:
             noticequeue=self.noticequeue
         )()
 
-        # wrapping to [0, 2π]
-        if wrap:
-            self.angles = self.data['Direction mean'] % (2 * np.pi)
-        else:
-            self.angles = self.data['Direction mean']
+        angles = np.asarray(self.data['Direction mean'], dtype=float)
+        angles = angles % (2 * np.pi) if wrap else angles
+
+        valid_angles = np.isfinite(angles)
+        if not np.all(valid_angles):
+            dropped = int((~valid_angles).sum())
+            self.data = self.data.iloc[valid_angles].copy()
+            angles = angles[valid_angles]
+            Reporter(Level.warning, f"Ignored {dropped} rows with invalid direction values.", noticequeue=self.noticequeue)
+
+        self.angles = angles
 
         # Extract weights for the current subset
         if self.weight_by is not None and self.weight_by in self.data.columns:
@@ -282,17 +324,9 @@ class PolarDataDistribute:
 
         auto_lut_scale = self.kwargs.get('auto_lut_scale', True)
 
-        if self.normalization == 'locally':
+        if self.normalization in ['locally', 'globally']:
             _min_density = np.min(self.density)
             _max_density = np.max(self.density)
-        elif self.normalization == 'globally':
-            # Use the ORIGINAL unfiltered data to compute the global density range
-            all_angles_raw = np.asarray(self.data_cache['Direction mean'], dtype=float)
-            all_angles_raw = all_angles_raw % (2 * np.pi) if wrap else all_angles_raw
-            global_weights = self._get_weights_for(self.data_cache)
-            _, all_density = self._theta_density(all_angles_raw, num_points)
-            _min_density = np.min(all_density)
-            _max_density = np.max(all_density)
         else:
             # No normalization: normalize by global max but r-axis zooms to local peak
             all_angles_raw = np.asarray(self.data_cache['Direction mean'], dtype=float)
@@ -306,13 +340,13 @@ class PolarDataDistribute:
             _min_density = self.kwargs.get('min_density', None)
             _max_density = self.kwargs.get('max_density', None)
             if _min_density is None:
-                self.noticequeue.Report(Level.warning, "Minimum density not provided -> setting 0.")
+                Reporter(Level.warning, "Minimum density not provided -> setting 0.", noticequeue=self.noticequeue)
                 _min_density = 0.0
             if _max_density is None:
-                self.noticequeue.Report(Level.warning, "Maximum density not provided -> setting 1.")
+                Reporter(Level.warning, "Maximum density not provided -> setting 1.", noticequeue=self.noticequeue)
                 _max_density = 1.0
             if _min_density >= _max_density:
-                self.noticequeue.Report(Level.error, "Minimum density must be less than maximum density -> resetting to 0 and 1.")
+                Reporter(Level.error, "Minimum density must be less than maximum density -> resetting to 0 and 1.", noticequeue=self.noticequeue)
                 _min_density = 0.0
                 _max_density = 1.0
         
@@ -323,7 +357,14 @@ class PolarDataDistribute:
         if _max_density == 0:
             self.normalized_density = np.zeros_like(self.density)
         else:
-            self.normalized_density = self.density / _max_density
+            if self.normalization in ['locally', 'globally']:
+                # Local: peak is always 1.0; r-axis goes to 1.0
+                self.normalized_density = self.density
+                _log.info(f"[DEBUG] Normalized density range after normalization: [{np.nanmin(self.normalized_density)}, {np.nanmax(self.normalized_density)}]")
+            else:
+                # No normalization: density is divided by global max, but r-axis zooms to local peak
+                self.normalized_density = self.density
+                _log.info(f"[DEBUG] Normalized density range after normalization: [{np.nanmin(self.normalized_density)}, {np.nanmax(self.normalized_density)}]")
         
     def _polar_hist(self, ax, *, fig = None) -> None:
 
@@ -374,23 +415,37 @@ class PolarDataDistribute:
             case 'n-tiles':
 
                 colors = self._slice_cmap(ntiles)
-
                 levels = ntiles
-
-                discretize = self.data[discretize_col]
 
                 bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
                 bin_idx = np.clip(bin_idx, 0, bins - 1)
- 
-                qs = np.linspace(0.0, 1.0, ntiles + 1)
-                global_edges = np.quantile(discretize, qs)
 
-                # Check if discretization values are (effectively) identical
-                if np.allclose(global_edges, global_edges[0]): 
-                    tile_spans = np.zeros(discretize.size, dtype=int)
-                    self.noticequeue.Report(Level.warning, "All values in the discretization column are identical. All data points will be assigned to the first tile.")
+                qs = np.linspace(0.0, 1.0, ntiles + 1)
+                tile_spans = np.zeros(self.angles.size, dtype=int)
+
+                if discretize_col is None or discretize_col not in self.data.columns:
+                    global_edges = np.linspace(0.0, 1.0, ntiles + 1)
+                    if self.noticequeue is not None:
+                        Reporter(Level.error, "Missing/invalid discretization column for 'n-tiles'. Using a single fallback tile.", noticequeue=self.noticequeue)
                 else:
-                    tile_spans = np.digitize(discretize, global_edges[1:-1], right=False)
+                    discretize = pd.to_numeric(self.data[discretize_col], errors='coerce').to_numpy(dtype=float)
+                    finite_mask = np.isfinite(discretize)
+
+                    if not np.any(finite_mask):
+                        global_edges = np.linspace(0.0, 1.0, ntiles + 1)
+                        if self.noticequeue is not None:
+                            Reporter(Level.warning, "Discretization column contains only NaN/invalid values. Using fallback scale.", noticequeue=self.noticequeue)
+                    else:
+                        global_edges = np.quantile(discretize[finite_mask], qs)
+
+                        if np.allclose(global_edges, global_edges[0]):
+                            if self.noticequeue is not None:
+                                Reporter(Level.warning, "All values in the discretization column are identical. All data points will be assigned to the first tile.", noticequeue=self.noticequeue)
+                        else:
+                            tile_spans[finite_mask] = np.digitize(discretize[finite_mask], global_edges[1:-1], right=False)
+
+                        if np.any(~finite_mask) and self.noticequeue is not None:
+                            Reporter(Level.warning, "NaN/invalid discretization values were assigned to the first tile.", noticequeue=self.noticequeue)
 
                 tile_counts = [
                     np.bincount(tile_spans[bin_idx == b], minlength=ntiles).astype(float)
@@ -398,12 +453,12 @@ class PolarDataDistribute:
                 ]
 
                 heights = [
-                    [tile_counts[b][n] 
+                    [tile_counts[b][n]
                      for n in range(ntiles)]
                     for b in range(bins)
                 ]
                 bottoms = [
-                    [sum(tile_counts[b][0:n]) 
+                    [sum(tile_counts[b][0:n])
                      for n in range(ntiles)]
                     for b in range(bins)
                 ]
@@ -423,10 +478,10 @@ class PolarDataDistribute:
                     try:
                         colors = [self.data[self.data['Condition'] == cond].iloc[0]['Condition color'] for cond in unique_cond]
                     except KeyError:
-                        self.noticequeue.Report(Level.error, "Condition color information is missing in the data. Reverting to default colors.")
+                        Reporter(Level.error, "Condition color information is missing in the data. Reverting to default colors.", noticequeue=self.noticequeue)
                         colors = self._slice_cmap(len(unique_cond))
                     except Exception as e:
-                        self.noticequeue.Report(Level.error, f"An error occurred while retrieving condition colors: {e}. Reverting to default colors.")
+                        Reporter(Level.error, f"An error occurred while retrieving condition colors: {e}. Reverting to default colors.", noticequeue=self.noticequeue)
                         colors = self._slice_cmap(len(unique_cond))
                 
                 bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
@@ -465,10 +520,10 @@ class PolarDataDistribute:
                     try:
                         colors = [self.data[self.data['Replicate'] == repl].iloc[0]['Replicate color'] for repl in unique_repl]
                     except KeyError:
-                        self.noticequeue.Report(Level.error, "Replicate color information is missing in the data. Reverting to default colors.")
+                        Reporter(Level.error, "Replicate color information is missing in the data. Reverting to default colors.", noticequeue=self.noticequeue)
                         colors = self._slice_cmap(len(unique_repl))
                     except Exception as e:
-                        self.noticequeue.Report(Level.error, f"An error occurred while retrieving replicate colors: {e}. Reverting to default colors.")
+                        Reporter(Level.error, f"An error occurred while retrieving replicate colors: {e}. Reverting to default colors.", noticequeue=self.noticequeue)
                         colors = self._slice_cmap(len(unique_repl))
                 
                 bin_idx = np.digitize(self.angles, self.bin_edges, right=False) - 1
@@ -617,46 +672,46 @@ class PolarDataDistribute:
         if n < 1:
             return
 
+        edges = np.asarray(global_edges, dtype=float)
+        if edges.size != (n + 1):
+            edges = np.linspace(0.0, 1.0, n + 1)
+
         # Discrete mapping: bins [0..n] with n colors
         cmap = mpl.colors.ListedColormap(list(colors))
         boundaries = np.arange(n + 1)
         norm = mpl.colors.BoundaryNorm(boundaries, cmap.N)
 
         sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])  # older Matplotlib expects an array sometimes
+        sm.set_array([])
 
-        # This creates a gridspec-managed cbar axis (has SubplotSpec)
         cbar = fig.colorbar(
             sm,
             ax=ax,
             orientation="horizontal",
             pad=0.10,
             fraction=0.045,
-            ticks=boundaries,          # label bin edges
+            ticks=boundaries,
             spacing="uniform",
             drawedges=bool(outline),
         )
 
-        # Style
         cbar.ax.tick_params(axis="x", length=0, pad=4, colors=self.kwargs.get('text_color', 'black'))
         units = Stats().get_units(discretize_col)
-        if units is None:
-            units = ""
-        else:
-            units = f' [{units}]'
+        units = "" if units is None else f' [{units}]'
         cbar.set_label(f'{discretize_col}{units}', color=self.kwargs.get('text_color', 'black'), fontsize=10, labelpad=10)
 
-        # Edge labels from quantiles / global_edges
+        finite_edges = edges[np.isfinite(edges)]
+        span = float(finite_edges.max() - finite_edges.min()) if finite_edges.size >= 2 else 0.0
+
         def fmt_val(v):
-            try:
-                span = float(np.max(global_edges) - np.min(global_edges))
-            except Exception:
-                span = 0.0
-            return f"{v:.2g}" if span < 10 else str(int(round(v)))
+            if not np.isfinite(v):
+                return "NA"
+            if not np.isfinite(span) or span < 10:
+                return f"{v:.2g}"
+            return f"{int(np.rint(v))}"
 
-        cbar.ax.set_xticklabels([fmt_val(v) for v in global_edges], fontsize=9, color=self.kwargs.get('text_color', 'black'))
+        cbar.ax.set_xticklabels([fmt_val(v) for v in edges], fontsize=9, color=self.kwargs.get('text_color', 'black'))
 
-        # Optional outline control
         if not outline:
             cbar.outline.set_visible(False)
         else:
@@ -683,33 +738,21 @@ class PolarDataDistribute:
         if self.kwargs.get('label_r', True):
             ax.tick_params(axis="y", labelcolor=self.kwargs.get('text_color', 'black'))
 
-            if self.normalization == 'globally':
+            if self.normalization in ['locally', 'globally']:
                 # Global: r-axis always 0 to 1.0; weaker subsets don't reach the top
-                ax.set_ylim(0, 1.05)
-                ax.set_yticks(np.linspace(0, 1, 6))
-                ax.set_yticklabels(['', '0.2', '0.4', '0.6', '0.8', '1.0'])
-
-            elif self.normalization == 'locally':
-                # Local: peak is always 1.0; r-axis goes to 1.0
-                ax.set_ylim(0, 1.05)
-                ax.set_yticks(np.linspace(0, 1, 6))
-                ax.set_yticklabels(['', '0.2', '0.4', '0.6', '0.8', '1.0'])
+                max = self._max_density
+                ax.set_ylim(0, max * 1.1)
+                ax.set_yticks(np.linspace(0, max, 5))
 
             else:
                 # No normalization: density is divided by global max,
                 # but r-axis zooms to the local subset's peak.
                 # Labels show the actual normalized density values.
-                nd_max = self.normalized_density.max()
-                if nd_max == 0 or not np.isfinite(nd_max):
-                    nd_max = 1.0
-                ax.set_ylim(0, nd_max * 1.05)
-                ax.set_yticks(np.linspace(0, nd_max, 6))
-
-                step = nd_max / 5
-                rlabels = [f'{step * i:.2g}' for i in range(1, 6)]
-                rlabels.insert(0, '')
-                ax.set_yticklabels(rlabels)
-
+                max = 1
+                ax.set_ylim(0, 1.1)
+                ax.set_yticks(np.linspace(0, 1, 5))
+            
+            ax.set_yticklabels(['', f'{max * 0.25:.2f}', f'{max * 0.50:.2f}', f'{max * 0.75:.2f}', f'{max:.2f}'])
             ax.set_rlabel_position(r_loc)
             ax.yaxis.label.set_color(self.kwargs.get('label_r_color', 'lightgrey'))
             ax.yaxis.label.set_fontweight("medium")
@@ -719,14 +762,21 @@ class PolarDataDistribute:
     def _annotate_hist_r_axis(self, ax) -> None:
         r_loc = self.kwargs.get('r_loc', 75)
 
-        ax.set_ylim(0, self.bin_counts.max() * 1.05)
-        ax.set_yticks(np.linspace(0, self.bin_counts.max(), 6))
+        peak = float(np.nanmax(self.bin_counts)) if np.size(self.bin_counts) else 0.0
+        if not np.isfinite(peak) or peak <= 0:
+            ax.set_ylim(0, 1.0)
+            ax.set_yticks(np.linspace(0, 1, 6))
+            ax.set_yticklabels([])
+            return
+
+        ax.set_ylim(0, peak * 1.05)
+        ax.set_yticks(np.linspace(0, peak, 6))
         ax.set_yticklabels([])
+
         if self.kwargs.get('label_r', True):
-            max_val = round(self.bin_counts.max())
-            step = round(max_val / 5)
-            rlabels = [r for r in range(step, max_val, step)]
-            for r in rlabels:
+            max_val = int(np.ceil(peak))
+            step = max(1, int(np.ceil(max_val / 5)))
+            for r in range(step, max_val + 1, step):
                 ax.text(
                     np.deg2rad(r_loc),
                     r,
@@ -735,7 +785,7 @@ class PolarDataDistribute:
                     va="center",
                     fontsize=10,
                     zorder=100,
-                    color=self.kwargs.get('label_r_color', 'lightgrey'),
+                    color=self.kwargs.get('label_r_color', 'black'),
                     fontweight="medium",
                 )
 
