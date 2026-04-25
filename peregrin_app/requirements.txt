@@ -6,10 +6,10 @@ numpy>=1.26
 scipy>=1.11
 matplotlib>=3.8
 seaborn>=0.13
-# scikit-learn>=1.5
+scikit-learn>=1.5
 
 
 # Optional I/O helpers (enable only if you load these formats)
-# pyarrow>=17               # Parquet/Feather
-# openpyxl>=3.1             # .xlsx
+pyarrow>=17               # Parquet/Feather
+openpyxl>=3.1             # .xlsx
 imageio
