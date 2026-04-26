@@ -93,17 +93,21 @@ class Filter1D:
         mask = Inventory1D.mask[-1]
         if mask is None or len(mask) == 0:
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-        
-        # Filter using index intersection to avoid KeyError
-        valid_spot_indices = spotstats.index.intersection(mask)
-        valid_track_indices = trackstats.index.intersection(mask)
-        
-        spotstats = spotstats.loc[valid_spot_indices]
-        trackstats = trackstats.loc[valid_track_indices]
-        
-        # Regenerate frame and time interval stats from filtered spots
+
+        # Normalize mask labels (drop NaN/None, dedupe)
+        valid_ids = pd.Index(np.asarray(mask).ravel())
+        if valid_ids.empty:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        valid_ids = valid_ids[~valid_ids.isna()].unique()
+        if valid_ids.empty:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+        # Important: avoid .loc[listlike] on non-unique index (Pyodide/pandas bug path)
+        spotstats = spotstats.loc[spotstats.index.isin(valid_ids)]
+        trackstats = trackstats.loc[trackstats.index.isin(valid_ids)]
+
         stats = Stats(
-            noticequeue=self.noticequeue, 
+            noticequeue=self.noticequeue,
             cat_infer_err=kwargs.get("cat_infer_err", False),
             bootstrap_ci=kwargs.get("bootstrap_ci", False)
         )
