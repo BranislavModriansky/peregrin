@@ -719,8 +719,6 @@ class PolarDataDistribute:
             cbar.outline.set_linewidth(outline_width)
 
     def _annotate_theta_axis(self, ax, create: bool = False) -> None:
-        ax.set_theta_zero_location("N")
-        ax.set_theta_direction(-1)
 
         if self.kwargs.get('label_theta', True):
             if create:
