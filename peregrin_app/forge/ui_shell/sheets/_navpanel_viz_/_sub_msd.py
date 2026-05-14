@@ -42,7 +42,10 @@ subpanel_msd = ui.nav_panel(
             ),
             ui.accordion_panel(
                 "Compose",
-                ui.input_selectize(id="aggregation_msd", label="Aggregation method:", choices=['Condition', 'Replicate'], selected='Condition', width="185px"),
+                ui.row(
+                    ui.column(2, ui.input_selectize(id="aggregation_msd", label="Aggregation method:", choices=['Condition', 'Replicate'], selected='Condition', width="185px")),
+                    ui.column(2, ui.div(ui.input_checkbox(id="log_transform_msd", label="Log transform", value=False), style="margin-top: 38px;")),
+                ),
                 ui.accordion(
                     ui.accordion_panel(
                         'Line and Scatter',

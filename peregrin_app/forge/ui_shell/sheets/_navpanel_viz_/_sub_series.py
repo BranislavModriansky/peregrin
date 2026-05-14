@@ -45,6 +45,7 @@ subpanel_series = ui.nav_panel(
                     ui.column(2, ui.input_selectize(id="statistic_ts", label="Statistic:", choices=['mean', 'median', 'min', 'max', 'var'], selected='mean', width="135px")),
                     ui.column(2, ui.input_selectize(id="dispertion_ts", label="Dispertion:", choices=['min-max', 'sd', 'sem', 'iqr', 'ci', 'none'], width="135px")),
                     ui.column(2, ui.input_selectize(id="level_ts", label="Aggregation level:", choices=['Condition', 'Replicate'], width="175px")),
+                    ui.column(2, ui.div(ui.input_checkbox(id="log_transform_x_ts", label="Log transform x-axis", value=False), style="margin-top: 38px;")),
                 ),
                 ui.accordion(
                     ui.accordion_panel(

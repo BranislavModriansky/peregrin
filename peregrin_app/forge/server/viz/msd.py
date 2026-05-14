@@ -74,6 +74,7 @@ def mount_plot_msd(input, output, session, S, noticequeue):
             level=input.aggregation_msd(),
             stock_palette=input.palette_stock_msd(),
             palette=input.palette_stock_type_msd(),
+            log_transform=input.log_transform_msd(),
             noticequeue=noticequeue
         )
 

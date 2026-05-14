@@ -78,6 +78,7 @@ def mount_plot_ts(input, output, session, S, noticequeue):
             palette = input.stock_palette_ts(),
             stock_palette = input.palette_ts(),
             figsize = (input.fig_width_ts(), input.fig_height_ts()),
+            log_transform_x = input.log_transform_x_ts(),
             xscale = input.xscale_ts(),
             title = input.title_ts(),
             noticequeue = noticequeue

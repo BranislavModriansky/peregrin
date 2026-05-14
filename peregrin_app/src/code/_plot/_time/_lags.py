@@ -31,7 +31,7 @@ class MSD:
 
 
     def __init__(self, data: pd.DataFrame, conditions: list, replicates: list, 
-                 *, level: str = 'Condition', **kwargs):
+                 *, log_transform: bool = False, level: str = 'Condition', **kwargs):
         
         self.data = data
         self.conditions = conditions
@@ -39,6 +39,7 @@ class MSD:
         
         self.level = level
         self.disaggregate = False
+        self.log_transform = log_transform
 
         self.color = kwargs.get('color', None)
         self.stock_palette = kwargs.get('stock_palette', None)
@@ -72,6 +73,20 @@ class MSD:
             prefix = '{per replicate}'
 
         fig, ax = plt.subplots(figsize=(kwargs.get('fig_width', 11), kwargs.get('fig_height', 7.5)))
+
+        if self.log_transform:
+            ax.set_xscale('log')
+            ax.set_yscale('log')
+
+        # ax.xaxis.set_major_locator(mticker.LogLocator(base=10.0, numticks=10))
+        # ax.xaxis.set_minor_locator(mticker.LogLocator(base=10.0, subs='auto', numticks=100))
+        # ax.xaxis.set_major_formatter(mticker.LogFormatterSciNotation())
+        # ax.xaxis.set_minor_formatter(mticker.NullFormatter())
+
+        # ax.yaxis.set_major_locator(mticker.LogLocator(base=10.0, numticks=10))
+        # ax.yaxis.set_minor_locator(mticker.LogLocator(base=10.0, subs='auto', numticks=100))
+        # ax.yaxis.set_major_formatter(mticker.LogFormatterSciNotation())
+        # ax.yaxis.set_minor_formatter(mticker.NullFormatter())
 
         self.agg_dict, cols = self._build_agg_dict(prefix, Stats.CI_STATISTIC, Stats.CONFIDENCE_LEVEL)
         
@@ -180,6 +195,7 @@ class MSD:
                 
                 # Plot main line
                 if line:
+                    pass
                     ax.plot(
                         x_data,
                         y_data,
@@ -196,11 +212,11 @@ class MSD:
                     ax.plot(
                         x_data,
                         y_data,
-                        marker='|',
-                        markersize=8,
+                        marker='o',
+                        markersize=6,
                         label=None,
                         linestyle='none',
-                        color='grey',
+                        color=color,
                         zorder=5
                     )
                 
@@ -300,44 +316,78 @@ class MSD:
         ax.set_ylim(lower, upper)
     
     
-    
     def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray,
                        tag: str, color: str, idx: int, n_tags: int):
         
-        valid = ~np.isnan(x_data) & ~np.isnan(y_data)
+        # valid, finite, strictly positive for log10
+        valid = (
+            np.isfinite(x_data) & np.isfinite(y_data) &
+            (x_data > 0) & (y_data > 0)
+        )
         xv = x_data[valid]
         yv = y_data[valid]
         
         if xv.size < 2:
             return
-        
-        coeffs = np.polyfit(xv, yv, 1)
-        slope, intercept = coeffs[0], coeffs[1]
-        
-        x_fit = np.linspace(xv.min(), xv.max(), 100)
-        y_fit = intercept + slope * x_fit
-        
+
+        # Fit in log10 space: log10(MSD) = a * log10(t) + b
+        if self.log_transform:
+            xv = np.log10(xv)
+            yv = np.log10(yv)
+
+            a, b = np.polyfit(xv, yv, 1)  # slope=a, intercept=b
+
+            # Power-law line in original space
+            x_fit = np.logspace(xv.min(), xv.max(), 200)
+            y_fit = (10.0 ** b) * (x_fit ** a)
+        else:
+            a, b = np.polyfit(xv, yv, 1)  # slope=a, intercept=b
+
+            x_fit = np.linspace(xv.min(), xv.max(), 200)
+            y_fit = a * x_fit + b
+
         fit_color = self._compute_fit_color(color)
-        
+
         ax.plot(
             x_fit, y_fit,
-            linestyle='dotted',
+            # linestyle=(0, (3, 1, 1, 1, 1, 1)),
+            linestyle='-.',
             color=fit_color,
-            linewidth=1.25,
+            linewidth=2,
             zorder=7,
-            alpha=0.6
+            alpha=0.8
         )
-        
+
+        # Annotation placed using log-domain offsets so it behaves on log axes
         try:
-            xrange = xv.max() - xv.min()
-            x_text = xv.max() + (0.03 * xrange if np.isfinite(xrange) and xrange > 0 else 0.5)
+            if self.log_transform:
+                lxrange = xv.max() - xv.min()
+                lyrange = yv.max() - yv.min()
+                if not np.isfinite(lxrange) or lxrange <= 0:
+                    lxrange = 1.0
+                if not np.isfinite(lyrange) or lyrange <= 0:
+                    lyrange = 1.0
+
+                # Place a bit left from xmax (so it's inside the plot)
+                x_text_log = xv.max() - 0.03 * lxrange
+                # Base y at fitted value at xmax, add small stacked offset per series
+                y_base_log = b + a * xv.max()
+                v_offset_log = ((idx - (n_tags - 1) / 2.0) * 0.03 * lyrange)
+                y_text_log = y_base_log + v_offset_log
+
+                x_text = 10.0 ** x_text_log
+                y_text = 10.0 ** y_text_log
             
-            y_text = intercept + slope * xv.max()
-            yrange = np.nanmax(yv) - np.nanmin(yv) if np.nanmax(yv) != np.nanmin(yv) else 1.0
-            v_offset = ((idx - (n_tags - 1) / 2.0) * 0.02 * yrange)
-            y_text += v_offset
-            
-            slope_text = f"D = {round(slope, 2)} [μm²·s⁻¹]"
+            else:
+                x_text = xv.max() - 0.03 * (xv.max() - xv.min())
+                y_base = a * xv.max() + b
+                v_offset = ((idx - (n_tags - 1) / 2.0) * 0.03 * (yv.max() - yv.min()))
+                y_text = y_base + v_offset
+
+
+            # Show α; if close to Brownian (α≈1), estimate D from intercept: MSD ≈ 4 D t ⇒ D = 10^b / 4
+            slope_text = f"D = {a:.2f} [μm²·s⁻¹]"
+
             ax.text(
                 x_text, y_text, slope_text,
                 color=color,
@@ -350,7 +400,6 @@ class MSD:
             )
         except Exception:
             pass
-
 
     def _build_agg_dict(self, prefix: str, ci_stat: str, ci_lvl: int) -> dict:
         
