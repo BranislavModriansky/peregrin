@@ -1127,7 +1127,8 @@ class Stats:
                 'Condition': cond_arr[valid_idx],
                 'Replicate': rep_arr[valid_idx],
                 'sq_disp':   sq_disp[valid_idx],
-                'lag':       lag,
+                'Frame lag': lag,
+                'Time lag':  lag * t_step,
             })
             msd_records.append(lag_df)
 
@@ -1148,7 +1149,8 @@ class Stats:
                     'Condition': cond_arr[turn_idx],
                     'Replicate': rep_arr[turn_idx],
                     'dtheta':    dtheta_all[turn_idx],
-                    'lag':       lag,
+                    'Frame lag': lag,
+                    'Time lag':  lag * t_step,
                 })
                 turn_records.append(turn_df)
 
@@ -1161,12 +1163,12 @@ class Stats:
         all_turn = (
             pd.concat(turn_records, ignore_index=True)
             if turn_records
-            else pd.DataFrame(columns=['Condition', 'Replicate', 'Track UID', 'dtheta', 'lag'])
+            else pd.DataFrame(columns=['Condition', 'Replicate', 'Track UID', 'dtheta', 'Frame lag', 'Time lag'])
         )
 
         # Aggregate pooled pairs per tier × lag
-        tier_lag_cols =  self.tier + ['lag']
-        cond_lag_cols = ['Condition', 'lag']
+        tier_lag_cols =  self.tier + ['Frame lag', 'Time lag']
+        cond_lag_cols = ['Condition', 'Frame lag', 'Time lag']
 
         def _agg_msd_turn(msd_src: pd.DataFrame, turn_src: pd.DataFrame, by_cols: list[str], prefix: str) -> pd.DataFrame:
             """Aggregate pooled MSD pairs and turning-angle pairs for given grouping."""
@@ -1262,7 +1264,8 @@ class Stats:
                 'Condition': cond_arr[valid_idx],
                 'Replicate': rep_arr[valid_idx],
                 'sq_disp':   sq_disp[valid_idx],
-                'lag':       lag,
+                'Frame lag': lag,
+                'Time lag':  lag * t_step,
             })
 
             shifted_theta = grp_temp['_theta'].shift(-lag)
@@ -1278,10 +1281,11 @@ class Stats:
                     'Condition': cond_arr[turn_idx],
                     'Replicate': rep_arr[turn_idx],
                     'dtheta':    dtheta_all[turn_idx],
-                    'lag':       lag,
+                    'Frame lag': lag,
+                    'Time lag':  lag * t_step,
                 })
             else:
-                lag_turn = pd.DataFrame(columns=['Condition', 'Replicate', 'Track UID', 'dtheta', 'lag'])
+                lag_turn = pd.DataFrame(columns=['Condition', 'Replicate', 'Track UID', 'dtheta', 'Frame lag', 'Time lag'])
 
             reps_lag = _agg_msd_turn(lag_msd, lag_turn, tier_lag_cols, '{per replicate}')
             reps_lag.reset_index(inplace=True)

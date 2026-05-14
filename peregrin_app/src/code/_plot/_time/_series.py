@@ -25,12 +25,13 @@ class TSeries:
 
 
     def __init__(self, data: pd.DataFrame, conditions: list = None, replicates: list = None, metric: str = None,
-                 *args, stat: str = 'mean', disper: str = None, level: str = 'Condition', ignore_categories: bool = False, **kwargs) -> None:
+                 *args, stat: str = 'mean', disper: str = None, log_transform_x: bool = False, level: str = 'Condition', ignore_categories: bool = False, **kwargs) -> None:
         
         self.data = data
         self.conditions = conditions
         self.replicates = replicates
         self.metric = metric
+        self.log_transform_x = log_transform_x
         self.stat = stat
         self.disper = disper if disper != 'std' else 'sd'
         self.ignore_categories = ignore_categories
@@ -113,6 +114,9 @@ class TSeries:
         if self._error: return
 
         fig, ax = plt.subplots(figsize=self.figsize)
+        
+        if self.log_transform_x:
+            ax.set_xscale('log')
 
         x_col      = self._get_x_col()
         y_col      = f'{self.prefix}{self.metric} {self.stat}'
