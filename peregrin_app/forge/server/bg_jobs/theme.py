@@ -20,17 +20,7 @@ def set_theme(input, output, session, S):
     @render.ui
     def _():
         # try:
-        return ui.tags.img(
-            src=f"https://github.com/BranislavModriansky/peregrin/tree/main/media/animation {input.app_theme()}.gif",
-            alt="Animated network visualization",
-            style="""
-                display: block;
-                width: 600px;
-                max-width: 100%;
-                height: auto;
-                margin: 1rem 0 2rem 0;
-                border-radius: 8px;
-            """
-        )
+        url = f"https://raw.githubusercontent.com/BranislavModriansky/peregrin/main/media/animation%20{input.app_theme()}.gif"
+        return ui.HTML(f'<img src="{url}" alt="animation" style="width:35%;">')
         
         # except: pass
