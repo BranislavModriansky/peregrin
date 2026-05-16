@@ -6,7 +6,6 @@ app = App(app_ui, Server)
 
 
 
-
 # TODO: MAKE A PACKAGE OUT OF THE PLOTTING FUNCTIONS + other useful utility functions
 
 # TODO: Add a checkbox control to enable/disable y-mirroring when loading data 

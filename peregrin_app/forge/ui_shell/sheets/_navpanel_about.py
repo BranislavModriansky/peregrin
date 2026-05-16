@@ -1,6 +1,8 @@
 from shiny import ui
 
 
+
+
 navpanel_about = ui.nav_panel(
     '&',
     ui.br(),
@@ -11,7 +13,11 @@ navpanel_about = ui.nav_panel(
             *Import raw or processed data.* <br>
             *Explore them by applying filters and generating insightful visualizations.* <br>
             *Export results.* <br>
-
+        """
+    ),
+    ui.output_ui(id='repo_tree'),
+    ui.markdown(
+        """
             ___
             ### References
         """
