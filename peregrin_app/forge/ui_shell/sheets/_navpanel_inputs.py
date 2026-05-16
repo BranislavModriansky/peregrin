@@ -8,13 +8,23 @@ styles_path = Path(__file__).parents[3] / "src" / "styles"
 
 navpanel_inputs = ui.nav_panel(
     "Input Menu",
-    # _ Buttons & input UIs _
-    ui.div(
-        ui.div(ui.output_ui("import_mode")),
-        ui.div(ui.output_ui("buttons")),
-        style="display:flex; align-items:center; justify-content:space-between; gap:12px;"
-    ),
-    ui.output_ui("input_panel"),
-    ui.include_js(styles_path / "icons.js"),
-    ui.include_js(styles_path / "file_preview_popup.js"),
+    ui.navset_card_tab(
+        ui.nav_panel(
+            "Data Import",
+            # _ Buttons & input UIs _
+            ui.div(
+                ui.div(ui.output_ui("import_mode")),
+                ui.div(ui.output_ui("buttons")),
+                style="display:flex; align-items:center; justify-content:space-between; gap:12px;"
+            ),
+            ui.br(),
+            ui.output_ui("input_panel"),
+            ui.include_js(styles_path / "icons.js"),
+            ui.include_js(styles_path / "file_preview_popup.js"),
+        ),
+        ui.nav_panel(
+            "Database config",
+            "new feature coming soon.."
+        )
+    )
 )

@@ -16,3 +16,21 @@ def set_theme(input, output, session, S):
 
 
 
+    @output(id="repo_tree")
+    @render.ui
+    def _():
+        # try:
+        return ui.tags.img(
+            src=f"https://github.com/BranislavModriansky/peregrin/tree/main/media/animation {input.app_theme()}.gif",
+            alt="Animated network visualization",
+            style="""
+                display: block;
+                width: 600px;
+                max-width: 100%;
+                height: auto;
+                margin: 1rem 0 2rem 0;
+                border-radius: 8px;
+            """
+        )
+        
+        # except: pass
