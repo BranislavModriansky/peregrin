@@ -1,5 +1,7 @@
 :root {
+    --french:   #00398A;
     --tech:     #235EB0;
+    --caryola:  #2676DF;
     --cool:     #5CA3FF;
     --steel:    #83A7E2;
     --black:    #000000;
@@ -36,6 +38,9 @@ body {
     background-color: var(--salt);
     margin: 0;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 
@@ -100,7 +105,7 @@ body {
     top: var(--header-main-height);
     left: 0;
     z-index: 1000;
-    background-color: var(--tech);
+    background: linear-gradient(to right, var(--caryola), var(--tech));
     width: 100%;
     height: 2.8rem;
     margin-top: 0;
@@ -150,26 +155,136 @@ body {
 
 .hero-layout {
     display: grid;
-    grid-template-columns: minmax(260px, 380px) minmax(360px, 640px);
     gap: 3rem;
     align-items: center;
-    justify-content: center;
     margin-bottom: 2rem;
+    margin-left: auto;
+    margin-right: auto;
 }
+
+.hero-layout#hero-layout1 {
+    grid-template-columns: minmax(260px, 380px) minmax(360px, 640px);
+    justify-content: left;
+}
+
+.hero-layout#hero-layout2 {
+    grid-template-columns: minmax(260px, 460px) minmax(260px, 380px);
+    justify-content: center;
+}
+
+.hero-layout#hero-layout2 {
+    grid-template-columns: minmax(260px, 460px) minmax(260px, 380px);
+}
+
+
 
 .hero-title {
     margin: 0;
-    font-size: clamp(2.8rem, 4vw, 5rem);
     line-height: 0.95;
+    margin-left: -0.3rem;
+
+    background-image: linear-gradient(
+        90deg,
+        var(--black) 0%,
+        var(--black) 34%,
+        var(--tech) 46%,
+        var(--cool) 54%,
+        var(--tech) 62%,
+        var(--black) 76%,
+        var(--black) 100%
+    );
+    background-size: 500% 100%;
+    background-position: 0% 50%;
+    background-repeat: repeat-x;
+
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+
+    animation: hero-title-gradient 18s linear infinite;
+
+    span {
+        display: block;
+        line-height: 1;
+        margin-bottom: -0.2em;
+        padding: 0.125em 0px;
+    }
 }
 
-.hero-title span {
-    display: block;
+@keyframes hero-title-gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    100% {
+        background-position: 100% 50%;
+    }
 }
 
-.hero-subtitle {
-    font-size: 1.8rem;
-    margin-top: 0.2rem;
+@keyframes hero-title-gradient-left-to-right {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    100% {
+        background-position: 100% 50%;
+    }
+}
+
+.hero-title#hero-title1 {
+    font-size: 7rem;
+}
+
+.hero-title#hero-title2 {
+    font-size: 5rem;
+    background-image: linear-gradient(
+        90deg,
+        var(--black) 0%,
+        var(--black) 40%,
+        var(--french) 56%,
+        var(--black) 72%,
+        var(--black) 100%
+    );
+    background-size: 560% 100%;
+    background-position: 0% 50%;
+    animation-name: hero-title-gradient-left-to-right;
+    animation-duration: 22s;
+    animation-timing-function: linear;
+    animation-delay: 3.5s;
+    animation-iteration-count: infinite;
+}
+
+.hero-subtitle1 {
+    margin: 0;
+    margin-left: 0.175rem;
+    font-size: 3.91rem;
+}
+
+.hero-subtitle2 {
+    margin: 0;
+    margin-left: 0.175rem;
+    font-size: 2.97rem;
+    margin-top: 0.85rem;
+
+    background-image: linear-gradient(
+        90deg,
+        var(--black) 0%,
+        var(--black) 42%,
+        var(--french) 58%,
+        var(--black) 74%,
+        var(--black) 100%
+    );
+    background-size: 540% 100%;
+    background-position: 0% 50%;
+    background-repeat: repeat-x;
+
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+
+    animation: hero-title-gradient-left-to-right 23s linear 4.25s infinite;
 }
 
 .hero-media {
@@ -190,4 +305,19 @@ body {
     max-width: 1120px;
     margin: calc(var(--header-main-height) + 4rem) auto 0;
     padding: 0 2rem;
+}
+
+
+footer.site-footer {
+  margin-top: auto; /* Pushes the footer to the bottom */
+}
+
+.site-footer {
+  position: relative; /* Change from fixed to relative */
+  bottom: 0;
+  width: 100%;
+  background-color: var(--tech);
+  color: var(--white);
+  text-align: center;
+  padding: 0.5rem 0;
 }
