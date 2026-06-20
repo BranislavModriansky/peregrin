@@ -9,6 +9,7 @@
     />
     <title>Peregrin Documentation</title>
     <link rel="stylesheet" href="./css/styles.css" />
+    <script src="./js/home.js" defer></script>
   </head>
 
   <body>
@@ -28,36 +29,64 @@
 
     <main class="site-main">
       <section class="about-section">
-        <div class="hero-layout" id="hero-layout1">
-          <div>
-            <h2 class="hero-title" id="hero-title1">
-              <span> Launch </span>
-              <span class="hero-subtitle1"> Peregrin App </span>
-            </h2>
-            <p>
-              Analyse cell tracking data via an interactive,
-              browser-based UI built with Py-Shiny.
-            </p>
+        <section class="link-section">
+          
+          <div class="hero-layout" id="hero-layout1">
+            <div>
+              <a
+                class="hero-title-link"
+                href="https://branislavmodriansky.github.io/peregrin-app/"
+                aria-label="Open Peregrin App"
+              >
+                <h2 class="hero-title" id="hero-title1">
+                  <span> Launch </span>
+                  <span class="hero-subtitle1"> Peregrin App </span>
+                </h2>
+              </a>
+              <p>
+                Analyse cell tracking data via an interactive,
+                browser-based UI built with Py-Shiny.
+              </p>
+            </div>
+
+            <div class="presentation" aria-hidden="true">
+              <div class="hero-media" aria-hidden="true" id="hero-media1">
+                <img class="hero-snapshot" src="./media/1peregrin_snapshot.png" alt="Peregrin App snapshot 1" />
+                <img class="hero-snapshot" src="./media/2peregrin_snapshot.png" alt="Peregrin App snapshot 2" />
+                <img class="hero-snapshot" src="./media/3peregrin_snapshot.png" alt="Peregrin App snapshot 3" />
+              </div>
+
+              <div class="hero-captions">
+                <div class="hero-text">Slide number one! This one shows the main data import page of the application.</div>
+                <div class="hero-text">This slide is the coolest one imo, it shows the data tables with computed data.</div>
+                <div class="hero-text">This slide is kinda ugly, but I just wanted to show a graph..</div>
+              </div>
+
+              <div class="hero-buttons" role="tablist" aria-label="Peregrin App slides">
+                <button type="button" class="active" aria-label="Show slide 1" aria-pressed="true"></button>
+                <button type="button" aria-label="Show slide 2" aria-pressed="false"></button>
+                <button type="button" aria-label="Show slide 3" aria-pressed="false"></button>
+              </div>
+            </div>
           </div>
 
-          <div class="hero-media" aria-hidden="true"></div>
-        </div>
+          <br /> <br /> <br /> <br />
+          
+          <div class="hero-layout" id="hero-layout2">
+            <div class="hero-media" aria-hidden="true" id="hero-media2">
+            </div>
 
-        <br /> <br /> <br /> <br />
-        
-        <div class="hero-layout" id="hero-layout2">
-          <div class="hero-media" aria-hidden="true"></div>
-
-          <div>
-            <h2 class="hero-title" id="hero-title2">
-              <span> peregrin </span>
-              <span class="hero-subtitle2"> python library </span>
-            </h2>
-            <p class="subtitle-text" id="hero-subtitle2-text">
-              Leverage the Peregrin python library in scripting and analytical pipelines.
-            </p>
+            <div>
+              <h2 class="hero-title" id="hero-title2">
+                <span> peregrin </span>
+                <span class="hero-subtitle2"> python library </span>
+              </h2>
+              <p class="subtitle-text" id="hero-subtitle2-text">
+                Leverage the Peregrin python library in scripting and analytical pipelines.
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
       </section>
     </main>
 

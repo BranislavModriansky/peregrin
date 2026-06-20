@@ -2,17 +2,20 @@
     --french:   #00398A;
     --tech:     #235EB0;
     --caryola:  #2676DF;
+    --energy:   #2C88FF;
     --cool:     #5CA3FF;
     --steel:    #83A7E2;
     --black:    #000000;
     --taupe:    #443A2B;
     --concrete: #A9A3AD;
+    --smoke:    #d3d3d3;
     --ash:      #DCE0E7;
     --salt:     #f9f8f5;
     --platinum: #F1F4F8;
     --white:    #ffffff;
     --apricot:  #FDCF86;
     --amber:    #FF9D00;
+    --link:     #3c0091;
     --header-main-height: 4.8rem;
 }
 
@@ -168,41 +171,35 @@ body {
 }
 
 .hero-layout#hero-layout2 {
-    grid-template-columns: minmax(260px, 460px) minmax(260px, 380px);
+    grid-template-columns: minmax(260px, 460px) minmax(260px, 21rem);
     justify-content: center;
 }
 
-.hero-layout#hero-layout2 {
-    grid-template-columns: minmax(260px, 460px) minmax(260px, 380px);
+
+.link-section {
+
+    padding-left: 8rem;
+    margin-left: -8rem;
+
+    background-image: linear-gradient(
+        40deg,
+        var(--black)   25%,
+        var(--french)  40%,
+        var(--energy) 50%,
+        var(--tech)    60%,
+        var(--black)   75%
+    );
+    background-size: 600% 100%;
+    background-repeat: repeat-x;
+    background-clip: text;
 }
-
-
 
 .hero-title {
     margin: 0;
     line-height: 0.95;
     margin-left: -0.3rem;
 
-    background-image: linear-gradient(
-        90deg,
-        var(--black) 0%,
-        var(--black) 34%,
-        var(--tech) 46%,
-        var(--cool) 54%,
-        var(--tech) 62%,
-        var(--black) 76%,
-        var(--black) 100%
-    );
-    background-size: 500% 100%;
-    background-position: 0% 50%;
-    background-repeat: repeat-x;
-
-    background-clip: text;
-    -webkit-background-clip: text;
     color: transparent;
-    -webkit-text-fill-color: transparent;
-
-    animation: hero-title-gradient 18s linear infinite;
 
     span {
         display: block;
@@ -212,47 +209,35 @@ body {
     }
 }
 
+.link-section {
+    animation: hero-title-gradient 26s linear infinite;
+}
+
+
 @keyframes hero-title-gradient {
-    0% {
-        background-position: 0% 50%;
-    }
-
-    100% {
-        background-position: 100% 50%;
-    }
+    0%   { background-position: 100% 50% }
+    20%  { background-position: 100% 50% }
+    40%  { background-position: 0% 50%   }
+    100% { background-position: 0% 50%   }
 }
 
-@keyframes hero-title-gradient-left-to-right {
-    0% {
-        background-position: 0% 50%;
-    }
 
-    100% {
-        background-position: 100% 50%;
-    }
-}
 
 .hero-title#hero-title1 {
     font-size: 7rem;
+    transition: color 0.15s
+}
+
+.hero-title#hero-title1:hover {
+    color: var(--taupe);
 }
 
 .hero-title#hero-title2 {
     font-size: 5rem;
-    background-image: linear-gradient(
-        90deg,
-        var(--black) 0%,
-        var(--black) 40%,
-        var(--french) 56%,
-        var(--black) 72%,
-        var(--black) 100%
-    );
-    background-size: 560% 100%;
-    background-position: 0% 50%;
-    animation-name: hero-title-gradient-left-to-right;
-    animation-duration: 22s;
-    animation-timing-function: linear;
-    animation-delay: 3.5s;
-    animation-iteration-count: infinite;
+}
+
+.hero-title-link {
+    text-decoration: none;
 }
 
 .hero-subtitle1 {
@@ -266,34 +251,8 @@ body {
     margin-left: 0.175rem;
     font-size: 2.97rem;
     margin-top: 0.85rem;
-
-    background-image: linear-gradient(
-        90deg,
-        var(--black) 0%,
-        var(--black) 42%,
-        var(--french) 58%,
-        var(--black) 74%,
-        var(--black) 100%
-    );
-    background-size: 540% 100%;
-    background-position: 0% 50%;
-    background-repeat: repeat-x;
-
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-
-    animation: hero-title-gradient-left-to-right 23s linear 4.25s infinite;
 }
 
-.hero-media {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    min-height: unset;
-    border: 2px dashed currentColor;
-    border-radius: 1rem;
-}
 
 @media (max-width: 840px) {
     .hero-layout {
@@ -320,4 +279,129 @@ footer.site-footer {
   color: var(--white);
   text-align: center;
   padding: 0.5rem 0;
+}
+
+
+
+.hero-media {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: unset;
+    border-radius: 1rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 1px 1px 8px rgba(0, 0, 0, 0.065);
+    border: 2px solid rgba(82, 82, 82, 0.085)
+}
+
+.hero-media#hero-media2 {
+    border: 2px dashed currentColor !important;
+}
+
+.hero-snapshot {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    animation: none;
+    will-change: opacity;
+    transition: opacity 0.25s ease;
+}
+
+.hero-text {
+    color: var(--concrete);
+    font-style: italic;
+    margin-top: 0.7rem;
+    margin-left: 0.35rem;
+    position: absolute;
+    opacity: 0;
+    animation: none;
+    will-change: opacity;
+    transition: opacity 0.25s ease;
+}
+
+.hero-snapshot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.hero-snapshot:nth-child(2) {
+    animation-delay: -5.33s;
+}
+
+.hero-snapshot:nth-child(3) {
+    animation-delay: -10.66s;
+}
+
+.hero-text:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.hero-text:nth-child(2) {
+    animation-delay: -5.33s;
+}
+
+.hero-text:nth-child(3) {
+    animation-delay: -10.66s;
+}
+
+
+@keyframes slideshow {
+    0%, 32% {
+        opacity: 1;
+    }
+    33.333% {
+        opacity: 0;
+    }
+    98.667% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+
+.hero-buttons {
+    display: flex;
+    justify-content: left;
+    gap: 10px;
+    margin-top: 2.8rem;
+    margin-left: 0.35rem;
+}
+
+.hero-buttons button {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+  background-color: white;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in;
+  box-shadow: 0px 0px 56px rgba(0, 0, 0, 0.035);
+}
+
+.hero-buttons button:hover {
+  background-color: var(--cool);
+}
+
+.hero-buttons button.active {
+  background-color: var(--smoke);
+}
+
+
+.presentation.manual .hero-snapshot,
+.presentation.manual .hero-text {
+    animation: none !important;
+    opacity: 0;
+}
+
+.presentation.manual .hero-snapshot.is-active,
+.presentation.manual .hero-text.is-active {
+    opacity: 1;
+}
+
+.hero-snapshot.is-active,
+.hero-text.is-active {
+    opacity: 1;
 }
