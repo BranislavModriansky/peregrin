@@ -11,7 +11,7 @@ from typing import *
 from ..._handlers._reports import Level, Reporter
 from .._common import Categorizer, Painter
 from ..._general import is_empty
-from ..._compute._stats import Stats
+from ...compute.stats import Stats
 
 
 class MSD:
@@ -62,7 +62,7 @@ class MSD:
              scatter: bool = False,
              **kwargs) -> plt.Figure:
 
-        from ..._compute._stats import Stats
+        from ...compute.stats import Stats
         
         if self.level == 'Condition':
             prefix = '{per condition}'

@@ -9,7 +9,7 @@ from .._common import Categorizer, Painter
 from ..._general import is_empty
 from ..._handlers._reports import Reporter, Level
 from ..._handlers._log import get_logger
-from ..._compute._stats import Stats
+from ...compute.stats import Stats
 
 
 _log = get_logger(__name__)
@@ -175,7 +175,7 @@ class TSeries:
 
         # Y units
         time_unit = Stats.t_unit if self.time_units is None else self.time_units
-        y_units = Stats().get_units(self.metric, time_unit=time_unit, time_data=True)
+        y_units = Stats().stat_units(self.metric, time_unit=time_unit, time_data=True)
         if y_units is not None:
             y_units = f' [{y_units}]'
         else:

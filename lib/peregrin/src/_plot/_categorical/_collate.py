@@ -13,7 +13,7 @@ import matplotlib.lines as mlines
 
 from .._common import Painter, Categorizer
 from ..._general import is_empty
-from ..._compute._stats import Stats
+from ...compute.stats import Stats
 from ..._handlers._reports import Level, Reporter
 
 
@@ -623,7 +623,7 @@ class SuperPlots:
 
     def _init_orientation(self, **kwargs) -> tuple[plt.Figure, plt.Axes]:
 
-        m_label = Stats().get_units(col=self.statistic, time_unit=kwargs.get('t_unit', None))
+        m_label = Stats().stat_units(col=self.statistic, time_unit=kwargs.get('t_unit', None))
         if m_label is not None:
             m_label = f" [{m_label}]"
         else:

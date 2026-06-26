@@ -1,10 +1,1 @@
-import pandas as pd
-
-
-def dummydata1() -> pd.DataFrame:
-    """
-    popis dat
-    """
-
-    return pd.read_csv(r'file')
-
+from ..src.io.load import DataLoader

@@ -7,7 +7,7 @@ from typing import Any
 from scipy import stats
 
 from .._common import Painter, Categorizer
-from ..._compute._stats import Stats
+from ...compute.stats import Stats
 from ..._general import Values
 from ..._handlers._reports import Level, Reporter
 from ..._handlers._log import get_logger
@@ -696,7 +696,7 @@ class PolarDataDistribute:
         )
 
         cbar.ax.tick_params(axis="x", length=0, pad=4, colors=self.kwargs.get('text_color', 'black'))
-        units = Stats().get_units(discretize_col)
+        units = Stats().stat_units(discretize_col)
         units = "" if units is None else f' [{units}]'
         cbar.set_label(f'{discretize_col}{units}', color=self.kwargs.get('text_color', 'black'), fontsize=10, labelpad=10)
 

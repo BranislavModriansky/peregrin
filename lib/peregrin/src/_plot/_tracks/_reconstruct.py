@@ -10,7 +10,7 @@ from ..._general import Values
 from io import BytesIO
 from ..._handlers._reports import Level, Reporter
 from ..._infra._selections import Metrics
-from ..._compute._stats import Stats
+from ...compute.stats import Stats
 
 class ReconstructTracks:
 

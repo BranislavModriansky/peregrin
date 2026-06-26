@@ -9,7 +9,7 @@ import matplotlib.colors as mcolors
 from .._common import Categorizer, Painter
 from ..._handlers._reports import Reporter, Level
 from ..._general import is_empty
-from ..._compute._stats import Stats
+from ...compute.stats import Stats
 
 
 
@@ -468,7 +468,7 @@ class MotionFlowPlot:
                 return 'Track point count'
             
             case 'min' | 'max' | 'mean' | 'median' | 'sum' | 'sd':
-                units = Stats().get_units(scale_by)
+                units = Stats().stat_units(scale_by)
                 if units is None:
                     units = ''
                 else:
@@ -476,7 +476,7 @@ class MotionFlowPlot:
                 return f'{scale_by} {scale_method} {units}'
             
             case 'add' | 'subtract' | 'multiply' | 'divide':
-                units = Stats().get_units(scale_by[0]), Stats().get_units(scale_by[1])
+                units = Stats().stat_units(scale_by[0]), Stats().stat_units(scale_by[1])
                 for unit in units:
                     if unit is None:
                         unit = ''
