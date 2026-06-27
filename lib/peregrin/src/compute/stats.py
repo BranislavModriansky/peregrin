@@ -1,23 +1,24 @@
 from __future__ import annotations
+
 import traceback
 import numpy as np
 import pandas as pd
 from scipy import stats
-from typing import *
+from typing import Any, Callable, Optional, Tuple, Dict, List, Union
 
-from .._general import Values, clock
+from .._general import Values
 from .._handlers._reports import Level, Reporter
 from .._handlers._log import get_logger
 
 _log = get_logger(__name__)
 
 
-
 class Stats:
+    """
+    A class providing methods for computing trajectory statistics at various levels of aggregation:
+    Spots (per-trajectory-point), Tracks (per-whole-trajectory), Frames (per-time-point),
+    Time intervals (per-time-interval).
 
-    """ 
-    A class providing methods for computing trajectory statistics at various levels of aggregation: \n
-    Spots (per-trajectory-point), Tracks (per-whole-trajectory), Frames (per-time-point), Time intervals (per-time-interval). \n
     Calling this method initializes its statistical configuration.
 
     Parameters
@@ -59,16 +60,16 @@ class Stats:
 
     """
 
-    RawInput: pd.DataFrame
-    Spots: pd.DataFrame
-    Tracks: pd.DataFrame
-    Frames: pd.DataFrame
-    TimeIntervals: pd.DataFrame
+    Input: pd.DataFrame = pd.DataFrame()
+    Spots: pd.DataFrame = pd.DataFrame()
+    Tracks: pd.DataFrame = pd.DataFrame()
+    Frames: pd.DataFrame = pd.DataFrame()
+    TimeIntervals: pd.DataFrame = pd.DataFrame()
 
-    t_step: float = None
+    t_step: Optional[float] = None
     t_unit: str = 's'
-    significant_figures: None | int = None
-    decimal_places: None | int = None
+    significant_figures: Optional[int] = None
+    decimal_places: Optional[int] = None
 
     BOOTSTRAP_RESAMPLES: int = 1000
     CONFIDENCE_LEVEL: float = 95
@@ -80,74 +81,94 @@ class Stats:
         'first', 'last', 'var', 'prod', 'size', 'nunique',
     })
 
-    _EXCLUDE_SUFFIXES = ['per', 'condition', 'replicate', 'track_id', 'track_uid', 'time_point', 'frame', 'time_lag', 'frame_lag', 'sd', 'var', 'sem', 'q25', 'q75']
-    _DESCR     = ['min', 'max', 'mean', 'median', 'q25', 'q75']
+    _EXCLUDE_SUFFIXES = frozenset([
+        'per', 'condition', 'replicate', 'track_id', 'track_uid',
+        'time_point', 'frame', 'time_lag', 'frame_lag', 'sd', 'var', 'sem', 'q25', 'q75'
+    ])
+
+    # Class-level defaults for stat categories
+    _DESCR = ['min', 'max', 'mean', 'median', 'q25', 'q75']
     _DESCR_ERR = ['std']
     _INFER_ERR = ['sem']
 
     COLUMNS = {
         'SPOTS': [
-            'condition','replicate','track_id','track_uid',
-            'time_point','frame','x_coordinate','y_coordinate','distance',
-            'cum_track_length','cum_track_displacement','cum_straightness_ratio',
-            'cum_speed','cum_mean_straight_line_speed',
-            'cum_forward_progression_linearity','direction','directional_change',
-            'cum_sum_directional_change','cum_mean_directional_change',
+            'condition', 'replicate', 'track_id', 'track_uid',
+            'time_point', 'frame', 'x_coordinate', 'y_coordinate', 'distance',
+            'cum_track_length', 'cum_track_displacement', 'cum_straightness_ratio',
+            'cum_speed', 'cum_mean_straight_line_speed',
+            'cum_forward_progression_linearity', 'direction', 'directional_change',
+            'cum_sum_directional_change', 'cum_mean_directional_change',
             'cum_mean_directional_change_rate',
-            'cum_direction_mean','cum_direction_var'
+            'cum_direction_mean', 'cum_direction_var'
         ],
         'TRACKS': [
-            'condition','replicate','track_id','track_uid',
+            'condition', 'replicate', 'track_id', 'track_uid',
             'y_location', 'x_location',
-            'track_length','track_displacement','straightness_ratio',
-            'speed_min','speed_max','speed_mean','speed_sd','speed_median',
+            'track_length', 'track_displacement', 'straightness_ratio',
+            'speed_min', 'speed_max', 'speed_mean', 'speed_sd', 'speed_median',
             'mean_straight_line_speed', 'forward_progression_linearity',
-            'max_distance_reached','track_start_frame','track_end_frame',
-            'direction_mean','direction_var','mean_directional_change','mean_directional_change_rate'
+            'max_distance_reached', 'track_start_frame', 'track_end_frame',
+            'direction_mean', 'direction_var', 'mean_directional_change', 'mean_directional_change_rate'
         ],
-        'FRAMES':        ['condition','replicate','time_point','frame'],
-        'TIMEINTERVALS': ['condition','replicate','time_lag','frame_lag']
+        'FRAMES': ['condition', 'replicate', 'time_point', 'frame'],
+        'TIMEINTERVALS': ['condition', 'replicate', 'time_lag', 'frame_lag']
     }
 
+    def __init__(
+        self,
+        *,
+        cat_descr: bool = True,
+        cat_descr_err: bool = True,
+        cat_infer_err: bool = False,
+        bootstrap_ci: bool = False,
+        **kwargs
+    ) -> None:
+        
+        """Initialize Stats instance with per-instance state copies."""
 
-    def __init__(self, *, cat_descr: bool = True, cat_descr_err: bool = True, cat_infer_err: bool = False, bootstrap_ci: bool = False, **kwargs) -> None:
-
-        self.tier = ['condition', 'replicate']
-        self.noticequeue = kwargs.get('noticequeue', None)
+        self.tier: List[str] = ['condition', 'replicate']
+        self.ntcq: Optional[Any] = kwargs.get('noticequeue', None)
 
         self.cat_descr = cat_descr
         self.cat_descr_err = cat_descr_err
         self.cat_infer_err = cat_infer_err
 
-        self.DESCR     = self._DESCR if cat_descr else []
-        self.DESCR_ERR = self._DESCR_ERR if cat_descr_err else []
+        # Create per-instance copies to avoid shared mutable state
+        self.DESCR: List[str] = list(self._DESCR) if cat_descr else []
+        self.DESCR_ERR: List[str] = list(self._DESCR_ERR) if cat_descr_err else []
+        self.INFER_ERR: List[str] = []
+
         if cat_infer_err:
-            self.INFER_ERR = self._INFER_ERR
+            self.INFER_ERR = list(self._INFER_ERR)
             if bootstrap_ci:
                 self.INFER_ERR.append('ci')
         else:
             self.INFER_ERR = []
-
-        self.CUSTOM_AGG_FUNCTIONS = {
-            'q25':        self._q25,
-            'q75':        self._q75,
-            'ci':         self.ci,
-            'sem':        self.sem,
-            'circ_mean':  self._circ_mean,
-            'circ_var':   self._circ_var,
+        
+        # Custom aggregation functions
+        self.CUSTOM_AGG_FUNCTIONS: Dict[str, Callable] = {
+            'q25': self._q25,
+            'q75': self._q75,
+            'ci': self.ci,
+            'sem': self.sem,
+            'circ_mean': self._circ_mean,
+            'circ_var': self._circ_var,
         }
 
+        # Validate CI_STATISTIC
+        if self.CI_STATISTIC not in ['mean', 'median']:
+            _log.warning(
+                f"CI_STATISTIC '{self.CI_STATISTIC}' may not be meaningful; "
+                f"consider using 'mean' or 'median'."
+            )
 
-    def __post_init__(self):
-        self.RawInput = pd.DataFrame()
-        self.Spots = pd.DataFrame()
-        self.Tracks = pd.DataFrame()
-        self.Frames = pd.DataFrame()
-        self.TimeIntervals = pd.DataFrame()
-
-
-    def get_all_data(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """ Computes all trajectory statistics (Spots, Tracks, Frames, TimeIntervals) from raw trajectory spot (track point) data.
+    def get_all(
+        self, df: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """
+        Computes all trajectory statistics (Spots, Tracks, Frames, TimeIntervals)
+        from raw trajectory spot (track point) data.
 
         Parameters
         ----------
@@ -186,7 +207,7 @@ class Stats:
 
         """
 
-        self.RawInput = df
+        self.Input = df
         self.spots(df)
         self.tracks(self.Spots)
         self.frames(self.Spots)
@@ -273,7 +294,7 @@ class Stats:
 
         See also
         --------
-        `Stats.get_all_data()`- 
+        `Stats.get_all()`- 
         computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
 
         `Stats.Tracks()`- 
@@ -290,10 +311,10 @@ class Stats:
 
         """
 
-        self.RawInput = df.copy()
+        self.Input = df.copy()
 
         if df.empty:
-            Reporter(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.", noticequeue=self.noticequeue)
+            Reporter(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.", ntcq=self.ntcq)
             return pd.DataFrame(columns=self.COLUMNS['SPOTS'])
 
         df.sort_values(self.tier + ['track_id', 'time_point'], inplace=True)
@@ -307,9 +328,12 @@ class Stats:
                     t_step = float(t_steps[0])
                 else:
                     t_step = float(np.median(t_steps))
-                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (spot stats + time stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", noticequeue=self.noticequeue)
+                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (spot stats + time stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", ntcq=self.ntcq)
             except Exception as e:
-                Reporter(Level.error, f'{e} (spot stats + time stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                if self.ntcq is not None:
+                    Reporter(Level.error, f'{e} (spot stats)', trace=traceback.format_exc(), ntcq=self.ntcq)
+                else:
+                    raise Exception(f'{e} (spot stats)')
         else:
             t_step = self.t_step
         
@@ -333,7 +357,7 @@ class Stats:
             bad = df.groupby(self.tier + ['time_point'], sort=False)['frame'].nunique(dropna=True).max()
 
             if bad and bad > 1:
-                Reporter(Level.warning, f"Multiple frames assigned to the same {self.tier} × time_point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.", noticequeue=self.noticequeue)
+                Reporter(Level.warning, f"Multiple frames assigned to the same {self.tier} × time_point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.", ntcq=self.ntcq)
                 pass
 
         except Exception:
@@ -516,7 +540,7 @@ class Stats:
 
         See also
         --------
-        `Stats.get_all_data()`- 
+        `Stats.get_all()`- 
         computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
 
         `Stats.Tracks()`- 
@@ -548,9 +572,12 @@ class Stats:
                     t_step = float(t_steps[0])
                 else:
                     t_step = float(np.median(t_steps))
-                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (track stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", noticequeue=self.noticequeue)
+                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (track stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", ntcq=self.ntcq)
             except Exception as e:
-                Reporter(Level.error, f'{e} (track stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                if self.ntcq is not None:
+                    Reporter(Level.error, f'{e} (track stats)', trace=traceback.format_exc(), ntcq=self.ntcq)
+                else:
+                    raise Exception(f'{e} (track stats)')
         else:
             t_step = self.t_step
 
@@ -603,23 +630,22 @@ class Stats:
 
         agg = grp.agg(**agg_spec)
 
-        # _log.info(f"Aggregated track-level statistics (before post-processing):\ncolumns: {agg.columns.tolist()}\nrows: {len(agg)}")
-
+        
         # If colors were assigned, carry them over
-        if 'replicate color' in df.columns:
-            colors = grp['replicate color'].first()
+        if 'replicate_color' in df.columns:
+            colors = grp['replicate_color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
-        if 'condition color' in df.columns:
-            colors = grp['condition color'].first()
+        if 'condition_color' in df.columns:
+            colors = grp['condition_color'].first()
             agg = agg.merge(colors, left_index=True, right_index=True)
 
         # Displacement and straightness
-        agg['Track displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
-        agg['Straightness ratio'] = (agg['Track displacement'] / agg['Track length'])
+        agg['track_displacement'] = np.hypot(agg['end_x'] - agg['start_x'], agg['end_y'] - agg['start_y'])
+        agg['straightness_ratio'] = (agg['track_displacement'] / agg['track_length'])
         agg = agg.drop(columns=['start_x','end_x','start_y','end_y'])
 
         # Points/ per track
-        n = grp.size().rename('Track points')
+        n = grp.size().rename('track_points')
         agg = agg.merge(n, left_index=True, right_index=True)
         df = df.merge(agg, left_index=True, right_index=True, how='right')
         df = df.drop(['condition', 'replicate', 'track_id'], axis=1, errors='ignore')
@@ -629,12 +655,8 @@ class Stats:
             if col in df.columns and col not in self.COLUMNS['TRACKS']:
                 df = df.drop(columns=[col])
 
-        # _log.info(f"Track stats after merging aggregated stats and dropping spot-level columns: \ncolumns: {df.columns.tolist()}\nrows: {len(df)}")
-
         df.drop_duplicates(inplace=True)
 
-        # _log.info(f"Track stats after dropping duplicates: \ncolumns: {df.columns.tolist()}\nrows: {len(df)}")
-        
         # Insert track_uid as a column right after track_id
         df.insert(df.columns.get_loc('track_id') + 1, 'track_uid', df.index)
         
@@ -702,7 +724,7 @@ class Stats:
 
         See also
         --------
-        `Stats.get_all_data()`- 
+        `Stats.get_all()`- 
         computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
 
         `Stats.Tracks()`- 
@@ -955,7 +977,7 @@ class Stats:
 
         See also
         --------
-        `Stats.get_all_data()`- 
+        `Stats.get_all()`- 
         computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
 
         `Stats.Spots()`- 
@@ -1007,9 +1029,12 @@ class Stats:
                     t_step = float(t_steps[0])
                 else:
                     t_step = float(np.median(t_steps))
-                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (time interval stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", noticequeue=self.noticequeue)
+                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (time interval stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", ntcq=self.ntcq)
             except Exception as e:
-                Reporter(Level.error, f'{e} (time interval stats)', trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                if self.ntcq is not None:
+                    Reporter(Level.error, f'{e} (time interval stats)', trace=traceback.format_exc(), ntcq=self.ntcq)
+                else:
+                    raise Exception(f'{e} (time interval stats)')
         else:
             t_step = self.t_step
 
@@ -1035,7 +1060,10 @@ class Stats:
         temp = temp[temp['_n'] >= 2].copy()
 
         if temp.empty:
-            Reporter(Level.error, f"No tracks with 2 or more points available for TimeIntervals computation; returning empty DataFrame.", noticequeue=self.noticequeue)
+            if self.ntcq is not None:
+                Reporter(Level.error, f"No tracks with 2 or more points available for TimeIntervals computation; returning empty DataFrame.", ntcq=self.ntcq)
+            else:
+                print("No tracks with 2 or more points available for TimeIntervals computation; returning empty DataFrame.")
             return pd.DataFrame(columns=self.COLUMNS['TIMEINTERVALS'])
 
         # Pre-compute consecutive angles (theta) for turning angle computation
@@ -1325,7 +1353,7 @@ class Stats:
         """ Compute general aggregate statistics (min, max, mean, sd, sem, median) for numeric columns in the DataFrame, grouped by specified columns. Exclude specified columns from aggregation. """
 
         if exclude is None:
-            Reporter(Level.warning, "No columns specified for exclusion in Stats._general_agg_stats(); all numeric columns will be aggregated.", noticequeue=self.noticequeue)
+            Reporter(Level.warning, "No columns specified for exclusion in Stats._general_agg_stats(); all numeric columns will be aggregated.", ntcq=self.ntcq)
 
         exclude = [col for col in exclude if col != 'track_uid']
 
@@ -1369,7 +1397,10 @@ class Stats:
             return additional
         
         except Exception as e:
-            Reporter(Level.error, f"Error in _general_agg_stats while preparing DataFrame for aggregation: {e}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+            if self.ntcq is not None:
+                Reporter(Level.error, f"Error in _general_agg_stats while preparing DataFrame for aggregation: {e}", trace=traceback.format_exc(), ntcq=self.ntcq)
+            else:
+                raise Exception(f"Error in _general_agg_stats while preparing DataFrame for aggregation: {e}")
             return pd.DataFrame(index=df.index)
 
 
@@ -1595,7 +1626,10 @@ class Stats:
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
             
             except Exception as e:
-                Reporter(Level.error, f"Confidence interval computation failed: {e}", trace=traceback.format_exc(), noticequeue=self.noticequeue)
+                if self.ntcq is not None:
+                    Reporter(Level.error, f"Confidence interval computation failed: {e}", trace=traceback.format_exc(), ntcq=self.ntcq)
+                else:
+                    raise Exception(f"Confidence interval computation failed: {e}")
                 return (np.nan, np.nan)
     
 
@@ -1697,9 +1731,6 @@ class Stats:
 
         return units
 
-    
-    
-
 
 class Summarize:
     """ Contains static methods utilized in the Peregrin Shiny App """
@@ -1742,3 +1773,12 @@ class Summarize:
             "distinct": int(series.nunique(dropna=True)),
             "top": [(idx, round(val * 100, 1)) for idx, val in value_counts.items()],
         }
+
+
+
+stats = Stats()
+get_all = stats.get_all
+spots = stats.spots
+tracks = stats.tracks
+frames = stats.frames
+time_intervals = stats.time_intervals

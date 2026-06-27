@@ -10,7 +10,7 @@ from ._plot._time._lags import MSD, TurnAnglesHeatmap
 from ._plot._time._series import TSeries
 from ._plot._distrib._polar import PolarDataDistribute
 from ._plot._distrib._motion import MotionFlowPlot
-from ._handlers._scheduling import *
+from ._handlers._shiny_scheduling import *
 from ._handlers._reports import Level, NoticeQueue
 from ._handlers._log import LogQueue, get_logger
 
