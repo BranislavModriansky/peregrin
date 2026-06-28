@@ -7,8 +7,6 @@ import numpy as np
 import pandas as pd
 from typing import *
 
-
-from ..._handlers._reports import Level, Reporter
 from .._common import Categorizer, Painter
 from ..._general import is_empty
 from ...compute.stats import Stats

@@ -8,7 +8,6 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from .._common import Painter, Categorizer
 from ..._general import Values
 from io import BytesIO
-from ..._handlers._reports import Level, Reporter
 from ..._infra._selections import Metrics
 from ...compute.stats import Stats
 

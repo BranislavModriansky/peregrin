@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from typing import *
 from itertools import zip_longest
 
-from ._handlers._reports import Level
-
 
 class CheckData:
 

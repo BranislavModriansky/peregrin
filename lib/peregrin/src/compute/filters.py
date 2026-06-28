@@ -9,7 +9,6 @@ from typing import Any, Literal
 from pandas.api.types import is_object_dtype
 from math import floor, ceil
 
-from .._handlers._reports import Level
 from .._general import clock, is_empty
 from .stats import Stats
 

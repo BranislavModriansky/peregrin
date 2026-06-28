@@ -7,11 +7,6 @@ from scipy import stats
 from typing import Any, Callable, Optional, Tuple, Dict, List, Union
 
 from .._general import Values
-from .._handlers._reports import Level, Reporter
-from .._handlers._log import get_logger
-
-_log = get_logger(__name__)
-
 
 class Stats:
     """
@@ -158,7 +153,7 @@ class Stats:
 
         # Validate CI_STATISTIC
         if self.CI_STATISTIC not in ['mean', 'median']:
-            _log.warning(
+            raise Warning(
                 f"CI_STATISTIC '{self.CI_STATISTIC}' may not be meaningful; "
                 f"consider using 'mean' or 'median'."
             )

@@ -5,12 +5,7 @@ import numpy as np
 import os.path as op
 from typing import List
 
-from .._handlers._reports import Level, Reporter
-from ..compute.stats import Stats
-from .._handlers._log import get_logger
-
-_log = get_logger(__name__)
-
+from ..compute.stats import stats
 
 
 class DataLoader:

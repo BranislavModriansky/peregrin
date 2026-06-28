@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 
 from .._common import Categorizer, Painter
 from ..._general import is_empty
-from ..._handlers._reports import Reporter, Level
-from ..._handlers._log import get_logger
 from ...compute.stats import Stats
 
 

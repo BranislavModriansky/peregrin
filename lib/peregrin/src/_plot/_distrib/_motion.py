@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 from .._common import Categorizer, Painter
-from ..._handlers._reports import Reporter, Level
 from ..._general import is_empty
 from ...compute.stats import Stats
 

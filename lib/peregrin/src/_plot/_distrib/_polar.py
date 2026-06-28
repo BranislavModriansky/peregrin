@@ -9,8 +9,6 @@ from scipy import stats
 from .._common import Painter, Categorizer
 from ...compute.stats import Stats
 from ..._general import Values
-from ..._handlers._reports import Level, Reporter
-from ..._handlers._log import get_logger
 
 
 _log = get_logger(__name__)

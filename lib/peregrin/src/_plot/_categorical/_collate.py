@@ -14,7 +14,6 @@ import matplotlib.lines as mlines
 from .._common import Painter, Categorizer
 from ..._general import is_empty
 from ...compute.stats import Stats
-from ..._handlers._reports import Level, Reporter
 
 
 
