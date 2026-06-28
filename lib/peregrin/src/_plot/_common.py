@@ -11,7 +11,6 @@ import matplotlib.colors as mcolors
 import matplotlib as mpl
 from typing import Any, List, Tuple
 
-from .._handlers._reports import Level, Reporter
 from .._infra._selections import Dyes
 
 

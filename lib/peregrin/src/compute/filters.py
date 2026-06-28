@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pandas.api.types import is_object_dtype
 from math import floor, ceil
 
+from .._pckg_exceptions._pckg_errors import FilteringError
 from .._general import clock, is_empty
 from .stats import Stats
 
@@ -419,7 +420,7 @@ class Filter1D:
             return 0.0, max_delta
         
         except Exception as e:
-            self.noticequeue.Report(Level.error, f"Error computing reference and span: {e}", traceback.format_exc())
+            raise FilteringError(f"Error computing reference and span: {e}. Traceback:\n{traceback.format_exc()}")
 
             return 0.0, 1.0
 

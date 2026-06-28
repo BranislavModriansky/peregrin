@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import traceback
+import warnings
 import numpy as np
 import pandas as pd
 from scipy import stats
 from typing import Any, Callable, Optional, Tuple, Dict, List, Union
 
 from .._general import Values
+from .._pckg_exceptions._pckg_errors import *
+from .._pckg_exceptions._pckg_warnings import *
 
 class Stats:
     """
@@ -123,7 +126,6 @@ class Stats:
         """Initialize Stats instance with per-instance state copies."""
 
         self.tier: List[str] = ['condition', 'replicate']
-        self.ntcq: Optional[Any] = kwargs.get('noticequeue', None)
 
         self.cat_descr = cat_descr
         self.cat_descr_err = cat_descr_err
@@ -309,7 +311,10 @@ class Stats:
         self.Input = df.copy()
 
         if df.empty:
-            Reporter(Level.warning, f"Input DataFrame to Spots method is empty; no computations performed.", ntcq=self.ntcq)
+            warnings.warn(message="Input DataFrame is empty. No computation performed.", 
+                          category=DataFrameWarning, 
+                          stacklevel=2)
+            
             return pd.DataFrame(columns=self.COLUMNS['SPOTS'])
 
         df.sort_values(self.tier + ['track_id', 'time_point'], inplace=True)
@@ -318,23 +323,17 @@ class Stats:
             _t = df.copy()
             _t.sort_values('time_point', inplace=True)
             t_steps = np.diff(_t['time_point'].unique())
-            try:
-                if np.all(t_steps == t_steps[0]):
-                    t_step = float(t_steps[0])
-                else:
-                    t_step = float(np.median(t_steps))
-                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (spot stats + time stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", ntcq=self.ntcq)
-            except Exception as e:
-                if self.ntcq is not None:
-                    Reporter(Level.error, f'{e} (spot stats)', trace=traceback.format_exc(), ntcq=self.ntcq)
-                else:
-                    raise Exception(f'{e} (spot stats)')
+
+            if np.all(t_steps == t_steps[0]):
+                t_step = float(t_steps[0])
+            else:
+                t_step = float(np.median(t_steps))
+                warnings.warn(message=f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (spot stats + time stats)\nObserved time steps:\n{t_steps}\nUsing: {t_step}", 
+                                category=TimePointWarning, 
+                                stacklevel=2)
         else:
             t_step = self.t_step
         
-        _log.info(f"[INFO] Time step: {t_step} {self.t_unit}")
-        _log.info(f"[INFO] Computing spot statistics for {len(df)} track points across {df['track_id'].nunique()} tracks and {df['time_point'].nunique()} time points.")
-
         # Define grouping keys
         gkeys = self.tier + ['track_id']
 
@@ -348,15 +347,10 @@ class Stats:
         df['frame'] = df.groupby(self.tier, sort=False)['time_point'].rank(method='dense').astype('Int64') - 1
 
         # Sanity guard, checking for multiple frames assigned to the same tier × time point combination
-        try:
-            bad = df.groupby(self.tier + ['time_point'], sort=False)['frame'].nunique(dropna=True).max()
-
-            if bad and bad > 1:
-                Reporter(Level.warning, f"Multiple frames assigned to the same {self.tier} × time_point combination; this may indicate time point multiplicates within the data or other data issues. Max frames per time point: {bad}.", ntcq=self.ntcq)
-                pass
-
-        except Exception:
-            pass
+        
+        bad = df.groupby(self.tier + ['time_point'], sort=False)['frame'].nunique(dropna=True).max()
+        if bad and bad > 1:
+            raise TimePointError(f"Multiple frames assigned to the same {self.tier} × time_point combination. Multiplicates of time_point values within the data. Max frames per time point: {bad}.")
 
         # distance between the previous and the current position
         df['distance'] = np.hypot(
@@ -562,17 +556,14 @@ class Stats:
             _t = df.copy()
             _t.sort_values('time_point', inplace=True)
             t_steps = np.diff(_t.time_point.unique())
-            try:
-                if np.all(t_steps == t_steps[0]):
-                    t_step = float(t_steps[0])
-                else:
-                    t_step = float(np.median(t_steps))
-                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (track stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", ntcq=self.ntcq)
-            except Exception as e:
-                if self.ntcq is not None:
-                    Reporter(Level.error, f'{e} (track stats)', trace=traceback.format_exc(), ntcq=self.ntcq)
-                else:
-                    raise Exception(f'{e} (track stats)')
+            
+            if np.all(t_steps == t_steps[0]):
+                t_step = float(t_steps[0])
+            else:
+                t_step = float(np.median(t_steps))
+                warnings.warn(message=f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (track stats)\nObserved time steps:\n{t_steps}\nUsing: {t_step}",
+                                category=TimePointWarning,
+                                stacklevel=2)
         else:
             t_step = self.t_step
 
@@ -1019,17 +1010,15 @@ class Stats:
             _t = df.copy()
             _t.sort_values('time_point', inplace=True)
             t_steps = np.diff(_t['time_point'].unique())
-            try:
-                if np.all(t_steps == t_steps[0]):
-                    t_step = float(t_steps[0])
-                else:
-                    t_step = float(np.median(t_steps))
-                    Reporter(Level.warning, f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (time interval stats)", details=f"Observed time steps:\n{t_steps}\nUsing: {t_step}", ntcq=self.ntcq)
-            except Exception as e:
-                if self.ntcq is not None:
-                    Reporter(Level.error, f'{e} (time interval stats)', trace=traceback.format_exc(), ntcq=self.ntcq)
-                else:
-                    raise Exception(f'{e} (time interval stats)')
+
+            if np.all(t_steps == t_steps[0]):
+                t_step = float(t_steps[0])
+            else:
+                t_step = float(np.median(t_steps))
+                warnings.warn(message=f"Time points are not uniformly spaced -> this will most probably lead to incorrect data computation. (time interval stats)\nObserved time steps:\n{t_steps}\nUsing: {t_step}",
+                                category=TimePointWarning,
+                                stacklevel=2)
+            
         else:
             t_step = self.t_step
 
@@ -1055,11 +1044,7 @@ class Stats:
         temp = temp[temp['_n'] >= 2].copy()
 
         if temp.empty:
-            if self.ntcq is not None:
-                Reporter(Level.error, f"No tracks with 2 or more points available for TimeIntervals computation; returning empty DataFrame.", ntcq=self.ntcq)
-            else:
-                print("No tracks with 2 or more points available for TimeIntervals computation; returning empty DataFrame.")
-            return pd.DataFrame(columns=self.COLUMNS['TIMEINTERVALS'])
+            raise DataQualityError(f"No tracks with 2 or more points available for TimeIntervals computation; returning empty DataFrame.")
 
         # Pre-compute consecutive angles (theta) for turning angle computation
         # theta[i] = arctan2(y[i]-y[i-1], x[i]-x[i-1])
@@ -1392,10 +1377,10 @@ class Stats:
             return additional
         
         except Exception as e:
-            if self.ntcq is not None:
-                Reporter(Level.error, f"Error in _general_agg_stats while preparing DataFrame for aggregation: {e}", trace=traceback.format_exc(), ntcq=self.ntcq)
-            else:
-                raise Exception(f"Error in _general_agg_stats while preparing DataFrame for aggregation: {e}")
+            warnings.warn(message=f"Stats._general_agg_stats() encountered an error: {e}. Returning empty DataFrame. Traceback:\n{traceback.format_exc()}", 
+                          category=FailedWarning, 
+                          stacklevel=2)
+            
             return pd.DataFrame(index=df.index)
 
 
@@ -1621,10 +1606,9 @@ class Stats:
                 return (float(result.confidence_interval.low), float(result.confidence_interval.high))
             
             except Exception as e:
-                if self.ntcq is not None:
-                    Reporter(Level.error, f"Confidence interval computation failed: {e}", trace=traceback.format_exc(), ntcq=self.ntcq)
-                else:
-                    raise Exception(f"Confidence interval computation failed: {e}")
+                warnings.warn(message=f"Bootstrap confidence interval computation failed for both '{method}' and fallback 'percentile' methods: {e}. Returning (np.nan, np.nan). Traceback:\n{traceback.format_exc()}",
+                              category=FailedWarning,
+                              stacklevel=2)
                 return (np.nan, np.nan)
     
 

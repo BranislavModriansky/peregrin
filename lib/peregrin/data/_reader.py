@@ -12,7 +12,7 @@ DATA_DIR = Path(__file__).resolve().parent
 
 
 
-columns = {'id': "TRACK_ID", 't': "POSITION_T", 'x': "POSITION_X", 'y': "POSITION_Y"}
+colnames = {'id': "TRACK_ID", 't': "POSITION_T", 'x': "POSITION_X", 'y': "POSITION_Y"}
  
 
 naive_ctr = load_data(
@@ -21,8 +21,8 @@ naive_ctr = load_data(
         str(DATA_DIR / "naive_ctr_BC42.csv"),
         str(DATA_DIR / "naive_ctr_BC43.csv"),
     ],
-    columns=columns,
-    cond_label="ctr",
+    colnames=colnames,
+    cond_lbls="ctr",
 )
 
 naive_cxcl12 = load_data(
@@ -31,8 +31,8 @@ naive_cxcl12 = load_data(
         str(DATA_DIR / "naive_cxcl12_BC42.csv"),
         str(DATA_DIR / "naive_cxcl12_BC43.csv"),
     ],
-    columns=columns,
-    cond_label="cxcl12",
+    colnames=colnames,
+    cond_lbls="cxcl12",
 )
 
 naive_mu = load_data(
@@ -41,6 +41,6 @@ naive_mu = load_data(
         str(DATA_DIR / "naive_mu_BC42.csv"),
         str(DATA_DIR / "naive_mu_BC43.csv"),
     ],
-    columns=columns,
-    cond_label="mu",
+    colnames=colnames,
+    cond_lbls="mu",
 )
