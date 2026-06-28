@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from pathlib import Path
 import sys
+import pandas as pd
 
 # Works both as package module and as direct script
 try:
@@ -13,34 +15,45 @@ DATA_DIR = Path(__file__).resolve().parent
 
 
 colnames = {'id': "TRACK_ID", 't': "POSITION_T", 'x': "POSITION_X", 'y': "POSITION_Y"}
- 
 
-naive_ctr = load_data(
+
+
+_b_naive = load_data(
     files=[
-        str(DATA_DIR / "naive_ctr_BC39.csv"),
-        str(DATA_DIR / "naive_ctr_BC42.csv"),
-        str(DATA_DIR / "naive_ctr_BC43.csv"),
+        [
+            str(DATA_DIR / "naive_ctr_BC39.csv"),
+            str(DATA_DIR / "naive_ctr_BC42.csv"),
+            str(DATA_DIR / "naive_ctr_BC43.csv")
+        ],
+        [
+            str(DATA_DIR / "naive_cxcl12_BC39.csv"),
+            str(DATA_DIR / "naive_cxcl12_BC42.csv"),
+            str(DATA_DIR / "naive_cxcl12_BC43.csv")
+        ],
+        [
+            str(DATA_DIR / "naive_mu_BC39.csv"),
+            str(DATA_DIR / "naive_mu_BC42.csv"),
+            str(DATA_DIR / "naive_mu_BC43.csv")
+        ]
     ],
     colnames=colnames,
-    cond_lbls="ctr",
+    cond_lbls=["ctr", "cxcl12", "mu"],
+    rep_lbls=[['1', '2', '3'], ['1', '2', '3'], ['1', '2', '3']]
 )
 
-naive_cxcl12 = load_data(
-    files=[
-        str(DATA_DIR / "naive_cxcl12_BC39.csv"),
-        str(DATA_DIR / "naive_cxcl12_BC42.csv"),
-        str(DATA_DIR / "naive_cxcl12_BC43.csv"),
-    ],
-    colnames=colnames,
-    cond_lbls="cxcl12",
-)
 
-naive_mu = load_data(
-    files=[
-        str(DATA_DIR / "naive_mu_BC39.csv"),
-        str(DATA_DIR / "naive_mu_BC42.csv"),
-        str(DATA_DIR / "naive_mu_BC43.csv"),
-    ],
-    colnames=colnames,
-    cond_lbls="mu",
-)
+class PeregrinDataFrame(pd.DataFrame):
+    _metadata = ["ctr", "cxcl12", "mu"]
+
+    @property
+    def _constructor(self):
+        return PeregrinDataFrame
+
+    def build_subsets(self):
+        self.ctr    = PeregrinDataFrame(self.loc[self["condition"] == "ctr"].copy())
+        self.cxcl12 = PeregrinDataFrame(self.loc[self["condition"] == "cxcl12"].copy())
+        self.mu     = PeregrinDataFrame(self.loc[self["condition"] == "mu"].copy())
+        return self
+
+
+b_naive = PeregrinDataFrame(_b_naive).build_subsets()

@@ -1,5 +1,5 @@
-from ..data import naive_ctr, naive_cxcl12, naive_mu
+from ..data import b_naive
 from ..src.compute.stats import stats
 
 
-spots, tracks = stats.spots(naive_ctr), stats.tracks(stats.spots(naive_ctr))
+print(b_naive.mu.head())

@@ -28,11 +28,54 @@
     <header class="header-secondary">
       <nav class="nav-secondary">
         <ul>
-          <li><a href="../lib/library.html"> References </a></li>
-          <li><a href="https://github.com/BranislavModriansky/Peregrin/tree/main"> <img src="../media/github_white.svg" alt="GitHub" id="github-icon"/> </a></li>
+          <li><a href="#overview"> Overview </a></li>
+          <li><a href="#user-guide"> User guide </a></li>
+
+          <li class="nav-dropdown">
+            <details>
+              <summary> References </summary>
+              <ul class="nav-dropdown-menu">
+                <li><a href="#reference"> API Reference </a></li>
+                <li><a href="#mathematics"> Migration descriptors </a></li>
+                <li><a href="#statistics"> Data clustering </a></li>
+              </ul>
+            </details>
+          </li>
+
+          <li><a href="#releases"> Releases </a></li>
+
+          <li>
+            <a href="https://github.com/BranislavModriansky/Peregrin/tree/main">
+              <img src="../media/github_white.svg" alt="GitHub" id="github-icon"/>
+            </a>
+          </li>
         </ul>
       </nav>
     </header>
+
+    <aside class="page-sidebar" aria-label="App navigation">
+      <h2>App</h2>
+      <nav class="sidebar-nav">
+        <ul>
+          <li><a href="#overview">About</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#usage">Usage</a></li>
+          <li><a href="#reference">Reference</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <script>
+      const dropdowns = document.querySelectorAll(".nav-dropdown details");
+
+      document.addEventListener("click", (event) => {
+        dropdowns.forEach((dropdown) => {
+          if (dropdown.open && !dropdown.contains(event.target)) {
+            dropdown.open = false;
+          }
+        });
+      });
+    </script>
 
   </body>
 

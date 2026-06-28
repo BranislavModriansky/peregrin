@@ -14,9 +14,6 @@ from ..compute.stats import stats
 class DataLoader:
 
     ALIASES = {
-        "noticequeue": "ntcq",
-        "notice_queue": "ntcq",
-        "ntcq": "ntcq",
         "devider": "devider_character",
         "devider_character": "devider_character",
         "devider_char": "devider_character",
@@ -203,9 +200,9 @@ class DataLoader:
                         rep_lbl = rep_lbls[file_set_idx][file_idx]
                     else:
                         if isinstance(fileinfo, dict):
-                            rep_lbl = f"file_{file_idx}_" + fileinfo.get("name", f"file_{file_idx}")
+                            rep_lbl = f"file_{file_idx + 1}_" + fileinfo.get("name", f"file_{file_idx + 1}")
                         else:
-                            rep_lbl = f"file_{file_idx}_" + op.basename(fileinfo)
+                            rep_lbl = f"file_{file_idx + 1}_" + op.basename(fileinfo)
 
                 _rep_guard_list.append(rep_lbl)
 
@@ -224,7 +221,12 @@ class DataLoader:
                                   category=LabelWarning,
                                   stacklevel=2)
 
-        if not kwargs.get("merge", True):
+            if not kwargs.get("merge", True):
+                return pd.concat(cache, axis=0)
+            else:
+                pass
+
+        if kwargs.get("merge", True):
             return pd.concat(cache, axis=0)
         else:
             return cache

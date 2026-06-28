@@ -13,25 +13,25 @@ from .._pckg_exceptions._pckg_warnings import *
 
 class Stats:
     """
-    A class providing methods for computing trajectory statistics at various levels of aggregation:
-    Spots (per-trajectory-point), Tracks (per-whole-trajectory), Frames (per-time-point),
-    Time intervals (per-time-interval).
+    A class with methods for computing trajectory statistics at various levels of aggregation:
+    spots (per-trajectory-point), tracks (per-whole-trajectory), frames (per-time-point),
+    time intervals (per-time-interval).
 
-    Calling this method initializes its statistical configuration.
+    Calling this method initializes statistical configuration.
 
     Parameters
     ----------
     cat_descr : bool, default True
-        *If True, descriptive statistics (min, max, mean, median, q25, q75) will be computed for the.*
+        If True, descriptive statistics (min, max, mean, median, q25, q75) will be computed for categories.
     
     cat_descr_err : bool, default True
-        *If True, descriptive error statistics (std) will be computed.*
+        If True, descriptive error statistics (std) will be computed.
 
     cat_infer_err : bool, default False
-        *If True, inferative statistics (sem, ?ci) will be computed.
+        If True, inferative statistics (sem, ci) will be computed.
 
     bootstrap_ci : bool, default False
-        *If True, ci will be computed when the `cat_infer_err` is set to True.*
+        If True, ci will be computed when the `cat_infer_err` is set to True.
 
 
     Attributes
@@ -58,7 +58,7 @@ class Stats:
 
     """
 
-    Input: pd.DataFrame = pd.DataFrame()
+    # Input: pd.DataFrame = pd.DataFrame()
     Spots: pd.DataFrame = pd.DataFrame()
     Tracks: pd.DataFrame = pd.DataFrame()
     Frames: pd.DataFrame = pd.DataFrame()
@@ -94,7 +94,7 @@ class Stats:
             'condition', 'replicate', 'track_id', 'track_uid',
             'time_point', 'frame', 'x_coordinate', 'y_coordinate', 'distance',
             'cum_track_length', 'cum_track_displacement', 'cum_straightness_ratio',
-            'cum_speed', 'cum_mean_straight_line_speed',
+            'cum_speed_mean', 'cum_mean_straight_line_speed',
             'cum_forward_progression_linearity', 'direction', 'directional_change',
             'cum_sum_directional_change', 'cum_mean_directional_change',
             'cum_mean_directional_change_rate',
@@ -122,8 +122,6 @@ class Stats:
         bootstrap_ci: bool = False,
         **kwargs
     ) -> None:
-        
-        """Initialize Stats instance with per-instance state copies."""
 
         self.tier: List[str] = ['condition', 'replicate']
 
@@ -161,50 +159,53 @@ class Stats:
             )
 
     def get_all(
-        self, df: pd.DataFrame
+        self, df: pd.DataFrame,
+        *,
+        ignore_categories: Optional[bool] = False
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
-        Computes all trajectory statistics (Spots, Tracks, Frames, TimeIntervals)
-        from raw trajectory spot (track point) data.
+        Compute trajectory data at all levels of aggregation 
+        (`spots`, `tracks`, `frames`, `time_intervals`) from input spot data.
 
         Parameters
         ----------
         df : pd.DataFrame
-            ***Input DataFrame must contain these columns:***
-            - `condition`
-            - `replicate`
+            Input DataFrame must contain these columns:
+            - *`condition`*
+            - *`replicate`*
             - `track_id`
             - `x_coordinate`
             - `y_coordinate`
             - `time_point`
 
+        ignore_categories : bool, optional, default False
+            If True, the `condition` and `replicate` columns will be ignored in the computation, and all data will be treated as a single group.
+
         Returns
         -------
-        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
-            `Stats.Spots()`, `Stats.Tracks()`, `Stats.Frames()` and `Stats.TimeIntervals()` DataFrames.
-
-            \n *Sets `BaseDataInventory.Spots`, `BaseDataInventory.Tracks`, `BaseDataInventory.Frames`, `BaseDataInventory.TimeIntervals` to the computed DataFrames.*
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame] : `Stats.Spots`, `Stats.Tracks`, `Stats.Frames` and `Stats.TimeIntervals` DataFrames.
 
         See also
         --------
-        `Stats.Spots()`- 
+        `stats.spots()`- 
         computes per-trajectory-point statistics, both local (previous -> current position) and cumulative (start -> current position).
 
-        `Stats.Tracks()`- 
+        `stats.tracks()`- 
         computes per-whole-trajectory statistics from the Spots DataFrame.
 
-        `Stats.Frames()`- 
+        `stats.frames()`- 
         computes per-time-point statistics from the Spots DataFrame.
 
-        `Stats.TimeIntervals()`- 
+        `stats.time_intervals()`- 
         computes per-time-interval statistics from the Spots DataFrame.
 
-        `(dataclass) BaseDataInventory`- 
-        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+        Documentation
+        -------------
+        links..
 
         """
 
-        self.Input = df
+        # self.Input = df
         self.spots(df)
         self.tracks(self.Spots)
         self.frames(self.Spots)
@@ -213,102 +214,112 @@ class Stats:
         return self.Spots, self.Tracks, self.Frames, self.TimeIntervals
 
 
-    def spots(self, df: pd.DataFrame) -> pd.DataFrame:
+    def spots(
+        self, 
+        df: pd.DataFrame,
+        *,
+        ignore_categories: Optional[bool] = False
+    ) -> pd.DataFrame:
         """ Computes per-trajectory-point statistics, both local (previous -> current position) and cumulative (start -> current position).
 
         Parameters
         ----------
         df : pd.DataFrame
-            ***The input DataFrame must contain these columns:***
-            - `condition`
-            - `replicate`
+            The input DataFrame must contain these columns:
+            - *`condition`*
+            - *`replicate`*
             - `track_id`
             - `x_coordinate`
             - `y_coordinate`
             - `time_point`
 
+        ignore_categories : bool, optional, default False
+            If True, the `condition` and `replicate` columns will be ignored in the computation, and all data will be treated as a single group.
+
         Returns
         -------
         pd.DataFrame
-            *The computed DataFrame containing these columns:*
+            The computed DataFrame containing these columns:
 
-            - **`condition`**
-            - **`replicate`**
-            - **`track_id`**
-            - **`track_uid`**
-            - **`time_point`**
-            - **`frame`**
+            - `track_id`
+            - `track_uid`
+            - `time_point`
+            - `frame`
+            - *`condition`*
+            - *`replicate`*
 
-            - **`x_coordinate`**
-            - **`y_coordinate`**
+            - `x_coordinate`
+            - `y_coordinate`
 
-            - **`distance`**- 
-            Euclidean distance between consecutive (previous -> current) positions (step length).
+            - `distance` = 
+            euclidean distance between consecutive (previous -> current) positions
 
-            - **`cum_track_length`**- 
-            Cumulative sum of `distance` along the track up to the current position.
+            - `cum_track_length` = 
+            cumulative sum of `distance` along the track up to the current position
 
-            - **`cum_track_displacement`**- 
-            Euclidean distance from the starting position of the track to the current position.
+            - `cum_track_displacement` = 
+            euclidean distance from the starting position of the track to the current position
 
-            - **`cum_straightness_ratio`**- 
-            Track's straigtness calculated as `cum_track_displacement` / `cum_track_length`.
+            - `cum_straightness_ratio = 
+            cum_track_displacement / cum_track_length`
 
-            - **`cum_speed`**- 
-            Mean speed (`distance`) from the starting to the current position <- `cum_track_length` / `frame`.
+            - `cum_speed_mean` = 
+            `cum_track_length / frame`
 
-            - **`cum_mean_straight_line_speed`**-
-            Calculated as `cum_track_displacement` / (current track point count * `t_step`).
+            - `cum_mean_straight_line_speed` =
+            calculated as `cum_track_displacement / (current track point count ⋅ t_step)`.
 
-            - **`cum_forward_progression_linearity`**-
-            Calculated as `cum_mean_straight_line_speed` / `cum_speed`
+            - `cum_forward_progression_linearity` =
+            calculated as `cum_mean_straight_line_speed` / `cum_speed_mean`
 
-            - **`direction`**- 
-            Instantaneous direction of motion in radians `np.arctan2(Δy, Δx)`. Calculated between the previous and current positions.
+            - `direction` = 
+            instantaneous direction of motion in radians `np.arctan2(Δy, Δx)`. Calculated between the previous and current positions.
 
-            - **`Directional change`**- 
-            Absolute turning angle (degrees) between consecutive directions, calculated as the angular difference between the current and previous `direction` values, wrapped to the range [-180°, 180°].
+            - `directional_change` = 
+            absolute turning angle (degrees) between consecutive directions, calculated as the angular difference between the current and previous `direction` values, wrapped to the range [-180°, 180°].
 
-            - **`Cumulative sum directional change`**-
-            Cumulative sum of `Directional change` along the track up to the current position.
+            - `cum_sum_directional_change` =
+            cumulative sum of `directional_change` along the track up to the current position.
 
-            - **`Cumulative mean directional change`**- 
-            Mean of all absolute `Directional change` values along the track up to the current position
+            - `cum_mean_directional_change` = 
+            mean of all absolute `directional_change` values along the track up to the current position
 
-            - **`Cumulative mean directional change rate`**- 
-            Mean of all absolute `Directional change` values / (current track point count * `t_step`).
+            - `cum_mean_directional_change_rate` = 
+            mean of all absolute `directional_change` values / (current track point count * `t_step`).
 
-            - **`cum_direction_mean`**- 
-            Mean of directions of motion from the starting to the current position.
+            - `cum_direction_mean` = 
+            mean of directions of motion from the starting to the current position.
 
-            - **`Cumulative direction var`**- 
-            Cumulative direction variance from the starting to the current position.
+            - `cum_direction_var` = 
+            cumulative direction variance from the starting to the current position.
 
-            - **`Other`**- 
+            - *`other`* = 
             *any additional columns from the input DataFrame that are not part of the above list will be retained in the output if they contain any non-NA values; otherwise, they will be dropped.*
 
-            \n Sets `BaseDataInventory.Spots` to the computed DataFrame.
+            \n See documentation: links..
 
         See also
         --------
-        `Stats.get_all()`- 
-        computes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from raw spot data in one call.
+        `stats.get_all()` - 
+        computes and returnes all DataFrames (Spots, Tracks, Frames, TimeIntervals) from input spot data in one call.
 
-        `Stats.Tracks()`- 
+        `stats.tracks()` - 
         computes per-whole-trajectory statistics from the Spots DataFrame.
 
-        `Stats.Frames()`- 
+        `stats.frames()` - 
         computes per-time-point statistics from the Spots DataFrame.
 
-        `Stats.TimeIntervals()`- 
+        `stats.time_intervals()` - 
         computes per-time-interval statistics from the Spots DataFrame.
 
-        `(dataclass) BaseDataInventory`- 
-        serves as an inventory, storing the computed DataFrames computed via the `(class) Stats`.
+        Documentation
+        -------------
+
+        links..
 
         """
 
-        self.Input = df.copy()
+        # self.Input = df.copy()
 
         if df.empty:
             warnings.warn(message="Input DataFrame is empty. No computation performed.", 
@@ -372,14 +383,14 @@ class Stats:
         # Avoid division by zero by replacing zeros with NaN, then fill
         df['cum_straightness_ratio'] = (df['cum_track_displacement'] / df['cum_track_length'].replace(0, np.nan)).fillna(np.nan)
 
-        # cum_speed -> mean speed from the starting to the current position
+        # cum_speed_mean -> mean speed from the starting to the current position
         track_start_time = grp['time_point'].transform('first')
         elapsed = (df['time_point'] - track_start_time).replace(0, np.nan)
-        df['cum_speed'] = df['cum_track_length'] / elapsed
+        df['cum_speed_mean'] = df['cum_track_length'] / elapsed
 
         cumulative_count = (grp.cumcount() + 1).values  # strip index → plain numpy array
         df['cum_mean_straight_line_speed'] = df['cum_track_displacement'] / (cumulative_count * t_step)
-        df['cum_forward_progression_linearity'] = df['cum_mean_straight_line_speed'] / df['cum_speed']
+        df['cum_forward_progression_linearity'] = df['cum_mean_straight_line_speed'] / df['cum_speed_mean']
 
         # Instantaneous direction of motion (rad) -> difference between the previous and current position
         df['direction'] = np.arctan2(
@@ -448,15 +459,20 @@ class Stats:
         return df
 
 
-    def tracks(self, df: pd.DataFrame) -> pd.DataFrame:
+    def tracks(
+        self, 
+        df: pd.DataFrame,
+        *,
+        ignore_categories: Optional[bool] = False
+    ) -> pd.DataFrame:
         """ Computes a comprehensive DataFrame of track-level statistics for each trajectory of the input Spots DataFrame.
 
         Parameters
         ----------
         df : pd.DataFrame
-            *This method expects the dataframe acquired by `Stats.Spots()`. **The input DataFrame must contain these columns:***
-            - `condition`
-            - `replicate`
+            This method expects the dataframe returned from `stats.spots()`. The input DataFrame must contain these columns:
+            - *`condition`*
+            - *`replicate`*
             - `track_id`
             - `track_uid`
             - `frame`
@@ -466,66 +482,71 @@ class Stats:
             - `cum_track_displacement`
             - `direction`
 
+        ignore_categories : bool, optional, default False
+            If True, the `condition` and `replicate` columns will be ignored in the computation, and all data will be treated as a single group.
+
         Returns
         -------
         pd.DataFrame
-            ***A DataFrame with one row per unique track, containing the following columns:***
+            A DataFrame with one row per unique track, containing the following columns:
 
-            - **`condition`**
-            - **`replicate`**
-            - **`track_id`**
-            - **`track_uid`**
+            - *`condition`*
+            - *`replicate`*
+            - `track_id`
+            - `track_uid`
 
-            - **`Y location`**-
+            - `y_location`-
             The mean Y position of the track's starting position.
 
-            - **`X location`**-
+            - `x_location`-
             The mean X position of the track's starting position.
             
-            - **`Track length`**- 
+            - `track_length`- 
             Total length of the track (sum of `distance`).
 
-            - **`Speed`** **`min`**, **`max`**, **`mean`**, **`sd`**, **`median`** - 
+            - `speed_min`, `speed_max`, `speed_mean`, `speed_sd`, `speed_median` - 
             of the `Distances` between consecutive points (step lengths).
 
-            - **`Max distance reached`**- 
+            - `max_distance_reached`- 
             Maximum Euclidean distance from the starting position reached at any point along the track.
 
-            - **`Track start frame`**- 
+            - `track_start_frame`- 
             frame number of the first point in the track.
 
-            - **`Track end frame`**- 
+            - `track_end_frame`- 
             frame number of the last point in the track.
 
-            - **`Track displacement`**- 
+            - `track_displacement`- 
             Euclidean distance from the starting position to the end position of the track.
 
-            - **`Straightness ratio`**- 
-            Track's straigtness calculated as `Track displacement` / `Track length`.
+            - `straightness_ratio`- 
+            Track's straigtness calculated as `track_displacement` / `track_length`.
 
-            - **`Mean straight line speed`**-
-            Calculated as `Track displacement` / (`Track points` * `t_step`).
+            - `mean_straight_line_speed`-
+            Calculated as `track_displacement` / (`track_points` * `t_step`).
 
-            - **`Forward progression linearity`**-
-            Calculated as `Mean straight line speed` / `Speed mean`
+            - `forward_progression_linearity`-
+            Calculated as `mean_straight_line_speed` / `speed_mean`
 
-            - **`Track points`**- 
+            - `track_points`- 
             The number of points the trajectory is comprised of.
 
-            - **`direction mean`**- 
+            - `direction_mean`- 
             Circular mean of the `direction` values.
 
-            - **`Mean directional change`**- 
+            - `mean_directional_change`- 
             Mean of absolute directional changes per track (degrees).
 
-            - **`Mean directional change rate`**-
-            `Mean directional change` / (`Track points` * `t_step`)
+            - `mean_directional_change_rate`-
+            `mean_directional_change` / (`track_points` * `t_step`)
 
-            - **`direction var`**- 
+            - `direction_var`- 
             Circular variance of the `direction` values.
 
-            - **`Other`**- 
-            *any additional columns from the input DataFrame that are not part of the above list will be retained in the output if they contain any non-NA values; otherwise, they will be dropped.*
+            - *`other`* - 
+            any additional columns from the input DataFrame that are not part of the above list will be retained in the output if they contain any non-NA values; otherwise, they will be dropped.*
+
+            \n See documentation: links..
 
         See also
         --------
@@ -656,7 +677,12 @@ class Stats:
         return df
     
 
-    def frames(self, df: pd.DataFrame) -> pd.DataFrame:
+    def frames(
+        self, 
+        df: pd.DataFrame,
+        *,
+        ignore_categories: Optional[bool] = False
+    ) -> pd.DataFrame:
         """ Computes time point statistics:
 
         - `{per replicate}`- aggregated across all tracks of the same `replicate`
@@ -674,9 +700,12 @@ class Stats:
             - `cum_track_length`
             - `cum_track_displacement`
             - `cum_straightness_ratio`
-            - `cum_speed`
+            - `cum_speed_mean`
             - `direction`
             - `cum_direction_mean`
+
+        ignore_categories : bool, optional, default False
+            If True, the `condition` and `replicate` columns will be ignored in the computation, and all data will be treated as a single group.
 
         Returns
         -------
@@ -700,7 +729,7 @@ class Stats:
                 - **`cum_track_displacement`**
                 - **`cum_straightness_ratio`**
                 - **`Instantaneous speed`**
-                - **`cum_speed`**
+                - **`cum_speed_mean`**
                 - **`cum_mean_straight_line_speed`**
                 - **`cum_forward_progression_linearity`**
                 - **`Instantaneous direction`**
@@ -746,7 +775,7 @@ class Stats:
             'cum_track_length',
             'cum_track_displacement',
             'cum_straightness_ratio',
-            'cum_speed',
+            'cum_speed_mean',
             'distance',
             'cum_mean_straight_line_speed',
             'cum_forward_progression_linearity',
@@ -874,13 +903,20 @@ class Stats:
         return df
     
     
-    def time_intervals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """ Computes per-time-interval statistics, including mean or median squared displacement (MSD) and directional change:
+    def time_intervals(
+        self, 
+        df: pd.DataFrame,
+        *,
+        ignore_categories: Optional[bool] = False
+    ) -> pd.DataFrame:
+        """ 
+        Computes per-time-interval statistics.
 
-        For each frame_lag (1, 2, …, maximum), squared displacements and turning angles are computed across trajectories.
-
-        - `{per replicate}`- aggregated across all tracks of the same `replicate`
-        - `{per condition}`- aggregated across all tracks of the same `condition`
+        For each `frame_lag` value (1, 2, …, maximum), squared displacements and turning angles are computed across trajectories
+        and then processed (e.g. averaged) for each category (group). Specifically for example:
+        
+        - per replicate - across all trajectories of the same `replicate`
+        - per condition - across all trajectories of the same `condition`
 
 
         Example
@@ -910,7 +946,7 @@ class Stats:
         ```
         MSDᵢ(k) = ||pᵢ(t+k) - pᵢ(t)||²
         ```
-        \n The per-track MSD values are then aggregated across tracks within each of unique `time_lag` × `condition` × `replicate` and `time_lag` × `condition`.
+        \n The per-track MSD values are then aggregated across tracks within each of unique `time_lag` × *`condition`* × *`replicate`* and `time_lag` × *`condition`*. In case that `ignore_categories` is set to `True`, the aggregation will be performed across all tracks for each unique of `time_lag`.
         
             
         Turning angle formula for a given time lag *k* for a trajectory *i* with trajectory point positions *y* and *x* at a time position *t* :
@@ -925,13 +961,16 @@ class Stats:
         Parameters
         ----------
         df : pd.DataFrame
-            *This method expects the dataframe acquired by `Stats.Spots()`. **The input DataFrame must contain these columns:***
-            - `condition`
-            - `replicate`
+            This method expects the dataframe returned from `stats.spots()`. The input DataFrame must contain these columns:
+            - *`condition`*
+            - *`replicate`*
             - `track_uid`
             - `time_point`
             - `x_coordinate`
             - `y_coordinate`
+
+        ignore_categories : bool, optional, default False
+            If True, the `condition` and `replicate` columns will be ignored in the computation, and all data will be treated as a single group.
 
         Returns
         -------
@@ -1658,7 +1697,7 @@ class Stats:
             'cum_track_length': 'µm',
             'cum_track_displacement': 'µm',
             'cum_straightness_ratio': 'µm',
-            'cum_speed': f'µm ⋅ {t_unit}⁻¹',
+            'cum_speed_mean': f'µm ⋅ {t_unit}⁻¹',
             'cum_mean_straight_line_speed': f'µm ⋅ {t_unit}⁻¹',
             'direction': 'rad',
             'directional_change': 'rad',
@@ -1696,7 +1735,7 @@ class Stats:
                 'frame': '',
                 'cum_track_length': 'µm',
                 'cum_track_displacement': 'µm',
-                'cum_speed': 'µm',
+                'cum_speed_mean': 'µm',
                 'instantaneous_speed': 'µm',
                 'cum_mean_straight_line_speed': 'µm',
                 'cum_sum_directional_change': 'rad',

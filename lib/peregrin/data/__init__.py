@@ -1,4 +1,4 @@
-from ._reader import naive_ctr, naive_cxcl12, naive_mu
+from ._reader import b_naive
 
 
-__all__ = ["naive_ctr", "naive_cxcl12", "naive_mu"]
+__all__ = ["b_naive"]
