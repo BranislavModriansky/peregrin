@@ -26,20 +26,24 @@ class Input:
         self._df = df
         self.metadata = metadata
 
+    # Property for accessing the underlying polars DataFrame
     @property
     def df(self) -> pl.DataFrame:
         return self._df
 
+    # Delegate attribute access to the underlying polars DataFrame for all other attributes
     def __getattr__(self, name):
-        # delegate everything else to the underlying polars DataFrame
         return getattr(self._df, name)
 
+    # Delegate item access to the underlying polars DataFrame for indexing operations
     def __getitem__(self, key):
         return self._df[key]
 
+    # Delegate length access to the underlying polars DataFrame
     def __len__(self):
         return len(self._df)
 
+    # Delegate representation to the underlying polars DataFrame
     def __repr__(self):
         return repr(self._df)
 
@@ -92,9 +96,11 @@ class InputMetadata:
         self.input_metadata_common = {}      # init dict for common metadata
         self.input_metadata_individual = {}  # init dict for per-file metadata
 
+    # Delegate attribute access to the underlying polars DataFrame for all other attributes
     def __getitem__(self, key):
         return self.input_metadata_individual[key]
 
+    # Delegate item assignment to the underlying polars DataFrame for indexing operations
     def __setitem__(self, key, value):
         self.input_metadata_individual[key] = value
 
@@ -199,7 +205,6 @@ class InputMetadata:
         self.input_metadata_common["timeinterval"] = first_metadata.get("timeinterval")
         self.input_metadata_common["columns"] = first_metadata.get("columns")
 
-
         if self.input_metadata_common.get("timeunits") is None or self.input_metadata_common.get("timeunits") == '':
             warn("No time units found in input files.\n Please specify the time units using <load_data result>.metadata.write(time_unit=\"<unit>\")", InputWarning, stacklevel=2)
         if self.input_metadata_common.get("spatialunits") is None or self.input_metadata_common.get("spatialunits") == '':
@@ -254,7 +259,7 @@ class DataLoader:
         retain_cols: Optional[list[str]] = None,
         **kwargs
     ) -> pl.DataFrame:
-
+        
         """
         Load tracking data from any number of files into a single DataFrame, 
         while assigning condition and replicate labels. This method is used
@@ -887,7 +892,7 @@ class DataLoader:
         return df.columns
     
 
-    def match_columns(self, columns: List[str], lookfor: List[str]) -> str:
+    def match_columns(self, columns: List[str], find: List[str]) -> str:
         """
         Looks for matches with any of the provided strings.
         - First tries exact matches.
@@ -900,17 +905,17 @@ class DataLoader:
             (col, str(col).replace('', ' ').strip().lower() if col is not None else '') for col in columns
         ]
         for col, norm_col in normalized_columns:
-            for look in lookfor:
+            for look in find:
                 if norm_col == look.lower():
                     return col
                 
         for col, norm_col in normalized_columns:
-            for look in lookfor:
+            for look in find:
                 if norm_col.startswith(look.lower()):
                     return col
                 
         for col, norm_col in normalized_columns:
-            for look in lookfor:
+            for look in find:
                 if look.lower() in norm_col:
                     return col
         return None

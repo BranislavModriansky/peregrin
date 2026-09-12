@@ -39,10 +39,25 @@ class MetricRegistry:
 
     def __init__(self) -> None:
         self._computers: Dict[str, Callable] = {}
-        self._gate: Dict[str, str] = {}
+        self._gate: Dict[str, bool | str] = {}
         self._order: List[str] = []
 
-    def register(self, column: str, *, gate: str = 'always') -> Callable:
+    def register(self, column: str, gate: bool = True) -> Callable:
+        """Decorator-based registration of a metric column.
+
+        Parameters
+        ----------
+        column : str
+            The name of the output column to register.
+        gate : bool, optional
+            Whether to actually add the column to the registry, by default True.
+
+        Returns
+        -------
+        Callable
+            The decorator that registers the function.
+        """
+
         def _wrap(fn: Callable) -> Callable:
             if column not in self._computers:
                 self._order.append(column)
@@ -51,31 +66,33 @@ class MetricRegistry:
             return fn
         return _wrap
 
-    def add(self, column: str, fn: Callable, *, gate: str = 'always') -> None:
-        """Imperative registration (non-decorator)."""
+    def add(self, column: str, fn: Callable, gate: str = True) -> None:
+        """
+        Imperative registration (non-decorator).
+
+        Parameters
+        ----------
+        column : str
+            The name of the output column to register.
+        fn : Callable
+            The function that computes the column.
+        gate : bool, optional
+            Whether to actually add the column to the registry, by default True.
+        """
         self.register(column, gate=gate)(fn)
 
-    def all_columns(self, *, descr: bool, descr_err: bool, infer_err: bool) -> List[str]:
-        allowed = {'always'}
-        if descr:
-            allowed.add('descr')
-        if descr_err:
-            allowed.add('descr_err')
-        if infer_err:
-            allowed.add('infer_err')
-        return [c for c in self._order if self._gate[c] in allowed]
+    def all_columns(self) -> List[str]:
+        """All columns whose gate is True (default set)."""
+        return [c for c in self._order if self._gate[c]]
 
-    def resolve(
-        self,
-        subset: Optional[List[str]],
-        *,
-        descr: bool,
-        descr_err: bool,
-        infer_err: bool,
-    ) -> List[str]:
-        """Determine which registered columns to compute."""
+    def resolve(self, subset: Optional[List[str]] = None) -> List[str]:
+        """Determine which registered columns to compute.
+
+        subset=None -> all gate=True columns.
+        subset=[..] -> exactly the requested registered columns (gate ignored).
+        """
         if subset is None:
-            return self.all_columns(descr=descr, descr_err=descr_err, infer_err=infer_err)
+            return self.all_columns()
         requested = set(subset)
         return [c for c in self._order if c in requested and c in self._computers]
 
@@ -118,29 +135,27 @@ class MetricRegistry:
 
 class Calc:
     """
-    A class with methods for computing trajectory statistics at various levels of aggregation:
-    spots (per-trajectory-point), tracks (per-whole-trajectory), frames (per-time-point),
-    time intervals (per-time-interval).
+    A class with methods for computing tracking data statistics:
+    spots (per-trajectory-point), tracks (per-whole-trajectory), time points (per-time-point),
+    time lags (per-time-lag).
 
     Parameters
     ----------
-    cat_descr : bool, default True
-        If True, descriptive statistics (min, max, mean, median, q25, q75) will be computed for categories.
-
-    cat_descr_err : bool, default True
-        If True, descriptive error statistics (std) will be computed.
-
-    cat_infer_err : bool, default False
-        If True, inferative statistics (sem, ci) will be computed.
+    inferative_error : bool, default False
+        If True, sem will be computed.
 
     bootstrap_ci : bool, default False
-        If True, ci will be computed when the `cat_infer_err` is set to True.
-
+        If True, ci will be computed True.
 
     Attributes
     ----------
-    significant_figures, decimal_places, BOOTSTRAP_RESAMPLES, CONFIDENCE_LEVEL,
-    CI_STATISTIC : see original documentation.
+    significant_figures, 
+    decimal_places, 
+    BOOTSTRAP_RESAMPLES, 
+    CONFIDENCE_LEVEL,
+    CI_STATISTIC
+    
+
     """
 
     ignore_categories: bool = params.ignore_categories
@@ -166,9 +181,8 @@ class Calc:
         'track_id', 'track_uid', 'time_point', 'frame', 'time_lag', 'frame_lag', 'sd', 'var', 'sem', 'q25', 'q75'
     ])
 
-    _DESCR_STATS = ['min', 'max', 'mean', 'median', 'q25', 'q75']
-    _DESCR_ERR = ['std']
-    _INFER_ERR = ['sem']
+    DEFAULTS = set(['min', 'max', 'mean', 'median', 'std'])
+    INFERATIVE_ERROR = set()
 
     COLUMNS = {
         'SPOTS': [
@@ -182,7 +196,7 @@ class Calc:
             'cum_direction_mean', 'cum_direction_var'
         ],
         'TRACKS': [
-            'condition', 'replicate', 'track_id', 'track_uid',
+            'track_id', 'track_uid',
             'y_location', 'x_location',
             'track_length', 'track_displacement', 'straightness_ratio',
             'speed_min', 'speed_max', 'speed_mean', 'speed_sd', 'speed_median',
@@ -190,8 +204,8 @@ class Calc:
             'max_distance_reached', 'track_start_frame', 'track_end_frame',
             'direction_mean', 'direction_var', 'mean_directional_change', 'mean_directional_change_rate'
         ],
-        'FRAMES': ['condition', 'replicate', 'time_point', 'frame'],
-        'TIMEINTERVALS': ['condition', 'replicate', 'time_lag', 'frame_lag']
+        'TIMEPOINTS': ['time_point', 'frame'],
+        'TIMELAGS': ['time_lag', 'frame_lag']
     }
 
     UNIT_TO_SECONDS = {
@@ -214,52 +228,48 @@ class Calc:
     def __init__(
         self,
         *,
-        cat_descr: bool = True,
-        cat_descr_err: bool = True,
-        cat_infer_err: bool = False,
+        inferative_error: bool = False,
         bootstrap_ci: bool = False,
+        ci_confidence: float = 0.95,
+        bootstrap_resamples: int = 1000,
+        bootstrap_ci_method: str = 'BCa',
+        ci_statistic: str = 'mean',
         **kwargs
     ) -> None:
 
         self.tier = None
 
-        self.cat_descr = cat_descr
-        self.cat_descr_err = cat_descr_err
-        self.cat_infer_err = cat_infer_err
+        if inferative_error:
+            self.INFERATIVE_ERROR.add('sem')
+        if bootstrap_ci:
+            self.INFERATIVE_ERROR.add('ci')
 
-        self.DESCR: List[str] = list(self._DESCR_STATS) if cat_descr else []
-        self.DESCR_ERR: List[str] = list(self._DESCR_ERR) if cat_descr_err else []
-        self.INFER_ERR: List[str] = []
-
-        if cat_infer_err:
-            self.INFER_ERR = list(self._INFER_ERR)
-            if bootstrap_ci:
-                self.INFER_ERR.append('ci')
-        else:
-            self.INFER_ERR = []
+        self.ci_confidence = ci_confidence
+        self.bootstrap_resamples = bootstrap_resamples
+        self.bootstrap_ci_method = bootstrap_ci_method
+        self.ci_statistic = ci_statistic
 
         # Custom aggregation expression builders (column name -> pl.Expr)
         self.CUSTOM_AGG_FUNCTIONS: Dict[str, Callable[[str], pl.Expr]] = {
-            'q25': lambda c: pl.col(c).quantile(0.25, interpolation='linear'),
-            'q75': lambda c: pl.col(c).quantile(0.75, interpolation='linear'),
+            # 'q25': lambda c: pl.col(c).quantile(0.25, interpolation='linear'),
+            # 'q75': lambda c: pl.col(c).quantile(0.75, interpolation='linear'),
             'sem': lambda c: pl.col(c).std(ddof=1) / pl.col(c).count().cast(pl.Float64).sqrt(),
             'circ_mean': lambda c: pl.arctan2(pl.col(c).sin().mean(), pl.col(c).cos().mean()),
             'circ_var': lambda c: 1.0 - (pl.col(c).sin().mean().pow(2) + pl.col(c).cos().mean().pow(2)).sqrt(),
         }
 
-        if self.CI_STATISTIC not in ['mean', 'median']:
-            raise Warning(
-                f"CI_STATISTIC '{self.CI_STATISTIC}' may not be meaningful; "
-                f"consider using 'mean' or 'median'."
-            )
-
-        self._frames_registry = self._build_frames_registry()
-        self._ti_registry = self._build_time_intervals_registry()
+        # self._spots_registry = self._build_spots_registry()
         self._tracks_registry = self._build_tracks_registry()
+        self._timepoints_registry = self._build_timepoints_registry()
+        self._timelags_registry = self._build_timelags_registry()
+
 
     # -----------------------------------------------------------------------
     # Registry builders
     # -----------------------------------------------------------------------
+    def _build_spots_registry(self) -> MetricRegistry:
+        ...
+
     def _build_tracks_registry(self) -> MetricRegistry:
         """One aggregation expression per TRACKS output column.
 
@@ -306,8 +316,8 @@ class Calc:
 
         return reg
 
-    def _build_frames_registry(self) -> MetricRegistry:
-        """One computer per FRAMES output column."""
+    def _build_timepoints_registry(self) -> MetricRegistry:
+        """One computer per TIMEPOINTS output column."""
         reg = MetricRegistry()
 
         metric_out = {
@@ -352,40 +362,43 @@ class Calc:
             return _computer
 
         for src, mout in metric_out.items():
-            reg.add(f'{mout}_min', _scalar(src, 'min'), gate='descr')
-            reg.add(f'{mout}_max', _scalar(src, 'max'), gate='descr')
-            reg.add(f'{mout}_mean', _scalar(src, 'mean'), gate='descr')
-            reg.add(f'{mout}_median', _scalar(src, 'median'), gate='descr')
-            reg.add(f'{mout}_sd', _std(src), gate='descr_err')
-            reg.add(f'{mout}_sem', _sem(src), gate='infer_err')
+            reg.add(f'{mout}_min', _scalar(src, 'min'))
+            reg.add(f'{mout}_max', _scalar(src, 'max'))
+            reg.add(f'{mout}_mean', _scalar(src, 'mean'))
+            reg.add(f'{mout}_median', _scalar(src, 'median'))
+            reg.add(f'{mout}_sd', _std(src))
 
-            if 'ci' in self.INFER_ERR:
-                low = f'{mout}_{self.CI_STATISTIC}_ci{self.CONFIDENCE_LEVEL}_low'
-                high = f'{mout}_{self.CI_STATISTIC}_ci{self.CONFIDENCE_LEVEL}_high'
-                reg.add(low, _ci(src, low, high), gate='infer_err')
-                reg.add(high, _ci(src, low, high), gate='infer_err')
+            reg.add(f'{mout}_sem', _sem(src), gate='sem' in self.INFERATIVE_ERROR)
+
+            if 'ci' in self.INFERATIVE_ERROR:
+                low = f'{mout}_{self.ci_statistic}_ci_{self.ci_confidence}_low'
+                high = f'{mout}_{self.ci_statistic}_ci_{self.ci_confidence}_high'
+                reg.add(low, _ci(src, low, high), gate=True)
+                reg.add(high, _ci(src, low, high), gate=True)
 
         # --- Circular statistics (fully expression-based) -------------------
         reg.add('instantaneous_direction_mean',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_mean']('direction'), gate='descr')
+                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_mean']('direction'))
         reg.add('instantaneous_direction_var',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_var']('direction'), gate='descr')
+                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_var']('direction'))
         reg.add('cum_direction_mean',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_mean']('cum_direction_mean'), gate='descr')
+                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_mean']('cum_direction_mean'))
         reg.add('cum_direction_var',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_var']('cum_direction_mean'), gate='descr')
+                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_var']('cum_direction_mean'))
         reg.add('cum_mean_directional_change_mean',
-                lambda ctx: pl.col('cum_mean_directional_change').mean(), gate='descr')
+                lambda ctx: pl.col('cum_mean_directional_change').mean())
 
         return reg
 
-    def _build_time_intervals_registry(self) -> MetricRegistry:
+    def _build_timelags_registry(self) -> MetricRegistry:
         """One computer per TIMEINTERVALS output column."""
         reg = MetricRegistry()
 
-        reg.add('MSD', lambda ctx: pl.col('sq_disp').mean(), gate='descr')
-        reg.add('MSD_sd', lambda ctx: pl.col('sq_disp').std(ddof=1), gate='descr_err')
-        reg.add('MSD_sem', lambda ctx: self.CUSTOM_AGG_FUNCTIONS['sem']('sq_disp'), gate='infer_err')
+        reg.add('MSD', lambda ctx: pl.col('sq_disp').mean())
+        reg.add('MSD_sd', lambda ctx: pl.col('sq_disp').std(ddof=1))
+        reg.add('MSD_sem', lambda ctx: self.CUSTOM_AGG_FUNCTIONS['sem']('sq_disp'),
+                gate='sem' in self.INFERATIVE_ERROR)
+
 
         def _ci(low_name: str, high_name: str) -> Callable:
             def _computer(ctx: dict) -> Callable:
@@ -405,14 +418,16 @@ class Calc:
                 return _post
             return _computer
 
-        if 'ci' in self.INFER_ERR:
-            low = f'MSD_{self.CI_STATISTIC}_ci{self.CONFIDENCE_LEVEL}_low'
-            high = f'MSD_{self.CI_STATISTIC}_ci{self.CONFIDENCE_LEVEL}_high'
-            reg.add(low, _ci(low, high), gate='infer_err')
-            reg.add(high, _ci(low, high), gate='infer_err')
+        if 'ci' in self.INFERATIVE_ERROR:
+            low = f'MSD_{self.ci_statistic}_ci_{self.ci_confidence}_low'
+            high = f'MSD_{str(self.ci_statistic)}_ci_{str(self.ci_confidence)}_high'
+            print(low)
+            print(high)
+            reg.add(low, _ci(low, high), gate=True)
+            reg.add(high, _ci(low, high), gate=True)
 
-        reg.add('tracks_contributing', lambda ctx: pl.col('track_uid').n_unique().cast(pl.Int64), gate='always')
-        reg.add('position_pairs_contributing', lambda ctx: pl.len().cast(pl.Int64), gate='always')
+        reg.add('tracks_contributing', lambda ctx: pl.col('track_uid').n_unique().cast(pl.Int64))
+        reg.add('position_pairs_contributing', lambda ctx: pl.len().cast(pl.Int64))
 
         # --- Turning-angle circular statistics (computed on turn_src, joined) -
         def _circ(kind: str) -> Callable:
@@ -445,8 +460,8 @@ class Calc:
                 return _post
             return _computer
 
-        reg.add('directional_change_mean', _circ('mean'), gate='descr')
-        reg.add('directional_change_var', _circ('var'), gate='descr_err')
+        reg.add('directional_change_mean', _circ('mean'))
+        reg.add('directional_change_var', _circ('var'))
 
         return reg
 
@@ -482,7 +497,7 @@ class Calc:
     # -----------------------------------------------------------------------
     # SPOTS
     # -----------------------------------------------------------------------
-    def spots(
+    def _spots(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -640,7 +655,7 @@ class Calc:
     # -----------------------------------------------------------------------
     # TRACKS
     # -----------------------------------------------------------------------
-    def tracks(
+    def _tracks(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -671,7 +686,7 @@ class Calc:
         stash_cols = [c for c in grouping_cols if c != 'track_uid']
         stash = df.select(['track_uid'] + stash_cols).unique(subset=['track_uid'], keep='first')
 
-        wanted = self._tracks_registry.resolve(subset, descr=True, descr_err=True, infer_err=True)
+        wanted = self._tracks_registry.resolve(subset)
 
         ctx = {
             'source': df,
@@ -704,9 +719,9 @@ class Calc:
         return out
 
     # -----------------------------------------------------------------------
-    # FRAMES
+    # TIME POINTS
     # -----------------------------------------------------------------------
-    def frames(
+    def _timepoints(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -736,12 +751,7 @@ class Calc:
 
         df = self.assign_track_uid(df)
 
-        wanted = self._frames_registry.resolve(
-            subset,
-            descr=self.cat_descr,
-            descr_err=self.cat_descr_err,
-            infer_err=self.cat_infer_err,
-        )
+        wanted = self._timepoints_registry.resolve(subset)
 
         level_frames = []
         for grouping_cols in grouping_set:
@@ -769,7 +779,7 @@ class Calc:
                 'by': group_cols,
                 'extra_exprs': {},
             }
-            level_df = self._frames_registry.compute(wanted, ctx)
+            level_df = self._timepoints_registry.compute(wanted, ctx)
 
             if _parent_stash is not None:
                 _key = grouping_cols[-1]
@@ -804,9 +814,9 @@ class Calc:
         return out
 
     # -----------------------------------------------------------------------
-    # TIME INTERVALS
+    # TIME LAGS
     # -----------------------------------------------------------------------
-    def time_intervals(
+    def _timelags(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -844,12 +854,7 @@ class Calc:
 
         t_step = self._resolve_t_step(df, 'time interval stats')
 
-        wanted = self._ti_registry.resolve(
-            subset,
-            descr=self.cat_descr,
-            descr_err=self.cat_descr_err,
-            infer_err=self.cat_infer_err,
-        )
+        wanted = self._timelags_registry.resolve(subset)
 
         def _compute_level(source: pl.DataFrame, grouping_cols: list[str]) -> pl.DataFrame:
             """Compute time-interval stats for a single grouping level."""
@@ -955,7 +960,7 @@ class Calc:
                 'circ_cache': {},
                 'extra_exprs': {},
             }
-            lags = self._ti_registry.compute(wanted, ctx)
+            lags = self._timelags_registry.compute(wanted, ctx)
 
             # Drop columns that produced no data
             return self._drop_all_null_columns(lags) if not is_empty(lags) else lags
@@ -1205,7 +1210,7 @@ class Calc:
 
             for stat_name, builder in resolver.items():
                 if stat_name == 'ci':
-                    name = f"per_{group_cols[-1].lower()}_{col}_{self.CI_STATISTIC}_ci{self.CONFIDENCE_LEVEL}"
+                    name = f"per_{group_cols[-1].lower()}_{col}_{self.CI_STATISTIC}_ci_{self.CONFIDENCE_LEVEL}"
                     exprs.append(pl.col(col).alias(f"__list_{name}"))
                     ci_cols.append((name, col))
                 else:
@@ -1489,42 +1494,61 @@ class Summarize:
 
 
 
-class Stats(Calc):
+class DataObject(Calc):
     """
     A stateful, callable interface over :class:`Calc`.
 
+    Parameters
+    ----------
+    inferative_error : bool, optional
+        Whether to compute inferative error. Default is False.
+    bootstrap_ci : bool, optional
+        Whether to compute bootstrap confidence intervals. Default is False.
+    confidence_lvl : float, optional
+        Confidence level for the bootstrap confidence intervals. Default is 0.95.
+    ci_statistic : str, optional
+        Statistic to use for the bootstrap confidence intervals. Default is "mean".
+
     Usage
     -----
-    >>> stats = Stats()
-    >>> stats = stats(spot_df)                 # computes & stores Spots_df
-    >>> tracks_df = stats.compute_tracks()     # per-track statistics
-    >>> frames_df = stats.compute_frames()     # per-time-point statistics
-    >>> ti_df = stats.compute_time_intervals() # per-time-interval statistics
-    >>> stats.plot_tracks()                    # reconstruct trajectories
-    >>> stats.plot_msd(band='sem')             # MSD plot
+    >>> empty_data_object = DataObject(inferative_error=False, bootstrap_ci=False)
+    >>> loaded_data_object = empty_data_object(data)              # computes & stores Spots_df
+
+    >>> spots_df = loaded_data_object.compute_spots()             # per-spot statistics
+    >>> tracks_df = loaded_data_object.compute_tracks()           # per-track statistics
+    >>> timepoints_df = loaded_data_object.compute_timepoints()   # per-time-point statistics
+    >>> timelags_df = loaded_data_object.compute_timelags()       # per-time-interval statistics
+
+    >>> loaded_data_object.plot_tracks()                          # reconstruct trajectories
+    >>> loaded_data_object.plot_msd(band='sem')                   # MSD plot
     """
+
+    inferative_error: Optional[bool] = False
+    bootstrap_ci: Optional[bool] = False
+    bootstrap_ci_method: Optional[str] = "BCa"
+    ci_confidence: Optional[float] = 0.95
+    bootstrap_resamples: Optional[int] = 1000
+    ci_statistic: Optional[str] = "mean"
 
     def __init__(
         self,
-        *,
-        cat_descr: bool = True,
-        cat_descr_err: bool = True,
-        cat_infer_err: bool = False,
-        bootstrap_ci: bool = False,
         **kwargs,
     ) -> None:
+
         super().__init__(
-            cat_descr=cat_descr,
-            cat_descr_err=cat_descr_err,
-            cat_infer_err=cat_infer_err,
-            bootstrap_ci=bootstrap_ci,
+            inferative_error=kwargs.get("inferative_error", self.inferative_error),
+            bootstrap_ci=kwargs.get("bootstrap_ci", self.bootstrap_ci),
+            ci_confidence=kwargs.get("ci_confidence", self.ci_confidence),
+            ci_statistic=kwargs.get("ci_statistic", self.ci_statistic),
+            bootstrap_ci_method=kwargs.get("bootstrap_ci_method", self.bootstrap_ci_method),
+            bootstrap_resamples=kwargs.get("bootstrap_resamples", self.bootstrap_resamples),
             **kwargs,
         )
 
         self.spots_df: Optional[pl.DataFrame] = None
         self.tracks_df: Optional[pl.DataFrame] = None
-        self.frames_df: Optional[pl.DataFrame] = None
-        self.time_intervals_df: Optional[pl.DataFrame] = None
+        self.timepoints_df: Optional[pl.DataFrame] = None
+        self.timelags_df: Optional[pl.DataFrame] = None
 
         self._categories: Optional[dict] = None
 
@@ -1532,7 +1556,7 @@ class Stats(Calc):
         n = None if self.spots_df is None else self.spots_df.height
         return f"<Stats object: spots_rows={n}>"
 
-    def __call__(self, df: pl.DataFrame, **kwargs) -> "Stats":
+    def __call__(self, df: pl.DataFrame, **kwargs) -> "DataObject":
         """Compute per-spot statistics from raw spot data and store them.
         Returns ``self`` so the call can be chained/re-bound."""
 
@@ -1540,12 +1564,12 @@ class Stats(Calc):
         if hasattr(df, 'df') and not isinstance(df, pl.DataFrame):
             df = df.df
 
-        self.spots_df = self.spots(df, **kwargs)
+        self.spots_df = self._spots(df, **kwargs)
 
         # Invalidate downstream caches on new input.
         self.tracks_df = None
-        self.frames_df = None
-        self.time_intervals_df = None
+        self.timepoints_df = None
+        self.timelags_df = None
 
         return self
 
@@ -1560,35 +1584,35 @@ class Stats(Calc):
         source = df if df is not None else self.spots_df
         if source is None:
             raise ValueError("No input DataFrame provided for compute_spots().")
-        self.spots_df = self.spots(source, subset=subset, **kwargs)
+        self.spots_df = self._spots(source, subset=subset, **kwargs)
         return self.spots_df
 
     def compute_tracks(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
         """Compute (and store) per-track statistics from the stored Spots_df."""
         source = self._resolve_spots(df)
-        self.tracks_df = self.tracks(source, subset=subset, **kwargs)
+        self.tracks_df = self._tracks(source, subset=subset, **kwargs)
         return self.tracks_df
 
-    def compute_frames(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
+    def compute_timepoints(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
         """Compute (and store) per-time-point statistics from the stored Spots_df."""
         source = self._resolve_spots(df)
-        self.frames_df = self.frames(source, subset=subset, grouping_level=grouping_level, **kwargs)
-        return self.frames_df
+        self.timepoints_df = self._timepoints(source, subset=subset, grouping_level=grouping_level, **kwargs)
+        return self.timepoints_df
 
-    def compute_time_intervals(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
+    def compute_timelags(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
         """Compute (and store) per-time-interval statistics from the stored Spots_df."""
         source = self._resolve_spots(df)
-        self.time_intervals_df = self.time_intervals(source, subset=subset, grouping_level=grouping_level, **kwargs)
-        return self.time_intervals_df
+        self.timelags_df = self._timelags(source, subset=subset, grouping_level=grouping_level, **kwargs)
+        return self.timelags_df
 
     def compute_all(self, df: Optional[pl.DataFrame] = None, **kwargs):
         """Compute and store all four statistics DataFrames."""
         source = self._resolve_spots(df)
         self.spots_df = source
         self.compute_tracks()
-        self.compute_frames(**kwargs)
-        self.compute_time_intervals(**kwargs)
-        return (self.spots_df, self.tracks_df, self.frames_df, self.time_intervals_df)
+        self.compute_timepoints(**kwargs)
+        self.compute_timelags(**kwargs)
+        return (self.spots_df, self.tracks_df, self.timepoints_df, self.timelags_df)
 
     # -----------------------------------------------------------------------
     # Plotting wrappers (lazy imports avoid circular deps)
@@ -1611,4 +1635,4 @@ class Stats(Calc):
 
 # input_metadata = InputMetadata()
 calc = Calc()
-stats = Stats()
+create_object = DataObject()
