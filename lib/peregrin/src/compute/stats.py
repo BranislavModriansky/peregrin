@@ -160,8 +160,8 @@ class Calc:
 
     ignore_categories: bool = params.ignore_categories
 
-    t_step: Optional[float] = None
-    t_unit: str = 's'
+    metadata: Optional[dict] = None
+
     significant_figures: Optional[int] = None
     decimal_places: Optional[int] = None
 
@@ -468,10 +468,13 @@ class Calc:
     # -----------------------------------------------------------------------
     # Shared helpers
     # -----------------------------------------------------------------------
-    def _resolve_t_step(self, df: pl.DataFrame, context: str) -> float:
+    def _resolve_t_step(self, df: pl.DataFrame, context: str, metadata: dict | None = None) -> float:
         """Resolve the time step from data (or self.t_step if set)."""
-        if self.t_step is not None:
-            return self.t_step
+        if metadata is not None:
+            return metadata['timestep']
+        
+        if self.metadata is not None:
+            return self.metadata['timestep']
 
         t_steps = np.diff(np.sort(df['time_point'].unique().to_numpy()))
 
@@ -497,7 +500,7 @@ class Calc:
     # -----------------------------------------------------------------------
     # SPOTS
     # -----------------------------------------------------------------------
-    def _spots(
+    def spots(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -523,7 +526,7 @@ class Calc:
         # Sort so that each track's rows are contiguous and time-ordered.
         df = df.sort(grouping_cols + ['track_uid', 'time_point'])
 
-        t_step = self._resolve_t_step(df, 'spot stats + time stats')
+        t_step = self._resolve_t_step(df, 'spot stats + time stats', kwargs.get('metadata', None))
 
         uid = 'track_uid'
 
@@ -655,7 +658,7 @@ class Calc:
     # -----------------------------------------------------------------------
     # TRACKS
     # -----------------------------------------------------------------------
-    def _tracks(
+    def tracks(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -680,7 +683,7 @@ class Calc:
         df = self.assign_track_uid(df)
         df = df.sort(['track_uid', 'time_point'])
 
-        t_step = self._resolve_t_step(df, 'track stats')
+        t_step = self._resolve_t_step(df, 'track stats', kwargs.get('metadata', None))
 
         # Stash categorical identifiers to merge them back into the result
         stash_cols = [c for c in grouping_cols if c != 'track_uid']
@@ -721,7 +724,7 @@ class Calc:
     # -----------------------------------------------------------------------
     # TIME POINTS
     # -----------------------------------------------------------------------
-    def _timepoints(
+    def timepoints(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -816,7 +819,7 @@ class Calc:
     # -----------------------------------------------------------------------
     # TIME LAGS
     # -----------------------------------------------------------------------
-    def _timelags(
+    def timelags(
         self,
         df: pl.DataFrame,
         subset: list[str] = None,
@@ -852,7 +855,7 @@ class Calc:
         if df['time_point'].n_unique() < 2:
             return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
 
-        t_step = self._resolve_t_step(df, 'time interval stats')
+        t_step = self._resolve_t_step(df, 'time interval stats', kwargs.get('metadata', None))
 
         wanted = self._timelags_registry.resolve(subset)
 
@@ -1376,7 +1379,10 @@ class Calc:
     def stat_units(self, col: str = None, *, time_unit: str = None, **kwargs) -> dict[str, str]:
         """Returns a dictionary mapping metric names to their corresponding units."""
 
-        t_unit = time_unit if time_unit is not None else self.t_unit
+        if self.metadata is not None and 'timeunits' in self.metadata:
+            t_unit = self.metadata['timeunits']
+        else:
+            t_unit = '_'
 
         units = {
             # Spotstats metrics
@@ -1564,7 +1570,10 @@ class DataObject(Calc):
         if hasattr(df, 'df') and not isinstance(df, pl.DataFrame):
             df = df.df
 
-        self.spots_df = self._spots(df, **kwargs)
+        if hasattr(df, 'metadata') and df.metadata is not None:
+            self.metadata = df.metadata
+
+        self.spots_df = self.spots(df, **kwargs)
 
         # Invalidate downstream caches on new input.
         self.tracks_df = None
@@ -1584,25 +1593,25 @@ class DataObject(Calc):
         source = df if df is not None else self.spots_df
         if source is None:
             raise ValueError("No input DataFrame provided for compute_spots().")
-        self.spots_df = self._spots(source, subset=subset, **kwargs)
+        self.spots_df = self.spots(source, subset=subset, **kwargs)
         return self.spots_df
 
     def compute_tracks(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
         """Compute (and store) per-track statistics from the stored Spots_df."""
         source = self._resolve_spots(df)
-        self.tracks_df = self._tracks(source, subset=subset, **kwargs)
+        self.tracks_df = self.tracks(source, subset=subset, **kwargs)
         return self.tracks_df
 
     def compute_timepoints(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
         """Compute (and store) per-time-point statistics from the stored Spots_df."""
         source = self._resolve_spots(df)
-        self.timepoints_df = self._timepoints(source, subset=subset, grouping_level=grouping_level, **kwargs)
+        self.timepoints_df = self.timepoints(source, subset=subset, grouping_level=grouping_level, **kwargs)
         return self.timepoints_df
 
     def compute_timelags(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
         """Compute (and store) per-time-interval statistics from the stored Spots_df."""
         source = self._resolve_spots(df)
-        self.timelags_df = self._timelags(source, subset=subset, grouping_level=grouping_level, **kwargs)
+        self.timelags_df = self.timelags(source, subset=subset, grouping_level=grouping_level, **kwargs)
         return self.timelags_df
 
     def compute_all(self, df: Optional[pl.DataFrame] = None, **kwargs):
