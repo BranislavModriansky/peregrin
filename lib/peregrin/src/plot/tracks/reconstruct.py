@@ -50,11 +50,11 @@ class AnimateTracks:
         b = self._builder
         fig, ax = plt.subplots(
             figsize=(13, 10),
-            subplot_kw={'projection': 'polar'} if b.align_at_start else {},
+            subplot_kw={'projection': 'polar'} if b.align_start else {},
         )
         b._frame_axes(ax)
 
-        plot_x, plot_y = b._plot_coords(polar=b.align_at_start)
+        plot_x, plot_y = b._plot_coords(polar=b.align_start)
         run_lengths = b._run_lengths
 
         if run_lengths.size == 0:
@@ -146,6 +146,7 @@ class ReconstructTracks:
         'color':    ['color', 'colour'],
         'color_by': ['color_by', 'colour_by', 'colorby', 'colourby'],
         'grid_lw':  ['grid_linewidth', 'grid_line_width', 'grid_lw'],
+        'smoothing_window': ['smoothing_window', 'smooth_window', 'smoothing_index', 'smooth_index', 'smoothing', 'smooth'],
     }
 
     CATEGORY_COLS = ('set', 'subset', 'group', 'subgroup', 'subsubgroup')
@@ -158,30 +159,60 @@ class ReconstructTracks:
 
     def reconstruct(
         self,
-        spots: pl.DataFrame,
+        spots_df: pl.DataFrame,
         *,
-        align_at_start: bool = False,
+        align_start: bool = False,
         categories: Optional[dict[str, list[Any]]] = None,
-        format: str = 'png',
+        fmt: str = 'png',
         **kwargs,
     ):
-        self.spot_data = self._ensure_polars(spots) if spots is not None else pl.DataFrame()
-        self.align_at_start = align_at_start
+        """
+        Reconstruct tracks from the given spots DataFrame.
+
+        Parameters
+        ----------
+        spots_df : pl.DataFrame
+            Output DataFrame of the `calc.spots` function.
+        align_start : bool, optional
+            Whether to align tracks to the start, by default False.
+        categories : dict[str, list[Any]], optional
+            A gate specifying for which data categories the tracks are going to be reconstructed, by default None.
+        fmt : str, optional
+            Figure output format, by default 'png'. Possible values include 'png', 'pdf', 'svg' and 'interactive' (or 'html').
+            If 'interactive' (or 'html') is passed as `fmt`, an interactive version of the plot will be generated.
+        
+            *additional keyword arguments:*
+
+        smoothing_window : int, optional
+            The size of the smoothing window applied to the tracks, by default None. Must be a positive integer larger than 1. 
+            The smoothing window is used to average the positions of the tracks over the given number 
+            (`smoothing_window`) of frames. Possible keyword aliases: ['smooth_window', 'smoothing_index', 
+            'smooth_index', 'smoothing', 'smooth'].
+
+    
+        
+        Returns
+        -------
+        ReconstructTracks or InteractiveTracks
+            The reconstructed tracks object or an interactive version if fmt is 'interactive' or 'html'.
+        """
+        self.spots_data = self._ensure_polars(spots_df) if spots_df is not None else pl.DataFrame()
+        self.align_start = align_start
         self.categories = categories
         self.kwargs = get_aliases(kwargs, self.ALIASES)
-        self._format = str(format or 'png').lower()
+        self.fmt = fmt.lower()
 
         self._arrange_data()
 
-        smoothing = self.kwargs.get('smoothing_index')
+        smoothing = self.kwargs.get('smoothing_window', None)
         if smoothing is not None:
             self._smooth(smoothing)
 
         self._assign_color()
 
-        self.figure = self.polar() if self.align_at_start else self.cartesian()
+        self.figure = self.polar() if self.align_start else self.cartesian()
 
-        if self._format == 'html':
+        if self.fmt in ('interactive', 'html'):
             plt.close(self.figure)
             return InteractiveTracks(self)
         return self
@@ -245,29 +276,29 @@ class ReconstructTracks:
 
     def _arrange_data(self):
         if self.categories is not None:
-            self.spot_data = self._categorize(self.spot_data)
+            self.spots_data = self._categorize(self.spots_data)
 
-        if 'track_uid' not in self.spot_data.columns:
-            if 'track_id' not in self.spot_data.columns:
+        if 'track_uid' not in self.spots_data.columns:
+            if 'track_id' not in self.spots_data.columns:
                 raise ColumnsNotFoundError(
                     "Cannot determine track identity: no 'track_uid' or 'track_id' found.")
-            cat_cols = [c for c in self.CATEGORY_COLS if c in self.spot_data.columns]
+            cat_cols = [c for c in self.CATEGORY_COLS if c in self.spots_data.columns]
             key_cols = cat_cols + ['track_id']
             keys = (
-                self.spot_data.select(key_cols)
+                self.spots_data.select(key_cols)
                 .unique(maintain_order=True)
                 .with_row_index('track_uid')
                 .with_columns(pl.col('track_uid').cast(pl.Int64))
             )
-            self.spot_data = self.spot_data.join(keys, on=key_cols, how='left')
+            self.spots_data = self.spots_data.join(keys, on=key_cols, how='left')
 
-        self.spot_data = self.spot_data.sort(['track_uid', 'time_point'])
+        self.spots_data = self.spots_data.sort(['track_uid', 'time_point'])
         self._cache_arrays()
 
     def _cache_arrays(self):
         """Materialize plotting arrays and track run-boundaries once, after sorting."""
-        self._x = self.spot_data['x_coordinate'].cast(pl.Float64).to_numpy()
-        self._y = self.spot_data['y_coordinate'].cast(pl.Float64).to_numpy()
+        self._x = self.spots_data['x_coordinate'].cast(pl.Float64).to_numpy()
+        self._y = self.spots_data['y_coordinate'].cast(pl.Float64).to_numpy()
 
         n = self._x.size
         if n == 0:
@@ -279,7 +310,7 @@ class ReconstructTracks:
             self._within_track_seg_lengths = np.empty(0, dtype=np.intp)
             return
 
-        uids = self.spot_data['track_uid'].to_numpy()
+        uids = self.spots_data['track_uid'].to_numpy()
         if n > 1:
             self._same_track = uids[1:] == uids[:-1]
             self._track_starts = np.concatenate(
@@ -296,13 +327,13 @@ class ReconstructTracks:
     def _smooth(self, window: int):
         if not (isinstance(window, int) and window >= 1):
             warnings.warn(
-                f"Invalid 'smoothing_index': {window} -> Must be a positive integer "
+                f"Invalid 'smoothing_window': {window} -> Must be a positive integer "
                 "-> No smoothing applied.", category=UserWarning, stacklevel=2)
             return
 
         self._x = self._smooth_runs(self._x, window)
         self._y = self._smooth_runs(self._y, window)
-        self.spot_data = self.spot_data.with_columns(
+        self.spots_data = self.spots_data.with_columns(
             pl.Series('x_coordinate', self._x),
             pl.Series('y_coordinate', self._y),
         )
@@ -345,10 +376,10 @@ class ReconstructTracks:
             self._single_color = None
             return
 
-        paint_input = self.spot_data
+        paint_input = self.spots_data
         if color_by is not None:
             col = color_by[0] if isinstance(color_by, tuple) else color_by
-            paint_input = self.spot_data.select([col])
+            paint_input = self.spots_data.select([col])
         c = paint(paint_input, **self.kwargs)
 
         if isinstance(c, str):
@@ -546,7 +577,7 @@ class ReconstructTracks:
         grid_lw = self.kwargs.get('grid_lw', 0.75)
         grid_ls = self.kwargs.get('grid_ls', '-')
 
-        if not self.align_at_start:
+        if not self.align_start:
             ax.grid(True, which='both', axis='both',
                     color=grid_color, linestyle=grid_ls, linewidth=grid_lw)
         else:
