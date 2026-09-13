@@ -216,3 +216,9 @@ __marimo__/
 .streamlit/secrets.toml
 
 scribbles.ipynb
+
+dummy_data
+dummy_data/
+dummy_cell_tracks.csv
+
+agent.md

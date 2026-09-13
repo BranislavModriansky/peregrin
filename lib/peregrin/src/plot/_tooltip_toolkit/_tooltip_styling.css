@@ -1,0 +1,50 @@
+.peregrin-graph {
+  position: relative;
+  font-family: system-ui, Arial, sans-serif;
+}
+
+.peregrin-graph .pg-canvas {
+  display: block;
+  width: min(800px, 100%);
+  height: auto;
+  border: 1px solid #ddd;
+}
+
+.peregrin-graph .pg-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  min-width: 190px;
+}
+
+.peregrin-graph .pg-tooltip .pg-row {
+  margin: 4px 0;
+}
+
+.peregrin-graph .pg-tooltip .pg-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.peregrin-graph .pg-tooltip .pg-close {
+  cursor: pointer;
+  color: #888;
+}
+
+.peregrin-graph .pg-tooltip input[type="range"] {
+  width: 100%;
+  color: #000000;
+}
+
+.peregrin-graph .pg-tooltip select {
+  width: 100%;
+}
+

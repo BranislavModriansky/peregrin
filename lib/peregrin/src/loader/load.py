@@ -1,3 +1,4 @@
+from __future__ import annotations
 import re
 
 import xml.etree.ElementTree as ET
@@ -14,35 +15,35 @@ from .._pckg_exceptions._pckg_warnings import *
 
 from ..various import get_aliases
 from ..compute.stats import calc
-
-
-
+import io
+from urllib.request import urlopen
 
 
 class Input:
-    """A thin wrapper around a polars DataFrame that carries a `.metadata`
-    (InputMetadata) attribute. Polars DataFrames cannot be subclassed the way
-    pandas DataFrames can, so attribute access is delegated to the wrapped
-    DataFrame instead."""
+    """Wrapper around a polars DataFrame for carrying a `.metadata` (InputMetadata) attribute."""
 
     def __init__(self, df: pl.DataFrame, metadata: "InputMetadata" = None):
         self._df = df
         self.metadata = metadata
 
+    # Property for accessing the underlying polars DataFrame
     @property
     def df(self) -> pl.DataFrame:
         return self._df
 
+    # Delegate attribute access to the underlying polars DataFrame for all other attributes
     def __getattr__(self, name):
-        # delegate everything else to the underlying polars DataFrame
         return getattr(self._df, name)
 
+    # Delegate item access to the underlying polars DataFrame for indexing operations
     def __getitem__(self, key):
         return self._df[key]
 
+    # Delegate length access to the underlying polars DataFrame
     def __len__(self):
         return len(self._df)
 
+    # Delegate representation to the underlying polars DataFrame
     def __repr__(self):
         return repr(self._df)
 
@@ -52,13 +53,14 @@ class InputMetadata:
     Input metadata container:
     -------------------------
 
-    Keeps a dictionary (1) of the metadata unified across all files.
+    Keeps a dictionary (1) of the metadata common across all files.
 
         {
             "spatial_units": str,
             "time_units": str, 
             "time_interval": float,
             "n_frames": int,
+            "columns": list[str],
         }
 
     and a dictionary (2) mapping metadata to files:
@@ -69,76 +71,160 @@ class InputMetadata:
                 "time_units": str, 
                 "time_interval": float,
                 "n_frames": int,
+                "columns": list[str],
             },
             "file2.csv": ...,
         } 
     """
 
-    input_metadata_unified: Dict[str, str] = {}
-    input_metadata_separate: Dict[str, dict] = {}
-
+    # Unit standardization: map aliases to canonical units
     UNIT_ALIASES = {
-        'nm': ['nm', 'nanometer', 'nanometers'],
-        'μm': ['μm', 'um', 'micron', 'microns', 'micrometer', 'micrometers'],
-        's': ['s', 'sec', 'second', 'seconds'],
+        'nm':  ['nm', 'nanometer', 'nanometers'],
+        'μm':  ['μm', 'um', 'micron', 'microns', 'micrometer', 'micrometers'],
+        's':   ['s', 'sec', 'second', 'seconds'],
         'min': ['m', 'min', 'minute', 'minutes'],
-        'ms': ['ms', 'millisecond', 'milliseconds'],
-        'h': ['h', 'hr', 'hour', 'hours'],
-        'd': ['d', 'day', 'days'],
-        'px': ['px', 'pixel', 'pixels'],
-        'mm': ['mm', 'millimeter', 'millimeters'],
-        'cm': ['cm', 'centimeter', 'centimeters'],
-        'm': ['m', 'meter', 'meters'],
+        'ms':  ['ms', 'millisecond', 'milliseconds'],
+        'h':   ['h', 'hr', 'hour', 'hours'],
+        'd':   ['d', 'day', 'days'],
+        'px':  ['px', 'pixel', 'pixels'],
+        'mm':  ['mm', 'millimeter', 'millimeters'],
+        'cm':  ['cm', 'centimeter', 'centimeters'],
+        'm':   ['m', 'meter', 'meters'],
     }
 
     def __init__(self):
-        self.input_metadata_unified = {
-            "spatialunits": '',
-            "timeunits": '',
-            "timeinterval": '',
-            "nframes": '',
-        }
-        self.input_metadata_separate = {}
+        self.input_metadata_common = {}      # init dict for common metadata
+        self.input_metadata_individual = {}  # init dict for per-file metadata
 
+    # Delegate attribute access to the underlying polars DataFrame for all other attributes
     def __getitem__(self, key):
-        return self.input_metadata_separate[key]
+        return self.input_metadata_individual[key]
 
+    # Delegate item assignment to the underlying polars DataFrame for indexing operations
     def __setitem__(self, key, value):
-        self.input_metadata_separate[key] = value
+        self.input_metadata_individual[key] = value
 
-    def update(self, metadata: Dict[str, dict]):
-        for key, item in metadata.items():
-            for sub_key, sub_item in item.items():
-                for unit, aliases in self.UNIT_ALIASES.items():
-                    if sub_item in aliases:
-                        metadata[key][sub_key] = unit
-                        break
+    def get(self, metadata_key: str = None) -> Optional[Dict[str, str] | str]:
+        """
+        Get the common metadata or a specific metadata value by key.
+        
+        Parameters
+        ----------
+        metadata_key : str, optional
+            The key of the metadata value to retrieve. If None, returns the entire common metadata dictionary.
 
-        self.input_metadata_separate.update(metadata)
-        self._check()
-
-    def get(self, metadata_key: str = None) -> Dict[str, str] | str:
+        Returns
+        -------
+        dict[str, str] | str | None
+            The common metadata dictionary if metadata_key is None, otherwise the value corresponding to the specified key. Returns None if the key does not exist.
+        """
         if metadata_key is not None:
-            return self.input_metadata_unified.get(metadata_key)
-        return self.input_metadata_unified
+            return self.input_metadata_common.get(metadata_key)
+        return self.input_metadata_common
 
-    def get_each(self, file_name: Optional[str] = None, metadata_keys: Optional[List[str]] = None) -> Optional[dict]:
+    def get_each(self, file_name: Optional[str] = None, metadata_keys: Optional[List[str]] = None) -> Optional[Dict[str, Dict[str, str]] | Dict[str, str] | str]:
+        """
+        Get the metadata for individual files, optionally filtered by file name and/or metadata keys.
+
+        Parameters
+        ----------
+        file_name : str, optional
+            The name of the file for which to retrieve metadata. If None, returns metadata for all files.
+        metadata_keys : list of str, optional
+            The list of metadata keys to retrieve for the specified file. If None, returns all metadata for the file.
+        Returns
+        -------
+        dict[str, dict[str, str]] | dict[str, str] | str | None
+            The metadata dictionary for the specified file(s), filtered by the specified keys if provided. Returns None if the file does not exist.
+        """
         if file_name is None:
             if metadata_keys is not None:
                 return {file: {
                     key: metadata.get(key) for key in metadata_keys
-                } for file, metadata in self.input_metadata_separate.items()}
-            return self.input_metadata_separate
+                } for file, metadata in self.input_metadata_individual.items()}
+            return self.input_metadata_individual
         else:
             if metadata_keys is not None:
-                return {key: self.input_metadata_separate[file_name].get(key) for key in metadata_keys}
-            return self.input_metadata_separate[file_name]
+                return {key: self.input_metadata_individual[file_name].get(key) for key in metadata_keys}
+            return self.input_metadata_individual[file_name]
 
-    def write(self, *, spatialunits = None, timeunits = None, timeinterval = None, nframes = None):
-        self.input_metadata_unified["spatialunits"] = self._get_alias(spatialunits) if spatialunits is not None else self.input_metadata_unified["spatialunits"]
-        self.input_metadata_unified["timeunits"] = self._get_alias(timeunits) if timeunits is not None else self.input_metadata_unified["timeunits"]
-        self.input_metadata_unified["timeinterval"] = timeinterval if timeinterval is not None else self.input_metadata_unified["timeinterval"]
-        self.input_metadata_unified["nframes"] = nframes if nframes is not None else self.input_metadata_unified["nframes"]
+    def write(self, *, spatialunits = None, timeunits = None):
+        """
+        Manually update the common metadata values. This method allows the user to specify or override 
+        the common metadata values for spatial units, time units, time interval, number of frames, and columns. 
+        If a parameter is not provided (i.e., None), the existing value in the common metadata will be retained.
+
+        Parameters
+        ----------
+        spatialunits : str, optional
+            The spatial units to set (e.g., 'nm', 'μm', 'px'). If None, the existing value is retained.
+        timeunits : str, optional
+            The time units to set (e.g., 's', 'ms', 'min'). If None, the existing value is retained.
+        """
+        self.input_metadata_common["spatialunits"] = self._get_alias(spatialunits) if spatialunits is not None else self.input_metadata_common["spatialunits"]
+        self.input_metadata_common["timeunits"] = self._get_alias(timeunits) if timeunits is not None else self.input_metadata_common["timeunits"]
+
+    def _update(self, metadata: Dict[str, dict]):
+        """Update the metadata for individual files."""
+
+        for key, item in metadata.items():
+            for sub_key, sub_item in item.items():
+
+                if not isinstance(sub_item, str):
+                    continue  # e.g. 'columns' list; or numeric timestep/nframes
+
+                for unit, aliases in self.UNIT_ALIASES.items():
+                    # if the sub_item str matches any of the aliases, replace it with the canonical unit
+                    if sub_item in aliases:
+                        metadata[key][sub_key] = unit
+                        break
+
+        # Update the individual metadata dictionary and check for consistency
+        self.input_metadata_individual.update(metadata)
+        self._check()
+
+    
+    def _check(self) -> None:
+        all_time_units = set()
+        all_spatial_units = set()
+        all_n_frames = set()
+        all_time_intervals = set()
+        columns_set = set()
+
+        for _, metadata in self.input_metadata_individual.items(): 
+            all_time_units.add(metadata.get("timeunits"))
+            all_spatial_units.add(metadata.get("spatialunits"))
+            all_n_frames.add(metadata.get("nframes"))
+            all_time_intervals.add(metadata.get("timestep"))
+            columns_set.add(tuple(metadata.get("columns")) if metadata.get("columns") is not None else None)
+
+        first_metadata = next(iter(self.input_metadata_individual.values()))
+        self.input_metadata_common["timeunits"] = first_metadata.get("timeunits")
+        self.input_metadata_common["spatialunits"] = first_metadata.get("spatialunits")
+        self.input_metadata_common["nframes"] = first_metadata.get("nframes")
+        self.input_metadata_common["timestep"] = first_metadata.get("timestep")
+        self.input_metadata_common["columns"] = first_metadata.get("columns")
+
+        if self.input_metadata_common.get("timeunits") is None or self.input_metadata_common.get("timeunits") == '':
+            warn("No time units found in input files.\n Please specify the time units using <load_data result>.metadata.write(time_unit=\"<unit>\")", InputWarning, stacklevel=2)
+        if self.input_metadata_common.get("spatialunits") is None or self.input_metadata_common.get("spatialunits") == '':
+            warn("No spatial units found in input files.\n Please specify the spatial units using <load_data result>.metadata.write(spatial_unit=\"<unit>\")", InputWarning, stacklevel=2)
+        
+        if len(all_time_units) > 1:
+            self.input_metadata_common["timeunits"] = ''
+            warn(f"Inconsistent time units across input files -> found {all_time_units}.", InputWarning, stacklevel=2)
+        if len(all_spatial_units) > 1:
+            self.input_metadata_common["spatialunits"] = ''
+            warn(f"Inconsistent spatial units across input files -> found {all_spatial_units}.", InputWarning, stacklevel=2)
+        if len(all_n_frames) > 1:
+            self.input_metadata_common["nframes"] = ''
+            warn(f"Inconsistent number of frames across input files -> found {all_n_frames}.", InputWarning, stacklevel=2)
+        if len(all_time_intervals) > 1:
+            raise InputError(f"Inconsistent time intervals across input files -> found {all_time_intervals}. Please ensure that all input files have the same time interval.")
+
+        if len(columns_set) > 1:
+            self.input_metadata_common["columns"] = ''
+            warn(f"Inconsistent columns across input files -> found {len(columns_set)} distinct schemas.", InputWarning, stacklevel=2)
 
     def _get_alias(self, unit: str) -> str:
         for alias, aliases in self.UNIT_ALIASES.items():
@@ -146,46 +232,9 @@ class InputMetadata:
                 return alias
         raise ValueError(f"Unit '{unit}' is not recognized. Please use one of the following units: {list(self.UNIT_ALIASES.keys())}")
 
-    def _check(self) -> None:
-        all_time_units = set()
-        all_spatial_units = set()
-        all_n_frames = set()
-        all_time_intervals = set()
-
-        for _, metadata in self.input_metadata_separate.items(): 
-            all_time_units.add(metadata.get("timeunits"))
-            all_spatial_units.add(metadata.get("spatialunits"))
-            all_n_frames.add(metadata.get("nframes"))
-            all_time_intervals.add(metadata.get("timeinterval"))
-
-        first_metadata = next(iter(self.input_metadata_separate.values()))
-        self.input_metadata_unified["timeunits"] = first_metadata.get("timeunits")
-        self.input_metadata_unified["spatialunits"] = first_metadata.get("spatialunits")
-        self.input_metadata_unified["nframes"] = first_metadata.get("nframes")
-        self.input_metadata_unified["timeinterval"] = first_metadata.get("timeinterval")
-
-        if self.input_metadata_unified.get("timeunits") is None or self.input_metadata_unified.get("timeunits") == '':
-            warn("No time units found in input files.\n Please specify the time units using <load_data result>.metadata.write(time_unit=\"<unit>\")", InputWarning, stacklevel=2)
-        if self.input_metadata_unified.get("spatialunits") is None or self.input_metadata_unified.get("spatialunits") == '':
-            warn("No spatial units found in input files.\n Please specify the spatial units using <load_data result>.metadata.write(spatial_unit=\"<unit>\")", InputWarning, stacklevel=2)
-        
-        if len(all_time_units) > 1:
-            self.input_metadata_unified["timeunits"] = ''
-            warn(f"Inconsistent time units across input files -> found {all_time_units}.", InputWarning, stacklevel=2)
-        if len(all_spatial_units) > 1:
-            self.input_metadata_unified["spatialunits"] = ''
-            warn(f"Inconsistent spatial units across input files -> found {all_spatial_units}.", InputWarning, stacklevel=2)
-        if len(all_n_frames) > 1:
-            self.input_metadata_unified["nframes"] = ''
-            warn(f"Inconsistent number of frames across input files -> found {all_n_frames}.", InputWarning, stacklevel=2)
-        if len(all_time_intervals) > 1:
-            raise InputError(f"Inconsistent time intervals across input files -> found {all_time_intervals}. Please ensure that all input files have the same time interval.")
-
-
-
-
 class DataLoader:
 
+    # Define the category hierarchy and their corresponding levels
     CATEGORIES = {
         'set': 5,
         'subset': 4,
@@ -207,18 +256,125 @@ class DataLoader:
             'y': 'POSITION_Y'
         }, 
         *,
-        retain: Optional[list[str]] = None,
+        retain_cols: Optional[list[str]] = None,
         **kwargs
     ) -> pl.DataFrame:
-
+        
         """
         Load tracking data from any number of files into a single DataFrame, 
-        while assigning condition and replicate labels. (See original docstring
-        for the full description; behaviour is unchanged but the returned
-        object is now polars-based.)
+        while assigning condition and replicate labels. This method is used
+        to prepare data for further handling in the computations, using the 
+        `peregrin` library.
+        
+        Parameters
+        ----------
+        files : list[PathLike[str]] | dict
+            Either a list of file paths or a dictionary with keys as category indicies and values either as dicts (subcategories) or lists of file paths.
+            Data can be categorized up to 5 levels deep having the following structure:
+
+        ```
+        { set: { subset: { group: { subgroup: { subsubgroup: file }}}}}
+
+        Input example 1 (3-level categorization using lists of file paths):
+        [ [ ['path/to/file01.csv', 'path/to/file02.csv'], 
+            ['path/to/file03.csv', 'path/to/file04.csv']], 
+          [ ['path/to/file05.csv', 'path/to/file06.csv'], 
+            ['path/to/file07.csv', 'path/to/file08.csv']]]
+
+        Input example 2 (3-level categorization using dictionaries):
+        {   'condition1': {
+                'bio_replicate1': [ 
+                    'path/to/tech_replicate_A-10-10-10.csv', 
+                    'path/to/tech_replicate_B-10-10-10.csv' ], 
+                'bio_replicate2': [
+                    'path/to/tech_replicate_A-11-10-10.csv', 
+                    'path/to/tech_replicate_B-11-10-10.csv' ] },
+            'condition2': {
+                'bio_replicate1': [
+                    'path/to/tech_replicate_A-18-10-10.csv', 
+                    'path/to/tech_replicate_B-18-10-10.csv' ],
+                'bio_replicate2': [
+                    'path/to/tech_replicate_A-20-10-10.csv', 
+                    'path/to/tech_replicate_B-20-10-10.csv' ] }     }
+
+        Input example 3 (4-level categorization using dictionaries):
+        {'A': {'A1': {'A1a': {'A1an': ['path/to/file01.csv', 'path/to/file02.csv'],
+                              'A1am': ['path/to/file03.csv', 'path/to/file04.csv']},
+                      'A1b': {'A1bn': ['path/to/file05.csv', 'path/to/file06.csv'],
+                              'A1bm': ['path/to/file07.csv', 'path/to/file08.csv']}},
+               'A2': {'A2a': {'A2an': ['path/to/file09.csv', 'path/to/file10.csv'],
+                              'A2am': ['path/to/file11.csv', 'path/to/file12.csv']},
+                      'A2b': {'A2bn': ['path/to/file13.csv', 'path/to/file14.csv'],
+                              'A2bm': ['path/to/file15.csv', 'path/to/file16.csv']}}},
+         'B': {'B1': {'B1a': {'B1an': ['path/to/file17.csv', 'path/to/file18.csv'],
+                              'B1am': ['path/to/file19.csv', 'path/to/file20.csv']},
+                      'B1b': {'B1bn': ['path/to/file21.csv', 'path/to/file22.csv'],
+                              'B1bm': ['path/to/file23.csv', 'path/to/file24.csv']}},
+               'B2': {'B2a': {'B2an': ['path/to/file25.csv', 'path/to/file26.csv'],
+                              'B2am': ['path/to/file27.csv', 'path/to/file28.csv']},
+                      'B2b': {'B2bn': ['path/to/file29.csv', 'path/to/file30.csv'],
+                              'B2bm': ['path/to/file31.csv', 'path/to/file32.csv']}}}}
+        
+        ```
+         See more detailed documentation of this method here: https://branislavmodriansky.github.io/peregrin/lib/overview.html
+
+        colnames : dict
+            A dictionary specifying the column names for track identifiers, time points, and x/y coordinates. 
+            With the default {'id': None, 't': None, 'x': None, 'y': None}, the method will NOT attempt to 
+            automatically detect these columns.
+        
+        retain_cols : list[str], optional, default None
+            A list of column names from the original input data to be retained. If None, only the essential columns 
+            ('track_id', 'time_point', 'x_coordinate', 'y_coordinate') are extracted, while all other columns are discarded.
+
+        convert_time_to : str, optional, default None
+            If provided, time will be converted from the input time units to the specified target unit.
+            If the metadata do not contain time unit information and the time unit is not passed to the function by `time_unit="<value>"`, the method will be skipped.
+            Supported units include: 'ms', 's', 'min', 'h', 'day'.
+
+        convert_spatial_to : str, optional, default None
+            If provided, spatial coordinates will be converted from the input unit `spatial_unit` to the specified target unit. 
+            If the metadata does not contain spatial unit information and the spatial unit is not passed to the function by `spatial_unit="<value>"`, the method will be skipped.
+            If the input units cannot be converted from nor to 'px', the conversion will be skipped.
+            Supported units include: 'nm', 'μm', 'mm', 'cm', 'm'.
+
+        ignore_matadata : bool, optional, default False
+            If True, the method will ignore any metadata found in the input files. This is useful when the user wants to manually specify metadata or when the input files contain inconsistent or incorrect metadata.
+
+        invert_y : bool, optional, default False
+            If True, the method will mirror the y-coordinates across their midpoint - useful for correcting mirrored y-coordinates in exported data.
+        
+        invert_x : bool, optional, default False
+            If True, the method will mirror the x-coordinates across their midpoint - useful for correcting mirrored x-coordinates in exported data.
+
+        merge : Literal['all', 'sets', 'subsets', 'groups', 'subgroups', None], default 'all'
+            Specifies how to merge the loaded data:
+
+        split_filename : bool, optional, default False
+            If True, the method will split file names during subsubgroup labeling using the `split_filename_position` and `split_filename_delimiter` parameters.
+
+        split_filename_position : Literal['first', 'last'] | int, optional, default 'last'
+            Determines how to split file names during subsubgroup labeling when `split_filename` is True.
+            Either one of 'first' or 'last' to split at the first or last occurrence of the `split_character`, or an integer to split at a specific index.
+
+        split_filename_delimiter : str, optional, default '-'
+            The character used to split file names for automatic label extraction when `split_filename` is True.
+        ```
+        'all'       - merge all data into a single DataFrame (default)
+        'sets'      - merge data within each set, but keep sets separate
+        'subsets'   - merge data within each subset, but keep subsets separate
+        'groups'    - merge data within each group, but keep groups separate
+        'subgroups' - merge data within each subgroup, but keep subgroups separate
+         None       - do not merge; return data as a dictionary of dictionaries with DataFrames
+        ```
+
+        Returns
+        -------
+        pl.DataFrame
+            A single DataFrame containing all loaded data, with condition and replicate labels assigned to each row.
         """
 
-        self.retain = retain
+        self.retain = retain_cols
         self.kwargs = kwargs
 
         # Per-load metadata container
@@ -230,8 +386,8 @@ class DataLoader:
         self.y_col  = colnames['y']
 
         # Time / transform options (wired as kwargs)
-        self.mirror_y = kwargs.get('mirror_y', False)
-        self.mirror_x = kwargs.get('mirror_x', False)
+        self.invert_y = kwargs.get('invert_y', False)
+        self.invert_x = kwargs.get('invert_x', False)
         self.merge = kwargs.get('merge', 'all')
 
         # Wrap single file into a list for uniform handling
@@ -255,7 +411,7 @@ class DataLoader:
         for labels, filepath in leaves:
             df, metadata = self._read_file(filepath)
             if not self.kwargs.get('ignore_metadata', False):
-                self.metadata.update(self._filter_metadata(metadata))
+                self.metadata._update(self._filter_metadata(metadata))
             df = self._extract(df)
 
             df = df.with_columns([
@@ -279,6 +435,7 @@ class DataLoader:
         return result
 
     def _attach_metadata_dict(self, node):
+        """Attach the per-load Metadata object to all DataFrames in the dictionary."""
         for key, val in node.items():
             if isinstance(val, pl.DataFrame):
                 node[key] = Input(val, self.metadata)
@@ -290,12 +447,12 @@ class DataLoader:
         """
         Merge extracted per-file DataFrames according to `self.merge`.
 
-        'all'        -> single concatenated DataFrame
-        'sets'       -> dict keyed by set
-        'subsets'    -> dict keyed by set/subset
-        'groups'     -> dict keyed down to group
-        'subgroups'  -> dict keyed down to subgroup
-        None         -> dict keyed down to subsubgroup (unconcatenated leaves)
+        - 'all'        -> single concatenated DataFrame
+        - 'sets'       -> dict keyed by set
+        - 'subsets'    -> dict keyed by set/subset
+        - 'groups'     -> dict keyed down to group
+        - 'subgroups'  -> dict keyed down to subgroup
+        -  None         -> dict keyed down to subsubgroup (unconcatenated leaves)
         """
         if not records:
             return pl.DataFrame()
@@ -308,7 +465,7 @@ class DataLoader:
             'subsets': 2,
             'groups': 3,
             'subgroups': 4,
-            None: 5,
+             None: 5,
         }
         target = merge_levels.get(self.merge)
         if target is None:
@@ -419,6 +576,12 @@ class DataLoader:
 
 
     def _extract(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Extract the essential columns from the DataFrame, cast them to Float64,
+        handle optional retention of additional columns, drop nulls, and apply
+        any specified transformations (invert axes, standardize names, convert
+        spatial and temporal data).
+        """
 
         essential = [self.id_col, self.t_col, self.x_col, self.y_col]
 
@@ -438,10 +601,10 @@ class DataLoader:
 
         df = df.drop_nulls(subset=essential)
         
-        if self.mirror_y:
+        if self.invert_y:
             y_mid = (df[self.y_col].min() + df[self.y_col].max()) / 2
             df = df.with_columns((2 * y_mid - pl.col(self.y_col)).alias(self.y_col))
-        if self.mirror_x:
+        if self.invert_x:
             x_mid = (df[self.x_col].min() + df[self.x_col].max()) / 2
             df = df.with_columns((2 * x_mid - pl.col(self.x_col)).alias(self.x_col))
             
@@ -456,8 +619,8 @@ class DataLoader:
 
 
     def _read_file(self, filepath: str) -> Tuple[pl.DataFrame, dict]:
-            
-        _, ext = op.splitext(filepath.lower())
+
+        _, ext = op.splitext(str(filepath).lower().split('?')[0])
 
         match ext:
             case '.xml':
@@ -467,10 +630,49 @@ class DataLoader:
             case _:
                 raise FileFormatError(f"{ext} is not supported. Supported formats include: .csv, .xls, .xlsx, .xml")
 
+    @staticmethod
+    def _fetch(filepath):
+        """Return a local path or, for URLs, the file downloaded once into memory."""
+        if not (isinstance(filepath, str) and filepath.startswith(('http://', 'https://'))):
+            return filepath
 
-    def _read_trackmate_xml(self, filepath):
+        errors = []
+
+        # a) stdlib
+        try:
+            with urlopen(filepath) as resp:
+                return io.BytesIO(resp.read())
+        except Exception as e:
+            errors.append(f"urllib: {e}")
+
+        # b) requests (bundles certifi)
+        try:
+            import requests
+            r = requests.get(filepath, timeout=60)
+            r.raise_for_status()
+            return io.BytesIO(r.content)
+        except Exception as e:
+            errors.append(f"requests: {e}")
+
+        # c) urllib3 with certifi
+        try:
+            import urllib3, certifi
+            http = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
+            r = http.request("GET", filepath, timeout=60.0)
+            if r.status != 200:
+                raise IOError(f"HTTP {r.status}")
+            return io.BytesIO(r.data)
+        except Exception as e:
+            errors.append(f"urllib3: {e}")
+
+        raise InputError(
+            f"Could not download {filepath}. Attempts:\n  " + "\n  ".join(errors)
+        )
+
+    def _read_trackmate_xml(self, filepath) -> Tuple[pl.DataFrame, dict]:
         """Parse a TrackMate project XML and return spots and a merged metadata dict."""
-        root = ET.parse(filepath).getroot()
+        source = self._fetch(filepath)
+        root = ET.parse(source).getroot()
         model = root.find('Model')
 
         spatialunits = model.attrib.get('spatialunits')
@@ -486,11 +688,13 @@ class DataLoader:
 
         # feature -> unit, from <FeatureDeclarations>
         metadata = {}
-        for category in model.find('FeatureDeclarations'):
-            for feat in category:
-                metadata[feat.attrib['feature']] = dim_to_unit.get(feat.attrib.get('dimension'))
+        feature_declarations = model.find('FeatureDeclarations')
+        if feature_declarations is not None:
+            for category in feature_declarations:
+                for feat in category:
+                    metadata[feat.attrib['feature']] = dim_to_unit.get(feat.attrib.get('dimension'))
 
-        # spots
+        # spots -> one DataFrame straight from the attribute dicts
         rows = [
             spot.attrib
             for frame in model.find('AllSpots')
@@ -503,7 +707,7 @@ class DataLoader:
             pl.col(c).cast(pl.Float64, strict=False) for c in num_cols
         ])
 
-        # tag each spot with its TRACK_ID via the tracks
+        # tag each spot with its TRACK_ID via the track edges
         src_ids, trk_ids = [], []
         for track in model.find('AllTracks'):
             tid = int(track.attrib['TRACK_ID'])
@@ -512,57 +716,72 @@ class DataLoader:
                 src_ids += [a['SPOT_SOURCE_ID'], a['SPOT_TARGET_ID']]
                 trk_ids += [tid, tid]
 
-        mapping = (
-            pl.DataFrame({
-                'ID': np.asarray(src_ids, dtype=np.int64),
-                'TRACK_ID': np.asarray(trk_ids, dtype=np.int64),
-            })
-            .unique(subset='ID', keep='first')
-        )
-        df = df.join(mapping, on='ID', how='left')
+        if src_ids:
+            mapping = (
+                pl.DataFrame({
+                    'ID': np.asarray(src_ids, dtype=np.int64),
+                    'TRACK_ID': np.asarray(trk_ids, dtype=np.int64),
+                })
+                .unique(subset='ID', keep='first')
+            )
+            df = df.join(mapping, on='ID', how='left')
+        else:
+            df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias('TRACK_ID'))
 
         # move TRACK_ID to the first column
         df = df.select(['TRACK_ID'] + [c for c in df.columns if c != 'TRACK_ID'])
 
         # merge image calibration into the same metadata dict
-        metadata.update(root.find('Settings/ImageData').attrib)
+        image_data = root.find('Settings/ImageData')
+        if image_data is not None:
+            metadata.update(image_data.attrib)
+
         metadata['spatialunits'] = spatialunits if self.kwargs.get('spatial_unit', None) is None else self.kwargs.get('spatial_unit')
         metadata['timeunits'] = timeunits if self.kwargs.get('time_unit', None) is None else self.kwargs.get('time_unit')
+        metadata['timestep'] = self._calculate_time_interval(df) if self.t_col in df.columns else float('nan')
+        metadata['nframes'] = df[self.t_col].n_unique() if self.t_col in df.columns else None
+        metadata['columns'] = df.columns
 
         self.timeunit = metadata['timeunits']
         self.spatialunit = metadata['spatialunits']
-        self.timeinterval = metadata['timeinterval']
+        self.timestep = metadata['timestep']
 
-        metadata = {str(filepath.split(op.sep)[-1]): metadata}
+        return df, {op.basename(str(filepath)): metadata}
 
-        return df, metadata
-            
-
-    def _read_table(self, filepath, ext, *, metadata_row_index=2, skiprows=4, encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> Tuple[pl.DataFrame, dict]:
+    def _read_table(self, filepath, ext, *, metadata_row_index=2, skiprows=4,
+                    encodings=("utf-8", "cp1252", "latin1", "iso8859_15"), **kwargs) -> Tuple[pl.DataFrame, dict]:
         try:
+            source = self._fetch(filepath)
+
             if ext in ('.xls', '.xlsx'):
                 column_names, units_row, df = self._read_excel_parts(
-                    filepath, metadata_row_index, skiprows
+                    source, metadata_row_index, skiprows
                 )
-                metadata = {str(filepath.split(op.sep)[-1]): self._build_metadata(df, column_names, units_row)}
+                metadata = {op.basename(str(filepath)): self._build_metadata(df, column_names, units_row)}
                 return df, metadata
 
             # CSV path: try multiple encodings
             for enc in encodings:
                 try:
-                    header = pl.read_csv(filepath, n_rows=0, encoding=enc)
+                    if isinstance(source, io.BytesIO):
+                        source.seek(0)
+                    header = pl.read_csv(source, n_rows=0, encoding=enc)
                     column_names = header.columns
 
                     metadata_row = None
                     if metadata_row_index is not None:
+                        if isinstance(source, io.BytesIO):
+                            source.seek(0)
                         meta_df = pl.read_csv(
-                            filepath, skip_rows=metadata_row_index, n_rows=1,
+                            source, skip_rows=metadata_row_index, n_rows=1,
                             encoding=enc, has_header=True
                         )
                         metadata_row = list(meta_df.row(0)) if meta_df.height else None
 
+                    if isinstance(source, io.BytesIO):
+                        source.seek(0)
                     df = pl.read_csv(
-                        filepath,
+                        source,
                         skip_rows=skiprows,
                         has_header=False,
                         new_columns=column_names,
@@ -571,8 +790,7 @@ class DataLoader:
                         ignore_errors=True,
                     )
 
-                    metadata = {str(filepath.split(op.sep)[-1]): self._build_metadata(df, column_names, metadata_row)}
-
+                    metadata = {op.basename(str(filepath)): self._build_metadata(df, column_names, metadata_row)}
                     return df, metadata
 
                 except UnicodeDecodeError:
@@ -623,12 +841,13 @@ class DataLoader:
 
         metadata['spatialunits'] = metadata.get(self.x_col, '') if self.kwargs.get('spatial_unit', None) is None else self.kwargs.get('spatial_unit')
         metadata['timeunits'] = metadata.get(self.t_col, '') if self.kwargs.get('time_unit', None) is None else self.kwargs.get('time_unit')
-        metadata['timeinterval'] = self._calculate_time_interval(df)
+        metadata['timestep'] = self._calculate_time_interval(df)
         metadata['nframes'] = df[self.t_col].n_unique()
+        metadata['columns'] = column_names
 
         self.timeunit = metadata['timeunits']
         self.spatialunit = metadata['spatialunits']
-        self.timeinterval = metadata['timeinterval']
+        self.timestep = metadata['timestep']
 
         return metadata
 
@@ -642,16 +861,16 @@ class DataLoader:
             .sort()
             .to_numpy()
         )
-        timeintervals = np.diff(t)
+        timesteps = np.diff(t)
 
-        if timeintervals.size == 0:
+        if timesteps.size == 0:
             return float('nan')
         else:
-            positive = timeintervals[timeintervals > 0]
-            base = float(positive.min()) if positive.size else float(timeintervals.min())
+            positive = timesteps[timesteps > 0]
+            base = float(positive.min()) if positive.size else float(timesteps.min())
 
             if base > 0:
-                ratios = timeintervals / base
+                ratios = timesteps / base
                 is_regular = np.all(np.isclose(ratios, np.round(ratios), atol=1e-6))
             else:
                 is_regular = False
@@ -659,9 +878,9 @@ class DataLoader:
             if is_regular:
                 return base
             else:
-                result = float(np.median(timeintervals))
+                result = float(np.median(timesteps))
                 warn((f"Non-uniformly spaced time point data -> will probably lead to incorrect data computation.\n"
-                               f"Observed time steps:\n{timeintervals}\nUsing: {result}"), InputWarning, 2)
+                               f"Observed time steps:\n{timesteps}\nUsing: {result}"), InputWarning, 2)
                 return result
 
 
@@ -673,7 +892,7 @@ class DataLoader:
         return df.columns
     
 
-    def match_columns(self, columns: List[str], lookfor: List[str]) -> str:
+    def match_columns(self, columns: List[str], find: List[str]) -> str:
         """
         Looks for matches with any of the provided strings.
         - First tries exact matches.
@@ -686,17 +905,17 @@ class DataLoader:
             (col, str(col).replace('', ' ').strip().lower() if col is not None else '') for col in columns
         ]
         for col, norm_col in normalized_columns:
-            for look in lookfor:
+            for look in find:
                 if norm_col == look.lower():
                     return col
                 
         for col, norm_col in normalized_columns:
-            for look in lookfor:
+            for look in find:
                 if norm_col.startswith(look.lower()):
                     return col
                 
         for col, norm_col in normalized_columns:
-            for look in lookfor:
+            for look in find:
                 if look.lower() in norm_col:
                     return col
         return None
@@ -814,7 +1033,7 @@ class DataLoader:
 
         df = df.with_columns((pl.col("time_point") * factor).alias("time_point"))
 
-        self.metadata['timeinterval'] = self.timeinterval * factor
+        self.metadata['timestep'] = self.timestep * factor
         self.metadata['timeunits'] = to_unit
 
         return df
@@ -829,7 +1048,7 @@ class DataLoader:
         if self.retain:
             keep_cols += list(self.retain)
 
-        special_keys = ['spatialunits', 'timeunits', 'timeinterval', 'nframes']
+        special_keys = ['spatialunits', 'timeunits', 'timestep', 'nframes', 'columns']
 
         filtered = {}
         for file_name, meta in metadata.items():
