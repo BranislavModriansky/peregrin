@@ -7,7 +7,7 @@ from typing import Any
 from scipy import stats
 
 from ...categorizer import Painter, Categorizer
-from ...compute.stats import Stats
+from ...compute.data_frames import Stats
 from ...various import Values
 
 

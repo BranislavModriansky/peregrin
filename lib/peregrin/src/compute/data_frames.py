@@ -371,8 +371,8 @@ class Calc:
             reg.add(f'{mout}_sem', _sem(src), gate='sem' in self.INFERATIVE_ERROR)
 
             if 'ci' in self.INFERATIVE_ERROR:
-                low = f'{mout}_{self.ci_statistic}_ci_{self.ci_confidence}_low'
-                high = f'{mout}_{self.ci_statistic}_ci_{self.ci_confidence}_high'
+                low = f'{mout}_{self.ci_statistic}_ci{self.ci_confidence*100}_low'
+                high = f'{mout}_{self.ci_statistic}_ci{self.ci_confidence*100}_high'
                 reg.add(low, _ci(src, low, high), gate=True)
                 reg.add(high, _ci(src, low, high), gate=True)
 
@@ -419,10 +419,8 @@ class Calc:
             return _computer
 
         if 'ci' in self.INFERATIVE_ERROR:
-            low = f'MSD_{self.ci_statistic}_ci_{self.ci_confidence}_low'
-            high = f'MSD_{str(self.ci_statistic)}_ci_{str(self.ci_confidence)}_high'
-            print(low)
-            print(high)
+            low = f'MSD_{self.ci_statistic}_ci{self.ci_confidence*100}_low'
+            high = f'MSD_{self.ci_statistic}_ci{self.ci_confidence*100}_high'
             reg.add(low, _ci(low, high), gate=True)
             reg.add(high, _ci(low, high), gate=True)
 
@@ -1447,201 +1445,57 @@ class Calc:
         return units
 
 
-class Summarize:
-    """Contains static methods utilized in the Peregrin Shiny App"""
+# class Summarize:
+#     """Contains static methods utilized in the Peregrin Shiny App"""
 
-    @staticmethod
-    def dataframe_summary(df: pl.DataFrame) -> dict:
-        missing = sum(df[c].null_count() for c in df.columns)
-        return {
-            "rows": df.height,
-            "columns": df.width,
-            "missing_cells": int(missing),
-            "memory_mb": round(df.estimated_size() / 1e6, 2),
-        }
+#     @staticmethod
+#     def dataframe_summary(df: pl.DataFrame) -> dict:
+#         missing = sum(df[c].null_count() for c in df.columns)
+#         return {
+#             "rows": df.height,
+#             "columns": df.width,
+#             "missing_cells": int(missing),
+#             "memory_mb": round(df.estimated_size() / 1e6, 2),
+#         }
 
-    @staticmethod
-    def column_summary(series: pl.Series) -> dict:
-        if series.dtype.is_numeric():
-            s = series.cast(pl.Float64, strict=False)
-            s = s.set(s.is_infinite(), None)
+#     @staticmethod
+#     def column_summary(series: pl.Series) -> dict:
+#         if series.dtype.is_numeric():
+#             s = series.cast(pl.Float64, strict=False)
+#             s = s.set(s.is_infinite(), None)
 
-            if s.len() - s.null_count() > 0:
-                mode = s.drop_nulls().mode()
-                return {
-                    "type": "type_one",
-                    "missing": int(series.null_count()),
-                    "distinct": int(series.n_unique() - (1 if series.null_count() else 0)),
-                    "min": s.min(),
-                    "max": s.max(),
-                    "mean": s.mean(),
-                    "median": s.median(),
-                    "mode": float(mode[0]) if mode.len() else None,
-                    "sd": s.std(ddof=1),
-                    "variance": s.var(),
-                }
+#             if s.len() - s.null_count() > 0:
+#                 mode = s.drop_nulls().mode()
+#                 return {
+#                     "type": "type_one",
+#                     "missing": int(series.null_count()),
+#                     "distinct": int(series.n_unique() - (1 if series.null_count() else 0)),
+#                     "min": s.min(),
+#                     "max": s.max(),
+#                     "mean": s.mean(),
+#                     "median": s.median(),
+#                     "mode": float(mode[0]) if mode.len() else None,
+#                     "sd": s.std(ddof=1),
+#                     "variance": s.var(),
+#                 }
 
-        vc = (
-            series.drop_nulls()
-            .value_counts(sort=True)
-            .head(3)
-        )
-        total = series.len() - series.null_count()
-        highest = [
-            (row[0], round(row[1] / total * 100, 1)) for row in vc.iter_rows()
-        ] if total else []
+#         vc = (
+#             series.drop_nulls()
+#             .value_counts(sort=True)
+#             .head(3)
+#         )
+#         total = series.len() - series.null_count()
+#         highest = [
+#             (row[0], round(row[1] / total * 100, 1)) for row in vc.iter_rows()
+#         ] if total else []
 
-        return {
-            "type": "type_zero",
-            "missing": int(series.null_count()),
-            "distinct": int(series.n_unique() - (1 if series.null_count() else 0)),
-            "highest": highest,
-        }
-
-
-
-class DataObject(Calc):
-    """
-    A stateful, callable interface over :class:`Calc`.
-
-    Parameters
-    ----------
-    inferative_error : bool, optional
-        Whether to compute inferative error. Default is False.
-    bootstrap_ci : bool, optional
-        Whether to compute bootstrap confidence intervals. Default is False.
-    confidence_lvl : float, optional
-        Confidence level for the bootstrap confidence intervals. Default is 0.95.
-    ci_statistic : str, optional
-        Statistic to use for the bootstrap confidence intervals. Default is "mean".
-
-    Usage
-    -----
-    >>> empty_data_object = DataObject(inferative_error=False, bootstrap_ci=False)
-    >>> loaded_data_object = empty_data_object(data)              # computes & stores Spots_df
-
-    >>> spots_df = loaded_data_object.compute_spots()             # per-spot statistics
-    >>> tracks_df = loaded_data_object.compute_tracks()           # per-track statistics
-    >>> timepoints_df = loaded_data_object.compute_timepoints()   # per-time-point statistics
-    >>> timelags_df = loaded_data_object.compute_timelags()       # per-time-interval statistics
-
-    >>> loaded_data_object.plot_tracks()                          # reconstruct trajectories
-    >>> loaded_data_object.plot_msd(band='sem')                   # MSD plot
-    """
-
-    inferative_error: Optional[bool] = False
-    bootstrap_ci: Optional[bool] = False
-    bootstrap_ci_method: Optional[str] = "BCa"
-    ci_confidence: Optional[float] = 0.95
-    bootstrap_resamples: Optional[int] = 1000
-    ci_statistic: Optional[str] = "mean"
-
-    def __init__(
-        self,
-        **kwargs,
-    ) -> None:
-
-        super().__init__(
-            inferative_error=kwargs.get("inferative_error", self.inferative_error),
-            bootstrap_ci=kwargs.get("bootstrap_ci", self.bootstrap_ci),
-            ci_confidence=kwargs.get("ci_confidence", self.ci_confidence),
-            ci_statistic=kwargs.get("ci_statistic", self.ci_statistic),
-            bootstrap_ci_method=kwargs.get("bootstrap_ci_method", self.bootstrap_ci_method),
-            bootstrap_resamples=kwargs.get("bootstrap_resamples", self.bootstrap_resamples),
-            **kwargs,
-        )
-
-        self.spots_df: Optional[pl.DataFrame] = None
-        self.tracks_df: Optional[pl.DataFrame] = None
-        self.timepoints_df: Optional[pl.DataFrame] = None
-        self.timelags_df: Optional[pl.DataFrame] = None
-
-        self._categories: Optional[dict] = None
-
-    def __repr__(self) -> str:
-        n = None if self.spots_df is None else self.spots_df.height
-        return f"<Stats object: spots_rows={n}>"
-
-    def __call__(self, df: pl.DataFrame, **kwargs) -> "DataObject":
-        """Compute per-spot statistics from raw spot data and store them.
-        Returns ``self`` so the call can be chained/re-bound."""
-
-        # Accept the Input wrapper from the loader transparently
-        if hasattr(df, 'df') and not isinstance(df, pl.DataFrame):
-            df = df.df
-
-        if hasattr(df, 'metadata') and df.metadata is not None:
-            self.metadata = df.metadata
-
-        self.spots_df = self.spots(df, **kwargs)
-
-        # Invalidate downstream caches on new input.
-        self.tracks_df = None
-        self.timepoints_df = None
-        self.timelags_df = None
-
-        return self
-
-    def _resolve_spots(self, df: Optional[pl.DataFrame]) -> pl.DataFrame:
-        source = df if df is not None else self.spots_df
-        if source is None:
-            raise ValueError("No Spots_df available. Call the Stats instance with a DataFrame first.")
-        return source
-
-    def compute_spots(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-spot statistics."""
-        source = df if df is not None else self.spots_df
-        if source is None:
-            raise ValueError("No input DataFrame provided for compute_spots().")
-        self.spots_df = self.spots(source, subset=subset, **kwargs)
-        return self.spots_df
-
-    def compute_tracks(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-track statistics from the stored Spots_df."""
-        source = self._resolve_spots(df)
-        self.tracks_df = self.tracks(source, subset=subset, **kwargs)
-        return self.tracks_df
-
-    def compute_timepoints(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-time-point statistics from the stored Spots_df."""
-        source = self._resolve_spots(df)
-        self.timepoints_df = self.timepoints(source, subset=subset, grouping_level=grouping_level, **kwargs)
-        return self.timepoints_df
-
-    def compute_timelags(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-time-interval statistics from the stored Spots_df."""
-        source = self._resolve_spots(df)
-        self.timelags_df = self.timelags(source, subset=subset, grouping_level=grouping_level, **kwargs)
-        return self.timelags_df
-
-    def compute_all(self, df: Optional[pl.DataFrame] = None, **kwargs):
-        """Compute and store all four statistics DataFrames."""
-        source = self._resolve_spots(df)
-        self.spots_df = source
-        self.compute_tracks()
-        self.compute_timepoints(**kwargs)
-        self.compute_timelags(**kwargs)
-        return (self.spots_df, self.tracks_df, self.timepoints_df, self.timelags_df)
-
-    # -----------------------------------------------------------------------
-    # Plotting wrappers (lazy imports avoid circular deps)
-    # -----------------------------------------------------------------------
-    def plot_tracks(self, **kwargs):
-        """Reconstruct and plot trajectories from the stored Spots_df."""
-        from ..plot.tracks.reconstruct import reconstruct
-        return reconstruct(self.spots_df, **kwargs)
-
-    def plot_msd(self, band: Optional[str] = None, *, grouping_level: Any = 'highest', **kwargs):
-        """Plot MSD from the stored Spots_df."""
-        from ..plot.time.lags import msd
-        return msd(self.spots_df, band=band, categories=self._categories, grouping_level=grouping_level, **kwargs)
-
-    def plot_turn_angles(self, *, grouping_level: Any = 'highest', **kwargs):
-        """Plot the turning-angle heatmap from the stored Spots_df."""
-        from ..plot.time.lags import turn_angles
-        return turn_angles(self.spots_df, grouping_level=grouping_level, **kwargs)
+#         return {
+#             "type": "type_zero",
+#             "missing": int(series.null_count()),
+#             "distinct": int(series.n_unique() - (1 if series.null_count() else 0)),
+#             "highest": highest,
+#         }
 
 
 # input_metadata = InputMetadata()
 calc = Calc()
-create_object = DataObject()

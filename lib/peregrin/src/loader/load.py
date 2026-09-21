@@ -14,7 +14,7 @@ from .._pckg_exceptions._pckg_warnings import *
 
 
 from ..various import get_aliases
-from ..compute.stats import calc
+from ..compute.data_frames import calc
 import io
 from urllib.request import urlopen
 
@@ -103,6 +103,8 @@ class InputMetadata:
     # Delegate item assignment to the underlying polars DataFrame for indexing operations
     def __setitem__(self, key, value):
         self.input_metadata_individual[key] = value
+        if key in ('spatialunits', 'timeunits', 'timestep', 'nframes', 'columns'):
+            self.input_metadata_common[key] = value
 
     def get(self, metadata_key: str = None) -> Optional[Dict[str, str] | str]:
         """
@@ -161,8 +163,8 @@ class InputMetadata:
         timeunits : str, optional
             The time units to set (e.g., 's', 'ms', 'min'). If None, the existing value is retained.
         """
-        self.input_metadata_common["spatialunits"] = self._get_alias(spatialunits) if spatialunits is not None else self.input_metadata_common["spatialunits"]
-        self.input_metadata_common["timeunits"] = self._get_alias(timeunits) if timeunits is not None else self.input_metadata_common["timeunits"]
+        self.input_metadata_common["spatialunits"] = self._get_alias(spatialunits) if spatialunits is not None else self.input_metadata_common.get("spatialunits")
+        self.input_metadata_common["timeunits"] = self._get_alias(timeunits) if timeunits is not None else self.input_metadata_common.get("timeunits")
 
     def _update(self, metadata: Dict[str, dict]):
         """Update the metadata for individual files."""
@@ -374,7 +376,7 @@ class DataLoader:
             A single DataFrame containing all loaded data, with condition and replicate labels assigned to each row.
         """
 
-        self.retain = retain_cols
+        self.retain = retain_cols if retain_cols is not None else kwargs.pop('retain', None)
         self.kwargs = kwargs
 
         # Per-load metadata container

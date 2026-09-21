@@ -13,7 +13,7 @@ import matplotlib.lines as mlines
 
 from ...categorizer import Painter, Categorizer
 from ...various import is_empty
-from ...compute.stats import Stats
+from ...compute.data_frames import Stats
 
 
 

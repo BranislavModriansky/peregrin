@@ -11,7 +11,7 @@ from ..._pckg_exceptions._pckg_warnings import *
 
 from ...various import is_empty, get_aliases
 from ..painter import paint
-from ...compute.stats import Stats
+from ...compute.data_frames import Stats
 from ...categorizer import categorize
 
 
