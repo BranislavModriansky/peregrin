@@ -113,25 +113,141 @@ class DataObject(Calc):
         return source
 
     def compute_spots(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-spot statistics."""
+        """
+        Computes basic per-trajectory-point metrics (previous -> current position) using the :meth:`spots` method.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :func:`load_data` function.
+        subset : list[str], optional
+            Subset of columns to consider for the computation, by default None.
+        **kwargs
+            Additional keyword arguments passed to the computation.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `track_id`: Native track identifier included in the input DataFrame.
+            - `track_uid`: Unique track identifier assigned to each track.
+            - `frame`: Frame number within the track (0-based).
+            - `time_point`: Time point of the trajectory point.
+            - `x_coordinate`: X coordinate of the trajectory point.
+            - `y_coordinate`: Y coordinate of the trajectory point.
+            - `distance`: Euclidean distance between the previous and the current position.
+            - `direction`: Direction of movement between the previous and the current position.
+        """
+
         if not is_empty(self.spots_df):
             return self.spots_df
         return self.spots(df, subset=subset, **kwargs)
 
     def compute_tracks(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-track statistics from the stored Spots_df."""
+        """
+        Computes per-trajectory metrics using the :meth:`tracks` method.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :meth:`spots` method.
+        subset : list[str], optional
+            List of specific metrics to compute. If None, all available metrics are computed.
+        **kwargs
+            Additional keyword arguments passed to the computation functions.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `track_id`: Native track identifier.
+            - `track_uid`: Unique track identifier.
+            - `y_location`: Mean value of the y-coordinates of the track.
+            - `x_location`: Mean value of the x-coordinates of the track.
+            - `track_length`: Total length of the track.
+            - `track_displacement`: Straight-line distance between the start and end points of the track.
+            - `straightness_ratio`: Ratio of track displacement to track length.
+            - `speed_min`: Minimum speed along the track.
+            - `speed_max`: Maximum speed along the track.
+            - `speed_mean`: Mean speed along the track.
+            - `speed_sd`: Standard deviation of the speed along the track.
+            - `speed_median`: Median speed along the track.
+            - `mean_straight_line_speed`: Track displacement divided by track duration.
+            - `forward_progression_linearity`: Mean straight line speed divided by mean speed. Measures how linearly the track progresses forward.
+            - `max_distance_reached`: Maximum distance reached from the starting point of the track.
+            - `track_start_frame`: Frame at which the track starts.
+            - `track_end_frame`: Frame at which the track ends.
+            - `track_points`: Number of points in the track.
+            - `direction_mean`: Mean direction of movement along the track.
+            - `direction_var`: Variance of the direction of movement along the track.
+            - `mean_directional_change`: Mean change in direction between consecutive points along the track.
+            - `mean_directional_change_rate`: Mean directional change divided by the time interval. Mean rate of change in direction along the track.
+        """
         source = self._resolve_spots(df)
         self.tracks_df = self.tracks(source, subset=subset, **kwargs)
         return self.tracks_df
 
     def compute_timepoints(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-time-point statistics from the stored Spots_df."""
+        """
+        Computes time point statistics for categories (groups) using the :meth:`timepoints` method.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :meth:`spots` method.
+        subset : list[str], optional
+            List of time point statistics to compute. If None, all available statistics are computed.
+        grouping_level : Literal['highest', 'lowest'] | str | int | list, default='highest'
+            Level(s) at which to group the data for computing time point statistics.
+        **kwargs
+            Additional keyword arguments passed to the computation functions.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `time_point`: Time point of the observation.
+            - `frame`: Frame number of the observation.
+
+            followed by any of (mean, median, std, var, min, max, sum, count, circular_mean, circular_std, circular_var) for columns
+            - `cum_track_length`: Cumulative track length up to the current time point.
+            - `cum_track_displacement`: Cumulative track displacement up to the current time point.
+            - `cum_straightness_ratio`: Cumulative straightness ratio up to the current time point.
+            - `cum_speed_mean`: Cumulative mean speed up to the current time point.
+            - `instantaneous_speed`: Instantaneous speed at the current time point.
+            - `cum_mean_straight_line_speed`: Cumulative mean straight line speed up to the current time point.
+            - `cum_forward_progression_linearity`: Cumulative forward progression linearity up to the current time point.
+            - `cum_sum_directional_change`: Cumulative sum of directional changes up to the current time point.
+            - `cum_mean_directional_change`: Cumulative mean of directional changes up to the current time point.
+        """
         source = self._resolve_spots(df)
         self.timepoints_df = self.timepoints(source, subset=subset, grouping_level=grouping_level, **kwargs)
         return self.timepoints_df
 
     def compute_timelags(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, *, grouping_level: Any = 'highest', **kwargs) -> pl.DataFrame:
-        """Compute (and store) per-time-interval statistics from the stored Spots_df."""
+        """
+        Computes per-time-interval statistics using the :meth:`timelags` method.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :meth:`spots` method.
+        subset : list[str], optional
+            Subset of statistics to compute.
+        grouping_level : Literal['highest', 'lowest'] | str | int | list | None, optional
+            Level at which to group the data.
+        **kwargs
+            Additional keyword arguments passed to the computation functions.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `time_lag`: The time interval between observations.
+            - `frame_lag`: The frame interval between observations.
+            - `MSD`: Mean squared displacement for the given time lag.
+            - `MSD_sd`: Standard deviation of the mean squared displacement for the given time lag.
+            - `tracks_contributing`: Number of tracks contributing to the given time lag.
+            - `position_pairs_contributing`: Number of position pairs contributing to the given time lag.
+            - `directional_change_mean`: Mean directional change for the given time lag.
+            - `directional_change_var`: Variance of the directional change for the given time lag.
+        """
         source = self._resolve_spots(df)
         self.timelags_df = self.timelags(source, subset=subset, grouping_level=grouping_level, **kwargs)
         return self.timelags_df

@@ -141,36 +141,40 @@ class Calc:
 
     Parameters
     ----------
-    inferative_error : bool, default False
-        If True, sem will be computed.
+    inferative_error: bool, default False
+        If True, sem will be computed for category statistics in the :meth:`timepoints` and :meth:`timelags` result DataFrames.
 
-    bootstrap_ci : bool, default False
-        If True, ci will be computed True.
+    bootstrap_ci: bool, default False
+        If True, bootstrap confidence intervals will be computed for category statistics in the :meth:`timepoints` and :meth:`timelags` result DataFrames.
+
+    ci_confidence: float, default 0.95
+        The confidence level for the confidence intervals.
+
+    bootstrap_resamples: int, default 1000
+        The number of bootstrap resamples to use when computing bootstrap confidence intervals.
+
+    bootstrap_ci_method: str, default 'BCa'
+        The method to use for computing bootstrap confidence intervals.
+
+    ci_statistic: str, default 'mean'
+        The statistic to use for computing confidence intervals.
 
     Attributes
     ----------
-    significant_figures, 
-    decimal_places, 
-    BOOTSTRAP_RESAMPLES, 
-    CONFIDENCE_LEVEL,
-    CI_STATISTIC
-    
+    - `significant_figures`: Optional[int] -> The number of significant figures to round the numerical results to.
+    - `decimal_places`: Optional[int] -> The number of decimal places to keep in the numerical results.
+    - `metadata`: Optional[dict] -> Optional metadata associated with the calculation.
 
     """
-
-    ignore_categories: bool = params.ignore_categories
 
     metadata: Optional[dict] = None
 
     significant_figures: Optional[int] = None
     decimal_places: Optional[int] = None
 
-    DEFAULT_CATEGORIES = ['track_uid', 'subsubgroup', 'subgroup', 'group', 'subset', 'set']
-
-    BOOTSTRAP_RESAMPLES: int = 1000
-    CONFIDENCE_LEVEL: float = 95
-    CI_STATISTIC: str = 'mean'
     _ci_method_used: str = 'BCa'
+
+    DEFAULT_CATEGORIES = ['track_uid', 'subsubgroup', 'subgroup', 'group', 'subset', 'set']
 
     _POLARS_BUILTINS = frozenset({
         'mean', 'median', 'std', 'count', 'sum', 'min', 'max',
@@ -207,8 +211,9 @@ class Calc:
             'cum_sum_directional_change', 'cum_mean_directional_change',
         ],
         'TIMELAGS': [
-            'time_lag', 'frame_lag',
-            'MSD',
+            'time_lag', 'frame_lag', 'MSD', 'MSD_sd', 
+            'tracks_contributing', 'position_pairs_contributing', 
+            'directional_change_mean', 'directional_change_var',
         ]
     }
 
@@ -241,8 +246,6 @@ class Calc:
         **kwargs
     ) -> None:
 
-        self.tier = None
-
         if inferative_error:
             self.INFERATIVE_ERROR.add('sem')
         if bootstrap_ci:
@@ -255,8 +258,6 @@ class Calc:
 
         # Custom aggregation expression builders (column name -> pl.Expr)
         self.CUSTOM_AGG_FUNCTIONS: Dict[str, Callable[[str], pl.Expr]] = {
-            # 'q25': lambda c: pl.col(c).quantile(0.25, interpolation='linear'),
-            # 'q75': lambda c: pl.col(c).quantile(0.75, interpolation='linear'),
             'sem': lambda c: pl.col(c).std(ddof=1) / pl.col(c).count().cast(pl.Float64).sqrt(),
             'circ_mean': lambda c: pl.arctan2(pl.col(c).sin().mean(), pl.col(c).cos().mean()),
             'circ_var': lambda c: 1.0 - (pl.col(c).sin().mean().pow(2) + pl.col(c).cos().mean().pow(2)).sqrt(),
@@ -1531,7 +1532,6 @@ class Calc:
                 random_state=seed
             )
             self._ci_method_used = method
-            return (float(result.confidence_interval.low), float(result.confidence_interval.high))
 
         except Exception:
             try:
@@ -1544,12 +1544,18 @@ class Calc:
                     random_state=seed
                 )
                 self._ci_method_used = 'percentile'
-                return (float(result.confidence_interval.low), float(result.confidence_interval.high))
 
             except Exception as e:
                 warnings.warn(message=f"Bootstrap confidence interval computation failed for both '{method}' and fallback 'percentile' methods: {e}. Returning (np.nan, np.nan). Traceback:\n{traceback.format_exc()}",
                               category=FailedWarning, stacklevel=2)
                 return (np.nan, np.nan)
+
+        if self._ci_method_used != self.bootstrap_ci_method:
+            warnings.warn(message=f"Requested method ('{method}') cannot be used; falling back to '{self._ci_method_used}'.",
+                          category=FailedWarning, 
+                          stacklevel=2)
+
+        return (float(result.confidence_interval.low), float(result.confidence_interval.high))
 
 
     def sem(self, x) -> float:
@@ -1630,6 +1636,3 @@ class Calc:
             return units[col]
         return units
 
-
-
-calc = Calc()

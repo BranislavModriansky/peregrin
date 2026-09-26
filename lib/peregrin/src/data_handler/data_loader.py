@@ -20,6 +20,7 @@ from urllib.request import urlopen
 
 
 from .df_metadata_manager import Input, InputMetadata
+from .directory_reader import make_tree
 
 
 
@@ -39,7 +40,7 @@ class DataLoader:
 
     def load_data(
         self, 
-        files: PathLike[str] | list | dict = None,
+        from_: PathLike[str] | list | dict = None,
         colnames: dict = {
             'id': 'TRACK_ID', 
             't': 'POSITION_T', 
@@ -59,7 +60,7 @@ class DataLoader:
         
         Parameters
         ----------
-        files : list[PathLike[str]] | dict
+        from_ : list[PathLike[str]] | dict
             Either a list of file paths or a dictionary with keys as category indicies and values either as dicts (subcategories) or lists of file paths.
             Data can be categorized up to 5 levels deep having the following structure:
 
@@ -68,9 +69,9 @@ class DataLoader:
 
         Input example 1 (3-level categorization using lists of file paths):
         [ [ ['path/to/file01.csv', 'path/to/file02.csv'], 
-            ['path/to/file03.csv', 'path/to/file04.csv']], 
+            ['path/to/file03.csv', 'path/to/file04.csv'] ], 
           [ ['path/to/file05.csv', 'path/to/file06.csv'], 
-            ['path/to/file07.csv', 'path/to/file08.csv']]]
+            ['path/to/file07.csv', 'path/to/file08.csv'] ] ]
 
         Input example 2 (3-level categorization using dictionaries):
         {   'condition1': {
@@ -182,17 +183,20 @@ class DataLoader:
         self.merge = kwargs.get('merge', 'all')
 
         # Wrap single file into a list for uniform handling
-        if isinstance(files, str):
-            files = [files]
+        if isinstance(from_, str):
+            if op.isdir(from_):
+                from_ = self._tree_from_directory(from_)
+            else:
+                from_ = [from_]
 
-        if isinstance(files, list):
-            depth = self._max_list_depth(files)
-            leaves = self._iter_list_tree(files, depth)
-        elif isinstance(files, dict):
-            depth = self._max_dict_depth(files)
-            leaves = self._iter_dict_tree(files, depth)
+        if isinstance(from_, list):
+            depth = self._max_list_depth(from_)
+            leaves = self._iter_list_tree(from_, depth)
+        elif isinstance(from_, dict):
+            depth = self._max_dict_depth(from_)
+            leaves = self._iter_dict_tree(from_, depth)
         else:
-            raise TypeError("`files` must be a str, list or dict.")
+            raise TypeError("`from_` must be a str, list or dict.")
 
         # Category columns used (bottom-up), 'subsubgroup' is always the file level
         category_order = ['set', 'subset', 'group', 'subgroup', 'subsubgroup']
@@ -215,6 +219,22 @@ class DataLoader:
         result = self._merge(records, used_categories)
 
         return self._attach_metadata(result)
+
+
+    def _tree_from_directory(self, root_path: str):
+        """
+        Build a nested tree of file paths from a directory using FileTree.
+
+        Returns a nested dict (keyed by folder/file names). If the directory
+        contains only data files (no subfolders), returns a flat list of paths.
+        """
+        tree = make_tree(root_path).get('dict')
+
+        # If the top level contains only files (no nested dicts), flatten to a list
+        if tree and all(not isinstance(v, dict) for v in tree.values()):
+            return list(tree.values())
+
+        return tree
 
 
     def _attach_metadata(self, result):
