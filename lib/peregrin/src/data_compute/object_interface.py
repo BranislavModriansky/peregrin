@@ -33,7 +33,8 @@ class DataObject(Calc):
 
     Usage
     -----
-    >>> empty_data_object = DataObject(inferative_error=False, bootstrap_ci=False)
+    >>> empty_data_object = DataObject()
+    >>> loaded_data_object = DataObject()(data)
     >>> loaded_data_object = empty_data_object(data)              # computes & stores Spots_df
 
     >>> spots_df = loaded_data_object.compute_spots()             # per-spot statistics
@@ -98,13 +99,6 @@ class DataObject(Calc):
             The instance itself, allowing for method chaining.
         """
 
-        # Accept the Input wrapper from the loader transparently
-        if hasattr(df, 'df') and not isinstance(df, pl.DataFrame):
-            df = df.df
-
-        if hasattr(df, 'metadata') and df.metadata is not None:
-            self.metadata = df.metadata
-
         self.spots_df = self.spots(df, **kwargs)
 
         # Invalidate downstream caches on new input.
@@ -120,11 +114,9 @@ class DataObject(Calc):
 
     def compute_spots(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
         """Compute (and store) per-spot statistics."""
-        source = df if df is not None else self.spots_df
-        if source is None:
-            raise ValueError("No input DataFrame provided for compute_spots().")
-        self.spots_df = self.spots(source, subset=subset, **kwargs)
-        return self.spots_df
+        if not is_empty(self.spots_df):
+            return self.spots_df
+        return self.spots(df, subset=subset, **kwargs)
 
     def compute_tracks(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
         """Compute (and store) per-track statistics from the stored Spots_df."""

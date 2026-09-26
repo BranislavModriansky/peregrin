@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.lines as mlines
 
-from ...categorizer import Painter, Categorizer
+from ...data_handler.categorizer import Painter, Categorizer
 from ...various import is_empty
-from ...compute.data_frames import Stats
+from ...data_compute.data_frames import Stats
 
 
 

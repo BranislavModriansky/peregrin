@@ -12,9 +12,9 @@ import matplotlib as mpl
 from typing import Any, List, Tuple
 
 import warnings
-from .settings import params
-from ._pckg_exceptions._pckg_errors import *
-from ._pckg_exceptions._pckg_warnings import *
+from ..settings import params
+from .._pckg_exceptions._pckg_errors import *
+from .._pckg_exceptions._pckg_warnings import *
 
 
 

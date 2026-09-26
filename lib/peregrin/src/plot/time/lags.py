@@ -11,8 +11,8 @@ from ..._pckg_exceptions._pckg_warnings import *
 
 from ...various import is_empty, get_aliases
 from ..painter import paint
-from ...compute.data_frames import Stats
-from ...categorizer import categorize
+from ...data_compute.data_frames import Stats
+from ...data_handler.categorizer import categorize
 
 
 class MSD:

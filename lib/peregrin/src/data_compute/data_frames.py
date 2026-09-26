@@ -10,31 +10,31 @@ from typing import Any, Callable, Literal, Optional, Dict, List
 from ..various import Values, is_empty
 from ..settings import params
 
+from warnings import warn
 from .._pckg_exceptions._pckg_errors import *
 from .._pckg_exceptions._pckg_warnings import *
 
 
-# ---------------------------------------------------------------------------
+
 # Metric registry
 # ---------------------------------------------------------------------------
+
 class MetricRegistry:
     """
-    Maps an output column name -> a callable that builds that single column.
+    Maps an output column name to a callable that builds the column.
 
     Computers receive a shared context dict and may return either:
       - a `pl.Expr` aggregation expression (collected into ONE group_by().agg()
-        call -> single pass over the data), or
+        call -> single pass over the data)
       - a post-processing callable `(out_df, ctx) -> out_df` for metrics that
         cannot be expressed as a polars aggregation (e.g. bootstrap CIs).
 
-    A `gate` classifies each column so that, when `subset` is None, only the
-    columns enabled by the current statistical flags are computed.
+    A `gate` determines whether the column should be included in the default set of computed columns.
 
-    gate values:
-        'always'    -> always produced (e.g. contribution counts)
-        'descr'     -> produced only when cat_descr is True
-        'descr_err' -> produced only when cat_descr_err is True
-        'infer_err' -> produced only when cat_infer_err is True
+    Gate values:
+        True  -> always included in the default set
+        False -> never included in the default set
+        str   -> conditionally included based on the named flag in the settings
     """
 
     def __init__(self) -> None:
@@ -186,26 +186,30 @@ class Calc:
 
     COLUMNS = {
         'SPOTS': [
-            'track_id', 'track_uid',
-            'time_point', 'frame', 'x_coordinate', 'y_coordinate', 'distance',
-            'cum_track_length', 'cum_track_displacement', 'cum_straightness_ratio',
-            'cum_speed_mean', 'cum_mean_straight_line_speed',
-            'cum_forward_progression_linearity', 'direction', 'directional_change',
-            'cum_sum_directional_change', 'cum_mean_directional_change',
-            'cum_mean_directional_change_rate',
-            'cum_direction_mean', 'cum_direction_var'
+            'track_id', 'track_uid', 'time_point', 'frame', 
+            'x_coordinate', 'y_coordinate', 'distance', 'direction',
         ],
         'TRACKS': [
-            'track_id', 'track_uid',
-            'y_location', 'x_location',
+            'track_id', 'track_uid', 'y_location', 'x_location',
             'track_length', 'track_displacement', 'straightness_ratio',
             'speed_min', 'speed_max', 'speed_mean', 'speed_sd', 'speed_median',
             'mean_straight_line_speed', 'forward_progression_linearity',
             'max_distance_reached', 'track_start_frame', 'track_end_frame',
-            'direction_mean', 'direction_var', 'mean_directional_change', 'mean_directional_change_rate'
+            'track_points', 'direction_mean', 'direction_var', 
+            'mean_directional_change', 'mean_directional_change_rate'
         ],
-        'TIMEPOINTS': ['time_point', 'frame'],
-        'TIMELAGS': ['time_lag', 'frame_lag']
+        'TIMEPOINTS': [
+            'time_point', 'frame',
+            'cum_track_length', 'cum_track_displacement',
+            'cum_straightness_ratio', 'cum_speed_mean',
+            'instantaneous_speed', 'cum_mean_straight_line_speed',
+            'cum_forward_progression_linearity',
+            'cum_sum_directional_change', 'cum_mean_directional_change',
+        ],
+        'TIMELAGS': [
+            'time_lag', 'frame_lag',
+            'MSD',
+        ]
     }
 
     UNIT_TO_SECONDS = {
@@ -258,17 +262,660 @@ class Calc:
             'circ_var': lambda c: 1.0 - (pl.col(c).sin().mean().pow(2) + pl.col(c).cos().mean().pow(2)).sqrt(),
         }
 
-        # self._spots_registry = self._build_spots_registry()
         self._tracks_registry = self._build_tracks_registry()
         self._timepoints_registry = self._build_timepoints_registry()
         self._timelags_registry = self._build_timelags_registry()
 
+    
+    # DataFrame computation methods
+    # -----------------------------------------------------------------------
 
+    def spots(
+        self,
+        df: pl.DataFrame,
+        subset: list[str] = None,
+        **kwargs
+    ) -> pl.DataFrame:
+        """
+        Computes basic per-trajectory-point metrics (previous -> current position).
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :func:`load_data` function.
+        subset : list[str], optional
+            Subset of columns to consider for the computation, by default None.
+        **kwargs
+            Additional keyword arguments passed to the computation.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `track_id`: Native track identifier included in the input DataFrame.
+            - `track_uid`: Unique track identifier assigned to each track.
+            - `frame`: Frame number within the track (0-based).
+            - `time_point`: Time point of the trajectory point.
+            - `x_coordinate`: X coordinate of the trajectory point.
+            - `y_coordinate`: Y coordinate of the trajectory point.
+            - `distance`: Euclidean distance between the previous and the current position.
+            - `direction`: Direction of movement between the previous and the current position.
+        """
+
+        df = self._guard_df(df)
+
+        if is_empty(df):
+            warnings.warn(message="Input DataFrame is empty. No computation performed.",
+                          category=DataFrameWarning,
+                          stacklevel=2)
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['SPOTS']})
+
+        grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
+
+        df = self.assign_track_uid(df)
+        df = df.sort(grouping_cols + ['track_uid', 'time_point'])
+
+        uid = 'track_uid'
+
+        # frame: dense rank of time_point per track (0-based)
+        df = df.with_columns(
+            (pl.col('time_point').rank(method='dense').over(uid) - 1).cast(pl.Int64).alias('frame')
+        )
+
+        # Validate per TRACK: one time_point -> exactly one frame within a track.
+        bad = (
+            df.group_by([uid, 'time_point'])
+            .agg(pl.col('frame').n_unique().alias('_n'))
+            .select(pl.col('_n').max())
+            .item()
+        )
+        if bad and bad > 1:
+            raise TimePointError(
+                f"Multiple frames assigned to the same track_uid × time_point "
+                f"combination. Duplicate time_point values within a track. "
+                f"Max frames per time point: {bad}."
+            )
+
+        # Step deltas, distance and direction
+        df = df.with_columns(
+            (pl.col('x_coordinate') - pl.col('x_coordinate').shift(1)).over(uid).alias('_dx'),
+            (pl.col('y_coordinate') - pl.col('y_coordinate').shift(1)).over(uid).alias('_dy'),
+        ).with_columns(
+            (pl.col('_dx').pow(2) + pl.col('_dy').pow(2)).sqrt().alias('distance'),
+            pl.arctan2(pl.col('_dy'), pl.col('_dx')).alias('direction'),
+        ).drop(['_dx', '_dy'])
+
+        # Keep only the spot columns (+ categories and color columns)
+        keep = [c for c in df.columns
+                if c in self.COLUMNS['SPOTS'] or c in grouping_cols or c.endswith('color')]
+        df = df.select(keep)
+
+        if subset is not None:
+            _always_keep = ['track_id', 'track_uid', 'time_point', 'frame']
+            requested = set(subset)
+            keep = [c for c in df.columns if c in _always_keep or c in requested or c in grouping_cols]
+            df = df.select(keep)
+
+        if self.significant_figures:
+            df = self.signify(df)
+        if self.decimal_places:
+            df = self.norm_decimals(df)
+
+        return df
+
+    
+    def tracks(
+        self,
+        df: pl.DataFrame,
+        subset: list[str] = None,
+        **kwargs
+    ) -> pl.DataFrame:
+        """
+        Computes per-trajectory metrics.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :meth:`spots` method.
+        subset : list[str], optional
+            List of specific metrics to compute. If None, all available metrics are computed.
+        **kwargs
+            Additional keyword arguments passed to the computation functions.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `track_id`: Native track identifier.
+            - `track_uid`: Unique track identifier.
+            - `y_location`: Mean value of the y-coordinates of the track.
+            - `x_location`: Mean value of the x-coordinates of the track.
+            - `track_length`: Total length of the track.
+            - `track_displacement`: Straight-line distance between the start and end points of the track.
+            - `straightness_ratio`: Ratio of track displacement to track length.
+            - `speed_min`: Minimum speed along the track.
+            - `speed_max`: Maximum speed along the track.
+            - `speed_mean`: Mean speed along the track.
+            - `speed_sd`: Standard deviation of the speed along the track.
+            - `speed_median`: Median speed along the track.
+            - `mean_straight_line_speed`: Track displacement divided by track duration.
+            - `forward_progression_linearity`: Mean straight line speed divided by mean speed. Measures how linearly the track progresses forward.
+            - `max_distance_reached`: Maximum distance reached from the starting point of the track.
+            - `track_start_frame`: Frame at which the track starts.
+            - `track_end_frame`: Frame at which the track ends.
+            - `track_points`: Number of points in the track.
+            - `direction_mean`: Mean direction of movement along the track.
+            - `direction_var`: Variance of the direction of movement along the track.
+            - `mean_directional_change`: Mean change in direction between consecutive points along the track.
+            - `mean_directional_change_rate`: Mean directional change divided by the time interval. Mean rate of change in direction along the track.
+        
+        All metrics are built as polars aggregation expressions and computed in a
+        single `group_by('track_uid').agg(...)` pass. See the original
+        documentation for column descriptions.
+        """
+
+        if is_empty(df):
+            warnings.warn(message="Input DataFrame is empty. No computation performed.",
+                          category=DataFrameWarning, 
+                          stacklevel=2)
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TRACKS']})
+
+        grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
+
+        df = self.assign_track_uid(df)
+        df = df.sort(['track_uid', 'time_point'])
+
+        t_step = self._resolve_t_step(df, 'track stats', kwargs.get('metadata', None))
+
+        # Derive cumulative per-spot metrics needed by the aggregations
+        df = self._enrich_spots(df, t_step)
+
+        # Stash categorical identifiers to merge them back into the result
+        stash_cols = [c for c in grouping_cols if c != 'track_uid']
+        stash = df.select(['track_uid'] + stash_cols).unique(subset=['track_uid'], keep='first')
+
+        wanted = self._tracks_registry.resolve(subset)
+
+        ctx = {
+            'source': df,
+            'by': ['track_uid'],
+            't_step': t_step,
+        }
+        agg = self._tracks_registry.compute(wanted, ctx)
+
+        # Carry over color columns and track_id (first per track)
+        carry = [c for c in df.columns if c.endswith('color')]
+        if 'track_id' in df.columns:
+            carry = ['track_id'] + carry
+        if carry:
+            firsts = df.group_by('track_uid', maintain_order=True).agg(
+                [pl.col(c).first() for c in carry]
+            )
+            agg = agg.join(firsts, on='track_uid', how='left')
+
+        out = stash.join(agg, on='track_uid', how='right')
+
+        # Drop spot-level columns that leaked through
+        drop = [c for c in self.COLUMNS['SPOTS'] if c in out.columns and c not in self.COLUMNS['TRACKS']]
+        out = out.drop(drop).unique(maintain_order=True)
+
+        if self.significant_figures:
+            out = self.signify(out)
+        if self.decimal_places:
+            out = self.norm_decimals(out)
+
+        return out
+
+
+    def timepoints(
+        self,
+        df: pl.DataFrame,
+        subset: list[str] = None,
+        *,
+        grouping_level: Literal['highest', 'lowest'] | str | int | list = 'highest',
+        **kwargs
+    ) -> pl.DataFrame:
+        """
+        Computes time point statistics for categories (groups).
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :meth:`spots` method.
+        subset : list[str], optional
+            List of time point statistics to compute. If None, all available statistics are computed.
+        grouping_level : Literal['highest', 'lowest'] | str | int | list, default='highest'
+            Level(s) at which to group the data for computing time point statistics.
+        **kwargs
+            Additional keyword arguments passed to the computation functions.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `time_point`: Time point of the observation.
+            - `frame`: Frame number of the observation.
+
+            followed by any of (mean, median, std, var, min, max, sum, count, circular_mean, circular_std, circular_var) for columns
+            - `cum_track_length`: Cumulative track length up to the current time point.
+            - `cum_track_displacement`: Cumulative track displacement up to the current time point.
+            - `cum_straightness_ratio`: Cumulative straightness ratio up to the current time point.
+            - `cum_speed_mean`: Cumulative mean speed up to the current time point.
+            - `instantaneous_speed`: Instantaneous speed at the current time point.
+            - `cum_mean_straight_line_speed`: Cumulative mean straight line speed up to the current time point.
+            - `cum_forward_progression_linearity`: Cumulative forward progression linearity up to the current time point.
+            - `cum_sum_directional_change`: Cumulative sum of directional changes up to the current time point.
+            - `cum_mean_directional_change`: Cumulative mean of directional changes up to the current time point.
+
+        One `group_by().agg()` pass per grouping level; all descriptive,
+        error and circular statistics are polars expressions. See the original
+        documentation for details.
+        """
+
+        grouping_set = []
+
+        if (isinstance(grouping_level, list)
+            and (all(isinstance(g, list) for g in grouping_level)
+                 or not any(g in df.columns for g in grouping_level))):
+            for g in grouping_level:
+                grouping_set.append(self._get_grouping_level(df.columns, g, exclude='track_uid'))
+            grouping_cols = max(grouping_set, key=len)
+        else:
+            grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid')
+            grouping_set = [grouping_cols]
+
+        df = self.assign_track_uid(df)
+
+        t_step = self._resolve_t_step(df, 'time point stats', kwargs.get('metadata', None))
+
+        df = self._enrich_spots(df, t_step)
+
+        wanted = self._timepoints_registry.resolve(subset)
+
+        level_frames = []
+        for grouping_cols in grouping_set:
+            group_cols = [grouping_cols[-1]] + ['time_point', 'frame']
+
+            # Stash color columns / parent grouping columns for re-attachment
+            _color_cols = [c for c in df.columns if c.endswith('color')]
+            _color_stash = (
+                df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
+                if _color_cols else None
+            )
+
+            _parent_cols = grouping_cols[:-1]
+            _parent_stash = None
+            if _parent_cols:
+                _key = grouping_cols[-1]
+                _parent_stash = (
+                    df.select([_key] + _parent_cols)
+                    .unique(subset=[_key], keep='first')
+                    .with_columns(pl.col(_key).cast(pl.Utf8))
+                )
+
+            ctx = {
+                'source': df,
+                'by': group_cols,
+                'extra_exprs': {},
+            }
+            level_df = self._timepoints_registry.compute(wanted, ctx)
+
+            if _parent_stash is not None:
+                _key = grouping_cols[-1]
+                level_df = level_df.with_columns(pl.col(_key).cast(pl.Utf8))
+                level_df = level_df.join(_parent_stash, on=_key, how='left')
+
+            level_df = level_df.with_columns(
+                pl.lit(str(grouping_cols[0])).alias('grouping_level')
+            )
+
+            if _color_stash is not None:
+                level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
+
+            level_frames.append(level_df)
+
+        if not level_frames:
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+        out = pl.concat(level_frames, how='diagonal_relaxed')
+
+        # JSON-safe cleanup (no Inf in strict JSON)
+        out = out.with_columns([
+            pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
+            for c, dt in out.schema.items() if dt in (pl.Float32, pl.Float64)
+        ])
+
+        if self.significant_figures:
+            out = self.signify(out)
+        if self.decimal_places:
+            out = self.norm_decimals(out)
+
+        return out
+
+    
+    def timelags(
+        self,
+        df: pl.DataFrame,
+        subset: list[str] = None,
+        *,
+        grouping_level: Literal['highest', 'lowest'] | str | int | list | None = 'highest',
+        **kwargs
+    ) -> pl.DataFrame:
+        """
+        Computes per-time-interval statistics.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame <- the result DataFrame of the :meth:`spots` method.
+        subset : list[str], optional
+            Subset of statistics to compute.
+        grouping_level : Literal['highest', 'lowest'] | str | int | list | None, optional
+            Level at which to group the data.
+        **kwargs
+            Additional keyword arguments passed to the computation functions.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `time_lag`: The time interval between observations.
+            - `frame_lag`: The frame interval between observations.
+            - `MSD`: Mean squared displacement for the given time lag.
+            - `MSD_sd`: Standard deviation of the mean squared displacement for the given time lag.
+            - `tracks_contributing`: Number of tracks contributing to the given time lag.
+            - `position_pairs_contributing`: Number of position pairs contributing to the given time lag.
+            - `directional_change_mean`: Mean directional change for the given time lag.
+            - `directional_change_var`: Variance of the directional change for the given time lag.
+        
+        See the original documentation for the full
+        description; pair-building stays numpy-vectorized, all aggregation runs
+        through a single polars `group_by().agg()` per grouping level.
+        """
+
+        if is_empty(df):
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+        grouping_set = []
+
+        if (isinstance(grouping_level, list)
+            and (all(isinstance(g, list) for g in grouping_level)
+                 or not any(g in df.columns for g in grouping_level))):
+            for g in grouping_level:
+                grouping_set.append(self._get_grouping_level(df.columns, g, exclude='track_uid'))
+            grouping_cols = max(grouping_set, key=len)
+        else:
+            grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid')
+            grouping_set = [grouping_cols]
+
+        df = self.assign_track_uid(df)
+
+        # Unique time points
+        if df['time_point'].n_unique() < 2:
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+        t_step = self._resolve_t_step(df, 'time interval stats', kwargs.get('metadata', None))
+
+        wanted = self._timelags_registry.resolve(subset)
+
+        def _compute_level(source: pl.DataFrame, grouping_cols: list[str]) -> pl.DataFrame:
+            """Compute time-interval stats for a single grouping level."""
+
+            temp = (
+                source
+                .select(grouping_cols + ['track_uid', 'time_point', 'x_coordinate', 'y_coordinate'])
+                .sort(['track_uid', 'time_point'])
+                .with_columns(
+                    (pl.col('time_point').rank('dense').over('track_uid') - 1)
+                    .cast(pl.Int64).alias('_frame'),
+                    pl.len().over('track_uid').alias('_size'),
+                )
+                .filter(pl.col('_size') >= 2)
+                .with_columns(
+                    pl.arctan2(
+                        (pl.col('y_coordinate') - pl.col('y_coordinate').shift(1)).over('track_uid'),
+                        (pl.col('x_coordinate') - pl.col('x_coordinate').shift(1)).over('track_uid'),
+                    ).alias('_theta')
+                )
+            )
+
+            if is_empty(temp):
+                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+            max_lag = int(temp['_frame'].max())
+            if max_lag < 1:
+                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+            uid_arr   = temp['track_uid'].to_numpy()
+            frame_arr = temp['_frame'].to_numpy()
+            x_arr     = temp['x_coordinate'].to_numpy()
+            y_arr     = temp['y_coordinate'].to_numpy()
+            theta_arr = temp['_theta'].to_numpy()
+            cat_arrs  = {c: temp[c].to_numpy() for c in grouping_cols}
+
+            # (track_uid, frame) -> row lookup so a lag pairs points exactly
+            # `lag` frames apart (robust to gaps / non-uniform spacing).
+            pos_of = {k: i for i, k in enumerate(zip(uid_arr.tolist(), frame_arr.tolist()))}
+
+            msd_records: List[pl.DataFrame] = []
+            turn_records: List[pl.DataFrame] = []
+
+            for lag in range(1, max_lag + 1):
+                partner_pos = np.fromiter(
+                    (pos_of.get(k, -1) for k in zip(uid_arr.tolist(), (frame_arr + lag).tolist())),
+                    dtype=np.int64, count=len(uid_arr)
+                )
+                valid_mask = partner_pos >= 0
+                if not valid_mask.any():
+                    continue
+
+                valid_idx   = np.where(valid_mask)[0]
+                partner_idx = partner_pos[valid_idx]
+
+                dx = x_arr[partner_idx] - x_arr[valid_idx]
+                dy = y_arr[partner_idx] - y_arr[valid_idx]
+
+                msd_records.append(pl.DataFrame({
+                    'track_uid': uid_arr[valid_idx],
+                    **{c: cat_arrs[c][valid_idx] for c in grouping_cols},
+                    'sq_disp':   dx * dx + dy * dy,
+                    'frame_lag': np.full(valid_idx.size, lag, dtype=np.int64),
+                    'time_lag':  np.full(valid_idx.size, lag * t_step, dtype=np.float64),
+                }))
+
+                # Turning angle: theta defined only where a preceding step exists
+                theta_now = theta_arr[valid_idx]
+                theta_par = theta_arr[partner_idx]
+                turn_valid = (frame_arr[valid_idx] >= 1) & np.isfinite(theta_now) & np.isfinite(theta_par)
+
+                if turn_valid.any():
+                    ti = valid_idx[turn_valid]
+                    pi = partner_idx[turn_valid]
+                    dtheta = theta_arr[pi] - theta_arr[ti]
+                    dtheta = (dtheta + np.pi) % (2 * np.pi) - np.pi
+                    turn_records.append(pl.DataFrame({
+                        'track_uid': uid_arr[ti],
+                        **{c: cat_arrs[c][ti] for c in grouping_cols},
+                        'dtheta':    dtheta,
+                        'frame_lag': np.full(ti.size, lag, dtype=np.int64),
+                        'time_lag':  np.full(ti.size, lag * t_step, dtype=np.float64),
+                    }))
+
+            if not msd_records:
+                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+            all_msd = pl.concat(msd_records, how='vertical_relaxed')
+            all_turn = (
+                pl.concat(turn_records, how='vertical_relaxed')
+                if turn_records
+                else pl.DataFrame(schema={**{c: all_msd.schema[c] for c in grouping_cols},
+                                          'track_uid': all_msd.schema['track_uid'],
+                                          'dtheta': pl.Float64,
+                                          'frame_lag': pl.Int64, 'time_lag': pl.Float64})
+            )
+
+            lag_group_cols = grouping_cols + ['frame_lag', 'time_lag']
+            ctx = {
+                'source': all_msd,
+                'by': lag_group_cols,
+                'turn_src': all_turn,
+                'circ_cache': {},
+                'extra_exprs': {},
+            }
+            lags = self._timelags_registry.compute(wanted, ctx)
+
+            # Drop columns that produced no data
+            return self._drop_all_null_columns(lags) if not is_empty(lags) else lags
+
+        level_frames = []
+        for grouping_cols in grouping_set:
+
+            _color_cols = [c for c in df.columns if c.endswith('color')]
+            _color_stash = (
+                df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
+                if _color_cols else None
+            )
+
+            level_df = _compute_level(df, grouping_cols)
+
+            if is_empty(level_df):
+                continue
+
+            level_df = level_df.with_columns(
+                pl.lit(str(grouping_cols[0])).alias('grouping_level')
+            )
+
+            if _color_stash is not None:
+                level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
+
+            level_frames.append(level_df)
+
+        if not level_frames:
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+
+        out = pl.concat(level_frames, how='diagonal_relaxed')
+
+        # JSON-safe cleanup
+        out = out.with_columns([
+            pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
+            for c, dt in out.schema.items() if dt in (pl.Float32, pl.Float64)
+        ])
+
+        if self.significant_figures:
+            out = self.signify(out)
+        if self.decimal_places:
+            out = self.norm_decimals(out)
+
+        return out
+
+
+    # Spots enrichment (internal, used by `tracks` and `timepoints`)
     # -----------------------------------------------------------------------
-    # Registry builders
+
+    def _enrich_spots(self, df: pl.DataFrame, t_step: float) -> pl.DataFrame:
+        """Derive cumulative per-spot metrics from the basic spot columns.
+
+        Used internally by `tracks` and `timepoints`. Idempotent: returns the
+        DataFrame unchanged if the derived columns are already present.
+        """
+
+        uid = 'track_uid'
+
+        if 'cum_track_length' in df.columns:
+            return df
+
+        df = df.sort([uid, 'time_point'])
+
+        # (Re)compute basics if the input was raw
+        if 'frame' not in df.columns:
+            df = df.with_columns(
+                (pl.col('time_point').rank(method='dense').over(uid) - 1).cast(pl.Int64).alias('frame')
+            )
+        if 'distance' not in df.columns or 'direction' not in df.columns:
+            df = df.with_columns(
+                (pl.col('x_coordinate') - pl.col('x_coordinate').shift(1)).over(uid).alias('_dx'),
+                (pl.col('y_coordinate') - pl.col('y_coordinate').shift(1)).over(uid).alias('_dy'),
+            ).with_columns(
+                (pl.col('_dx').pow(2) + pl.col('_dy').pow(2)).sqrt().alias('distance'),
+                pl.arctan2(pl.col('_dy'), pl.col('_dx')).alias('direction'),
+            ).drop(['_dx', '_dy'])
+
+        # Cumulative metrics
+        df = df.with_columns(
+            pl.col('distance').cum_sum().over(uid).alias('cum_track_length'),
+            (
+                (pl.col('x_coordinate') - pl.col('x_coordinate').first().over(uid)).pow(2)
+                + (pl.col('y_coordinate') - pl.col('y_coordinate').first().over(uid)).pow(2)
+            ).sqrt().alias('cum_track_displacement'),
+            pl.col('time_point').cum_count().over(uid).cast(pl.Float64).alias('_cumcount'),
+        ).with_columns(
+            pl.when(pl.col('cum_track_displacement') == 0)
+            .then(None).otherwise(pl.col('cum_track_displacement'))
+            .alias('cum_track_displacement'),
+        )
+
+        elapsed = (pl.col('time_point') - pl.col('time_point').first().over(uid))
+        df = df.with_columns(
+            (
+                pl.col('cum_track_displacement')
+                / pl.when(pl.col('cum_track_length') == 0).then(None).otherwise(pl.col('cum_track_length'))
+            ).alias('cum_straightness_ratio'),
+            (
+                pl.col('cum_track_length')
+                / pl.when(elapsed == 0).then(None).otherwise(elapsed)
+            ).alias('cum_speed_mean'),
+        ).with_columns(
+            (pl.col('cum_track_displacement') / (pl.col('_cumcount') * t_step))
+            .alias('cum_mean_straight_line_speed'),
+        ).with_columns(
+            (pl.col('cum_mean_straight_line_speed') / pl.col('cum_speed_mean'))
+            .alias('cum_forward_progression_linearity'),
+        )
+
+        # Turning angle (deg, wrapped, abs) and its cumulative statistics
+        df = df.with_columns(
+            (
+                ((pl.col('direction') - pl.col('direction').shift(1)).over(uid) + np.pi)
+                .mod(2 * np.pi) - np.pi
+            ).abs().degrees().alias('directional_change')
+        ).with_columns(
+            pl.col('directional_change').cum_sum().over(uid).alias('cum_sum_directional_change'),
+            pl.col('directional_change').is_not_null().cum_sum().over(uid)
+            .cast(pl.Float64).alias('_valid_count'),
+        ).with_columns(
+            (
+                pl.col('cum_sum_directional_change')
+                / pl.when(pl.col('_valid_count') == 0).then(None).otherwise(pl.col('_valid_count'))
+            ).alias('cum_mean_directional_change')
+        ).with_columns(
+            pl.when(pl.col('directional_change').is_null())
+            .then(None).otherwise(pl.col('cum_mean_directional_change'))
+            .alias('cum_mean_directional_change'),
+        ).with_columns(
+            (pl.col('cum_mean_directional_change') / (pl.col('_cumcount') * t_step))
+            .alias('cum_mean_directional_change_rate'),
+        )
+
+        # Cumulative circular mean / variance of direction
+        df = df.with_columns(
+            pl.col('direction').sin().cum_sum().over(uid).alias('_cum_sin'),
+            pl.col('direction').cos().cum_sum().over(uid).alias('_cum_cos'),
+            (pl.col('_cumcount') - 1).alias('_n_angles'),
+        ).with_columns(
+            pl.arctan2(pl.col('_cum_sin'), pl.col('_cum_cos')).alias('cum_direction_mean'),
+            (
+                1.0 - (pl.col('_cum_sin').pow(2) + pl.col('_cum_cos').pow(2)).sqrt()
+                / pl.when(pl.col('_n_angles') == 0).then(None).otherwise(pl.col('_n_angles'))
+            ).alias('cum_direction_var'),
+        ).with_columns(
+            pl.when(pl.col('_n_angles') == 0).then(None)
+            .when(pl.col('_n_angles') == 1).then(0.0)
+            .otherwise(pl.col('cum_direction_var'))
+            .alias('cum_direction_var'),
+        )
+
+        return df.drop(['_cumcount', '_valid_count', '_cum_sin', '_cum_cos', '_n_angles'])
+
+
+    
+    # Metrics registry builders
     # -----------------------------------------------------------------------
-    def _build_spots_registry(self) -> MetricRegistry:
-        ...
 
     def _build_tracks_registry(self) -> MetricRegistry:
         """One aggregation expression per TRACKS output column.
@@ -463,9 +1110,70 @@ class Calc:
 
         return reg
 
+
+
+    # DataFrame handling
     # -----------------------------------------------------------------------
-    # Shared helpers
+
+    @staticmethod
+    def _drop_all_null_columns(df: pl.DataFrame) -> pl.DataFrame:
+        keep = [c for c in df.columns if df[c].null_count() < df.height]
+        return df.select(keep)
+    
+    @staticmethod
+    def _ensure_polars(df) -> pl.DataFrame:
+        """ Convert the :class:`InputMetadata` wrapper or a pandas DataFrame to a Polars DataFrame. """
+
+        if isinstance(df, pl.DataFrame):
+            return df
+        
+        if hasattr(df, 'df') and isinstance(getattr(df, 'df'), pl.DataFrame):
+            return df.df  # loader's Input wrapper
+        
+        try:
+            import pandas as pd
+            if isinstance(df, pd.DataFrame):
+                return pl.from_pandas(df)
+            
+        except ImportError:
+            pass
+
+        raise TypeError(f"Expected a polars DataFrame, got {type(df).__name__}.")
+    
+
+    def _capture_metadata(self, df) -> pl.DataFrame:
+        """ Carry over an Input wrapper's `.metadata` onto `self.metadata` (instance),
+            `Calc.metadata` and, if applicable, `DataObject.metadata`, then return the DataFrame. """
+
+        try:
+            meta = df.metadata.get()
+            captured = meta.copy() if meta is not None else None
+            captured.pop('columns', None)
+
+        except Exception:
+            captured = None
+
+        # instance attribute (covers DataObject instances via inheritance)
+        self.metadata = captured
+
+        # class-level "constants"
+        Calc.metadata = captured
+        type(self).metadata = captured  # e.g. DataObject.metadata when called on a DataObject
+
+        return df
+
+
+    def _guard_df(self, df) -> pl.DataFrame:
+        """ Ensure the DataFrame is a polars DataFrame and capture its metadata. """
+
+        return self._ensure_polars(
+            self._capture_metadata(df)
+        )
+
+
+    # Time resolution, track UID assignment and grouping helpers
     # -----------------------------------------------------------------------
+
     def _resolve_t_step(self, df: pl.DataFrame, context: str, metadata: dict | None = None) -> float:
         """Resolve the time step from data (or self.t_step if set)."""
         if metadata is not None:
@@ -484,555 +1192,16 @@ class Calc:
         t_step = float(np.median(t_steps))
         warnings.warn(
             message=(f"Time points are not uniformly spaced -> this will most probably lead to "
-                     f"incorrect data computation. ({context})\nObserved time steps:\n{t_steps}\nUsing: {t_step}"),
+                        f"incorrect data computation. ({context})\nObserved time steps:\n{t_steps}\nUsing: {t_step}"),
             category=TimePointWarning,
             stacklevel=3,
         )
         return t_step
+    
 
-    @staticmethod
-    def _drop_all_null_columns(df: pl.DataFrame) -> pl.DataFrame:
-        keep = [c for c in df.columns if df[c].null_count() < df.height]
-        return df.select(keep)
-
-    # -----------------------------------------------------------------------
-    # SPOTS
-    # -----------------------------------------------------------------------
-    def spots(
-        self,
-        df: pl.DataFrame,
-        subset: list[str] = None,
-        **kwargs
-    ) -> pl.DataFrame:
-        """Computes per-trajectory-point statistics, both local (previous -> current
-        position) and cumulative (start -> current position).
-
-        Fully vectorized via polars window expressions (`.over('track_uid')`);
-        see the original documentation for column descriptions.
-        """
-
-        if is_empty(df):
-            warnings.warn(message="Input DataFrame is empty. No computation performed.",
-                          category=DataFrameWarning, stacklevel=2)
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['SPOTS']})
-
-        grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
-
-        df = self._ensure_polars(df)
-        df = self.assign_track_uid(df)
-
-        # Sort so that each track's rows are contiguous and time-ordered.
-        df = df.sort(grouping_cols + ['track_uid', 'time_point'])
-
-        t_step = self._resolve_t_step(df, 'spot stats + time stats', kwargs.get('metadata', None))
-
-        uid = 'track_uid'
-
-        # frame: dense rank of time_point per track (0-based)
-        df = df.with_columns(
-            (pl.col('time_point').rank(method='dense').over(uid) - 1).cast(pl.Int64).alias('frame')
-        )
-
-        # Validate per TRACK: one time_point -> exactly one frame within a track.
-        bad = (
-            df.group_by([uid, 'time_point'])
-            .agg(pl.col('frame').n_unique().alias('_n'))
-            .select(pl.col('_n').max())
-            .item()
-        )
-        if bad and bad > 1:
-            raise TimePointError(
-                f"Multiple frames assigned to the same track_uid × time_point "
-                f"combination. Duplicate time_point values within a track. "
-                f"Max frames per time point: {bad}."
-            )
-
-        # Step deltas + distance between the previous and the current position
-        df = df.with_columns(
-            (pl.col('x_coordinate') - pl.col('x_coordinate').shift(1)).over(uid).alias('_dx'),
-            (pl.col('y_coordinate') - pl.col('y_coordinate').shift(1)).over(uid).alias('_dy'),
-        ).with_columns(
-            (pl.col('_dx').pow(2) + pl.col('_dy').pow(2)).sqrt().alias('distance')
-        )
-
-        # Cumulative metrics
-        df = df.with_columns(
-            pl.col('distance').cum_sum().over(uid).alias('cum_track_length'),
-            (
-                (pl.col('x_coordinate') - pl.col('x_coordinate').first().over(uid)).pow(2)
-                + (pl.col('y_coordinate') - pl.col('y_coordinate').first().over(uid)).pow(2)
-            ).sqrt().alias('cum_track_displacement'),
-            pl.col('time_point').cum_count().over(uid).cast(pl.Float64).alias('_cumcount'),
-        ).with_columns(
-            # zero displacement (start point) -> null, matching prior behavior
-            pl.when(pl.col('cum_track_displacement') == 0)
-            .then(None).otherwise(pl.col('cum_track_displacement'))
-            .alias('cum_track_displacement'),
-        )
-
-        elapsed = (pl.col('time_point') - pl.col('time_point').first().over(uid))
-        df = df.with_columns(
-            (
-                pl.col('cum_track_displacement')
-                / pl.when(pl.col('cum_track_length') == 0).then(None).otherwise(pl.col('cum_track_length'))
-            ).alias('cum_straightness_ratio'),
-            (
-                pl.col('cum_track_length')
-                / pl.when(elapsed == 0).then(None).otherwise(elapsed)
-            ).alias('cum_speed_mean'),
-        ).with_columns(
-            (pl.col('cum_track_displacement') / (pl.col('_cumcount') * t_step))
-            .alias('cum_mean_straight_line_speed'),
-        ).with_columns(
-            (pl.col('cum_mean_straight_line_speed') / pl.col('cum_speed_mean'))
-            .alias('cum_forward_progression_linearity'),
-        )
-
-        # Instantaneous direction (rad) and turning angle (deg, wrapped, abs)
-        df = df.with_columns(
-            pl.arctan2(pl.col('_dy'), pl.col('_dx')).alias('direction')
-        ).with_columns(
-            (
-                ((pl.col('direction') - pl.col('direction').shift(1)).over(uid) + np.pi)
-                .mod(2 * np.pi) - np.pi
-            ).abs().degrees().alias('directional_change')
-        )
-
-        # Cumulative sum / running mean of directional change (nulls skipped)
-        df = df.with_columns(
-            pl.col('directional_change').cum_sum().over(uid).alias('cum_sum_directional_change'),
-            pl.col('directional_change').is_not_null().cum_sum().over(uid)
-            .cast(pl.Float64).alias('_valid_count'),
-        ).with_columns(
-            (
-                pl.col('cum_sum_directional_change')
-                / pl.when(pl.col('_valid_count') == 0).then(None).otherwise(pl.col('_valid_count'))
-            ).alias('cum_mean_directional_change')
-        ).with_columns(
-            # First two points of each track have no directional change
-            pl.when(pl.col('directional_change').is_null())
-            .then(None).otherwise(pl.col('cum_mean_directional_change'))
-            .alias('cum_mean_directional_change'),
-        ).with_columns(
-            (pl.col('cum_mean_directional_change') / (pl.col('_cumcount') * t_step))
-            .alias('cum_mean_directional_change_rate'),
-        )
-
-        # Cumulative circular mean / variance of direction
-        df = df.with_columns(
-            pl.col('direction').sin().cum_sum().over(uid).alias('_cum_sin'),
-            pl.col('direction').cos().cum_sum().over(uid).alias('_cum_cos'),
-            (pl.col('_cumcount') - 1).alias('_n_angles'),
-        ).with_columns(
-            pl.arctan2(pl.col('_cum_sin'), pl.col('_cum_cos')).alias('cum_direction_mean'),
-            (
-                1.0 - (pl.col('_cum_sin').pow(2) + pl.col('_cum_cos').pow(2)).sqrt()
-                / pl.when(pl.col('_n_angles') == 0).then(None).otherwise(pl.col('_n_angles'))
-            ).alias('cum_direction_var'),
-        ).with_columns(
-            pl.when(pl.col('_n_angles') == 0).then(None)
-            .when(pl.col('_n_angles') == 1).then(0.0)
-            .otherwise(pl.col('cum_direction_var'))
-            .alias('cum_direction_var'),
-        )
-
-        # Drop helpers + all-null columns
-        df = df.drop(['_dx', '_dy', '_cumcount', '_valid_count', '_cum_sin', '_cum_cos', '_n_angles'])
-        df = self._drop_all_null_columns(df)
-
-        if subset is not None:
-            _always_keep = ['track_id', 'track_uid', 'time_point', 'frame']
-            requested = set(subset)
-            keep = [c for c in df.columns if c in _always_keep or c in requested or c in grouping_cols]
-            df = df.select(keep)
-
-        if self.significant_figures:
-            df = self.signify(df)
-        if self.decimal_places:
-            df = self.norm_decimals(df)
-
-        return df
-
-    # -----------------------------------------------------------------------
-    # TRACKS
-    # -----------------------------------------------------------------------
-    def tracks(
-        self,
-        df: pl.DataFrame,
-        subset: list[str] = None,
-        *,
-        to_disk: bool = ...,
-        **kwargs
-    ) -> pl.DataFrame:
-        """Computes track-level statistics for each trajectory of the input Spots_df.
-
-        All metrics are built as polars aggregation expressions and computed in a
-        single `group_by('track_uid').agg(...)` pass. See the original
-        documentation for column descriptions.
-        """
-
-        if is_empty(df):
-            warnings.warn(message="Input DataFrame is empty. No computation performed.",
-                          category=DataFrameWarning, stacklevel=2)
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TRACKS']})
-
-        grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
-
-        df = self.assign_track_uid(df)
-        df = df.sort(['track_uid', 'time_point'])
-
-        t_step = self._resolve_t_step(df, 'track stats', kwargs.get('metadata', None))
-
-        # Stash categorical identifiers to merge them back into the result
-        stash_cols = [c for c in grouping_cols if c != 'track_uid']
-        stash = df.select(['track_uid'] + stash_cols).unique(subset=['track_uid'], keep='first')
-
-        wanted = self._tracks_registry.resolve(subset)
-
-        ctx = {
-            'source': df,
-            'by': ['track_uid'],
-            't_step': t_step,
-        }
-        agg = self._tracks_registry.compute(wanted, ctx)
-
-        # Carry over color columns and track_id (first per track)
-        carry = [c for c in df.columns if c.endswith('color')]
-        if 'track_id' in df.columns:
-            carry = ['track_id'] + carry
-        if carry:
-            firsts = df.group_by('track_uid', maintain_order=True).agg(
-                [pl.col(c).first() for c in carry]
-            )
-            agg = agg.join(firsts, on='track_uid', how='left')
-
-        out = stash.join(agg, on='track_uid', how='right')
-
-        # Drop spot-level columns that leaked through
-        drop = [c for c in self.COLUMNS['SPOTS'] if c in out.columns and c not in self.COLUMNS['TRACKS']]
-        out = out.drop(drop).unique(maintain_order=True)
-
-        if self.significant_figures:
-            out = self.signify(out)
-        if self.decimal_places:
-            out = self.norm_decimals(out)
-
-        return out
-
-    # -----------------------------------------------------------------------
-    # TIME POINTS
-    # -----------------------------------------------------------------------
-    def timepoints(
-        self,
-        df: pl.DataFrame,
-        subset: list[str] = None,
-        *,
-        grouping_level: Literal['highest', 'lowest'] | str | int | list = 'highest',
-        to_disk: bool = ...,
-        **kwargs
-    ) -> pl.DataFrame:
-        """Computes time point statistics for each category (group).
-
-        One `group_by().agg()` pass per grouping level; all descriptive,
-        error and circular statistics are polars expressions. See the original
-        documentation for details.
-        """
-
-        grouping_set = []
-
-        if (isinstance(grouping_level, list)
-            and (all(isinstance(g, list) for g in grouping_level)
-                 or not any(g in df.columns for g in grouping_level))):
-            for g in grouping_level:
-                grouping_set.append(self._get_grouping_level(df.columns, g, exclude='track_uid'))
-            grouping_cols = max(grouping_set, key=len)
-        else:
-            grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid')
-            grouping_set = [grouping_cols]
-
-        df = self.assign_track_uid(df)
-
-        wanted = self._timepoints_registry.resolve(subset)
-
-        level_frames = []
-        for grouping_cols in grouping_set:
-            group_cols = [grouping_cols[-1]] + ['time_point', 'frame']
-
-            # Stash color columns / parent grouping columns for re-attachment
-            _color_cols = [c for c in df.columns if c.endswith('color')]
-            _color_stash = (
-                df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
-                if _color_cols else None
-            )
-
-            _parent_cols = grouping_cols[:-1]
-            _parent_stash = None
-            if _parent_cols:
-                _key = grouping_cols[-1]
-                _parent_stash = (
-                    df.select([_key] + _parent_cols)
-                    .unique(subset=[_key], keep='first')
-                    .with_columns(pl.col(_key).cast(pl.Utf8))
-                )
-
-            ctx = {
-                'source': df,
-                'by': group_cols,
-                'extra_exprs': {},
-            }
-            level_df = self._timepoints_registry.compute(wanted, ctx)
-
-            if _parent_stash is not None:
-                _key = grouping_cols[-1]
-                level_df = level_df.with_columns(pl.col(_key).cast(pl.Utf8))
-                level_df = level_df.join(_parent_stash, on=_key, how='left')
-
-            level_df = level_df.with_columns(
-                pl.lit(str(grouping_cols[0])).alias('grouping_level')
-            )
-
-            if _color_stash is not None:
-                level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
-
-            level_frames.append(level_df)
-
-        if not level_frames:
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-        out = pl.concat(level_frames, how='diagonal_relaxed')
-
-        # JSON-safe cleanup (no Inf in strict JSON)
-        out = out.with_columns([
-            pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
-            for c, dt in out.schema.items() if dt in (pl.Float32, pl.Float64)
-        ])
-
-        if self.significant_figures:
-            out = self.signify(out)
-        if self.decimal_places:
-            out = self.norm_decimals(out)
-
-        return out
-
-    # -----------------------------------------------------------------------
-    # TIME LAGS
-    # -----------------------------------------------------------------------
-    def timelags(
-        self,
-        df: pl.DataFrame,
-        subset: list[str] = None,
-        *,
-        grouping_level: Literal['highest', 'lowest'] | str | int | list | None = 'highest',
-        to_disk: bool = ...,
-        **kwargs
-    ) -> pl.DataFrame:
-        """Computes per-time-interval statistics (MSD, turning angles, contribution
-        counts) per `frame_lag`. See the original documentation for the full
-        description; pair-building stays numpy-vectorized, all aggregation runs
-        through a single polars `group_by().agg()` per grouping level.
-        """
-
-        if is_empty(df):
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-        grouping_set = []
-
-        if (isinstance(grouping_level, list)
-            and (all(isinstance(g, list) for g in grouping_level)
-                 or not any(g in df.columns for g in grouping_level))):
-            for g in grouping_level:
-                grouping_set.append(self._get_grouping_level(df.columns, g, exclude='track_uid'))
-            grouping_cols = max(grouping_set, key=len)
-        else:
-            grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid')
-            grouping_set = [grouping_cols]
-
-        df = self.assign_track_uid(df)
-
-        # Unique time points
-        if df['time_point'].n_unique() < 2:
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-        t_step = self._resolve_t_step(df, 'time interval stats', kwargs.get('metadata', None))
-
-        wanted = self._timelags_registry.resolve(subset)
-
-        def _compute_level(source: pl.DataFrame, grouping_cols: list[str]) -> pl.DataFrame:
-            """Compute time-interval stats for a single grouping level."""
-
-            temp = (
-                source
-                .select(grouping_cols + ['track_uid', 'time_point', 'x_coordinate', 'y_coordinate'])
-                .sort(['track_uid', 'time_point'])
-                .with_columns(
-                    (pl.col('time_point').rank('dense').over('track_uid') - 1)
-                    .cast(pl.Int64).alias('_frame'),
-                    pl.len().over('track_uid').alias('_size'),
-                )
-                .filter(pl.col('_size') >= 2)
-                .with_columns(
-                    pl.arctan2(
-                        (pl.col('y_coordinate') - pl.col('y_coordinate').shift(1)).over('track_uid'),
-                        (pl.col('x_coordinate') - pl.col('x_coordinate').shift(1)).over('track_uid'),
-                    ).alias('_theta')
-                )
-            )
-
-            if is_empty(temp):
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-            max_lag = int(temp['_frame'].max())
-            if max_lag < 1:
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-            uid_arr   = temp['track_uid'].to_numpy()
-            frame_arr = temp['_frame'].to_numpy()
-            x_arr     = temp['x_coordinate'].to_numpy()
-            y_arr     = temp['y_coordinate'].to_numpy()
-            theta_arr = temp['_theta'].to_numpy()
-            cat_arrs  = {c: temp[c].to_numpy() for c in grouping_cols}
-
-            # (track_uid, frame) -> row lookup so a lag pairs points exactly
-            # `lag` frames apart (robust to gaps / non-uniform spacing).
-            pos_of = {k: i for i, k in enumerate(zip(uid_arr.tolist(), frame_arr.tolist()))}
-
-            msd_records: List[pl.DataFrame] = []
-            turn_records: List[pl.DataFrame] = []
-
-            for lag in range(1, max_lag + 1):
-                partner_pos = np.fromiter(
-                    (pos_of.get(k, -1) for k in zip(uid_arr.tolist(), (frame_arr + lag).tolist())),
-                    dtype=np.int64, count=len(uid_arr)
-                )
-                valid_mask = partner_pos >= 0
-                if not valid_mask.any():
-                    continue
-
-                valid_idx   = np.where(valid_mask)[0]
-                partner_idx = partner_pos[valid_idx]
-
-                dx = x_arr[partner_idx] - x_arr[valid_idx]
-                dy = y_arr[partner_idx] - y_arr[valid_idx]
-
-                msd_records.append(pl.DataFrame({
-                    'track_uid': uid_arr[valid_idx],
-                    **{c: cat_arrs[c][valid_idx] for c in grouping_cols},
-                    'sq_disp':   dx * dx + dy * dy,
-                    'frame_lag': np.full(valid_idx.size, lag, dtype=np.int64),
-                    'time_lag':  np.full(valid_idx.size, lag * t_step, dtype=np.float64),
-                }))
-
-                # Turning angle: theta defined only where a preceding step exists
-                theta_now = theta_arr[valid_idx]
-                theta_par = theta_arr[partner_idx]
-                turn_valid = (frame_arr[valid_idx] >= 1) & np.isfinite(theta_now) & np.isfinite(theta_par)
-
-                if turn_valid.any():
-                    ti = valid_idx[turn_valid]
-                    pi = partner_idx[turn_valid]
-                    dtheta = theta_arr[pi] - theta_arr[ti]
-                    dtheta = (dtheta + np.pi) % (2 * np.pi) - np.pi
-                    turn_records.append(pl.DataFrame({
-                        'track_uid': uid_arr[ti],
-                        **{c: cat_arrs[c][ti] for c in grouping_cols},
-                        'dtheta':    dtheta,
-                        'frame_lag': np.full(ti.size, lag, dtype=np.int64),
-                        'time_lag':  np.full(ti.size, lag * t_step, dtype=np.float64),
-                    }))
-
-            if not msd_records:
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-            all_msd = pl.concat(msd_records, how='vertical_relaxed')
-            all_turn = (
-                pl.concat(turn_records, how='vertical_relaxed')
-                if turn_records
-                else pl.DataFrame(schema={**{c: all_msd.schema[c] for c in grouping_cols},
-                                          'track_uid': all_msd.schema['track_uid'],
-                                          'dtheta': pl.Float64,
-                                          'frame_lag': pl.Int64, 'time_lag': pl.Float64})
-            )
-
-            lag_group_cols = grouping_cols + ['frame_lag', 'time_lag']
-            ctx = {
-                'source': all_msd,
-                'by': lag_group_cols,
-                'turn_src': all_turn,
-                'circ_cache': {},
-                'extra_exprs': {},
-            }
-            lags = self._timelags_registry.compute(wanted, ctx)
-
-            # Drop columns that produced no data
-            return self._drop_all_null_columns(lags) if not is_empty(lags) else lags
-
-        level_frames = []
-        for grouping_cols in grouping_set:
-
-            _color_cols = [c for c in df.columns if c.endswith('color')]
-            _color_stash = (
-                df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
-                if _color_cols else None
-            )
-
-            level_df = _compute_level(df, grouping_cols)
-
-            if is_empty(level_df):
-                continue
-
-            level_df = level_df.with_columns(
-                pl.lit(str(grouping_cols[0])).alias('grouping_level')
-            )
-
-            if _color_stash is not None:
-                level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
-
-            level_frames.append(level_df)
-
-        if not level_frames:
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
-
-        out = pl.concat(level_frames, how='diagonal_relaxed')
-
-        # JSON-safe cleanup
-        out = out.with_columns([
-            pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
-            for c, dt in out.schema.items() if dt in (pl.Float32, pl.Float64)
-        ])
-
-        if self.significant_figures:
-            out = self.signify(out)
-        if self.decimal_places:
-            out = self.norm_decimals(out)
-
-        return out
-
-
-    # -----------------------------------------------------------------------
-    # Shared helpers
-    # -----------------------------------------------------------------------
-    @staticmethod
-    def _ensure_polars(df) -> pl.DataFrame:
-        """Accept pandas DataFrames / Input wrappers transparently."""
-        if isinstance(df, pl.DataFrame):
-            return df
-        if hasattr(df, 'df') and isinstance(getattr(df, 'df'), pl.DataFrame):
-            return df.df  # loader's Input wrapper
-        try:
-            import pandas as pd
-            if isinstance(df, pd.DataFrame):
-                return pl.from_pandas(df)
-        except ImportError:
-            pass
-        raise TypeError(f"Expected a polars DataFrame, got {type(df).__name__}.")
-
-    # -----------------------------------------------------------------------
-    # Utilities
-    # -----------------------------------------------------------------------
     def assign_track_uid(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Creates a unique track identifier `track_uid` by combining the category
-        columns present in the DataFrame with `track_id`, so each physical track
-        gets its own uid."""
+        """ Creates a unique track identifier `track_uid` by combining the category columns present 
+            in the DataFrame with `track_id` -> each existing track gets its own unique identifier. """
 
         if 'track_uid' in df.columns:
             return df
@@ -1066,6 +1235,28 @@ class Calc:
         include: str | list[str] | None = None,
         exclude: str | list[str] | None = None,
     ) -> list | list[list]:
+        """ 
+        Determine the appropriate grouping columns based on the specified grouping level, inclusion, and exclusion criteria. 
+        
+        Parameters
+        ----------
+        df_cols : list
+            The columns of the DataFrame to consider for grouping.
+        grouping_level : Literal['highest', 'lowest'] | str | int | list | None, optional
+            The desired grouping level. Can be 'highest', 'lowest', a specific column name, an integer index, a list of levels, or None. Default is 'highest'.
+        multiple : bool, optional
+            Whether to allow multiple grouping levels when a list is provided. Default is False.
+        include : str | list[str] | None, optional
+            Columns to explicitly include in the grouping, even if not part of the default categories. Default is None.
+        exclude : str | list[str] | None, optional
+            Columns to explicitly exclude from the grouping. Default is None.
+
+        Returns
+        -------
+        list | list[list]
+            The determined grouping columns based on the specified criteria.
+        
+        """
 
         if not isinstance(include, list):
             include = [include] if include is not None else []
@@ -1111,11 +1302,11 @@ class Calc:
         return grouping_cols
 
 
+    # Formatting
     # -----------------------------------------------------------------------
-    # Formatting helpers
-    # -----------------------------------------------------------------------
+
     def format_digits(self, df: pl.DataFrame, *, sig_figs: int = None, decimals: int = None) -> pl.DataFrame:
-        """Formats numeric values according to significant figures / decimals."""
+        """ Formats numeric values according to significant figures / decimals. """
         if sig_figs:
             df = self.signify(df, sig_figs=sig_figs)
         if decimals:
@@ -1124,7 +1315,7 @@ class Calc:
 
 
     def signify(self, df: pl.DataFrame, *, sig_figs: int = None) -> pl.DataFrame:
-        """Round numeric values to a number of significant figures."""
+        """ Round numeric values to a number of significant figures. """
         if is_empty(df):
             return df
 
@@ -1143,7 +1334,8 @@ class Calc:
 
 
     def norm_decimals(self, df: pl.DataFrame, decimals: int = None) -> pl.DataFrame:
-        """Normalize decimal places across numeric columns."""
+        """ Normalize decimal places across numeric columns. """
+
         if is_empty(df):
             return df
 
@@ -1155,8 +1347,8 @@ class Calc:
 
 
     def _general_agg_stats(self, df: pl.DataFrame, exclude: list[str], *, group_by: list[str] = ['track_uid']) -> pl.DataFrame:
-        """Compute general aggregate statistics (min, max, mean, sd, sem, median)
-        for numeric columns, grouped by `group_by`, excluding given columns."""
+        """ Compute general aggregate statistics (min, max, mean, sd, sem, median)
+            for numeric columns, grouped by `group_by`, excluding given columns. """
 
         exclude = [col for col in (exclude or []) if col != 'track_uid']
 
@@ -1374,128 +1566,70 @@ class Calc:
         return np.std(x, ddof=1) / np.sqrt(n)
 
 
-    def stat_units(self, col: str = None, *, time_unit: str = None, **kwargs) -> dict[str, str]:
-        """Returns a dictionary mapping metric names to their corresponding units."""
+    def units(self, col: str = None, **kwargs) -> dict[str, str] | str:
+        """Returns a dictionary of columns with their corresponding units or the corresponding units to the specified column."""
 
-        if self.metadata is not None and 'timeunits' in self.metadata:
-            t_unit = self.metadata['timeunits']
+        if self.metadata is not None:
+            if 'timeunits' in self.metadata:
+                timeunits = self.metadata['timeunits']
+            else:
+                timeunits = '<timeunits not found>'
+            if 'spatialunits' in self.metadata:
+                spatialunits = self.metadata['spatialunits']
+            else:
+                spatialunits = '<spatialunits not found>'
         else:
-            t_unit = '_'
+            timeunits = '<timeunits not found>'
+            spatialunits = '<spatialunits not found>'
 
         units = {
-            # Spotstats metrics
-            'x_coordinate': 'µm',
-            'y_coordinate': 'µm',
-            'time_point': f'{t_unit}',
-            'distance': 'µm',
-            'instantaneous_speed': f'µm ⋅ {t_unit}⁻¹',
-            'cum_track_length': 'µm',
-            'cum_track_displacement': 'µm',
-            'cum_straightness_ratio': 'µm',
-            'cum_speed_mean': f'µm ⋅ {t_unit}⁻¹',
-            'cum_mean_straight_line_speed': f'µm ⋅ {t_unit}⁻¹',
-            'cum_forward_progression_linearity': 'µm',
+            'x_coordinate': f'{spatialunits}',
+            'y_coordinate': f'{spatialunits}',
+            'time_point': f'{timeunits}',
+            'frame': '',
+            'distance': f'{spatialunits}',
+            'instantaneous_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'cum_track_length': f'{spatialunits}',
+            'cum_track_displacement': f'{spatialunits}',
+            'cum_straightness_ratio': f'{spatialunits}',
+            'cum_speed_mean': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'cum_mean_straight_line_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'cum_forward_progression_linearity': f'{spatialunits}',
             'direction': 'rad',
             'directional_change': 'rad',
             'cum_sum_directional_change': 'rad',
             'cum_mean_directional_change': 'rad',
-            'cum_mean_directional_change_rate': f'rad ⋅ {t_unit}⁻¹',
+            'cum_mean_directional_change_rate': f'rad ⋅ {timeunits}⁻¹',
             'cum_direction_mean': 'rad',
+            'cum_direction_var': '',
 
-            # Trackstats metrics
-            'y_location': 'µm',
-            'x_location': 'µm',
-            'track_length': 'µm',
-            'track_displacement': 'µm',
-            'speed_min': f'µm ⋅ {t_unit}⁻¹',
-            'speed_max': f'µm ⋅ {t_unit}⁻¹',
-            'speed_mean': f'µm ⋅ {t_unit}⁻¹',
-            'speed_sd': f'µm ⋅ {t_unit}⁻¹',
-            'speed_median': f'µm ⋅ {t_unit}⁻¹',
-            'mean_straight_line_speed': f'µm ⋅ {t_unit}⁻¹',
-            'max_distance_reached': 'µm',
+            'y_location': f'{spatialunits}',
+            'x_location': f'{spatialunits}',
+            'track_length': f'{spatialunits}',
+            'track_displacement': f'{spatialunits}',
+            'speed_min': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'speed_max': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'speed_mean': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'speed_sd': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'speed_median': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'mean_straight_line_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
+            'max_distance_reached': f'{spatialunits}',
             'direction_mean': 'rad',
             'mean_directional_change': 'rad',
-            'mean_directional_change_rate': f'rad ⋅ {t_unit}⁻¹',
+            'mean_directional_change_rate': f'rad ⋅ {timeunits}⁻¹',
 
-            # Timeintervalstats metrics
-            'time_lag': f'{t_unit}',
-            'msd': 'µm²',
+            'time_lag': f'{timeunits}',
+            'msd': f'{spatialunits}²',
             'directional_change_mean': 'rad',
         }
 
-        if kwargs.get('time_data', False):
-            units.update({
-                'time_point': f'{t_unit}',
-                'frame': '',
-                'cum_track_length': 'µm',
-                'cum_track_displacement': 'µm',
-                'cum_speed_mean': 'µm',
-                'instantaneous_speed': 'µm',
-                'cum_mean_straight_line_speed': 'µm',
-                'cum_sum_directional_change': 'rad',
-                'cum_mean_directional_change': 'rad',
-                'cum_mean_directional_change_rate': f'rad  ⋅ {t_unit}⁻¹',
-                'instantaneous_direction_mean': 'rad',
-                'cum_direction_mean': 'rad',
-            })
-
         if col is not None:
-            return units.get(col, None)
+            if col not in units.keys():
+                warnings.warn(f"Column '{col}' not found in units dictionary.", category=FailedWarning, stacklevel=2)
+                return ''
+            return units[col]
         return units
 
 
-# class Summarize:
-#     """Contains static methods utilized in the Peregrin Shiny App"""
 
-#     @staticmethod
-#     def dataframe_summary(df: pl.DataFrame) -> dict:
-#         missing = sum(df[c].null_count() for c in df.columns)
-#         return {
-#             "rows": df.height,
-#             "columns": df.width,
-#             "missing_cells": int(missing),
-#             "memory_mb": round(df.estimated_size() / 1e6, 2),
-#         }
-
-#     @staticmethod
-#     def column_summary(series: pl.Series) -> dict:
-#         if series.dtype.is_numeric():
-#             s = series.cast(pl.Float64, strict=False)
-#             s = s.set(s.is_infinite(), None)
-
-#             if s.len() - s.null_count() > 0:
-#                 mode = s.drop_nulls().mode()
-#                 return {
-#                     "type": "type_one",
-#                     "missing": int(series.null_count()),
-#                     "distinct": int(series.n_unique() - (1 if series.null_count() else 0)),
-#                     "min": s.min(),
-#                     "max": s.max(),
-#                     "mean": s.mean(),
-#                     "median": s.median(),
-#                     "mode": float(mode[0]) if mode.len() else None,
-#                     "sd": s.std(ddof=1),
-#                     "variance": s.var(),
-#                 }
-
-#         vc = (
-#             series.drop_nulls()
-#             .value_counts(sort=True)
-#             .head(3)
-#         )
-#         total = series.len() - series.null_count()
-#         highest = [
-#             (row[0], round(row[1] / total * 100, 1)) for row in vc.iter_rows()
-#         ] if total else []
-
-#         return {
-#             "type": "type_zero",
-#             "missing": int(series.null_count()),
-#             "distinct": int(series.n_unique() - (1 if series.null_count() else 0)),
-#             "highest": highest,
-#         }
-
-
-# input_metadata = InputMetadata()
 calc = Calc()

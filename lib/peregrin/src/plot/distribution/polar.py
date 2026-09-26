@@ -6,8 +6,8 @@ from matplotlib.colors import Normalize
 from typing import Any
 from scipy import stats
 
-from ...categorizer import Painter, Categorizer
-from ...compute.data_frames import Stats
+from ...data_handler.categorizer import Painter, Categorizer
+from ...data_compute.data_frames import Stats
 from ...various import Values
 
 
