@@ -549,13 +549,13 @@ class DataLoader:
 
         metadata['spatialunits'] = spatialunits if self.kwargs.get('spatial_unit', None) is None else self.kwargs.get('spatial_unit')
         metadata['timeunits'] = timeunits if self.kwargs.get('time_unit', None) is None else self.kwargs.get('time_unit')
-        metadata['timestep'] = self._calculate_time_interval(df) if self.t_col in df.columns else float('nan')
+        metadata['timeinterval'] = self._calculate_time_interval(df) if self.t_col in df.columns else float('nan')
         metadata['nframes'] = df[self.t_col].n_unique() if self.t_col in df.columns else None
         metadata['columns'] = df.columns
 
         self.timeunit = metadata['timeunits']
         self.spatialunit = metadata['spatialunits']
-        self.timestep = metadata['timestep']
+        self.timeinterval = metadata['timeinterval']
 
         return df, {op.basename(str(filepath)): metadata}
 
@@ -652,13 +652,13 @@ class DataLoader:
 
         metadata['spatialunits'] = metadata.get(self.x_col, '') if self.kwargs.get('spatial_unit', None) is None else self.kwargs.get('spatial_unit')
         metadata['timeunits'] = metadata.get(self.t_col, '') if self.kwargs.get('time_unit', None) is None else self.kwargs.get('time_unit')
-        metadata['timestep'] = self._calculate_time_interval(df)
+        metadata['timeinterval'] = self._calculate_time_interval(df)
         metadata['nframes'] = df[self.t_col].n_unique()
         metadata['columns'] = column_names
 
         self.timeunit = metadata['timeunits']
         self.spatialunit = metadata['spatialunits']
-        self.timestep = metadata['timestep']
+        self.timeinterval = metadata['timeinterval']
 
         return metadata
 
@@ -672,16 +672,16 @@ class DataLoader:
             .sort()
             .to_numpy()
         )
-        timesteps = np.diff(t)
+        timeintervals = np.diff(t)
 
-        if timesteps.size == 0:
+        if timeintervals.size == 0:
             return float('nan')
         else:
-            positive = timesteps[timesteps > 0]
-            base = float(positive.min()) if positive.size else float(timesteps.min())
+            positive = timeintervals[timeintervals > 0]
+            base = float(positive.min()) if positive.size else float(timeintervals.min())
 
             if base > 0:
-                ratios = timesteps / base
+                ratios = timeintervals / base
                 is_regular = np.all(np.isclose(ratios, np.round(ratios), atol=1e-6))
             else:
                 is_regular = False
@@ -689,9 +689,9 @@ class DataLoader:
             if is_regular:
                 return base
             else:
-                result = float(np.median(timesteps))
+                result = float(np.median(timeintervals))
                 warn((f"Non-uniformly spaced time point data -> will probably lead to incorrect data computation.\n"
-                               f"Observed time steps:\n{timesteps}\nUsing: {result}"), InputWarning, 2)
+                               f"Observed time steps:\n{timeintervals}\nUsing: {result}"), InputWarning, 2)
                 return result
 
 
@@ -844,7 +844,7 @@ class DataLoader:
 
         df = df.with_columns((pl.col("time_point") * factor).alias("time_point"))
 
-        self.metadata['timestep'] = self.timestep * factor
+        self.metadata['timeinterval'] = self.timeinterval * factor
         self.metadata['timeunits'] = to_unit
 
         return df
@@ -859,7 +859,7 @@ class DataLoader:
         if self.retain:
             keep_cols += list(self.retain)
 
-        special_keys = ['spatialunits', 'timeunits', 'timestep', 'nframes', 'columns']
+        special_keys = ['spatialunits', 'timeunits', 'timeinterval', 'nframes', 'columns']
 
         filtered = {}
         for file_name, meta in metadata.items():

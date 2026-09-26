@@ -17,34 +17,7 @@ from .._pckg_exceptions._pckg_warnings import *
 
 
 class DataObject(Calc):
-    """
-    A stateful, callable interface over :class:`Calc`.
-
-    Parameters
-    ----------
-    inferative_error : bool, optional
-        Whether to compute inferative error. Default is False.
-    bootstrap_ci : bool, optional
-        Whether to compute bootstrap confidence intervals. Default is False.
-    confidence_lvl : float, optional
-        Confidence level for the bootstrap confidence intervals. Default is 0.95.
-    ci_statistic : str, optional
-        Statistic to use for the bootstrap confidence intervals. Default is "mean".
-
-    Usage
-    -----
-    >>> empty_data_object = DataObject()
-    >>> loaded_data_object = DataObject()(data)
-    >>> loaded_data_object = empty_data_object(data)              # computes & stores Spots_df
-
-    >>> spots_df = loaded_data_object.compute_spots()             # per-spot statistics
-    >>> tracks_df = loaded_data_object.compute_tracks()           # per-track statistics
-    >>> timepoints_df = loaded_data_object.compute_timepoints()   # per-time-point statistics
-    >>> timelags_df = loaded_data_object.compute_timelags()       # per-time-interval statistics
-
-    >>> loaded_data_object.plot_tracks()                          # reconstruct trajectories
-    >>> loaded_data_object.plot_msd(band='sem')                   # MSD plot
-    """
+    """ An intuitive interface built over :class:`Calc`. """
 
     inferative_error: Optional[bool] = False
     bootstrap_ci: Optional[bool] = False
@@ -53,10 +26,64 @@ class DataObject(Calc):
     bootstrap_resamples: Optional[int] = 1000
     ci_statistic: Optional[str] = "mean"
 
-    def __init__(
-        self,
-        **kwargs,
-    ) -> None:
+    def __init__(self) -> None:
+        self.spots_df: Optional[pl.DataFrame] = None
+        self.tracks_df: Optional[pl.DataFrame] = None
+        self.timepoints_df: Optional[pl.DataFrame] = None
+        self.timelags_df: Optional[pl.DataFrame] = None
+
+
+    # Creates a DataObject instance with pre-computed spot data for intuitive method chaining.
+    def __call__(self, df: pl.DataFrame, **kwargs) -> "DataObject":
+        """
+        Compute data from the input DataFrame and store it in the instance.
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame acquired with :func:`load_data`.
+
+        inferative_error : bool, optional, default False
+            If True, enables inferative error (sem) computation for group statistics in
+            :meth:`compute_timepoints` and :meth:`compute_timelags` result DataFrames.
+
+        bootstrap_ci : bool, optional, default False
+            If True, enables bootstrap confidence interval computation for group statistics in
+            :meth:`compute_timepoints` and :meth:`compute_timelags` result DataFrames.
+
+        bootstrap_ci_method : str, optional, default "BCa"
+            Method for bootstrap confidence interval computation.
+
+        ci_confidence : float, optional, default 0.95
+            Confidence level for the confidence interval.
+
+        bootstrap_resamples : int, optional, default 1000
+            Number of bootstrap resamples.
+
+        ci_statistic : str, optional, default "mean"
+            Statistic for confidence interval computation. E.g. "mean", "median".
+
+        Returns
+        -------
+        self : DataObject
+            An instance of :class:`DataObject` allowing method chaining.
+
+        Usage
+        -----
+        >>> loaded_data_object = create_object(df)
+    
+        >>> spots_df = loaded_data_object.compute_spots()             # per-trajectory-point statistics
+        >>> tracks_df = loaded_data_object.compute_tracks()           # per-whole-trajectory statistics
+        >>> timepoints_df = loaded_data_object.compute_timepoints()   # per-time-point statistics
+        >>> timelags_df = loaded_data_object.compute_timelags()       # per-time-interval statistics
+    
+        >>> loaded_data_object.plot_tracks()                          # reconstruct trajectories
+        >>> loaded_data_object.plot_msd(band='sem')                   # MSD plot
+
+        Documentation
+        -------------
+        Please refer to the official documentation for usage examples and more detailed explanations at the official peregrin website: https://peregrin-documentation-url 
+        """
 
         super().__init__(
             inferative_error=kwargs.get("inferative_error", self.inferative_error),
@@ -73,32 +100,6 @@ class DataObject(Calc):
         self.timepoints_df: Optional[pl.DataFrame] = None
         self.timelags_df: Optional[pl.DataFrame] = None
 
-        self._categories: Optional[dict] = None
-
-    # Representation of the DataObject instance
-    def __repr__(self) -> str:
-        if self.spots_df is None:
-            return f"<DataObject: empty, (inferative_error={self.inferative_error}, bootstrap_ci={self.bootstrap_ci}, bootstrap_ci_method={self.bootstrap_ci_method}, ci_confidence={self.ci_confidence}, bootstrap_resamples={self.bootstrap_resamples})>"
-        else:
-            return f"<DataObject: height={self.spots_df.height}, width={self.spots_df.width}, bytes={self.spots_df.estimated_size()}, (inferative_error={self.inferative_error}, bootstrap_ci={self.bootstrap_ci}, bootstrap_ci_method={self.bootstrap_ci_method}, ci_confidence={self.ci_confidence}, bootstrap_resamples={self.bootstrap_resamples})>"
-
-    # Creates a DataObject instance with pre-computed spot data for intuitive method chaining.
-    def __call__(self, df: pl.DataFrame, **kwargs) -> "DataObject":
-        """
-        Compute per-spot data from raw input and store them in the intance.
-        Parameters
-        ----------
-        df : pl.DataFrame
-            Raw input DataFrame containing spot data.
-        **kwargs : dict
-            Additional keyword arguments passed to the spot computation method.
-
-        Returns
-        -------
-        self : DataObject
-            The instance itself, allowing for method chaining.
-        """
-
         self.spots_df = self.spots(df, **kwargs)
 
         # Invalidate downstream caches on new input.
@@ -108,11 +109,20 @@ class DataObject(Calc):
 
         return self
 
+
+    # Representation of the DataObject instance
+    def __repr__(self) -> str:
+        if self.spots_df is None:
+            return f"<DataObject: empty, (inferative_error={self.inferative_error}, bootstrap_ci={self.bootstrap_ci}, bootstrap_ci_method={self.bootstrap_ci_method}, ci_confidence={self.ci_confidence}, bootstrap_resamples={self.bootstrap_resamples})>"
+        else:
+            return f"<DataObject: height={self.spots_df.height}, width={self.spots_df.width}, bytes={self.spots_df.estimated_size()}, (inferative_error={self.inferative_error}, bootstrap_ci={self.bootstrap_ci}, bootstrap_ci_method={self.bootstrap_ci_method}, ci_confidence={self.ci_confidence}, bootstrap_resamples={self.bootstrap_resamples})>"
+
+
     def _resolve_spots(self, df: Optional[pl.DataFrame]) -> pl.DataFrame:
         source = df if df is not None else self.spots_df
         return source
 
-    def compute_spots(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
+    def compute_spots(self, df: Optional[pl.DataFrame] = None, **kwargs) -> pl.DataFrame:
         """
         Computes basic per-trajectory-point metrics (previous -> current position) using the :meth:`spots` method.
 
@@ -139,8 +149,11 @@ class DataObject(Calc):
         """
 
         if not is_empty(self.spots_df):
+            if (kwargs.get('enriched', False) 
+                and 'cum_track_length' not in self.spots_df.columns):
+                self.spots_df = self.spots(df, **kwargs)
             return self.spots_df
-        return self.spots(df, subset=subset, **kwargs)
+        return self.spots(df, **kwargs)
 
     def compute_tracks(self, df: Optional[pl.DataFrame] = None, subset: Optional[list[str]] = None, **kwargs) -> pl.DataFrame:
         """
@@ -263,7 +276,7 @@ class DataObject(Calc):
     def plot_msd(self, band: Optional[str] = None, *, grouping_level: Any = 'highest', **kwargs):
         """Plot MSD from the stored Spots_df."""
         from ..plot.time.lags import msd
-        return msd(self.spots_df, band=band, categories=self._categories, grouping_level=grouping_level, **kwargs)
+        return msd(self.spots_df, band=band, categories=None, grouping_level=grouping_level, **kwargs)
 
     def plot_turn_angles(self, *, grouping_level: Any = 'highest', **kwargs):
         """Plot the turning-angle heatmap from the stored Spots_df."""

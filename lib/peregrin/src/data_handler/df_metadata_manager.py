@@ -93,7 +93,7 @@ class InputMetadata:
     # Delegate item assignment to the underlying polars DataFrame for indexing operations
     def __setitem__(self, key, value):
         self.input_metadata_individual[key] = value
-        if key in ('spatialunits', 'timeunits', 'timestep', 'nframes', 'columns'):
+        if key in ('spatialunits', 'timeunits', 'timeinterval', 'nframes', 'columns'):
             self.input_metadata_common[key] = value
 
     def get(self, metadata_key: str = None) -> Optional[Dict[str, str] | str]:
@@ -163,7 +163,7 @@ class InputMetadata:
             for sub_key, sub_item in item.items():
 
                 if not isinstance(sub_item, str):
-                    continue  # e.g. 'columns' list; or numeric timestep/nframes
+                    continue  # e.g. 'columns' list; or numeric timeinterval/nframes
 
                 for unit, aliases in self.UNIT_ALIASES.items():
                     # if the sub_item str matches any of the aliases, replace it with the canonical unit
@@ -187,14 +187,14 @@ class InputMetadata:
             all_time_units.add(metadata.get("timeunits"))
             all_spatial_units.add(metadata.get("spatialunits"))
             all_n_frames.add(metadata.get("nframes"))
-            all_time_intervals.add(metadata.get("timestep"))
+            all_time_intervals.add(metadata.get("timeinterval"))
             columns_set.add(tuple(metadata.get("columns")) if metadata.get("columns") is not None else None)
 
         first_metadata = next(iter(self.input_metadata_individual.values()))
         self.input_metadata_common["timeunits"] = first_metadata.get("timeunits")
         self.input_metadata_common["spatialunits"] = first_metadata.get("spatialunits")
         self.input_metadata_common["nframes"] = first_metadata.get("nframes")
-        self.input_metadata_common["timestep"] = first_metadata.get("timestep")
+        self.input_metadata_common["timeinterval"] = first_metadata.get("timeinterval")
         self.input_metadata_common["columns"] = first_metadata.get("columns")
 
         if self.input_metadata_common.get("timeunits") is None or self.input_metadata_common.get("timeunits") == '':

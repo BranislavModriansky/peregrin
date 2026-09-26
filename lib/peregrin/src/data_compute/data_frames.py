@@ -186,7 +186,6 @@ class Calc:
     ])
 
     DEFAULTS = set(['min', 'max', 'mean', 'median', 'std'])
-    INFERATIVE_ERROR = set()
 
     COLUMNS = {
         'SPOTS': [
@@ -203,7 +202,7 @@ class Calc:
             'mean_directional_change', 'mean_directional_change_rate'
         ],
         'TIMEPOINTS': [
-            'time_point', 'frame',
+            'time_point', 'frame', 'tracks_contributing',
             'cum_track_length', 'cum_track_displacement',
             'cum_straightness_ratio', 'cum_speed_mean',
             'instantaneous_speed', 'cum_mean_straight_line_speed',
@@ -242,25 +241,36 @@ class Calc:
         ci_confidence: float = 0.95,
         bootstrap_resamples: int = 1000,
         bootstrap_ci_method: str = 'BCa',
-        ci_statistic: str = 'mean',
+        ci_statistic: Literal['mean', 'median'] | Callable[[np.ndarray], float] = 'mean',
         **kwargs
     ) -> None:
 
-        if inferative_error:
-            self.INFERATIVE_ERROR.add('sem')
-        if bootstrap_ci:
-            self.INFERATIVE_ERROR.add('ci')
-
+        self.inferative_error = inferative_error
+        self.bootstrap_ci = bootstrap_ci
         self.ci_confidence = ci_confidence
         self.bootstrap_resamples = bootstrap_resamples
         self.bootstrap_ci_method = bootstrap_ci_method
-        self.ci_statistic = ci_statistic
+
+        match ci_statistic:
+            case 'mean':
+                self.ci_statistic = np.mean
+            case 'median':
+                self.ci_statistic = np.median
+            case _ if callable(ci_statistic):
+                self.ci_statistic = ci_statistic
+            case _:
+                raise ValueError("ci_statistic must be 'mean', 'median', or a callable function.")
+        
 
         # Custom aggregation expression builders (column name -> pl.Expr)
-        self.CUSTOM_AGG_FUNCTIONS: Dict[str, Callable[[str], pl.Expr]] = {
-            'sem': lambda c: pl.col(c).std(ddof=1) / pl.col(c).count().cast(pl.Float64).sqrt(),
-            'circ_mean': lambda c: pl.arctan2(pl.col(c).sin().mean(), pl.col(c).cos().mean()),
-            'circ_var': lambda c: 1.0 - (pl.col(c).sin().mean().pow(2) + pl.col(c).cos().mean().pow(2)).sqrt(),
+        self.AGG_FUNCTIONS: Dict[str, Callable[[str], pl.Expr]] = {
+            'sd': lambda col: self.sd(col),
+            'sem': lambda col: self.sem(col),
+            'ci': lambda col: self.ci(col),
+            'circ_mean': lambda col: self.circ_mean(col),
+            'circ_var': lambda col: self.circ_var(col),
+            'wrap_pi': lambda col: self.wrap_pi(col),
+            'n_tile': lambda col, n: self.n_tile(col, n),
         }
 
         self._tracks_registry = self._build_tracks_registry()
@@ -274,7 +284,6 @@ class Calc:
     def spots(
         self,
         df: pl.DataFrame,
-        subset: list[str] = None,
         **kwargs
     ) -> pl.DataFrame:
         """
@@ -286,8 +295,8 @@ class Calc:
             Input DataFrame <- the result DataFrame of the :func:`load_data` function.
         subset : list[str], optional
             Subset of columns to consider for the computation, by default None.
-        **kwargs
-            Additional keyword arguments passed to the computation.
+        enriched : bool, optional
+            Whether to enrich the DataFrame with cumulative per-trajectory-point metrics, by default False.
 
         Returns
         -------
@@ -302,13 +311,13 @@ class Calc:
             - `direction`: Direction of movement between the previous and the current position.
         """
 
-        df = self._guard_df(df)
-
         if is_empty(df):
             warnings.warn(message="Input DataFrame is empty. No computation performed.",
-                          category=DataFrameWarning,
-                          stacklevel=2)
+                            category=DataFrameWarning,
+                            stacklevel=2)
             return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['SPOTS']})
+
+        df = self._guard_df(df)
 
         grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
 
@@ -346,15 +355,17 @@ class Calc:
         ).drop(['_dx', '_dy'])
 
         # Keep only the spot columns (+ categories and color columns)
+        # keep = [c for c in df.columns
+        #         if c in self.COLUMNS['SPOTS'] or c in grouping_cols or c.endswith('color')]
+        # df = df.select(keep)
+        
         keep = [c for c in df.columns
-                if c in self.COLUMNS['SPOTS'] or c in grouping_cols or c.endswith('color')]
+                if c in self.COLUMNS['SPOTS'] 
+                or c in grouping_cols]
         df = df.select(keep)
 
-        if subset is not None:
-            _always_keep = ['track_id', 'track_uid', 'time_point', 'frame']
-            requested = set(subset)
-            keep = [c for c in df.columns if c in _always_keep or c in requested or c in grouping_cols]
-            df = df.select(keep)
+        if kwargs.get('enriched', False):
+            df = self._enrich_spots(df, **kwargs)
 
         if self.significant_figures:
             df = self.signify(df)
@@ -424,10 +435,10 @@ class Calc:
         df = self.assign_track_uid(df)
         df = df.sort(['track_uid', 'time_point'])
 
-        t_step = self._resolve_t_step(df, 'track stats', kwargs.get('metadata', None))
+        timeinterval = self._resolve_timeinterval(df, metadata = kwargs.get('metadata', None))
 
         # Derive cumulative per-spot metrics needed by the aggregations
-        df = self._enrich_spots(df, t_step)
+        df = self._enrich_spots(df, timeinterval=timeinterval, **kwargs)
 
         # Stash categorical identifiers to merge them back into the result
         stash_cols = [c for c in grouping_cols if c != 'track_uid']
@@ -438,14 +449,15 @@ class Calc:
         ctx = {
             'source': df,
             'by': ['track_uid'],
-            't_step': t_step,
+            'timeinterval': timeinterval,
         }
         agg = self._tracks_registry.compute(wanted, ctx)
 
         # Carry over color columns and track_id (first per track)
-        carry = [c for c in df.columns if c.endswith('color')]
+        # carry = [c for c in df.columns if c.endswith('color')]
         if 'track_id' in df.columns:
-            carry = ['track_id'] + carry
+            # carry = ['track_id'] + carry
+            carry = ['track_id']
         if carry:
             firsts = df.group_by('track_uid', maintain_order=True).agg(
                 [pl.col(c).first() for c in carry]
@@ -509,47 +521,32 @@ class Calc:
         error and circular statistics are polars expressions. See the original
         documentation for details.
         """
+        if is_empty(df):
+            warn("Input DataFrame is empty. Returning an empty DataFrame with the expected schema.")
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEPOINTS']})
+        if df['time_point'].n_unique() < 2:
+            warn("Not enough time points available for time interval statistics computations. Returning an empty schema DataFrame.")
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEPOINTS']})
 
         grouping_set = []
 
-        if (isinstance(grouping_level, list)
-            and (all(isinstance(g, list) for g in grouping_level)
-                 or not any(g in df.columns for g in grouping_level))):
+        if isinstance(grouping_level, list):
             for g in grouping_level:
                 grouping_set.append(self._get_grouping_level(df.columns, g, exclude='track_uid'))
-            grouping_cols = max(grouping_set, key=len)
         else:
             grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid')
             grouping_set = [grouping_cols]
 
         df = self.assign_track_uid(df)
 
-        t_step = self._resolve_t_step(df, 'time point stats', kwargs.get('metadata', None))
-
-        df = self._enrich_spots(df, t_step)
+        df = self._enrich_spots(df, **kwargs)
 
         wanted = self._timepoints_registry.resolve(subset)
 
         level_frames = []
-        for grouping_cols in grouping_set:
-            group_cols = [grouping_cols[-1]] + ['time_point', 'frame']
-
-            # Stash color columns / parent grouping columns for re-attachment
-            _color_cols = [c for c in df.columns if c.endswith('color')]
-            _color_stash = (
-                df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
-                if _color_cols else None
-            )
-
-            _parent_cols = grouping_cols[:-1]
-            _parent_stash = None
-            if _parent_cols:
-                _key = grouping_cols[-1]
-                _parent_stash = (
-                    df.select([_key] + _parent_cols)
-                    .unique(subset=[_key], keep='first')
-                    .with_columns(pl.col(_key).cast(pl.Utf8))
-                )
+        for grouping_col in grouping_set:
+            group_cols = grouping_col + ['time_point', 'frame']
+            grouping_col = grouping_col[:]
 
             ctx = {
                 'source': df,
@@ -558,22 +555,19 @@ class Calc:
             }
             level_df = self._timepoints_registry.compute(wanted, ctx)
 
-            if _parent_stash is not None:
-                _key = grouping_cols[-1]
-                level_df = level_df.with_columns(pl.col(_key).cast(pl.Utf8))
-                level_df = level_df.join(_parent_stash, on=_key, how='left')
-
             level_df = level_df.with_columns(
-                pl.lit(str(grouping_cols[0])).alias('grouping_level')
+                [pl.col(grouping_col).cast(pl.Utf8)]
             )
 
-            if _color_stash is not None:
-                level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
+            level_df = level_df.with_columns(
+                pl.lit(grouping_col).alias('grouping_level')
+            )
 
             level_frames.append(level_df)
 
         if not level_frames:
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+            warn("No level frames were generated.")
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEPOINTS']})
 
         out = pl.concat(level_frames, how='diagonal_relaxed')
 
@@ -631,16 +625,14 @@ class Calc:
         """
 
         if is_empty(df):
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+            warn("Input DataFrame is empty. Returning an empty DataFrame with the expected schema.")
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
         grouping_set = []
 
-        if (isinstance(grouping_level, list)
-            and (all(isinstance(g, list) for g in grouping_level)
-                 or not any(g in df.columns for g in grouping_level))):
+        if isinstance(grouping_level, list):
             for g in grouping_level:
                 grouping_set.append(self._get_grouping_level(df.columns, g, exclude='track_uid'))
-            grouping_cols = max(grouping_set, key=len)
         else:
             grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid')
             grouping_set = [grouping_cols]
@@ -649,9 +641,10 @@ class Calc:
 
         # Unique time points
         if df['time_point'].n_unique() < 2:
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+            warn("Not enough time points available for time interval statistics computations. Returning an empty schema DataFrame.")
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
-        t_step = self._resolve_t_step(df, 'time interval stats', kwargs.get('metadata', None))
+        timeinterval = self._resolve_timeinterval(df, metadata = kwargs.get('metadata', None))
 
         wanted = self._timelags_registry.resolve(subset)
 
@@ -677,11 +670,11 @@ class Calc:
             )
 
             if is_empty(temp):
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
             max_lag = int(temp['_frame'].max())
             if max_lag < 1:
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
             uid_arr   = temp['track_uid'].to_numpy()
             frame_arr = temp['_frame'].to_numpy()
@@ -717,7 +710,7 @@ class Calc:
                     **{c: cat_arrs[c][valid_idx] for c in grouping_cols},
                     'sq_disp':   dx * dx + dy * dy,
                     'frame_lag': np.full(valid_idx.size, lag, dtype=np.int64),
-                    'time_lag':  np.full(valid_idx.size, lag * t_step, dtype=np.float64),
+                    'time_lag':  np.full(valid_idx.size, lag * timeinterval, dtype=np.float64),
                 }))
 
                 # Turning angle: theta defined only where a preceding step exists
@@ -735,11 +728,11 @@ class Calc:
                         **{c: cat_arrs[c][ti] for c in grouping_cols},
                         'dtheta':    dtheta,
                         'frame_lag': np.full(ti.size, lag, dtype=np.int64),
-                        'time_lag':  np.full(ti.size, lag * t_step, dtype=np.float64),
+                        'time_lag':  np.full(ti.size, lag * timeinterval, dtype=np.float64),
                     }))
 
             if not msd_records:
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
             all_msd = pl.concat(msd_records, how='vertical_relaxed')
             all_turn = (
@@ -765,13 +758,17 @@ class Calc:
             return self._drop_all_null_columns(lags) if not is_empty(lags) else lags
 
         level_frames = []
+
+        if isinstance(grouping_set, str):
+            grouping_set = [grouping_set]
+
         for grouping_cols in grouping_set:
 
-            _color_cols = [c for c in df.columns if c.endswith('color')]
-            _color_stash = (
-                df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
-                if _color_cols else None
-            )
+            # _color_cols = [c for c in df.columns if c.endswith('color')]
+            # _color_stash = (
+            #     df.select(grouping_cols + _color_cols).unique(subset=grouping_cols, keep='first')
+            #     if _color_cols else None
+            # )
 
             level_df = _compute_level(df, grouping_cols)
 
@@ -782,13 +779,13 @@ class Calc:
                 pl.lit(str(grouping_cols[0])).alias('grouping_level')
             )
 
-            if _color_stash is not None:
-                level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
+            # if _color_stash is not None:
+            #     level_df = level_df.join(_color_stash, on=grouping_cols, how='left')
 
             level_frames.append(level_df)
 
         if not level_frames:
-            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMEINTERVALS']})
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
         out = pl.concat(level_frames, how='diagonal_relaxed')
 
@@ -809,14 +806,41 @@ class Calc:
     # Spots enrichment (internal, used by `tracks` and `timepoints`)
     # -----------------------------------------------------------------------
 
-    def _enrich_spots(self, df: pl.DataFrame, t_step: float) -> pl.DataFrame:
-        """Derive cumulative per-spot metrics from the basic spot columns.
+    def _enrich_spots(self, df: pl.DataFrame, **kwargs) -> pl.DataFrame:
+        """
+        Derive cumulative per-trajectory-point metrics from the base columns of the :meth:`spots` result.
+        
+        Used internally by `tracks` and `timepoints`. Idempotent: returns the DataFrame unchanged if the derived columns are already present.
 
-        Used internally by `tracks` and `timepoints`. Idempotent: returns the
-        DataFrame unchanged if the derived columns are already present.
+        Parameters
+        ----------
+        df : pl.DataFrame
+            Input DataFrame containing trajectory points.
+        **kwargs
+            Additional keyword arguments, including:
+            - `timeinterval`: Time step between consecutive frames.
+
+        Returns
+        -------
+        pl.DataFrame
+            - `cum_track_length`: Cumulative track length for each trajectory point.
+            - `cum_track_displacement`: Cumulative track displacement for each trajectory point.
+            - `cum_straightness_ratio`: Ratio of cumulative displacement to cumulative track length.
+            - `cum_speed_mean`: Mean cumulative speed for each trajectory point.
+            - `cum_mean_straight_line_speed`: Mean straight-line speed for each trajectory point.
+            - `cum_forward_progression_linearity`: Linearity of forward progression for each trajectory point.
+
+        Returns
+        -------
+        pl.DataFrame
+            DataFrame enriched with cumulative per-trajectory-point metrics.
         """
 
         uid = 'track_uid'
+        timeinterval = kwargs.get(
+            'timeinterval',
+            self._resolve_timeinterval(df, metadata = kwargs.get('metadata', None))
+        )
 
         if 'cum_track_length' in df.columns:
             return df
@@ -862,7 +886,7 @@ class Calc:
                 / pl.when(elapsed == 0).then(None).otherwise(elapsed)
             ).alias('cum_speed_mean'),
         ).with_columns(
-            (pl.col('cum_track_displacement') / (pl.col('_cumcount') * t_step))
+            (pl.col('cum_track_displacement') / (pl.col('_cumcount') * timeinterval))
             .alias('cum_mean_straight_line_speed'),
         ).with_columns(
             (pl.col('cum_mean_straight_line_speed') / pl.col('cum_speed_mean'))
@@ -889,7 +913,7 @@ class Calc:
             .then(None).otherwise(pl.col('cum_mean_directional_change'))
             .alias('cum_mean_directional_change'),
         ).with_columns(
-            (pl.col('cum_mean_directional_change') / (pl.col('_cumcount') * t_step))
+            (pl.col('cum_mean_directional_change') / (pl.col('_cumcount') * timeinterval))
             .alias('cum_mean_directional_change_rate'),
         )
 
@@ -919,20 +943,18 @@ class Calc:
     # -----------------------------------------------------------------------
 
     def _build_tracks_registry(self) -> MetricRegistry:
-        """One aggregation expression per TRACKS output column.
+        """ 
+        One aggregation expression per TRACKS output column.
 
-        ctx['t_step'] -> the resolved time step
+        ctx['timeinterval'] -> the resolved time step
         """
         reg = MetricRegistry()
 
-        def _speed(agg: str) -> Callable:
-            return lambda ctx: getattr(pl.col('distance'), agg)() / ctx['t_step']
-
-        reg.add('speed_min', _speed('min'))
-        reg.add('speed_max', _speed('max'))
-        reg.add('speed_mean', _speed('mean'))
-        reg.add('speed_sd', lambda ctx: pl.col('distance').std(ddof=1) / ctx['t_step'])
-        reg.add('speed_median', _speed('median'))
+        reg.add('speed_min',    lambda ctx: pl.col('distance').min()    / ctx['timeinterval'])
+        reg.add('speed_max',    lambda ctx: pl.col('distance').max()    / ctx['timeinterval'])
+        reg.add('speed_mean',   lambda ctx: pl.col('distance').mean()   / ctx['timeinterval'])
+        reg.add('speed_sd',     lambda ctx: pl.col('distance').std()    / ctx['timeinterval'])
+        reg.add('speed_median', lambda ctx: pl.col('distance').median() / ctx['timeinterval'])
 
         reg.add('track_length', lambda ctx: pl.col('distance').sum())
 
@@ -942,33 +964,29 @@ class Calc:
         reg.add('max_distance_reached', lambda ctx: pl.col('cum_track_displacement').max())
 
         reg.add('track_start_frame', lambda ctx: pl.col('frame').min())
-        reg.add('track_end_frame', lambda ctx: pl.col('frame').max())
+        reg.add('track_end_frame',   lambda ctx: pl.col('frame').max())
 
-        reg.add('mean_straight_line_speed', lambda ctx: pl.col('cum_mean_straight_line_speed').last())
+        reg.add('mean_straight_line_speed',      lambda ctx: pl.col('cum_mean_straight_line_speed').last())
         reg.add('forward_progression_linearity', lambda ctx: pl.col('cum_forward_progression_linearity').last())
 
         reg.add('direction_mean', lambda ctx: pl.col('cum_direction_mean').last())
-        reg.add('direction_var', lambda ctx: pl.col('cum_direction_var').last())
-        reg.add('mean_directional_change', lambda ctx: pl.col('cum_mean_directional_change').last())
+        reg.add('direction_var',  lambda ctx: pl.col('cum_direction_var').last())
+        reg.add('mean_directional_change',      lambda ctx: pl.col('cum_mean_directional_change').last())
         reg.add('mean_directional_change_rate', lambda ctx: pl.col('cum_mean_directional_change_rate').last())
 
-        reg.add('track_points', lambda ctx: pl.len())
+        reg.add('track_points', lambda ctx: pl.count())
 
-        _disp = (
-            (pl.col('x_coordinate').last() - pl.col('x_coordinate').first()).pow(2)
-            + (pl.col('y_coordinate').last() - pl.col('y_coordinate').first()).pow(2)
-        ).sqrt()
-
-        reg.add('track_displacement', lambda ctx: _disp)
-        reg.add('straightness_ratio', lambda ctx: _disp / pl.col('distance').sum())
+        reg.add('track_displacement', lambda ctx: pl.col('cum_track_displacement').last())
+        reg.add('straightness_ratio', lambda ctx: pl.col('cum_track_displacement').last() / pl.col('distance').sum())
 
         return reg
+    
 
     def _build_timepoints_registry(self) -> MetricRegistry:
-        """One computer per TIMEPOINTS output column."""
-        reg = MetricRegistry()
+        """ One calculation per given timepoints columns. """
+        reg = MetricRegistry()  # Initialize a new metric registry for timepoints calculations
 
-        metric_out = {
+        metric_out = {   # Mapping of metric names to their corresponding timepoints columns
             'cum_track_length': 'cum_track_length',
             'cum_track_displacement': 'cum_track_displacement',
             'cum_straightness_ratio': 'cum_straightness_ratio',
@@ -980,72 +998,46 @@ class Calc:
             'cum_mean_directional_change': 'cum_mean_directional_change',
         }
 
-        def _scalar(src: str, agg: str) -> Callable:
-            return lambda ctx: getattr(pl.col(src), agg)()
-
-        def _std(src: str) -> Callable:
-            return lambda ctx: pl.col(src).std(ddof=1)
-
-        def _sem(src: str) -> Callable:
-            return lambda ctx: self.CUSTOM_AGG_FUNCTIONS['sem'](src)
-
-        def _ci(src: str, low_name: str, high_name: str) -> Callable:
-            """Bootstrap CI cannot be expressed as a polars aggregation;
-            aggregate the raw values as a list and post-process once."""
-            def _computer(ctx: dict) -> Callable:
-                ctx.setdefault('extra_exprs', {})['__list_sq_disp'] = pl.col('sq_disp')
-
-                def _post(out: pl.DataFrame, _ctx: dict) -> pl.DataFrame:
-                    if low_name in out.columns:
-                        return out
-                    bounds = [
-                        self.ci(np.asarray(v, dtype=float))
-                        for v in out['__list_sq_disp'].to_list()
-                    ]
-                    return out.with_columns(
-                        pl.Series(low_name, [b[0] for b in bounds], dtype=pl.Float64),
-                        pl.Series(high_name, [b[1] for b in bounds], dtype=pl.Float64),
-                    )
-                return _post
-            return _computer
-
         for src, mout in metric_out.items():
-            reg.add(f'{mout}_min', _scalar(src, 'min'))
-            reg.add(f'{mout}_max', _scalar(src, 'max'))
-            reg.add(f'{mout}_mean', _scalar(src, 'mean'))
-            reg.add(f'{mout}_median', _scalar(src, 'median'))
-            reg.add(f'{mout}_sd', _std(src))
+            reg.add(f'{mout}_min', lambda ctx: pl.col(src).min())
+            reg.add(f'{mout}_max', lambda ctx: pl.col(src).max())
+            reg.add(f'{mout}_mean', lambda ctx: pl.col(src).mean())
+            reg.add(f'{mout}_median', lambda ctx: pl.col(src).median())
+            reg.add(f'{mout}_sd', lambda ctx: pl.col(src).std())
 
-            reg.add(f'{mout}_sem', _sem(src), gate='sem' in self.INFERATIVE_ERROR)
+            reg.add(f'{mout}_sem', lambda ctx: self.AGG_FUNCTIONS['sem'](pl.col(src)), gate=self.inferative_error)
 
-            if 'ci' in self.INFERATIVE_ERROR:
-                low = f'{mout}_{self.ci_statistic}_ci{self.ci_confidence*100}_low'
-                high = f'{mout}_{self.ci_statistic}_ci{self.ci_confidence*100}_high'
-                reg.add(low, _ci(src, low, high), gate=True)
-                reg.add(high, _ci(src, low, high), gate=True)
+            if self.bootstrap_ci:
+                low, high = self.AGG_FUNCTIONS['ci'](pl.col(src))
+
+                reg.add(f'{mout}_{self.ci_statistic}_ci{self.ci_confidence*100}_low', low)
+                reg.add(f'{mout}_{self.ci_statistic}_ci{self.ci_confidence*100}_high', high)
+
+        reg.add('tracks_contributing',
+                lambda ctx: pl.col('track_uid').n_unique().cast(pl.Int64))
 
         # --- Circular statistics (fully expression-based) -------------------
         reg.add('instantaneous_direction_mean',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_mean']('direction'))
+                lambda ctx: self.AGG_FUNCTIONS['circ_mean'](pl.Series('direction')))
         reg.add('instantaneous_direction_var',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_var']('direction'))
+                lambda ctx: self.AGG_FUNCTIONS['circ_var'](pl.Series('direction')))
         reg.add('cum_direction_mean',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_mean']('cum_direction_mean'))
+                lambda ctx: self.AGG_FUNCTIONS['circ_mean'](pl.Series('cum_direction_mean')))
         reg.add('cum_direction_var',
-                lambda ctx: self.CUSTOM_AGG_FUNCTIONS['circ_var']('cum_direction_mean'))
+                lambda ctx: self.AGG_FUNCTIONS['circ_var'](pl.Series('cum_direction_mean')))
         reg.add('cum_mean_directional_change_mean',
                 lambda ctx: pl.col('cum_mean_directional_change').mean())
 
         return reg
 
     def _build_timelags_registry(self) -> MetricRegistry:
-        """One computer per TIMEINTERVALS output column."""
+        """One computer per TIMELAGS output column."""
         reg = MetricRegistry()
 
         reg.add('MSD', lambda ctx: pl.col('sq_disp').mean())
         reg.add('MSD_sd', lambda ctx: pl.col('sq_disp').std(ddof=1))
-        reg.add('MSD_sem', lambda ctx: self.CUSTOM_AGG_FUNCTIONS['sem']('sq_disp'),
-                gate='sem' in self.INFERATIVE_ERROR)
+        reg.add('MSD_sem', lambda ctx: self.AGG_FUNCTIONS['sem']('sq_disp'),
+                gate=self.inferative_error)
 
 
         def _ci(low_name: str, high_name: str) -> Callable:
@@ -1066,7 +1058,7 @@ class Calc:
                 return _post
             return _computer
 
-        if 'ci' in self.INFERATIVE_ERROR:
+        if self.inferative_error:
             low = f'MSD_{self.ci_statistic}_ci{self.ci_confidence*100}_low'
             high = f'MSD_{self.ci_statistic}_ci{self.ci_confidence*100}_high'
             reg.add(low, _ci(low, high), gate=True)
@@ -1175,29 +1167,29 @@ class Calc:
     # Time resolution, track UID assignment and grouping helpers
     # -----------------------------------------------------------------------
 
-    def _resolve_t_step(self, df: pl.DataFrame, context: str, metadata: dict | None = None) -> float:
-        """Resolve the time step from data (or self.t_step if set)."""
+    def _resolve_timeinterval(self, df: pl.DataFrame, *, metadata: Optional[dict] = None) -> float:
+        """Resolve the time step from data (or self.timeinterval if set)."""
         if metadata is not None:
-            return metadata['timestep']
+            return metadata['timeinterval']
         
         if self.metadata is not None:
-            return self.metadata['timestep']
+            return self.metadata['timeinterval']
 
-        t_steps = np.diff(np.sort(df['time_point'].unique().to_numpy()))
+        timeintervals = np.diff(np.sort(df['time_point'].unique().to_numpy()))
 
-        if t_steps.size == 0:
+        if timeintervals.size == 0:
             return 1.0
-        if np.all(t_steps == t_steps[0]):
-            return float(t_steps[0])
+        if np.all(timeintervals == timeintervals[0]):
+            return float(timeintervals[0])
 
-        t_step = float(np.median(t_steps))
+        timeinterval = float(np.median(timeintervals))
         warnings.warn(
             message=(f"Time points are not uniformly spaced -> this will most probably lead to "
-                        f"incorrect data computation. ({context})\nObserved time steps:\n{t_steps}\nUsing: {t_step}"),
+                        f"incorrect data computation.\nObserved time steps:\n{timeintervals}\nUsing: {timeinterval}"),
             category=TimePointWarning,
             stacklevel=3,
         )
-        return t_step
+        return timeinterval
     
 
     def assign_track_uid(self, df: pl.DataFrame) -> pl.DataFrame:
@@ -1215,7 +1207,7 @@ class Calc:
 
         if not grouping_cols:
             raise ColumnsNotFoundError(
-                "Cannot create track_uid: no category columns or 'track_id' found."
+                "Cannot create track_uid -> missing category or track_id columns."
             )
 
         keys = (
@@ -1230,9 +1222,8 @@ class Calc:
     def _get_grouping_level(
         self,
         df_cols,
-        grouping_level: Literal['highest', 'lowest'] | str | int | list | None = 'highest',
+        grouping_level: Literal['highest', 'lowest'] | str | int = 'highest',
         *,
-        multiple: bool = False,
         include: str | list[str] | None = None,
         exclude: str | list[str] | None = None,
     ) -> list | list[list]:
@@ -1243,7 +1234,7 @@ class Calc:
         ----------
         df_cols : list
             The columns of the DataFrame to consider for grouping.
-        grouping_level : Literal['highest', 'lowest'] | str | int | list | None, optional
+        grouping_level : Literal['highest', 'lowest'] | str | int | None, optional
             The desired grouping level. Can be 'highest', 'lowest', a specific column name, an integer index, a list of levels, or None. Default is 'highest'.
         multiple : bool, optional
             Whether to allow multiple grouping levels when a list is provided. Default is False.
@@ -1266,10 +1257,10 @@ class Calc:
 
         grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df_cols]
 
-        if isinstance(grouping_level, list):
-            grouping_cols = [self._get_grouping_level(df_cols, g_lvl, include=include) for g_lvl in grouping_level]
-            if not multiple:
-                grouping_cols = max(grouping_cols, key=len)
+        if not is_empty(exclude):
+            grouping_cols = [col for col in grouping_cols if col not in exclude]
+            if len(grouping_cols) == 0:
+                raise ColumnsNotFoundError(f"All grouping columns have been excluded making data grouping impossible.")
 
         if is_empty(grouping_cols):
             raise ColumnsNotFoundError(f"No grouping columns found in DataFrame columns: {df_cols}")
@@ -1277,14 +1268,14 @@ class Calc:
         if isinstance(grouping_level, int):
             if grouping_level < 0 or grouping_level >= len(grouping_cols):
                 raise IndexError(f"Grouping level index {grouping_level} is out of bounds for DataFrame columns: {grouping_cols}")
-            grouping_cols = grouping_cols[:grouping_level + 1]
+            grouping_cols = [grouping_cols[grouping_level]]
         elif grouping_level == 'highest':
             grouping_cols = [grouping_cols[-1]]
         elif grouping_level == 'lowest':
-            pass
+            grouping_cols = [grouping_cols[0]]
         elif isinstance(grouping_level, str):
             idx = grouping_cols.index(grouping_level)
-            grouping_cols = grouping_cols[:idx + 1]
+            grouping_cols = [grouping_cols[idx]]
         elif not isinstance(grouping_level, list):
             raise InvalidParameterValueError(f"Invalid grouping_level parameter: {grouping_level}. Must be a list of column names, an integer index, 'highest', 'lowest', or None.")
 
@@ -1293,13 +1284,9 @@ class Calc:
                 grouping_cols.append(col)
             else:
                 warnings.warn(message=f"Some columns in 'include' are already present in the default grouping columns: {grouping_cols}. They will be included only once.",
-                              category=ConflictWarning, stacklevel=2)
-
-        if not is_empty(exclude):
-            grouping_cols = [col for col in grouping_cols if col not in exclude]
-            if len(grouping_cols) == 0:
-                grouping_cols = ['track_uid']
-
+                              category=ConflictWarning, 
+                              stacklevel=2)
+        
         return grouping_cols
 
 
@@ -1429,13 +1416,13 @@ class Calc:
         def _builder(func_name: str) -> Callable[[str], pl.Expr]:
             if func_name in self._POLARS_BUILTINS:
                 return lambda c, f=func_name: getattr(pl.col(c), f)()
-            if func_name in self.CUSTOM_AGG_FUNCTIONS:
-                return self.CUSTOM_AGG_FUNCTIONS[func_name]
+            if func_name in self.AGG_FUNCTIONS:
+                return self.AGG_FUNCTIONS[func_name]
             if func_name == 'ci':
                 return 'ci'  # sentinel handled by callers
             raise ValueError(
                 f"Unknown aggregation '{func_name}'. "
-                f"Available: {sorted(self._POLARS_BUILTINS | set(self.CUSTOM_AGG_FUNCTIONS) | {'ci'})}"
+                f"Available: {sorted(self._POLARS_BUILTINS | set(self.AGG_FUNCTIONS) | {'ci'})}"
             )
 
         resolved = {}
@@ -1466,79 +1453,59 @@ class Calc:
         return dict(items)
 
 
+    
+    # Aggregation functions
     # -----------------------------------------------------------------------
-    # Scalar / numpy statistics (unchanged semantics)
-    # -----------------------------------------------------------------------
-    def _wrap_pi(self, a: np.ndarray) -> np.ndarray:
-        """Wrap angles in radians to the range [-π, π]."""
-        return (a + np.pi) % (2*np.pi) - np.pi
 
-    def _circ_mean(self, a) -> float:
-        """Circular mean of angles in radians."""
-        a = np.asarray(a, dtype=float)
-        if a.size == 0:
-            return np.nan
-        s = np.nanmean(np.sin(a))
-        c = np.nanmean(np.cos(a))
-        if np.isnan(s) or np.isnan(c):
-            return np.nan
-        return float(np.arctan2(s, c))
-
-    def _circ_var(self, a) -> float:
-        """Circular variance defined as 1 - R."""
-        a = np.asarray(a, dtype=float)
-        if a.size == 0:
-            return np.nan
-        s = np.nanmean(np.sin(a))
-        c = np.nanmean(np.cos(a))
-        if np.isnan(s) or np.isnan(c):
-            return np.nan
-        return float(1.0 - np.hypot(s, c))
-
-    def _q25(self, a) -> float:
+    def sd(self, a: pl.Series | np.ndarray) -> float:
+        """ Standard deviation. """
         a = np.asarray(a, dtype=float)
         a = a[np.isfinite(a)]
-        return float(np.percentile(a, 25)) if a.size else np.nan
+        return float(np.std(a))
 
-    def _q75(self, a) -> float:
+
+    def sem(self, a: pl.Series | np.ndarray) -> float:
+        """ Standard error of the mean. """
         a = np.asarray(a, dtype=float)
         a = a[np.isfinite(a)]
-        return float(np.percentile(a, 75)) if a.size else np.nan
-
-
-    def ci(self, a, *, n_resamples: int | None = None, confidence_level: float | None = None, **kwargs) -> tuple[float, float]:
-        """Confidence interval via bootstrap. See original documentation."""
-
-        method = kwargs.get('method', 'BCa')
-        seed = 42  # Fixed seed for reproducibility
+        return float(np.std(a) / np.sqrt(a.size))
+    
+    
+    def ci(self, a: pl.Series | np.ndarray, **kwargs) -> tuple[float, float]:
+        """ Confidence interval via bootstrap. """
+        seed = kwargs.get('seed', 42)  # Fixed seed for reproducibility
 
         a = np.asarray(a, dtype=float)
-        a = a[~np.isnan(a)]
+        a = a[np.isfinite(a)]
 
         if a.size < 2:
+            warn("Not enough finite data points to compute confidence interval.", stacklevel=2)
             return (np.nan, np.nan)
 
-        cl = self.CONFIDENCE_LEVEL if confidence_level is None else confidence_level
+        cl = kwargs.get('confidence_level', self.ci_confidence)
         if cl > 1:
             cl = cl / 100.0
+
+        bootstrap_resamples = kwargs.get('bootstrap_resamples', self.bootstrap_resamples)
+        ci_method = kwargs.get('bootstrap_ci_method', self.bootstrap_ci_method)
 
         try:
             result = stats.bootstrap(
                 (a,),
-                statistic=kwargs.get('statistic', getattr(np, self.CI_STATISTIC)),
-                n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
+                statistic=kwargs.get('ci_statistic', self.ci_statistic),
+                n_resamples=bootstrap_resamples,
                 confidence_level=cl,
-                method=method,
+                method=ci_method,
                 random_state=seed
             )
-            self._ci_method_used = method
+            self._ci_method_used = ci_method
 
         except Exception:
             try:
                 result = stats.bootstrap(
                     (a,),
-                    statistic=kwargs.get('statistic', getattr(np, self.CI_STATISTIC)),
-                    n_resamples=self.BOOTSTRAP_RESAMPLES if n_resamples is None else n_resamples,
+                    statistic=kwargs.get('ci_statistic', self.ci_statistic),
+                    n_resamples=bootstrap_resamples,
                     confidence_level=cl,
                     method='percentile',
                     random_state=seed
@@ -1546,30 +1513,60 @@ class Calc:
                 self._ci_method_used = 'percentile'
 
             except Exception as e:
-                warnings.warn(message=f"Bootstrap confidence interval computation failed for both '{method}' and fallback 'percentile' methods: {e}. Returning (np.nan, np.nan). Traceback:\n{traceback.format_exc()}",
+                warnings.warn(message=f"Bootstrap confidence interval computation failed for both '{ci_method}' and fallback 'percentile' methods: {e}. Returning (np.nan, np.nan). Traceback:\n{traceback.format_exc()}",
                               category=FailedWarning, stacklevel=2)
                 return (np.nan, np.nan)
 
-        if self._ci_method_used != self.bootstrap_ci_method:
-            warnings.warn(message=f"Requested method ('{method}') cannot be used; falling back to '{self._ci_method_used}'.",
+        if self._ci_method_used != ci_method:
+            warnings.warn(message=f"Requested method ('{ci_method}') cannot be used; falling back to '{self._ci_method_used}'.",
                           category=FailedWarning, 
                           stacklevel=2)
 
         return (float(result.confidence_interval.low), float(result.confidence_interval.high))
 
 
-    def sem(self, x) -> float:
-        """Standard error of the mean."""
-        if isinstance(x, pl.Series):
-            n = x.len() - x.null_count()
-            if n < 2:
-                return np.nan
-            return x.std(ddof=1) / np.sqrt(n)
-        x = np.asarray(x, dtype=float)
-        n = len(x)
-        if n < 2:
+    def circ_mean(self, a: pl.Series | np.ndarray) -> float:
+        """ Circular mean of angle in radians. """
+        a = np.asarray(a, dtype=float)
+        a = a[np.isfinite(a)]
+        if a.size == 0:
             return np.nan
-        return np.std(x, ddof=1) / np.sqrt(n)
+
+        s = np.nanmean(np.sin(a))
+        c = np.nanmean(np.cos(a))
+        if np.isnan(s) or np.isnan(c):
+            return np.nan
+        
+        return float(np.arctan2(s, c))
+
+    def circ_var(self, a: pl.Series | np.ndarray) -> float:
+        """ Circular variance defined as 1 - R. """
+        a = np.asarray(a, dtype=float)
+        a = a[np.isfinite(a)]
+        if a.size == 0:
+            return np.nan
+
+        s = np.nanmean(np.sin(a))
+        c = np.nanmean(np.cos(a))
+
+        if np.isnan(s) or np.isnan(c):
+            return np.nan
+        return float(1.0 - np.hypot(s, c))
+
+    def wrap_pi(self, a: pl.Series | np.ndarray) -> np.ndarray:
+        """ Wrap angles in radians to the range [-π, π]. """
+        return (a + np.pi) % (2 * np.pi) - np.pi
+
+    
+    def _n_tile(self, a: pl.Series | np.ndarray, n_tile: float = 50) -> float:
+        a = np.asarray(a, dtype=float)
+        a = a[np.isfinite(a)]
+        return float(np.percentile(a, n_tile))
+
+
+
+
+    
 
 
     def units(self, col: str = None, **kwargs) -> dict[str, str] | str:
@@ -1636,3 +1633,7 @@ class Calc:
             return units[col]
         return units
 
+
+
+
+calc = Calc()
