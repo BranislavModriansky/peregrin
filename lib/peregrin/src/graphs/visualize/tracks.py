@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -20,6 +22,10 @@ from ..._pckg_exceptions._pckg_warnings import *
 from ..painter import paint
 from ...various import get_aliases
 from .._tooltip_toolkit import tooltip_assets
+from ...data_handler.utils import ensure_polars
+
+
+plt.rcParams['font.family'] = 'monospace'
 
 
 class AnimateTracks:
@@ -149,7 +155,7 @@ class ReconstructTracks:
         'smoothing_window': ['smoothing_window', 'smooth_window', 'smoothing_index', 'smooth_index', 'smoothing', 'smooth'],
     }
 
-    CATEGORY_COLS = ('set', 'subset', 'group', 'subgroup', 'subsubgroup')
+    CATEGORY_COLS = ['subsubgroup', 'subgroup', 'group', 'subset',  'set']
 
     def __init__(self):
         self.figure: Optional[plt.Figure] = None
@@ -159,7 +165,7 @@ class ReconstructTracks:
 
     def reconstruct(
         self,
-        spots_df: pl.DataFrame,
+        data: pl.DataFrame,
         *,
         align_start: bool = False,
         categories: Optional[dict[str, list[Any]]] = None,
@@ -171,10 +177,10 @@ class ReconstructTracks:
 
         Parameters
         ----------
-        spots_df : pl.DataFrame
+        df : pl.DataFrame
             Output DataFrame of the `calc.spots` function.
-        align_start : bool, optional
-            Whether to align tracks to the start, by default False.
+        align_start : bool, default False
+            Whether to align tracks at their start.
         categories : dict[str, list[Any]], optional
             A gate specifying for which data categories the tracks are going to be reconstructed, by default None.
         fmt : str, optional
@@ -188,15 +194,13 @@ class ReconstructTracks:
             The smoothing window is used to average the positions of the tracks over the given number 
             (`smoothing_window`) of frames. Possible keyword aliases: ['smooth_window', 'smoothing_index', 
             'smooth_index', 'smoothing', 'smooth'].
-
-    
         
         Returns
         -------
-        ReconstructTracks or InteractiveTracks
+        ReconstructTracks or InteractiveTracks results
             The reconstructed tracks object or an interactive version if fmt is 'interactive' or 'html'.
         """
-        self.spots_data = self._ensure_polars(spots_df) if spots_df is not None else pl.DataFrame()
+        self.data = ensure_polars(data) if data is not None else pl.DataFrame()
         self.align_start = align_start
         self.categories = categories
         self.kwargs = get_aliases(kwargs, self.ALIASES)
@@ -250,55 +254,41 @@ class ReconstructTracks:
             return f'<img src="data:image/png;base64,{data}"/>'
         except Exception:
             return None
-
-    # ---- data arrangement ------------------------------------------------------
-    @staticmethod
-    def _ensure_polars(df) -> pl.DataFrame:
-        """Accept polars DataFrames, loader Input wrappers, or pandas frames."""
-        if isinstance(df, pl.DataFrame):
-            return df
-        if isinstance(getattr(df, 'df', None), pl.DataFrame):
-            return df.df
-        try:
-            import pandas as pd
-            if isinstance(df, pd.DataFrame):
-                return pl.from_pandas(df)
-        except ImportError:
-            pass
-        raise TypeError(f"Expected a polars DataFrame, got {type(df).__name__}.")
-
-    def _categorize(self, df: pl.DataFrame) -> pl.DataFrame:
-        for cat, values in self.categories.items():
-            if cat not in df.columns:
-                raise ColumnsNotFoundError(f"Column '{cat}' not found in DataFrame.")
-            df = df.filter(pl.col(cat).is_in(values))
-        return df
+        
 
     def _arrange_data(self):
         if self.categories is not None:
-            self.spots_data = self._categorize(self.spots_data)
+            self._categorize()
 
-        if 'track_uid' not in self.spots_data.columns:
-            if 'track_id' not in self.spots_data.columns:
+        if 'track_uid' not in self.data.columns:
+            if 'track_id' not in self.data.columns:
                 raise ColumnsNotFoundError(
                     "Cannot determine track identity: no 'track_uid' or 'track_id' found.")
-            cat_cols = [c for c in self.CATEGORY_COLS if c in self.spots_data.columns]
+            cat_cols = [c for c in self.CATEGORY_COLS if c in self.data.columns]
             key_cols = cat_cols + ['track_id']
             keys = (
-                self.spots_data.select(key_cols)
+                self.data.select(key_cols)
                 .unique(maintain_order=True)
                 .with_row_index('track_uid')
                 .with_columns(pl.col('track_uid').cast(pl.Int64))
             )
-            self.spots_data = self.spots_data.join(keys, on=key_cols, how='left')
+            self.data = self.data.join(keys, on=key_cols, how='left')
 
-        self.spots_data = self.spots_data.sort(['track_uid', 'time_point'])
+        self.data = self.data.sort(['track_uid', 'time_point'])
         self._cache_arrays()
+
+
+    def _categorize(self) -> pl.DataFrame:
+        for cat, values in self.categories.items():
+            if cat not in self.data.columns:
+                raise ColumnsNotFoundError(f"Column '{cat}' not found in DataFrame.")
+            self.data = self.data.filter(pl.col(cat).is_in(values))
+    
 
     def _cache_arrays(self):
         """Materialize plotting arrays and track run-boundaries once, after sorting."""
-        self._x = self.spots_data['x_coordinate'].cast(pl.Float64).to_numpy()
-        self._y = self.spots_data['y_coordinate'].cast(pl.Float64).to_numpy()
+        self._x = self.data['x_coordinate'].cast(pl.Float64).to_numpy()
+        self._y = self.data['y_coordinate'].cast(pl.Float64).to_numpy()
 
         n = self._x.size
         if n == 0:
@@ -310,7 +300,7 @@ class ReconstructTracks:
             self._within_track_seg_lengths = np.empty(0, dtype=np.intp)
             return
 
-        uids = self.spots_data['track_uid'].to_numpy()
+        uids = self.data['track_uid'].to_numpy()
         if n > 1:
             self._same_track = uids[1:] == uids[:-1]
             self._track_starts = np.concatenate(
@@ -333,7 +323,7 @@ class ReconstructTracks:
 
         self._x = self._smooth_runs(self._x, window)
         self._y = self._smooth_runs(self._y, window)
-        self.spots_data = self.spots_data.with_columns(
+        self.data = self.data.with_columns(
             pl.Series('x_coordinate', self._x),
             pl.Series('y_coordinate', self._y),
         )
@@ -376,10 +366,10 @@ class ReconstructTracks:
             self._single_color = None
             return
 
-        paint_input = self.spots_data
+        paint_input = self.data
         if color_by is not None:
             col = color_by[0] if isinstance(color_by, tuple) else color_by
-            paint_input = self.spots_data.select([col])
+            paint_input = self.data.select([col])
         c = paint(paint_input, **self.kwargs)
 
         if isinstance(c, str):

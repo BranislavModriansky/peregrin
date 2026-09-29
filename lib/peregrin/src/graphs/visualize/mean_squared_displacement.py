@@ -11,7 +11,7 @@ from ..._pckg_exceptions._pckg_warnings import *
 
 from ...various import is_empty, get_aliases
 from ..painter import paint
-from ...data_compute.data_frames import Stats
+from ...data_compute.data_frames import calc
 from ...data_handler.categorizer import categorize
 
 
@@ -20,7 +20,7 @@ class MSD:
     #### *Mean Squared Displacement analysis and visualization class.*
 
     Computes MSD (and optionally its dispersion: sd / sem / min-max / ci) on call
-    from the input *spot* data via :class:`Stats`, aggregating per group as defined
+    from the input *spot* data via :class:`calc`, aggregating per group as defined
     by ``grouping_level`` over the category hierarchy
     ``['track_uid', 'subsubgroup', 'subgroup', 'group', 'subset', 'set']``.
     """
@@ -39,7 +39,7 @@ class MSD:
         'color': ['color', 'colour'],
     }
 
-    # Columns produced by Stats.time_intervals for MSD.
+    # Columns produced by calc.time_intervals for MSD.
     MSD_COL = 'MSD'
     MSD_SD_COL = 'MSD_sd'
     MSD_SEM_COL = 'MSD_sem'
@@ -153,17 +153,17 @@ class MSD:
     # Computation
     # ------------------------------------------------------------------ #
     def _compute_msd(self) -> None:
-        """Compute MSD (+ requested dispersion) from spot data via Stats."""
+        """Compute MSD (+ requested dispersion) from spot data via calc."""
         if is_empty(self.data):
             self.data = pd.DataFrame()
             return
 
-        # Decide which error statistics Stats must produce.
+        # Decide which error statistics calc must produce.
         need_descr_err = self.band in ('sd', 'sem', 'min-max')
         need_infer_err = self.band in ('sem', 'ci')
         bootstrap_ci = self.band == 'ci'
 
-        engine = Stats(
+        engine = calc(
             cat_descr=True,
             cat_descr_err=need_descr_err,
             cat_infer_err=need_infer_err,
@@ -179,8 +179,8 @@ class MSD:
             grouping_level=self.grouping_level,
         )
 
-    def _msd_subset(self, engine: Stats) -> list[str]:
-        """Metric columns to request from Stats.time_intervals for MSD."""
+    def _msd_subset(self, engine: calc) -> list[str]:
+        """Metric columns to request from calc.time_intervals for MSD."""
         subset = [self.MSD_COL]
         match self.band:
             case 'sd':
@@ -193,7 +193,7 @@ class MSD:
                     f'MSD_{engine.CI_STATISTIC}_ci{engine.CONFIDENCE_LEVEL}_high',
                 ]
             case 'min-max':
-                # Stats does not emit MSD min/max; derived from the band bounds
+                # calc does not emit MSD min/max; derived from the band bounds
                 # of the mean ± sd as a fallback (see _band_bounds).
                 subset.append(self.MSD_SD_COL)
             case _:
@@ -205,11 +205,11 @@ class MSD:
     # ------------------------------------------------------------------ #
     def _resolve_group_key(self) -> None:
         """Determine the column(s) that identify a plotted group."""
-        hierarchy = Stats.DEFAULT_CATEGORIES  # track_uid ... set
+        hierarchy = calc.DEFAULT_CATEGORIES  # track_uid ... set
         present = [c for c in hierarchy if c in self.data.columns]
 
         # Prefer the coarsest present category as the plotted group key.
-        # `grouping_level` already constrained what Stats produced; here we
+        # `grouping_level` already constrained what calc produced; here we
         # just pick the label column to iterate over.
         self.group_key = present[-1] if present else 'grouping_level'
         if self.group_key not in self.data.columns:
@@ -251,7 +251,7 @@ class MSD:
     def _resolve_band(self) -> None:
         """Validate that the requested band's columns exist; disable otherwise."""
         cols = self.data.columns
-        engine = Stats()
+        engine = calc()
 
         match self.band:
             case 'sd':
@@ -302,7 +302,7 @@ class MSD:
     # Styling
     # ------------------------------------------------------------------ #
     def _set_axis_labels(self, ax: plt.Axes) -> None:
-        ax.set_xlabel(f'Time lag [{Stats.t_unit}]', fontsize=12)
+        ax.set_xlabel(f'Time lag [{calc.t_unit}]', fontsize=12)
         ax.set_ylabel('MSD [µm²]', fontsize=12)
 
     def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray) -> None:
@@ -401,7 +401,7 @@ class MSD:
                 v_offset = (idx - (n_tags - 1) / 2.0) * 0.03 * (yv.max() - yv.min())
                 y_text = y_base + v_offset
 
-            slope_text = f"D = {a:.2f} [µm²·{Stats.t_unit}⁻¹]"
+            slope_text = f"D = {a:.2f} [µm²·{calc.t_unit}⁻¹]"
             ax.text(
                 x_text, y_text, slope_text, color=color,
                 fontsize=7, fontweight='bold',
@@ -424,7 +424,7 @@ def turn_angles(
 ) -> Optional[plt.Figure]:
     """Plot mean directional change (turning angle) over time lags as a colormesh.
 
-    Directional-change statistics are computed on call via :class:`Stats`.
+    Directional-change statistics are computed on call via :class:`calc`.
     """
     text_color = kwargs.get('text_color', 'black')
     title = kwargs.get('title', '')
@@ -436,7 +436,7 @@ def turn_angles(
     #                   category=PlottingWarning, stacklevel=2)
     #     return None
 
-    engine = Stats(cat_descr=True, cat_descr_err=True, cat_infer_err=False)
+    engine = calc(cat_descr=True, cat_descr_err=True, cat_infer_err=False)
     data = engine.time_intervals(
         data,
         subset=['directional_change_mean'],
@@ -453,7 +453,7 @@ def turn_angles(
     tlag_range = lags[1] - lags[0]
 
     # One "sample" per group per lag.
-    hierarchy = Stats.DEFAULT_CATEGORIES
+    hierarchy = calc.DEFAULT_CATEGORIES
     group_key = next((c for c in reversed(hierarchy) if c in data.columns), None)
     n = data[group_key].nunique() if group_key else 1
 
@@ -472,7 +472,7 @@ def turn_angles(
     )
 
     ax.set_xlabel("Mean directional change [°]", color=text_color)
-    ax.set_ylabel(f"Time lag [{Stats.t_unit}]", color=text_color)
+    ax.set_ylabel(f"Time lag [{calc.t_unit}]", color=text_color)
     ax.tick_params(colors=text_color, width=0.5)
     ax.grid(False)
 

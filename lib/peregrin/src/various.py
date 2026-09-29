@@ -134,7 +134,6 @@ class CheckData:
             "Duplicates": [f"{series.duplicated().sum()}"],
         }
     
-is_empty = CheckData().is_empty
 
 
 def clock(f):
