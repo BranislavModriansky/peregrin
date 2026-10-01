@@ -7,12 +7,12 @@ import polars as pl
 from scipy import stats
 from typing import Any, Callable, Literal, Optional, Dict, List
 
-from ..various import Values, is_empty
-from ..settings import params
-from .data_frames import Calc
+from .utils import is_empty
+from .settings import params
+from .data_compute.data_frames import Calc
 
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+from ._pckg_exceptions._pckg_errors import *
+from ._pckg_exceptions._pckg_warnings import *
 
 
 
@@ -270,17 +270,26 @@ class DataObject(Calc):
     # -----------------------------------------------------------------------
     def plot_tracks(self, **kwargs):
         """Reconstruct and plot trajectories from the stored Spots_df."""
-        from ..graphs.visualize.tracks import reconstruct
+        from .graphs.visualize.tracks import reconstruct
         return reconstruct(self.spots_df, **kwargs)
 
-    def plot_msd(self, band: Optional[str] = None, *, grouping_level: Any = 'highest', **kwargs):
+    def plot_msd(
+        self,
+        band: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
+        categories: Optional[dict[str, list]] = None,
+        *,
+        grouping_level: Literal['highest', 'lowest'] | str | int = 'highest',
+        log: bool = False,
+        linear_fit: bool = False,
+        **kwargs
+    ):
         """Plot MSD from the stored Spots_df."""
-        from ..graphs.visualize.mean_squared_displacement import msd
-        return msd(self.spots_df, band=band, categories=None, grouping_level=grouping_level, **kwargs)
+        from .graphs.visualize.mean_squared_displacement import msd
+        return msd(self.spots_df, band, categories, grouping_level=grouping_level, log=log, linear_fit=linear_fit, **kwargs)
 
     def plot_turn_angles(self, *, grouping_level: Any = 'highest', **kwargs):
         """Plot the turning-angle heatmap from the stored Spots_df."""
-        from ..graphs.visualize.mean_squared_displacement import turn_angles
+        from .graphs.visualize.mean_squared_displacement import turn_angles
         return turn_angles(self.spots_df, grouping_level=grouping_level, **kwargs)
 
 

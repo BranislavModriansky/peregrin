@@ -1,17 +1,8 @@
 from __future__ import annotations
-import traceback
 
-import math
-from os import path
-import seaborn as sns
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import matplotlib as mpl
-from typing import Any, List, Tuple
+import polars as pl
+from typing import Any
 
-import warnings
 from ..settings import params
 from .._pckg_exceptions._pckg_errors import *
 from .._pckg_exceptions._pckg_warnings import *
@@ -28,39 +19,34 @@ class Categorizer:
 
     def categorize(
         self,
-        data: pd.DataFrame,
-        sets: dict[str, list] | None = None,
+        data: pl.DataFrame,
+        keep_which: dict[str, list] | None = None,
         *,
         aggby: list | None = None,
-        aggdict: dict | None = None,
+        aggdict: dict[str, Any] | list[pl.Expr] | None = None,
         **kwargs
-    ) -> pd.DataFrame:
+    ) -> pl.DataFrame:
         """
         Categorize and aggregate data.
 
         Parameters
         ----------
-        data : pd.DataFrame
+        data : pl.DataFrame
             The input DataFrame to be categorized and aggregated
 
-        sets : dict[str, Any], optional
-            A dictionary containing the sets (categories) `{'column name': list}` to be included in the categorized DataFrame.
+        keep_which : dict[str, list], optional
+            A dictionary containing the keys = columns with given keys that are to be retained `{<column>: list[<selected values>]}`.
 
         aggby : list, optional
             A list of columns to group by for aggregation. Default is an empty list.
-        
-        aggdict : dict, optional
-            A dictionary specifying the aggregation functions to apply to each column. Default is an empty dictionary.
 
-        ignore_categories : bool, optional
-            If True, the `conditions` and `replicates` parameters are ignored and all data are treated as a single group.
-            If not specified, the default value is taken from the package settings. 
-            To change the default configuration and behavior throughout all computations, use `peregrin.settings(ignore_categories=...)`
-        
+        aggdict : dict | list[pl.Expr], optional
+            Aggregations to apply. Either a dict `{<column>: <func name> | list[<func names>]}`
+            (e.g. `{'speed': 'mean', 'dist': ['sum', 'max']}`) or a list of Polars expressions.
         """
 
         self.data = data
-        self.sets = sets if sets is not None else {}
+        self.keep_which = keep_which if keep_which is not None else {}
         self.aggby = aggby if aggby is not None else []
         self.aggdict = aggdict if aggdict is not None else {}
 
@@ -73,31 +59,70 @@ class Categorizer:
         return self.data
 
 
-    def _checkcats(self) -> bool:
-        """ Check for errors in the provided categories and replicates. """
+    def _checkcats(self) -> None:
+        """ Check for errors in the provided categories and values. """
 
-        for cat in self.sets.keys():
+        for cat, vals in self.keep_which.items():
             if cat not in self.data.columns:
                 raise CategorizerError(f"Column '{cat}' not found in DataFrame.")
-            
-            for val in self.sets[cat]:
-                if val not in self.data[cat].unique():
-                    raise CategorizerError(f"Value '{val}' not found in column '{cat}'.")
-        
 
-    def _filter(self) -> pd.DataFrame:
+            present = set(self.data.get_column(cat).unique().to_list())
+            for val in vals:
+                if val not in present:
+                    raise CategorizerError(f"Value '{val}' not found in column '{cat}'.")
+
+
+    def _filter(self) -> None:
         """ Filter DataFrame categories. """
 
-        for cat in self.sets.keys():
+        for cat, vals in self.keep_which.items():
             try:
-                self.data = self.data[self.data[cat].isin(self.sets[cat])]
+                self.data = self.data.filter(pl.col(cat).is_in(vals))
             except Exception as e:
                 raise CategorizerError(f"Error filtering data category: '{cat}': {e}")
 
-    def _aggregate(self) -> pd.DataFrame:
+
+    def _build_agg_exprs(self) -> list[pl.Expr]:
+        """ Translate a pandas-style aggregation dict into Polars expressions. """
+
+        if isinstance(self.aggdict, list):
+            return self.aggdict
+
+        exprs: list[pl.Expr] = []
+        for col, funcs in self.aggdict.items():
+            if isinstance(funcs, pl.Expr):
+                exprs.append(funcs.alias(col))
+                continue
+
+            multiple = isinstance(funcs, (list, tuple))
+            for func in (funcs if multiple else [funcs]):
+                if not isinstance(func, str):
+                    raise CategorizerError(
+                        f"Unsupported aggregation for column '{col}': {func!r}. Use a string name or pl.Expr."
+                    )
+                name = {'nunique': 'n_unique', 'size': 'len'}.get(func, func)
+                try:
+                    expr = getattr(pl.col(col), name)()
+                except AttributeError:
+                    raise CategorizerError(f"Unknown aggregation '{func}' for column '{col}'.")
+                exprs.append(expr.alias(f"{col}_{func}" if multiple else col))
+        return exprs
+
+
+    def _aggregate(self) -> None:
         """ Aggregate the filtered DataFrame. """
 
-        self.data = self.data.groupby(self.aggby).agg(self.aggdict).reset_index()
+        try:
+            self.data = (
+                self.data
+                .group_by(self.aggby, maintain_order=True)
+                .agg(self._build_agg_exprs())
+                .sort(self.aggby)
+            )
+        except CategorizerError:
+            raise
+        except Exception as e:
+            raise CategorizerError(f"Error aggregating data: {e}")
 
 
 

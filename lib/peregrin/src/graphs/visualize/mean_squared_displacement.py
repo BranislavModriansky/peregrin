@@ -3,27 +3,23 @@ from __future__ import annotations
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+import polars as pl
 from typing import Optional, Literal, Any
 
+from warnings import warn
 from ..._pckg_exceptions._pckg_errors import *
 from ..._pckg_exceptions._pckg_warnings import *
 
-from ...various import is_empty, get_aliases
+from ...utils import is_empty, get_aliases
 from ..painter import paint
 from ...data_compute.data_frames import calc
 from ...data_handler.categorizer import categorize
 
 
-class MSD:
-    """
-    #### *Mean Squared Displacement analysis and visualization class.*
+plt.rcParams['font.family'] = 'monospace'
 
-    Computes MSD (and optionally its dispersion: sd / sem / min-max / ci) on call
-    from the input *spot* data via :class:`calc`, aggregating per group as defined
-    by ``grouping_level`` over the category hierarchy
-    ``['track_uid', 'subsubgroup', 'subgroup', 'group', 'subset', 'set']``.
-    """
+
+class MSD:
 
     # Constants for color adjustments in linear fits
     SATURATION_SCALE = 0.7
@@ -35,8 +31,8 @@ class MSD:
     ALIASES = {
         'grouping_level': ['grouping', 'groupby', 'group_by', 'grouping_level'],
         'fig_size': ['figsize', 'figure_size', 'fig_size'],
-        'color_by': ['color_by', 'colour_by', 'colorby', 'colourby'],
-        'color': ['color', 'colour'],
+        'color_by': ['color_by', 'colour_by', 'colorby', 'colourby', 'cby', 'c_by'],
+        'color': ['color', 'colour', 'c'],
     }
 
     # Columns produced by calc.time_intervals for MSD.
@@ -47,12 +43,13 @@ class MSD:
     def __init__(self):
         ...
 
-    # ------------------------------------------------------------------ #
+
     # Public API
-    # ------------------------------------------------------------------ #
+    # --------------
+
     def plot(
         self,
-        data: pd.DataFrame,
+        data: pl.DataFrame,
         band: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
         categories: Optional[dict[str, list]] = None,
         *,
@@ -62,16 +59,16 @@ class MSD:
         **kw,
     ) -> plt.Figure:
 
-        self.data = data.copy() if data is not None else pd.DataFrame()
+        self.data = data.clone() if data is not None else pl.DataFrame()
         self.band = band
         self.categories = categories
+        self.grouping_level = grouping_level
         self.log = log
         self.linear_fit = linear_fit
         self.line = kw.get('line', True)
         self.scatter = kw.get('scatter', False)
 
         self.kwargs = get_aliases(kw, self.ALIASES)
-        self.grouping_level = self.kwargs.get('grouping_level', grouping_level)
 
         self._arrange_data()
 
@@ -87,21 +84,24 @@ class MSD:
             ax.set_xscale('log')
             ax.set_yscale('log')
 
-        self._resolve_group_key()
+        self._resolve_group_keys()
         self._resolve_band()
         color_map = self._build_color_map()
 
         self._set_axis_labels(ax)
 
-        groups = list(self.data.groupby(self.group_key, sort=False, observed=True))
+        groups = [
+            (gdata[self.group_keys[-1]][0], gdata)
+            for gdata in self.data.partition_by(self.group_keys, maintain_order=True)
+        ]
         n_groups = len(groups)
 
         for idx, (name, gdata) in enumerate(groups):
-            gdata = gdata.sort_values('time_lag')
-            label = self._group_label(name)
+            name = ".".join(f"{gdata[i][0]}" for i in self.group_keys)
+            gdata = gdata.sort('time_lag')
 
-            x_data = gdata['time_lag'].to_numpy(dtype=float)
-            y_data = gdata[self.MSD_COL].to_numpy(dtype=float)
+            x_data = gdata['time_lag'].to_numpy().astype(float)
+            y_data = gdata[self.MSD_COL].to_numpy().astype(float)
 
             color = self._resolve_color(color_map.get(name), idx)
 
@@ -118,7 +118,7 @@ class MSD:
             # ---- main line ------------------------------------------- #
             if self.line:
                 ax.plot(
-                    x_data, y_data, marker='none', label=label,
+                    x_data, y_data, marker='none', label=name,
                     linestyle='-', color=color, alpha=1.0, zorder=6,
                 )
 
@@ -133,7 +133,7 @@ class MSD:
             if self.linear_fit:
                 self._add_linear_fit(ax, x_data, y_data, color, idx, n_groups)
 
-        self._set_ylim(ax, self.data[self.MSD_COL].to_numpy(dtype=float))
+        self._set_ylim(ax, self.data[self.MSD_COL].to_numpy().astype(float))
         self._style_axes(ax, fig)
 
         return fig
@@ -142,60 +142,47 @@ class MSD:
     def _arrange_data(self) -> None:
         """Ensure the input data is in a suitable format for MSD computation."""
         if is_empty(self.data):
-            self.data = pd.DataFrame()
-            return
+            raise ValueError("Input data is empty.")
 
         # Categorize the data if categories are provided.
         if self.categories:
             self.data = categorize(self.data, self.categories)
 
-    # ------------------------------------------------------------------ #
+    
     # Computation
-    # ------------------------------------------------------------------ #
+    # ----------------
+
     def _compute_msd(self) -> None:
         """Compute MSD (+ requested dispersion) from spot data via calc."""
-        if is_empty(self.data):
-            self.data = pd.DataFrame()
-            return
-
-        # Decide which error statistics calc must produce.
-        need_descr_err = self.band in ('sd', 'sem', 'min-max')
-        need_infer_err = self.band in ('sem', 'ci')
-        bootstrap_ci = self.band == 'ci'
-
-        engine = calc(
-            cat_descr=True,
-            cat_descr_err=need_descr_err,
-            cat_infer_err=need_infer_err,
-            bootstrap_ci=bootstrap_ci,
-        )
-
-        # Request only the MSD columns we actually need.
-        subset = self._msd_subset(engine)
-
-        self.data = engine.time_intervals(
+        self.data = calc.timelags(
             self.data,
-            subset=subset,
+            subset=self._msd_subset(),
             grouping_level=self.grouping_level,
         )
 
-    def _msd_subset(self, engine: calc) -> list[str]:
+    def _msd_subset(self) -> list[str]:
         """Metric columns to request from calc.time_intervals for MSD."""
-        subset = [self.MSD_COL]
+        subset = ['MSD']
+
+        ci_lvl = calc.ci_confidence
+        if ci_lvl < 1:
+            ci_lvl = ci_lvl * 100
+
         match self.band:
             case 'sd':
-                subset.append(self.MSD_SD_COL)
+                subset.append('MSD_sd')
             case 'sem':
-                subset += [self.MSD_SD_COL, self.MSD_SEM_COL]
+                subset.append('MSD_sem')
             case 'ci':
                 subset += [
-                    f'MSD_{engine.CI_STATISTIC}_ci{engine.CONFIDENCE_LEVEL}_low',
-                    f'MSD_{engine.CI_STATISTIC}_ci{engine.CONFIDENCE_LEVEL}_high',
+                    f'MSD_ci{ci_lvl}_low',
+                    f'MSD_ci{ci_lvl}_high',
                 ]
             case 'min-max':
                 # calc does not emit MSD min/max; derived from the band bounds
                 # of the mean ± sd as a fallback (see _band_bounds).
-                subset.append(self.MSD_SD_COL)
+                subset.append('MSD_min')
+                subset.append('MSD_max')
             case _:
                 pass
         return subset
@@ -203,43 +190,35 @@ class MSD:
     # ------------------------------------------------------------------ #
     # Grouping / colors
     # ------------------------------------------------------------------ #
-    def _resolve_group_key(self) -> None:
+    def _resolve_group_keys(self) -> None:
         """Determine the column(s) that identify a plotted group."""
         hierarchy = calc.DEFAULT_CATEGORIES  # track_uid ... set
-        present = [c for c in hierarchy if c in self.data.columns]
+        self.group_keys = [c for c in hierarchy if c in self.data.columns]
+        self.groups = self.data.group_by(self.group_keys)
+        self.groups = self.groups.agg([]).
 
-        # Prefer the coarsest present category as the plotted group key.
-        # `grouping_level` already constrained what calc produced; here we
-        # just pick the label column to iterate over.
-        self.group_key = present[-1] if present else 'grouping_level'
-        if self.group_key not in self.data.columns:
-            # Fall back to a single implicit group.
-            self.data['_group'] = 'all'
-            self.group_key = '_group'
-
-    def _group_label(self, name: Any) -> str:
-        return str(name)
 
     def _build_color_map(self) -> dict[Any, Any]:
         """One color per group, via the painter (or a supplied color_by)."""
-        keys = list(self.data[self.group_key].dropna().unique())
+        # keys = self.data[self.group_keys].drop_nulls().unique(maintain_order=True).to_list()
 
-        color_by = self.kwargs.get('color_by')
+        color_by = self.kwargs.get('color_by', self.groups)
         if color_by is not None and color_by in self.data.columns:
-            colors = paint(self.data, color_by=color_by, **self._paint_kwargs())
-            return dict(zip(self.data[self.group_key], np.asarray(colors)))
+            colors = paint(self.data, color_by=color_by, color=self.kwargs.get('color', 'default'))
+            return dict(zip(self.data[self.group_keys[-1]].to_list(), np.asarray(colors)))
+            return colors
 
         # Ask the painter for one color per group.
-        color = self.kwargs.get('color', 'random')
-        try:
-            per_group = paint(
-                pd.DataFrame(index=np.arange(len(keys))),
-                color=color if color in ('random', 'random greys') else 'random',
-            )
-            per_group = np.asarray(per_group)
-            return {k: per_group[i] for i, k in enumerate(keys)}
-        except Exception:
-            return {k: f"C{i % 10}" for i, k in enumerate(keys)}
+        # color = self.kwargs.get('color', 'random')
+        # try:
+        #     per_group = paint(
+        #         pl.DataFrame({'_idx': np.arange(len(keys))}),
+        #         color=color if color in ('random', 'random greys') else 'random',
+        #     )
+        #     per_group = np.asarray(per_group)
+        #     return {k: per_group[i] for i, k in enumerate(keys)}
+        # except Exception:
+        #     return {k: f"C{i % 10}" for i, k in enumerate(keys)}
 
     def _paint_kwargs(self) -> dict:
         allowed = ('palette', 'cmap', 'lut_vmin', 'lut_vmax')
@@ -251,7 +230,7 @@ class MSD:
     def _resolve_band(self) -> None:
         """Validate that the requested band's columns exist; disable otherwise."""
         cols = self.data.columns
-        engine = calc()
+        # engine = calc()
 
         match self.band:
             case 'sd':
@@ -262,38 +241,38 @@ class MSD:
                 # Derived from mean ± sd fallback.
                 self._band_ok = self.MSD_SD_COL in cols
             case 'ci':
-                low = f'MSD_{engine.CI_STATISTIC}_ci{engine.CONFIDENCE_LEVEL}_low'
-                high = f'MSD_{engine.CI_STATISTIC}_ci{engine.CONFIDENCE_LEVEL}_high'
+                low = f'MSD_{calc.CI_STATISTIC}_ci{calc.CONFIDENCE_LEVEL}_low'
+                high = f'MSD_{calc.CI_STATISTIC}_ci{calc.CONFIDENCE_LEVEL}_high'
                 self._ci_low, self._ci_high = low, high
                 self._band_ok = low in cols and high in cols
             case _:
                 self._band_ok = False
 
         if self.band and not self._band_ok:
-            warnings.warn(
+            warn(
                 f"Requested error band '{self.band}' is unavailable in the "
                 "computed MSD data. Ignoring error band.",
-                category=PlottingWarning, stacklevel=2,
+                stacklevel=2,
             )
 
-    def _band_bounds(self, gdata: pd.DataFrame, y_data: np.ndarray):
+    def _band_bounds(self, gdata: pl.DataFrame, y_data: np.ndarray):
         """Return (bottom, top) arrays for the error band, or (None, None)."""
         if not getattr(self, '_band_ok', False):
             return None, None
 
         match self.band:
             case 'sd':
-                err = gdata[self.MSD_SD_COL].to_numpy(dtype=float) / 2.0
+                err = gdata[self.MSD_SD_COL].to_numpy().astype(float) / 2.0
                 return np.maximum(y_data - err, 0.0), y_data + err
             case 'sem':
-                err = gdata[self.MSD_SEM_COL].to_numpy(dtype=float)
+                err = gdata[self.MSD_SEM_COL].to_numpy().astype(float)
                 return np.maximum(y_data - err, 0.0), y_data + err
             case 'min-max':
-                err = gdata[self.MSD_SD_COL].to_numpy(dtype=float)
+                err = gdata[self.MSD_SD_COL].to_numpy().astype(float)
                 return np.maximum(y_data - err, 0.0), y_data + err
             case 'ci':
-                low = gdata[self._ci_low].to_numpy(dtype=float)
-                high = gdata[self._ci_high].to_numpy(dtype=float)
+                low = gdata[self._ci_low].to_numpy().astype(float)
+                high = gdata[self._ci_high].to_numpy().astype(float)
                 return low, high
             case _:
                 return None, None
@@ -302,8 +281,8 @@ class MSD:
     # Styling
     # ------------------------------------------------------------------ #
     def _set_axis_labels(self, ax: plt.Axes) -> None:
-        ax.set_xlabel(f'Time lag [{calc.t_unit}]', fontsize=12)
-        ax.set_ylabel('MSD [µm²]', fontsize=12)
+        ax.set_xlabel(f"Time lag [{calc.metadata['timeunits']}]", fontsize=11, labelpad=15)
+        ax.set_ylabel(f'MSD [{calc.metadata["spatialunits"]}²]', fontsize=11, labelpad=15)
 
     def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray) -> None:
         if self.log:
@@ -414,7 +393,7 @@ class MSD:
 
 
 def turn_angles(
-    data: pd.DataFrame,
+    data: pl.DataFrame,
     *,
     grouping_level: Literal['highest', 'lowest'] | str | int = 'highest',
     angle_range: int = 15,
@@ -431,13 +410,8 @@ def turn_angles(
 
     fig, ax = plt.subplots(figsize=kwargs.get('figsize', (6, 6)))
 
-    # if is_empty(data):
-    #     warnings.warn("No data available for plotting.",
-    #                   category=PlottingWarning, stacklevel=2)
-    #     return None
-
-    engine = calc(cat_descr=True, cat_descr_err=True, cat_infer_err=False)
-    data = engine.time_intervals(
+    # engine = calc(cat_descr=True, cat_descr_err=True, cat_infer_err=False)
+    data = calc.timelags(
         data,
         subset=['directional_change_mean'],
         grouping_level=grouping_level,
@@ -446,7 +420,7 @@ def turn_angles(
     if is_empty(data) or 'directional_change_mean' not in data.columns:
         return None
 
-    lags = np.sort(data['time_lag'].unique())
+    lags = np.sort(data['time_lag'].unique().to_numpy())
     if lags.size < 2:
         return None
 
@@ -455,10 +429,10 @@ def turn_angles(
     # One "sample" per group per lag.
     hierarchy = calc.DEFAULT_CATEGORIES
     group_key = next((c for c in reversed(hierarchy) if c in data.columns), None)
-    n = data[group_key].nunique() if group_key else 1
+    n = data[group_key].n_unique() if group_key else 1
 
-    xvals = data['directional_change_mean'].to_numpy(dtype=float)
-    yvals = data['time_lag'].to_numpy(dtype=float)
+    xvals = data['directional_change_mean'].to_numpy().astype(float)
+    yvals = data['time_lag'].to_numpy().astype(float)
 
     x_bins = np.arange(0, 181, angle_range)
     y_bins = np.arange(0, lags.max() + tlag_range, tlag_range)

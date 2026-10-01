@@ -7,9 +7,9 @@ import polars as pl
 from scipy import stats
 from typing import Any, Callable, Literal, Optional, Dict, List
 
-from ..various import Values, is_empty
+from ..utils import is_empty
 from ..settings import params
-from ..data_handler.utils import ensure_polars
+from ..utils import ensure_polars
 
 from warnings import warn
 from .._pckg_exceptions._pckg_errors import *

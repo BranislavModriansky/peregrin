@@ -11,9 +11,11 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib as mpl
 
-import warnings
+from warnings import warn
 from .._pckg_exceptions._pckg_errors import *
 from .._pckg_exceptions._pckg_warnings import *
+
+from ..utils import ensure_polars
 
 
 @dataclass
@@ -21,6 +23,9 @@ class Dyes:
     """
     Class holding color options.
     """
+
+    peregrin_cmap_qn = ['#002288', '#2555bd', '#3e73ce', '#608dce', '#a0a376', '#bdb74b', '#cfc532', '#eadd24', '#ffee00', "#FCF4EC"]
+    peregrin_cmap_ql = ['#093190', "#a9290f", '#197fdf', '#edb717', '#799adc',  '#ffee00']
 
     _base_quantitative_cmaps = [
         'gist_grey', 'gist_yarg', 'viridis', 'cividis', 'plasma', 'inferno',
@@ -36,21 +41,21 @@ class Dyes:
         'berlin', 'managua', 'vanimo',
     ]
 
-    quantitative_cmaps = []
+    quantitative_cmaps = ["peregrin_qn"]
     for _cmap in _base_quantitative_cmaps:
         quantitative_cmaps.append(_cmap)
         if f"{_cmap}_r" in mpl.colormaps:
             quantitative_cmaps.append(f"{_cmap}_r")
     del _base_quantitative_cmaps
 
-    qualitative_palettes_matplotlib = [
-        "Set1", "Set2", "Set3", "tab10", "Accent", "Dark2", "Pastel1", "Pastel2"
+    qualitative_cmaps_matplotlib = [
+        'Pastel1', 'Pastel2', 'Paired', 'Accent', 'okabe_ito', 'Dark2', 'Set1', 'Set2', 'Set3', 'tab10', 'tab20', 'tab20b', 'tab20c'
     ]
-    qualitative_palettes_seaborn = [
+    qualitative_cmaps_seaborn = [
         "deep", "muted", "bright", "pastel", "dark", "colorblind", "husl", "hsl"
     ]
-    qualitative_palettes = qualitative_palettes_matplotlib + qualitative_palettes_seaborn
-    all_cmaps = quantitative_cmaps + qualitative_palettes
+    qualitative_cmaps = ["peregrin_ql"] + qualitative_cmaps_matplotlib + qualitative_cmaps_seaborn
+    cmaps = quantitative_cmaps + qualitative_cmaps
 
 
 class ColorGenerator:
@@ -155,40 +160,58 @@ class Cmaps:
     def __init__(self): ...
 
     @staticmethod
-    def retrieve_palette(categories: list, palette: Optional[str | list] = "tab10") -> dict:
+    def retrieve_palette(palette: Optional[str | list] = "peregrin_ql", categories: list = None) -> dict:
+        
+        if palette in ('peregrin_ql', 'default'):
+            palette = Dyes.peregrin_cmap_ql
+        if palette == 'peregrin_qn':
+            palette = Dyes.peregrin_cmap_qn
+
         if isinstance(palette, list):
+            if categories is None:
+                return palette
             if len(palette) < len(categories):
                 raise PaletteBuilderError(
                     f"More categories ({len(categories)}) than colors ({len(palette)}). "
                     "Please provide a palette with at least as many colors as there are categories.")
-            return {cat: color for cat, color in zip(categories, palette)}
+            return dict(zip(categories, palette))
         else:
             try:
-                palette = plt.get_cmap(palette)
+                palette = mpl.colormaps[palette]
             except ValueError:
                 palette = sns.color_palette(palette)
             except Exception as e:
-                warnings.warn(
+                warn(
                     message=f"An error occurred while retrieving the palette '{palette}': {str(e)}. "
                             "<- Defaulting to 'tab10' colormap.",
                     category=PaletteBuilderWarning, stacklevel=2)
-                palette = plt.get_cmap('tab10')
+                palette = mpl.colormaps['tab10']
+
+            if categories is None:
+                return palette
+            
             cat_count = len(categories)
             return {cat: mcolors.to_hex(palette(i / cat_count)) for i, cat in enumerate(categories)}
 
     @staticmethod
-    def retrieve_cmap(qnt_cmap: str | mcolors.Colormap) -> mcolors.Colormap:
-        if isinstance(qnt_cmap, mcolors.Colormap):
-            return qnt_cmap
+    def retrieve_cmap(cmap: str | mcolors.Colormap) -> mcolors.Colormap:
+
+        if isinstance(cmap, mcolors.Colormap):
+            return cmap
+
+        if cmap in Dyes.qualitative_cmaps + ['peregrin_qn']:
+            return mcolors.LinearSegmentedColormap.from_list(f'_{cmap}', Cmaps.retrieve_palette(cmap))
+
         try:
-            return mpl.colormaps[qnt_cmap]
+            return mpl.colormaps[cmap]
         except Exception as e:
-            warnings.warn(
-                message=f"An error occurred while retrieving the colormap for '{qnt_cmap}': {str(e)}. "
+            warn(
+                message=f"An error occurred while retrieving the colormap for '{cmap}': {str(e)}. "
                         f"Available colormaps are: {', '.join(Dyes.quantitative_cmaps)}. "
                         "Defaulting to 'jet' colormap.",
                 category=PainterWarning, stacklevel=2)
             return mpl.colormaps['jet']
+
 
     @staticmethod
     def scale_cmap(data: pl.Series, *, min: float = None, max: float = None) -> Tuple[Any, Any]:
@@ -202,7 +225,7 @@ class Cmaps:
                 max = float(np.nanmax(vals)) if vals.size else 100.0
 
             if not (np.isfinite(max) or np.isfinite(min)):
-                warnings.warn(
+                warn(
                     message="Invalid LUT range. Max and min values are not finite. "
                             "Using default range (0.0, 100.0).",
                     category=LUTWarning, stacklevel=2)
@@ -212,7 +235,7 @@ class Cmaps:
                     max = 100.0
 
             if max <= min:
-                warnings.warn(
+                warn(
                     message="Invalid LUT range. Max value must be greater than min value. Swapping values.",
                     category=LUTWarning, stacklevel=2)
                 min, max = max, min
@@ -232,7 +255,7 @@ class Cmaps:
                 case "quantitative":
                     cmaps = Dyes.quantitative_cmaps
                 case "qualitative":
-                    cmaps = Dyes.qualitative_palettes
+                    cmaps = Dyes.qualitative_cmaps
                 case _:
                     raise ValueError(
                         f"Unknown colormap type '{which}'. Supported types are "
@@ -266,19 +289,38 @@ class Cmaps:
 
 class Painter:
 
-    def __init__(self): ...
+    def __init__(self):
+        pass
 
     def paint(
         self,
         data: pl.DataFrame,
         *,
-        color: Literal['random', 'random greys'] | str = 'black',
         color_by: Optional[str | tuple[str, Literal['categorical', 'numeric']]] = None,
+        color: Any = 'black',
         **kwargs
     ) -> None:
+        """
+        Assign colors to the data based on the provided parameters.
 
-        self.data = self._ensure_polars(data)
-        self.color = color
+        Parameters
+        ----------
+        data : pl.DataFrame
+            The data to be colored.
+        color : Any, optional
+            The default color to use if 'color_by' is not specified. Default is 'black'.
+        color_by : Optional[str | tuple[str, Literal['categorical', 'numeric']]], optional
+            The column or specification to color by. Default is None.
+        **kwargs
+            Additional keyword arguments for color assignment.
+
+        Returns
+        -------
+        None
+        """
+
+        self.data = ensure_polars(data)
+        self.color = color if color != 'default' else 'peregrin_ql'
         self.color_by = color_by
         self.kwargs = kwargs
 
@@ -286,37 +328,22 @@ class Painter:
 
         if self.color_by is not None:
             self._color_by()
-        elif self.color in list(mcolors.CSS4_COLORS.keys()) or is_color_code(self.color):
-            pass
-        elif self.color is not None:
-            self._color()
+        # elif (self.color in list(mcolors.CSS4_COLORS.keys()) or 
+        #       self.color in list(mcolors.BASE_COLORS.keys()) or
+        #       self.color in list(mcolors.TABLEAU_COLORS.keys()) or
+        #       self.color in list(mcolors.XKCD_COLORS.keys()) or
+        #       is_color_code(self.color)):
+        #     pass
+        # elif self.color is not None:
+        #     self._color()
 
         if self.colors is not None:
             return self.colors
         else:
             return self.color
 
-    @staticmethod
-    def _ensure_polars(df) -> pl.DataFrame:
-        if isinstance(df, pl.DataFrame):
-            return df
-        if hasattr(df, 'df') and isinstance(getattr(df, 'df'), pl.DataFrame):
-            return df.df
-        try:
-            import pandas as pd
-            if isinstance(df, pd.DataFrame):
-                return pl.from_pandas(df)
-        except ImportError:
-            pass
-        raise TypeError(f"Expected a polars DataFrame, got {type(df).__name__}.)")
 
     def _color_by(self) -> None:
-        if self.color is not None:
-            warnings.warn(
-                "Both 'color' and 'color_by' parameters are provided -> Parameter "
-                "'color' will be ignored -> Using 'color_by' for color assignment.",
-                category=ConflictingParametersWarning, stacklevel=2)
-
         datatype = None
         if isinstance(self.color_by, tuple) and len(self.color_by) == 2:
             self.color_by, datatype = self.color_by
@@ -359,21 +386,21 @@ class Painter:
                 "code, or one of ['random', 'random greys'].")
 
     def _categorical_colors(self) -> np.ndarray:
-        palette = self.kwargs.get('palette', 'tab10')
+        palette = self.color
         col = self.data[self.color_by]
         categories = col.drop_nulls().unique(maintain_order=True).to_list()
 
         if isinstance(palette, str):
-            if palette not in Dyes.qualitative_palettes:
-                warnings.warn(
-                    f"Palette '{palette}' is not a recognized qualitative palette. "
-                    "Defaulting to 'tab10'. Supported palettes include: "
-                    f"{', '.join(Dyes.qualitative_palettes)}.",
-                    category=PainterWarning, stacklevel=2)
-                palette = 'tab10'
-            mapping = retrieve_palette(categories, palette)
+            if palette not in Dyes.cmaps:
+                warn(
+                    f"Colormap '{palette}' was not recognized. Defaulting to the 'peregrin_ql' colormap. "
+                    "To paint categorical variables, choose from the selected colormaps, including qualitative: "
+                    f"{', '.join(Dyes.qualitative_cmaps)}, or quantitative: {', '.join(Dyes.quantitative_cmaps)}",
+                    category=PainterWarning, stacklevel=1)
+                palette = 'peregrin_ql'
+            mapping = retrieve_palette(palette, categories)
         elif isinstance(palette, list):
-            mapping = retrieve_palette(categories, palette)
+            mapping = retrieve_palette(palette, categories)
         elif isinstance(palette, dict):
             mapping = palette
         else:
@@ -390,7 +417,7 @@ class Painter:
     def _numeric_colors(self) -> np.ndarray:
         cmap_name = self.kwargs.get('cmap', 'viridis')
         if cmap_name not in Dyes.quantitative_cmaps:
-            warnings.warn(
+            warn(
                 f"Colormap '{cmap_name}' is not a recognized quantitative colormap. "
                 "Defaulting to 'viridis'. Supported colormaps include: "
                 f"{', '.join(Dyes.quantitative_cmaps)}.",

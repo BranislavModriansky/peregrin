@@ -12,7 +12,7 @@ import numpy as np
 import polars as pl
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from matplotlib.ticker import FuncFormatter, MultipleLocator, FormatStrFormatter
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import to_hex
 
@@ -20,9 +20,9 @@ from ..._pckg_exceptions._pckg_errors import *
 from ..._pckg_exceptions._pckg_warnings import *
 
 from ..painter import paint
-from ...various import get_aliases
+from ...utils import get_aliases
 from .._tooltip_toolkit import tooltip_assets
-from ...data_handler.utils import ensure_polars
+from ...utils import ensure_polars
 
 
 plt.rcParams['font.family'] = 'monospace'
@@ -351,8 +351,11 @@ class ReconstructTracks:
         color_by = self.kwargs.get('color_by')
 
         # Record how colors were generated so the tooltip offers matching options.
-        if color in ('random', 'random greys') and color_by is None:
+        if color in ('random', 'random greys'):
             self._color_mode, self._color_source = 'per_track', color
+            if color_by is not None:
+                ...  # Handle the case where both a random color and color_by are specified.
+    
         elif color_by is not None:
             self._color_mode = 'lut'
             self._color_source = color_by[0] if isinstance(color_by, tuple) else color_by
@@ -380,8 +383,8 @@ class ReconstructTracks:
     # ---- static figures ----------------------------------------------------------
     def cartesian(self) -> plt.Figure:
         fig, ax = plt.subplots(figsize=(13, 10))
-        ax.patch.set_gid('pg:background')
         fig.patch.set_gid('pg:figure')
+        ax.patch.set_gid('pg:background')
 
         self._build_tracks(ax)
 
@@ -392,8 +395,8 @@ class ReconstructTracks:
 
         ax.set_aspect('equal', adjustable='box')
         text_color = self.kwargs.get('text_color', 'black')
-        ax.set_xlabel('x_coordinate [µm]', color=text_color)
-        ax.set_ylabel('y_coordinate [µm]', color=text_color)
+        ax.set_xlabel('x coordinate [µm]', color=text_color, fontsize=12, labelpad=15)
+        ax.set_ylabel('y coordinate [µm]', color=text_color, fontsize=12, labelpad=10)
         ax.set_title(self.kwargs.get('title', ''), fontsize=12, color=text_color)
 
         ax.xaxis.set_major_locator(MultipleLocator(200))
@@ -402,25 +405,35 @@ class ReconstructTracks:
         ax.yaxis.set_minor_locator(MultipleLocator(50))
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax.tick_params(axis='both', which='major', labelsize=8,
+        ax.tick_params(axis='both', which='major', labelsize=9,
                        colors=self.kwargs.get('annotation_color', 'black'))
         for spine in ax.spines.values():
             spine.set_color(self.kwargs.get('frame_color', 'black'))
+
+        if self.fmt in ('html', 'interactive'):
+            fig.text(0.835, 0.885, 'right click to interact', ha='right', va='bottom', color="#4d83e3", fontsize=9)
 
         self._finish_axes(fig, ax, polar=False)
         return fig
 
     def polar(self) -> plt.Figure:
         fig, ax = plt.subplots(figsize=(12.5, 9.5), subplot_kw={'projection': 'polar'})
-        ax.patch.set_gid('pg:background')
         fig.patch.set_gid('pg:figure')
+        ax.patch.set_gid('pg:background')
 
         text_color = self.kwargs.get('text_color', 'black')
         ax.set_title(self.kwargs.get('title', ''), fontsize=12, color=text_color)
         ax.set_ylim(0, self._max_radius() + 100.0)
         ax.spines['polar'].set_visible(False)
 
+        ax.set_ylabel('radius [µm]', color=text_color, fontsize=12, labelpad=35)
+        # ax.set_xlabel('angle [°]', color=text_color, fontsize=12, labelpad=10)
+
         self._build_tracks(ax, polar=True)
+
+        if self.fmt in ('html', 'interactive'):
+            fig.text(0.84, 0.91, 'right click to interact', ha='right', va='top', color="#4d83e3", fontsize=9)
+                            
         self._finish_axes(fig, ax, polar=True)
         return fig
 
@@ -526,14 +539,12 @@ class ReconstructTracks:
         else:
             px, py = self._x[ends], self._y[ends]
 
-        outline = self.kwargs.get('outline_head', True)
-        fill = self.kwargs.get('fill_head', False)
         scatter = ax.scatter(
             px, py,
             marker=self.kwargs.get('head_shape', 'o'),
             s=self.kwargs.get('head_size', 10),
-            edgecolor=colors if outline else 'none',
-            facecolor=colors if fill else 'none',
+            edgecolor=colors,
+            facecolor=colors,
             linewidths=self.kwargs.get('head_outline_width', 1.0),
             zorder=12,
         )

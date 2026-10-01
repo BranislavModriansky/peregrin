@@ -12,7 +12,7 @@ import seaborn as sns
 import matplotlib.lines as mlines
 
 from ...data_handler.categorizer import Painter, Categorizer
-from ...various import is_empty
+from ...utils import is_empty
 from ...data_compute.data_frames import Stats
 
 

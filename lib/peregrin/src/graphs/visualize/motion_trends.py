@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 from ...data_handler.categorizer import Categorizer, Painter
-from ...various import is_empty
+from ...utils import is_empty
 from ...data_compute.data_frames import Stats
 
 
