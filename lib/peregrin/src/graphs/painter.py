@@ -24,8 +24,11 @@ class Dyes:
     Class holding color options.
     """
 
-    peregrin_cmap_qn = ['#002288', '#2555bd', '#3e73ce', '#608dce', '#a0a376', '#bdb74b', '#cfc532', '#eadd24', '#ffee00', "#FCF4EC"]
-    peregrin_cmap_ql = ['#093190', "#a9290f", '#197fdf', '#edb717', '#799adc',  '#ffee00']
+    # peregrin_cmap_qn = np.asarray(['#002288ff', '#2555bdff', '#3e73ceff', '#608dceff', '#a0a376ff', '#bdb74bff', '#cfc532ff', '#eadd24ff', '#ffee00ff', "#fcf4ecff"])
+    # peregrin_cmap_ql = np.asarray(['#093190ff', "#a9290fff", '#197fdfff', '#edb717ff', '#799adcff', '#ffee00ff'])
+
+    peregrin_cmap_qn = ['#002288ff', '#2555bdff', '#3e73ceff', '#608dceff', '#a0a376ff', '#bdb74bff', '#cfc532ff', '#eadd24ff', '#ffee00ff', "#fcf4ecff"]
+    peregrin_cmap_ql = ['#093190ff', "#a9290fff", '#197fdfff', '#edb717ff', '#799adcff', '#ffee00ff']
 
     _base_quantitative_cmaps = [
         'gist_grey', 'gist_yarg', 'viridis', 'cividis', 'plasma', 'inferno',
@@ -63,8 +66,8 @@ class ColorGenerator:
 
     def __init__(self): ...
 
-    def random_color(self, n: Optional[int] = 1, *, code: str = "hex",
-                     a: float = 1.0, **kwargs) -> np.ndarray:
+    def random_color(self, n: Optional[int] = 1, *, 
+                     code: str = "hex", a: float = 1.0, **kwargs) -> np.ndarray:
         if not isinstance(n, int) or n < 1:
             raise ColorGeneratorError("n must be a positive integer.")
         rng = np.random.default_rng(kwargs.get("seed", 42))
@@ -164,16 +167,19 @@ class Cmaps:
         
         if palette in ('peregrin_ql', 'default'):
             palette = Dyes.peregrin_cmap_ql
-        if palette == 'peregrin_qn':
+        elif palette == 'peregrin_qn':
             palette = Dyes.peregrin_cmap_qn
 
         if isinstance(palette, list):
             if categories is None:
                 return palette
             if len(palette) < len(categories):
-                raise PaletteBuilderError(
-                    f"More categories ({len(categories)}) than colors ({len(palette)}). "
-                    "Please provide a palette with at least as many colors as there are categories.")
+                warn(f"More categories ({len(categories)}) than colors ({len(palette)}). "
+                     "Randomly generating additional colors.")
+                print(type(palette))
+                palette.extend(random_color(len(categories) - len(palette)))
+                print(palette)
+                print(type(palette))
             return dict(zip(categories, palette))
         else:
             try:
@@ -296,12 +302,12 @@ class Painter:
         self,
         data: pl.DataFrame,
         *,
-        color_by: Optional[str | tuple[str, Literal['categorical', 'numeric']]] = None,
+        color_by: Optional[str | tuple[str, Literal['categorical', 'numeric']] | list[str]] = None,
         color: Any = 'black',
         **kwargs
     ) -> None:
         """
-        Assign colors to the data based on the provided parameters.
+        Assign colors to the data based on the provided parameters and return format.
 
         Parameters
         ----------
@@ -316,7 +322,7 @@ class Painter:
 
         Returns
         -------
-        None
+        dict or list
         """
 
         self.data = ensure_polars(data)
@@ -325,6 +331,8 @@ class Painter:
         self.kwargs = kwargs
 
         self.colors = None
+
+        print(self.color_by, self.color, self.kwargs)
 
         if self.color_by is not None:
             self._color_by()
@@ -352,11 +360,17 @@ class Painter:
                     f"Invalid datatype parameter '{datatype}' for color_by. "
                     "Must be one of ['categorical', 'numeric'].")
 
-        if self.color_by not in self.data.columns:
-            raise InvalidParameterValueError(
-                f"color_by column '{self.color_by}' not found in DataFrame.")
+        if isinstance(self.color_by, list):
+            datatype = 'categorical'
+            if any(col not in self.data.columns for col in self.color_by):
+                raise InvalidParameterValueError(
+                    f"<color_by> input columns: [{', '.join(f'{c}' for c in self.color_by)}] not found.")
+        else:
+            if self.color_by not in self.data.columns:
+                raise InvalidParameterValueError(
+                    f"<color_by> column: '{self.color_by}' not found in DataFrame.")
 
-        dtype = self.data.schema[self.color_by]
+            dtype = self.data.schema[self.color_by]
 
         if datatype == 'categorical' or dtype in (pl.Categorical, pl.Enum, pl.Utf8, pl.Boolean):
             self.colors = self._categorical_colors()
@@ -387,8 +401,16 @@ class Painter:
 
     def _categorical_colors(self) -> np.ndarray:
         palette = self.color
-        col = self.data[self.color_by]
-        categories = col.drop_nulls().unique(maintain_order=True).to_list()
+        if isinstance(self.color_by, list):
+            categories = pl.concat([self.data[[c for c in self.color_by]]], how='horizontal')
+            categories = list(
+                pl.Series(
+                    [ '.'.join(row) for row in categories.to_numpy() ]
+                ).drop_nulls().unique(maintain_order=True)
+            )
+        else:
+            categories = self.data[self.color_by].drop_nulls().unique(maintain_order=True).to_list()
+        print(categories)
 
         if isinstance(palette, str):
             if palette not in Dyes.cmaps:
@@ -398,21 +420,29 @@ class Painter:
                     f"{', '.join(Dyes.qualitative_cmaps)}, or quantitative: {', '.join(Dyes.quantitative_cmaps)}",
                     category=PainterWarning, stacklevel=1)
                 palette = 'peregrin_ql'
-            mapping = retrieve_palette(palette, categories)
+            mapped_colors = retrieve_palette(palette, categories)
         elif isinstance(palette, list):
-            mapping = retrieve_palette(palette, categories)
+            mapped_colors = retrieve_palette(palette, categories)
         elif isinstance(palette, dict):
-            mapping = palette
+            mapped_colors = palette
         else:
             raise PlottingError(
                 f"Invalid palette type: {type(palette)}. Must be str, list, or dict.")
 
+
         # Vectorized value -> color mapping; unmapped/null values fall back to black.
-        colored = col.cast(pl.Utf8).replace_strict(
-            {str(k): v for k, v in mapping.items()},
-            default="#000000FF",
-        )
-        return colored.to_numpy()
+        match self.kwargs.get('return_', 'dict'):
+            case 'dict':
+                return mapped_colors
+            case 'array':
+                categories = pl.Series(categories)
+                return categories.cast(pl.Utf8).replace_strict(
+                    {str(k): v for k, v in mapped_colors.items()},
+                    default="#000000FF",
+                ).to_numpy()
+            case _:
+                raise PlottingError(
+                    f"Invalid <return_> argument: {self.kwargs.get('return_', 'dict')}. Must be 'dict' or 'array'.")
 
     def _numeric_colors(self) -> np.ndarray:
         cmap_name = self.kwargs.get('cmap', 'viridis')

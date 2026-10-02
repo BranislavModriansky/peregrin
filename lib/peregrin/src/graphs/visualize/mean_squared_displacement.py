@@ -88,6 +88,8 @@ class MSD:
         self._resolve_band()
         color_map = self._build_color_map()
 
+        print(color_map)
+
         self._set_axis_labels(ax)
 
         groups = [
@@ -194,18 +196,20 @@ class MSD:
         """Determine the column(s) that identify a plotted group."""
         hierarchy = calc.DEFAULT_CATEGORIES  # track_uid ... set
         self.group_keys = [c for c in hierarchy if c in self.data.columns]
-        self.groups = self.data.group_by(self.group_keys)
-        self.groups = self.groups.agg([]).
 
 
     def _build_color_map(self) -> dict[Any, Any]:
         """One color per group, via the painter (or a supplied color_by)."""
         # keys = self.data[self.group_keys].drop_nulls().unique(maintain_order=True).to_list()
 
-        color_by = self.kwargs.get('color_by', self.groups)
-        if color_by is not None and color_by in self.data.columns:
+        print(self.group_keys)
+
+        color_by = self.kwargs.get('color_by', self.group_keys)
+
+        print(color_by)
+        if color_by is not None:
             colors = paint(self.data, color_by=color_by, color=self.kwargs.get('color', 'default'))
-            return dict(zip(self.data[self.group_keys[-1]].to_list(), np.asarray(colors)))
+            print(f"colors: {colors}")
             return colors
 
         # Ask the painter for one color per group.
