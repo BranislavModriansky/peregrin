@@ -61,25 +61,26 @@ class Categorizer:
 
     def _checkcats(self) -> None:
         """ Check for errors in the provided categories and values. """
-
         for cat, vals in self.keep_which.items():
             if cat not in self.data.columns:
                 raise CategorizerError(f"Column '{cat}' not found in DataFrame.")
 
-            present = set(self.data.get_column(cat).unique().to_list())
+            present = set(self.data[cat].unique().to_list())
+            if not isinstance(vals, list):
+                vals = [vals]
+                self.keep_which[cat] = vals
             for val in vals:
                 if val not in present:
                     raise CategorizerError(f"Value '{val}' not found in column '{cat}'.")
 
 
     def _filter(self) -> None:
-        """ Filter DataFrame categories. """
-
+        """ Filter DataFrame categories so that they only retain the specified values. """
         for cat, vals in self.keep_which.items():
             try:
                 self.data = self.data.filter(pl.col(cat).is_in(vals))
             except Exception as e:
-                raise CategorizerError(f"Error filtering data category: '{cat}': {e}")
+                raise CategorizerError(f"Error filtering data category: '{cat}' -> {e}")
 
 
     def _build_agg_exprs(self) -> list[pl.Expr]:
