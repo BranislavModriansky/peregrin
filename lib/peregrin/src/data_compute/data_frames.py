@@ -212,7 +212,7 @@ class Calc:
             'cum_sum_directional_change', 'cum_mean_directional_change',
         ],
         'TIMELAGS': [
-            'time_lag', 'frame_lag', 'MSD', 'MSD_sd', 
+            'time_lag', 'frame_lag', 'MSD', 'MSD_min', 'MSD_max', 'MSD_sd', 
             'tracks_contributing', 'position_pairs_contributing', 
             'directional_change_mean', 'directional_change_var',
         ]
@@ -619,6 +619,11 @@ class Calc:
             - `frame_lag`: The frame interval between observations.
             - `MSD`: Mean squared displacement for the given time lag.
             - `MSD_sd`: Standard deviation of the mean squared displacement for the given time lag.
+            - `MSD_sem`: Standard error of the mean squared displacement for the given time lag.
+            - `MSD_ciXX_low`: Lower bound of the confidence interval for the mean squared displacement for the given time lag, where `XX` represents the confidence level.
+            - `MSD_ciXX_high`: Upper bound of the confidence interval for the mean squared displacement for the given time lag, where `XX` represents the confidence level.
+            - `MSD_min`: Minimum value of the mean squared displacement for the given time lag.
+            - `MSD_max`: Maximum value of the mean squared displacement for the given time lag.
             - `tracks_contributing`: Number of tracks contributing to the given time lag.
             - `position_pairs_contributing`: Number of position pairs contributing to the given time lag.
             - `directional_change_mean`: Mean directional change for the given time lag.
@@ -1092,6 +1097,8 @@ class Calc:
             return _post
 
         reg.add('MSD',     lambda ctx: pl.col('sq_disp').mean())
+        reg.add('MSD_min', lambda ctx: pl.col('sq_disp').min())
+        reg.add('MSD_max', lambda ctx: pl.col('sq_disp').max())
         reg.add('MSD_sd',  lambda ctx: pl.col('sq_disp').std())
         reg.add('MSD_sem', lambda ctx: self.AGG_FUNCTIONS['sem']('sq_disp'), gate=self.inferative_error)
         reg.add('MSD_ci',  _msd_ci, gate=self.bootstrap_ci)

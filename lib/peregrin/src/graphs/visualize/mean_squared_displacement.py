@@ -65,8 +65,6 @@ class MSD:
         self.grouping_level = grouping_level
         self.log = log
         self.linear_fit = linear_fit
-        self.line = kw.get('line', True)
-        self.scatter = kw.get('scatter', False)
 
         self.kwargs = get_aliases(kw, self.ALIASES)
 
@@ -84,11 +82,8 @@ class MSD:
             ax.set_xscale('log')
             ax.set_yscale('log')
 
-        self._resolve_group_keys()
-        self._resolve_band()
+        self.group_keys = [c for c in calc.DEFAULT_CATEGORIES if c in self.data.columns]
         color_map = self._build_color_map()
-
-        print(color_map)
 
         self._set_axis_labels(ax)
 
@@ -98,12 +93,12 @@ class MSD:
         ]
         n_groups = len(groups)
 
-        for idx, (name, gdata) in enumerate(groups):
-            name = ".".join(f"{gdata[i][0]}" for i in self.group_keys)
+        for idx, (_, gdata) in enumerate(groups):
+            name = ".".join(f"{gdata[i][0]}" for i in self.group_keys)  # Construct a unique name for the group based on the grouping keys.
             gdata = gdata.sort('time_lag')
 
             x_data = gdata['time_lag'].to_numpy().astype(float)
-            y_data = gdata[self.MSD_COL].to_numpy().astype(float)
+            y_data = gdata['MSD'].to_numpy().astype(float)
 
             color = self._resolve_color(color_map.get(name), idx)
 
@@ -118,14 +113,14 @@ class MSD:
                     )
 
             # ---- main line ------------------------------------------- #
-            if self.line:
+            if self.kwargs.get('line', True):
                 ax.plot(
                     x_data, y_data, marker='none', label=name,
                     linestyle='-', color=color, alpha=1.0, zorder=6,
                 )
 
             # ---- scatter markers ------------------------------------- #
-            if self.scatter:
+            if self.kwargs.get('scatter', False):
                 ax.plot(
                     x_data, y_data, marker='o', markersize=6, label=None,
                     linestyle='none', color=color, zorder=5,
@@ -135,7 +130,7 @@ class MSD:
             if self.linear_fit:
                 self._add_linear_fit(ax, x_data, y_data, color, idx, n_groups)
 
-        self._set_ylim(ax, self.data[self.MSD_COL].to_numpy().astype(float))
+        self._set_ylim(ax, self.data['MSD'].to_numpy().astype(float))
         self._style_axes(ax, fig)
 
         return fig
@@ -166,121 +161,61 @@ class MSD:
         """Metric columns to request from calc.time_intervals for MSD."""
         subset = ['MSD']
 
-        ci_lvl = calc.ci_confidence
-        if ci_lvl < 1:
-            ci_lvl = ci_lvl * 100
+        self._ci_confidence = calc.ci_confidence
+        if self._ci_confidence < 1:
+            self._ci_confidence = self._ci_confidence * 100
 
         match self.band:
             case 'sd':
-                subset.append('MSD_sd')
+                subset += ['MSD_sd']
             case 'sem':
-                subset.append('MSD_sem')
+                subset += ['MSD_sem']
             case 'ci':
-                subset += [
-                    f'MSD_ci{ci_lvl}_low',
-                    f'MSD_ci{ci_lvl}_high',
-                ]
+                subset += [f'MSD_ci{self._ci_confidence}_low', f'MSD_ci{self._ci_confidence}_high']
             case 'min-max':
-                # calc does not emit MSD min/max; derived from the band bounds
-                # of the mean ± sd as a fallback (see _band_bounds).
-                subset.append('MSD_min')
-                subset.append('MSD_max')
+                subset += ['MSD_min', 'MSD_max']
             case _:
                 pass
         return subset
 
     # ------------------------------------------------------------------ #
-    # Grouping / colors
+    # Colors
     # ------------------------------------------------------------------ #
-    def _resolve_group_keys(self) -> None:
-        """Determine the column(s) that identify a plotted group."""
-        hierarchy = calc.DEFAULT_CATEGORIES  # track_uid ... set
-        self.group_keys = [c for c in hierarchy if c in self.data.columns]
-
 
     def _build_color_map(self) -> dict[Any, Any]:
         """One color per group, via the painter (or a supplied color_by)."""
-        # keys = self.data[self.group_keys].drop_nulls().unique(maintain_order=True).to_list()
-
-        print(self.group_keys)
-
-        color_by = self.kwargs.get('color_by', self.group_keys)
-
-        print(color_by)
-        if color_by is not None:
-            colors = paint(self.data, color_by=color_by, color=self.kwargs.get('color', 'default'))
-            print(f"colors: {colors}")
-            return colors
-
-        # Ask the painter for one color per group.
-        # color = self.kwargs.get('color', 'random')
-        # try:
-        #     per_group = paint(
-        #         pl.DataFrame({'_idx': np.arange(len(keys))}),
-        #         color=color if color in ('random', 'random greys') else 'random',
-        #     )
-        #     per_group = np.asarray(per_group)
-        #     return {k: per_group[i] for i, k in enumerate(keys)}
-        # except Exception:
-        #     return {k: f"C{i % 10}" for i, k in enumerate(keys)}
+        colors = paint(self.data, color_by=self.group_keys, color=self.kwargs.get('color', 'default'))
+        print(f"colors: {colors}")
+        return colors
 
     def _paint_kwargs(self) -> dict:
         allowed = ('palette', 'cmap', 'lut_vmin', 'lut_vmax')
         return {k: v for k, v in self.kwargs.items() if k in allowed}
 
-    # ------------------------------------------------------------------ #
-    # Error band handling
-    # ------------------------------------------------------------------ #
-    def _resolve_band(self) -> None:
-        """Validate that the requested band's columns exist; disable otherwise."""
-        cols = self.data.columns
-        # engine = calc()
-
-        match self.band:
-            case 'sd':
-                self._band_ok = self.MSD_SD_COL in cols
-            case 'sem':
-                self._band_ok = self.MSD_SEM_COL in cols
-            case 'min-max':
-                # Derived from mean ± sd fallback.
-                self._band_ok = self.MSD_SD_COL in cols
-            case 'ci':
-                low = f'MSD_{calc.CI_STATISTIC}_ci{calc.CONFIDENCE_LEVEL}_low'
-                high = f'MSD_{calc.CI_STATISTIC}_ci{calc.CONFIDENCE_LEVEL}_high'
-                self._ci_low, self._ci_high = low, high
-                self._band_ok = low in cols and high in cols
-            case _:
-                self._band_ok = False
-
-        if self.band and not self._band_ok:
-            warn(
-                f"Requested error band '{self.band}' is unavailable in the "
-                "computed MSD data. Ignoring error band.",
-                stacklevel=2,
-            )
 
     def _band_bounds(self, gdata: pl.DataFrame, y_data: np.ndarray):
         """Return (bottom, top) arrays for the error band, or (None, None)."""
-        if not getattr(self, '_band_ok', False):
-            return None, None
-
         match self.band:
+            case None:
+                return None, None
             case 'sd':
-                err = gdata[self.MSD_SD_COL].to_numpy().astype(float) / 2.0
+                err = gdata['MSD_sd'].to_numpy().astype(float) / 2.0
                 return np.maximum(y_data - err, 0.0), y_data + err
             case 'sem':
-                err = gdata[self.MSD_SEM_COL].to_numpy().astype(float)
+                err = gdata['MSD_sem'].to_numpy().astype(float)
                 return np.maximum(y_data - err, 0.0), y_data + err
             case 'min-max':
-                err = gdata[self.MSD_SD_COL].to_numpy().astype(float)
-                return np.maximum(y_data - err, 0.0), y_data + err
+                min = gdata['MSD_min'].to_numpy().astype(float)
+                max = gdata['MSD_max'].to_numpy().astype(float)
+                return np.maximum(min, 0.0), max
             case 'ci':
-                low = gdata[self._ci_low].to_numpy().astype(float)
-                high = gdata[self._ci_high].to_numpy().astype(float)
-                return low, high
+                low  = gdata[f'MSD_ci{self._ci_confidence}_low'].to_numpy().astype(float)
+                high = gdata[f'MSD_ci{self._ci_confidence}_high'].to_numpy().astype(float)
+                return np.maximum(low, 0.0), high
             case _:
-                return None, None
+                raise ValueError(f"<band> parameter '{self.band}' was not recognized -> ignoring error band. <band> must be one of 'sd', 'sem', 'min-max', 'ci', or None.")
 
+            
     # ------------------------------------------------------------------ #
     # Styling
     # ------------------------------------------------------------------ #
@@ -342,12 +277,8 @@ class MSD:
     def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray,
                         color: Any, idx: int, n_tags: int) -> None:
 
-        valid = (
-            np.isfinite(x_data) & np.isfinite(y_data)
-            & (x_data > 0) & (y_data > 0)
-        )
-        xv = x_data[valid]
-        yv = y_data[valid]
+        xv = x_data[np.isfinite(x_data) & (x_data > 0)]
+        yv = y_data[np.isfinite(y_data) & (y_data > 0)]
         if xv.size < 2:
             return
 
@@ -360,6 +291,8 @@ class MSD:
             a, b = np.polyfit(xv, yv, 1)
             x_fit = np.linspace(xv.min(), xv.max(), 200)
             y_fit = a * x_fit + b
+            
+        print(f"a: {a}, b: {b}")
 
         fit_color = self._compute_fit_color(color)
         ax.plot(

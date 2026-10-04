@@ -293,6 +293,4 @@ class DataObject(Calc):
         return turn_angles(self.spots_df, grouping_level=grouping_level, **kwargs)
 
 
-
-
 create_object = DataObject()

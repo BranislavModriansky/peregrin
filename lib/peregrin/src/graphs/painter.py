@@ -445,14 +445,14 @@ class Painter:
                     f"Invalid <return_> argument: {self.kwargs.get('return_', 'dict')}. Must be 'dict' or 'array'.")
 
     def _numeric_colors(self) -> np.ndarray:
-        cmap_name = self.kwargs.get('cmap', 'viridis')
+        cmap_name = self.kwargs.get('cmap', 'peregrin_gn')
         if cmap_name not in Dyes.quantitative_cmaps:
             warn(
                 f"Colormap '{cmap_name}' is not a recognized quantitative colormap. "
-                "Defaulting to 'viridis'. Supported colormaps include: "
+                "Defaulting to 'peregrin_gn'. Supported colormaps include: "
                 f"{', '.join(Dyes.quantitative_cmaps)}.",
                 category=PainterWarning, stacklevel=2)
-            cmap = retrieve_cmap('viridis')
+            cmap = retrieve_cmap('peregrin_gn')
         else:
             cmap = retrieve_cmap(cmap_name)
 
