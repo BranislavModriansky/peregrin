@@ -7,6 +7,7 @@ import numpy as np
 import os.path as op
 from typing import Dict, List, Optional, Tuple
 from os import PathLike
+from concurrent.futures import ThreadPoolExecutor
 
 from warnings import warn
 from .._pckg_exceptions._pckg_errors import *
@@ -16,11 +17,10 @@ from .._pckg_exceptions._pckg_warnings import *
 from ..utils import get_aliases
 from ..data_compute.data_frames import calc
 import io
-from urllib.request import urlopen
 
 
 from .df_metadata_manager import Input, InputMetadata
-from .directory_reader import make_tree
+from .directory_reader import make_tree, FileTree, ensure_cached, is_remote
 
 
 
@@ -60,8 +60,9 @@ class DataLoader:
         
         Parameters
         ----------
-        from_ : list[PathLike[str]] | dict
+        from_ : PathLike[str] | list[PathLike[str]] | dict | FileTree
             Either a list of file paths or a dictionary with keys as category indicies and values either as dicts (subcategories) or lists of file paths.
+            A single file path/URL, a local directory, a remote directory URL (e.g. a GitHub folder) or a `FileTree` returned by `make_tree()` are accepted as well.
             Data can be categorized up to 5 levels deep having the following structure:
 
         ```
@@ -183,8 +184,12 @@ class DataLoader:
         self.merge = kwargs.get('merge', 'all')
 
         # Wrap single file into a list for uniform handling
-        if isinstance(from_, str):
-            if op.isdir(from_):
+        if isinstance(from_, FileTree):
+            from_ = self._flatten_tree(from_.get('dict'))
+        elif isinstance(from_, (str, PathLike)):
+            from_ = str(from_)
+            is_remote_dir = is_remote(from_) and op.splitext(from_.split('?')[0].lower())[1] not in ('.csv', '.xls', '.xlsx', '.xml')
+            if op.isdir(from_) or is_remote_dir:
                 from_ = self._tree_from_directory(from_)
             else:
                 from_ = [from_]
@@ -196,11 +201,14 @@ class DataLoader:
             depth = self._max_dict_depth(from_)
             leaves = self._iter_dict_tree(from_, depth)
         else:
-            raise TypeError("`from_` must be a str, list or dict.")
+            raise TypeError("`from_` must be a str, PathLike, list, dict or FileTree.")
 
         # Category columns used (bottom-up), 'subsubgroup' is always the file level
         category_order = ['set', 'subset', 'group', 'subgroup', 'subsubgroup']
         used_categories = category_order[:depth]
+
+        leaves = list(leaves)
+        self._prefetch([fp for _, fp in leaves if is_remote(fp)])
 
         records = []
         for labels, filepath in leaves:
@@ -228,8 +236,10 @@ class DataLoader:
         Returns a nested dict (keyed by folder/file names). If the directory
         contains only data files (no subfolders), returns a flat list of paths.
         """
-        tree = make_tree(root_path).get('dict')
+        return self._flatten_tree(make_tree(root_path).get('dict'))
 
+    @staticmethod
+    def _flatten_tree(tree: dict):
         # If the top level contains only files (no nested dicts), flatten to a list
         if tree and all(not isinstance(v, dict) for v in tree.values()):
             return list(tree.values())
@@ -441,44 +451,37 @@ class DataLoader:
             case _:
                 raise FileFormatError(f"{ext} is not supported. Supported formats include: .csv, .xls, .xlsx, .xml")
 
-    @staticmethod
-    def _fetch(filepath):
-        """Return a local path or, for URLs, the file downloaded once into memory."""
-        if not (isinstance(filepath, str) and filepath.startswith(('http://', 'https://'))):
+    # GitHub raw URLs pinned to a commit SHA never change content -> cache them forever.
+    _IMMUTABLE_URL = re.compile(r'^https://raw\.githubusercontent\.com/[^/]+/[^/]+/[0-9a-f]{40}/')
+
+    def _cache_path(self, url: str) -> str:
+        """Ensure a remote file is in the on-disk cache and return its local path."""
+        try:
+            return ensure_cached(url, immutable=bool(self._IMMUTABLE_URL.match(url)))
+        except Exception as e:
+            raise InputError(f"Could not download {url}: {e}") from e
+
+    def _prefetch(self, urls: list):
+        """
+        Download all remote files concurrently into the on-disk cache.
+
+        Only the local file paths are kept in memory; the file bytes are read
+        back from disk one at a time by `_read_file`, so peak memory stays at
+        roughly a single file rather than the whole dataset.
+        """
+        self._remote_paths = {}
+        if not urls:
+            return
+
+        with ThreadPoolExecutor(max_workers=min(16, len(urls))) as pool:
+            self._remote_paths = dict(zip(urls, pool.map(self._cache_path, urls)))
+
+    def _fetch(self, filepath):
+        """Return a local path for a file; remote files are served from the on-disk cache."""
+        if not is_remote(filepath):
             return filepath
 
-        errors = []
-
-        # a) stdlib
-        try:
-            with urlopen(filepath) as resp:
-                return io.BytesIO(resp.read())
-        except Exception as e:
-            errors.append(f"urllib: {e}")
-
-        # b) requests (bundles certifi)
-        try:
-            import requests
-            r = requests.get(filepath, timeout=60)
-            r.raise_for_status()
-            return io.BytesIO(r.content)
-        except Exception as e:
-            errors.append(f"requests: {e}")
-
-        # c) urllib3 with certifi
-        try:
-            import urllib3, certifi
-            http = urllib3.PoolManager(cert_reqs="CERT_REQUIRED", ca_certs=certifi.where())
-            r = http.request("GET", filepath, timeout=60.0)
-            if r.status != 200:
-                raise IOError(f"HTTP {r.status}")
-            return io.BytesIO(r.data)
-        except Exception as e:
-            errors.append(f"urllib3: {e}")
-
-        raise InputError(
-            f"Could not download {filepath}. Attempts:\n  " + "\n  ".join(errors)
-        )
+        return getattr(self, '_remote_paths', {}).get(filepath) or self._cache_path(filepath)
 
     def _read_trackmate_xml(self, filepath) -> Tuple[pl.DataFrame, dict]:
         """Parse a TrackMate project XML and return spots and a merged metadata dict."""

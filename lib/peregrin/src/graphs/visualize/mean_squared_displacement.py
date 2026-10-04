@@ -82,25 +82,25 @@ class MSD:
             ax.set_xscale('log')
             ax.set_yscale('log')
 
-        self.group_keys = [c for c in calc.DEFAULT_CATEGORIES if c in self.data.columns]
+        self.group_keys = [c for c in calc.DEFAULT_CATEGORIES if c in self.data.columns][::-1]  # Reverse the order to prioritize the highest-level grouping keys first.
         color_map = self._build_color_map()
 
         self._set_axis_labels(ax)
 
-        groups = [
-            (gdata[self.group_keys[-1]][0], gdata)
-            for gdata in self.data.partition_by(self.group_keys, maintain_order=True)
-        ]
+        groups = [ (gdata[self.group_keys[-1]][0], gdata)
+                   for gdata in self.data.partition_by(self.group_keys, maintain_order=True) ]
         n_groups = len(groups)
 
-        for idx, (_, gdata) in enumerate(groups):
-            name = ".".join(f"{gdata[i][0]}" for i in self.group_keys)  # Construct a unique name for the group based on the grouping keys.
+        for idx, (name, gdata) in enumerate(groups):
+
+            group_stamp, group_label = self._get_group_names(gdata, name)
+
             gdata = gdata.sort('time_lag')
 
             x_data = gdata['time_lag'].to_numpy().astype(float)
             y_data = gdata['MSD'].to_numpy().astype(float)
 
-            color = self._resolve_color(color_map.get(name), idx)
+            color = self._resolve_color(color_map.get(group_stamp), idx)
 
             # ---- error band ------------------------------------------ #
             band_bottom, band_top = self._band_bounds(gdata, y_data)
@@ -115,14 +115,14 @@ class MSD:
             # ---- main line ------------------------------------------- #
             if self.kwargs.get('line', True):
                 ax.plot(
-                    x_data, y_data, marker='none', label=name,
+                    x_data, y_data, marker='none', label=group_label,
                     linestyle='-', color=color, alpha=1.0, zorder=6,
                 )
 
             # ---- scatter markers ------------------------------------- #
             if self.kwargs.get('scatter', False):
                 ax.plot(
-                    x_data, y_data, marker='o', markersize=6, label=None,
+                    x_data, y_data, marker='o', markersize=6, label=group_label if self.kwargs.get('line', False) else None,
                     linestyle='none', color=color, zorder=5,
                 )
 
@@ -185,7 +185,6 @@ class MSD:
     def _build_color_map(self) -> dict[Any, Any]:
         """One color per group, via the painter (or a supplied color_by)."""
         colors = paint(self.data, color_by=self.group_keys, color=self.kwargs.get('color', 'default'))
-        print(f"colors: {colors}")
         return colors
 
     def _paint_kwargs(self) -> dict:
@@ -219,6 +218,21 @@ class MSD:
     # ------------------------------------------------------------------ #
     # Styling
     # ------------------------------------------------------------------ #
+    def _get_group_names(self, group_data: pl.DataFrame, name: str) -> tuple[str, str]:
+        """ Return group names and legend labels for a given group. """
+
+        group_stamp = '.'.join(f'{group_data[i][0]}' for i in self.group_keys)
+
+        match self.kwargs.get('legend_names', 'full'):
+            case 'full' | 'complete' | 'detailed':
+                return group_stamp, group_stamp
+            case 'last' | 'short':
+                return group_stamp, name
+            case _:
+                warn(f"Unrecognized legend_names option '{self.kwargs.get('legend_names')}', defaulting to 'full'.")
+                return group_stamp, group_stamp
+
+
     def _set_axis_labels(self, ax: plt.Axes) -> None:
         ax.set_xlabel(f"Time lag [{calc.metadata['timeunits']}]", fontsize=11, labelpad=15)
         ax.set_ylabel(f'MSD [{calc.metadata["spatialunits"]}²]', fontsize=11, labelpad=15)
@@ -291,8 +305,8 @@ class MSD:
             a, b = np.polyfit(xv, yv, 1)
             x_fit = np.linspace(xv.min(), xv.max(), 200)
             y_fit = a * x_fit + b
-            
-        print(f"a: {a}, b: {b}")
+
+        # print(f"a: {a}, b: {b}")
 
         fit_color = self._compute_fit_color(color)
         ax.plot(

@@ -175,11 +175,8 @@ class Cmaps:
                 return palette
             if len(palette) < len(categories):
                 warn(f"More categories ({len(categories)}) than colors ({len(palette)}). "
-                     "Randomly generating additional colors.")
-                print(type(palette))
+                      "Randomly generating additional colors.")
                 palette.extend(random_color(len(categories) - len(palette)))
-                print(palette)
-                print(type(palette))
             return dict(zip(categories, palette))
         else:
             try:
@@ -332,8 +329,6 @@ class Painter:
 
         self.colors = None
 
-        print(self.color_by, self.color, self.kwargs)
-
         if self.color_by is not None:
             self._color_by()
         # elif (self.color in list(mcolors.CSS4_COLORS.keys()) or 
@@ -410,7 +405,6 @@ class Painter:
             )
         else:
             categories = self.data[self.color_by].drop_nulls().unique(maintain_order=True).to_list()
-        print(categories)
 
         if isinstance(palette, str):
             if palette not in Dyes.cmaps:
