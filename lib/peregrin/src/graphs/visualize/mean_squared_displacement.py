@@ -128,6 +128,8 @@ class MSD:
 
             # ---- linear fit ------------------------------------------ #
             if self.linear_fit:
+                if not self.log:
+                    warn("Linear fit is recommended to be used with log scale.")
                 self._add_linear_fit(ax, x_data, y_data, color, idx, n_groups)
 
         self._set_ylim(ax, self.data['MSD'].to_numpy().astype(float))
@@ -213,7 +215,7 @@ class MSD:
                 return np.maximum(low, 0.0), high
             case _:
                 raise ValueError(f"<band> parameter '{self.band}' was not recognized -> ignoring error band. <band> must be one of 'sd', 'sem', 'min-max', 'ci', or None.")
-
+    
             
     # ------------------------------------------------------------------ #
     # Styling
