@@ -76,6 +76,7 @@ class MetricRegistry:
     def __init__(self) -> None:
         self._builders: Dict[str, Callable[[dict], Dict[str, Any]]] = {}
         self._order: List[str] = []
+        self._derived: Dict[str, dict] = {}
 
     def add(self, metric: str, builder: Callable[[dict], Dict[str, Any]]) -> None:
         """Register a metric that may produce several output columns."""
@@ -86,6 +87,26 @@ class MetricRegistry:
     def add_column(self, metric: str, expr_fn: Callable[[dict], pl.Expr]) -> None:
         """Register a metric producing a single column named after itself."""
         self.add(metric, lambda context, m=metric, f=expr_fn: {m: f(context)})
+
+    def add_derived(
+        self,
+        metric: str,
+        depends_on: List[str],
+        expr_fn: Callable[[pl.DataFrame], pl.Expr],
+    ) -> None:
+        """Register a metric *derived* from other metrics' output columns.
+
+        `depends_on` lists the metrics whose aggregated columns this metric
+        reads, and `expr_fn(out_df) -> pl.Expr` computes its single column from
+        the already-aggregated frame (one row per group). The base aggregates
+        are therefore evaluated once in the single `group_by().agg()` pass and
+        reused by every derived metric, instead of each ratio re-aggregating the
+        same source column (e.g. `pl.col('distance').sum()`) over the per-spot
+        data. Dependencies pulled in only to satisfy a derivation are dropped
+        from the result, so `subset=` still returns exactly what was asked for.
+        """
+        self.add(metric, lambda context: {})  # no agg/post output of its own
+        self._derived[metric] = {'depends_on': list(depends_on), 'expr_fn': expr_fn}
 
     def metrics(self) -> List[str]:
         """All registered metric names, in registration order."""
@@ -149,7 +170,27 @@ class MetricRegistry:
         aggregation_funcs: List[pl.Expr] = []
         callable_funcs: List[Callable] = []
 
-        for metric in requested:
+        # Pull in base metrics that requested derived metrics depend on, so the
+        # shared aggregates they read are computed (once) in the agg pass below.
+        requested_set = set(requested)
+        needed = list(requested)
+        seen = set(requested)
+        dep_only: set = set()
+        i = 0
+        while i < len(needed):
+            for dep in self._derived.get(needed[i], {}).get('depends_on', ()):
+                if dep not in seen:
+                    seen.add(dep)
+                    needed.append(dep)
+                    if dep not in requested_set:
+                        dep_only.add(dep)
+            i += 1
+
+        # Registry order keeps base/post metrics ahead of the derived metrics
+        # that read their columns.
+        compute_order = [m for m in self._order if m in seen]
+
+        for metric in compute_order:
             for column, item in self._builders[metric](context).items():
                 if isinstance(item, pl.Expr):
                     aggregation_funcs.append(item.alias(column))
@@ -170,10 +211,18 @@ class MetricRegistry:
         for func in callable_funcs:
             output = func(output, context)
 
-        # Drop helper list columns
+        # Derived metrics: cheap arithmetic on the already-aggregated (one row
+        # per group) frame, reusing the base columns computed above.
+        for metric in compute_order:
+            spec = self._derived.get(metric)
+            if spec is not None:
+                output = output.with_columns(spec['expr_fn'](output).alias(metric))
+
+        # Drop helper list columns and base columns pulled in only for deps.
         helpers = [c for c in output.columns if c.startswith('__list_')]
-        if helpers:
-            output = output.drop(helpers)
+        drop = helpers + [c for c in dep_only if c in output.columns]
+        if drop:
+            output = output.drop(drop)
 
         return output
 
@@ -240,11 +289,10 @@ class Calc:
         ],
         'TRACKS': [
             'track_id', 'track_uid', 'y_location', 'x_location',
-            'track_length', 'track_displacement', 'displacement_to_length_ratio',
+            'track_length', 'track_displacement', 'directionality',
             'speed_min', 'speed_max', 'speed_mean', 'speed_sd', 'speed_median',
             'mean_straight_line_speed', 'forward_progression_linearity',
-            'max_distance_reached', 'max_distance_to_length_ratio',
-            'max_pairwise_distance', 'max_pairwise_distance_to_length_ratio',
+            'greatest_distance', 'straightness',
             'track_start_frame', 'track_end_frame',
             'track_points', 'direction_mean', 'direction_var', 
             'mean_directional_change', 'mean_directional_change_rate'
@@ -299,6 +347,7 @@ class Calc:
         self.bootstrap_ci_method = bootstrap_ci_method
         self.ci_statistic        = self._validate_ci_statistic(ci_statistic)
 
+        # Build registries for tracks, timepoints, and timelags
         self._tracks_registry     = self._build_tracks_registry()
         self._timepoints_registry = self._build_timepoints_registry()
         self._timelags_registry   = self._build_timelags_registry()
@@ -467,7 +516,7 @@ class Calc:
             - `x_location`: Mean value of the x-coordinates of the track.
             - `track_length`: Total length of the track.
             - `track_displacement`: Straight-line distance between the start and end points of the track.
-            - `displacement_to_length_ratio`: Ratio of track displacement to track length (a.k.a. straightness/confinement ratio).
+            - `directionality`: Ratio of track displacement to track length (a.k.a. straightness/confinement ratio).
             - `speed_min`: Minimum speed along the track.
             - `speed_max`: Maximum speed along the track.
             - `speed_mean`: Mean speed along the track.
@@ -475,10 +524,8 @@ class Calc:
             - `speed_median`: Median speed along the track.
             - `mean_straight_line_speed`: Track displacement divided by track duration.
             - `forward_progression_linearity`: Mean straight line speed divided by mean speed. Measures how linearly the track progresses forward.
-            - `max_distance_reached`: Maximum distance reached from the starting point of the track.
-            - `max_distance_to_length_ratio`: Ratio of `max_distance_reached` to track length.
-            - `max_pairwise_distance`: Largest Euclidean distance between any two points of the track (its maximum span / "diameter").
-            - `max_pairwise_distance_to_length_ratio`: Ratio of `max_pairwise_distance` to track length.
+            - `greatest_distance`: Largest Euclidean distance between any two points of the track (its maximum span / "diameter").
+            - `straightness`: Ratio of `greatest_distance` to track length.
             - `track_start_frame`: Frame at which the track starts.
             - `track_end_frame`: Frame at which the track ends.
             - `track_points`: Number of points in the track.
@@ -523,7 +570,7 @@ class Calc:
 
         # Carry over track_id (first per track)
         original_ids = df.group_by('track_uid', maintain_order=True).agg([pl.col('track_id').first()])
-        agg = agg.join(original_ids, on='track_uid', how='left')
+        agg = original_ids.join(agg, on='track_uid', how='right')
 
         out = stash.join(agg, on='track_uid', how='right')
 
@@ -1118,7 +1165,7 @@ class Calc:
         return _post
 
     @staticmethod
-    def _max_pairwise_distance(xy: np.ndarray) -> float:
+    def _greatest_distance(xy: np.ndarray) -> float:
         """Largest Euclidean distance between any two points of an (n, 2) array."""
         xy = xy[np.isfinite(xy).all(axis=1)]
         if len(xy) < 2:
@@ -1131,94 +1178,70 @@ class Calc:
         return float(pdist(xy).max())
 
     def _max_pairwise_stats(self, context: dict) -> pl.DataFrame:
-        """Per-track max pairwise distance and its ratio to track length.
+        """Per-track maximum pairwise distance (the track's "diameter").
 
         The convex-hull reduction is the expensive part, so the per-track
-        result is computed once and cached on `context`. When both
-        `max_pairwise_distance` and `max_pairwise_distance_to_length_ratio`
-        are requested in the same pass, the hull distances are still only
-        computed once.
+        result is computed once and cached on `context`. Both
+        `greatest_distance` and the derived
+        `straightness` read this cached frame, so the
+        hull distances are computed only once per pass.
         """
+        # Look whether the max pairwise stats have already been computed and cached.
         cached = context.get('_max_pairwise_stats')
         if cached is not None:
             return cached
 
         keys = context['group_by']
         grouped = context['data_source'].group_by(keys, maintain_order=True).agg(
-            pl.col('x_coordinate').alias('_x'),
-            pl.col('y_coordinate').alias('_y'),
-            pl.col('distance').sum().alias('_track_length'),
+            pl.col('x_coordinate'), pl.col('y_coordinate'),
         )
-        max_pairwise_distances = [
-            self._max_pairwise_distance(np.column_stack((x, y)))
-            for x, y in zip(grouped['_x'].to_list(), grouped['_y'].to_list())
+        greatest_distances = [
+            self._greatest_distance(np.column_stack((x, y)))
+            for x, y in zip(grouped['x_coordinate'].to_list(), grouped['y_coordinate'].to_list())
         ]
-        stats = (
-            grouped
-            .with_columns(
-                pl.Series('max_pairwise_distance', max_pairwise_distances, dtype=pl.Float64)
-            )
-            .with_columns(
-                (pl.col('max_pairwise_distance') / pl.col('_track_length'))
-                .alias('max_pairwise_distance_to_length_ratio')
-            )
-            .select(keys + ['max_pairwise_distance', 'max_pairwise_distance_to_length_ratio'])
+        stats = grouped.select(keys).with_columns(
+            pl.Series('greatest_distance', greatest_distances, dtype=pl.Float64)
         )
+        # Cache the computed max pairwise stats for future use.
         context['_max_pairwise_stats'] = stats
         return stats
 
     def _build_tracks_registry(self) -> MetricRegistry:
-        """ 
-        Per-trajectory metrics registry.
+        """ Per-trajectory metrics registry.
 
-        Representions of all the trajectory metrics as polars aggregation expressions or post-processing functions.
+        Representions of all the trajectory metrics are either polars aggregation expressions or post-processing functions.
 
-        `context['timeinterval']` -> the resolved time step
-        """
-        reg = MetricRegistry()
+        `context['timeinterval']` -> the resolved time step """ 
+        reg = MetricRegistry()  # get a metric registry instance
 
         def speed(context: dict) -> Dict[str, Any]:
-            ti = context['timeinterval']
-            return {
-                'speed_min':    pl.col('distance').min()    / ti,
-                'speed_max':    pl.col('distance').max()    / ti,
-                'speed_mean':   pl.col('distance').mean()   / ti,
-                'speed_sd':     pl.col('distance').std()    / ti,
-                'speed_median': pl.col('distance').median() / ti,
-            }
+            timeinterval = context['timeinterval']
+            return {'speed_min':    pl.col('distance').min()    / timeinterval,
+                    'speed_max':    pl.col('distance').max()    / timeinterval,
+                    'speed_mean':   pl.col('distance').mean()   / timeinterval,
+                    'speed_sd':     pl.col('distance').std()    / timeinterval,
+                    'speed_median': pl.col('distance').median() / timeinterval}
 
-        def max_pairwise_distance(context: dict) -> Dict[str, Any]:
+        def greatest_distance(context: dict) -> Dict[str, Any]:
             def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
-                keys = context['group_by']  # ['track_uid'] for tracks()
-                stats = self._max_pairwise_stats(context)
-                return out_df.join(
-                    stats.select(keys + ['max_pairwise_distance']), on=keys, how='left'
-                )
-            return {'max_pairwise_distance': _post}
-
-        def max_pairwise_distance_to_length_ratio(context: dict) -> Dict[str, Any]:
-            def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
-                keys = context['group_by']  # ['track_uid'] for tracks()
-                stats = self._max_pairwise_stats(context)
-                return out_df.join(
-                    stats.select(keys + ['max_pairwise_distance_to_length_ratio']),
-                    on=keys, how='left'
-                )
-            return {'max_pairwise_distance_to_length_ratio': _post}
+                return out_df.join( self._max_pairwise_stats(context), on = context['group_by'], how = 'left' )
+            return {'greatest_distance': _post}
 
         reg.add_column('track_length', lambda context: pl.col('distance').sum())
         reg.add_column('track_displacement', lambda context: pl.col('cum_track_displacement').last())
-        reg.add_column('max_distance_reached', lambda context: pl.col('cum_track_displacement').max())
-        reg.add('max_pairwise_distance', max_pairwise_distance)
+        reg.add_column('mean_straight_line_speed', lambda context: pl.col('cum_mean_straight_line_speed').last())
+        reg.add_column('forward_progression_linearity', lambda context: pl.col('cum_forward_progression_linearity').last())
+        reg.add('greatest_distance', greatest_distance)
 
-        reg.add_column('displacement_to_length_ratio', lambda context: pl.col('cum_track_displacement').last() / pl.col('distance').sum())
-        reg.add_column('max_distance_to_length_ratio', lambda context: pl.col('cum_track_displacement').max() / pl.col('distance').sum())
-        reg.add('max_pairwise_distance_to_length_ratio', max_pairwise_distance_to_length_ratio)
+        # --- Derived ratios: cheap arithmetic reusing the base columns above ---
+        reg.add_derived('directionality',
+                        ['track_displacement', 'track_length'],
+                        lambda d: pl.col('track_displacement') / pl.col('track_length'))
+        reg.add_derived('straightness',
+                        ['greatest_distance', 'track_length'],
+                        lambda d: pl.col('greatest_distance') / pl.col('track_length'))
 
         reg.add('speed', speed)
-
-        reg.add_column('mean_straight_line_speed',      lambda context: pl.col('cum_mean_straight_line_speed').last())
-        reg.add_column('forward_progression_linearity', lambda context: pl.col('cum_forward_progression_linearity').last())
 
         reg.add('direction', lambda context: {
             'direction_mean': pl.col('cum_direction_mean').last(),
@@ -1227,7 +1250,8 @@ class Calc:
         reg.add_column('mean_directional_change',      lambda context: pl.col('cum_mean_directional_change').last())
         reg.add_column('mean_directional_change_rate', lambda context: pl.col('cum_mean_directional_change_rate').last())
 
-        reg.add_column('track_points', lambda context: pl.len())
+        reg.add_column('track_points',      lambda context: pl.len())
+        reg.add_column('track_duration',    lambda context: pl.len() * context['timeinterval'])
         reg.add_column('track_start_frame', lambda context: pl.col('frame').min())
         reg.add_column('track_end_frame',   lambda context: pl.col('frame').max())
 
@@ -1648,21 +1672,18 @@ class Calc:
             'x_location': f'{spatialunits}',
             'track_length': f'{spatialunits}',
             'track_displacement': f'{spatialunits}',
-            'displacement_to_length_ratio': '',
+            'directionality': '',
             'speed_min': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'speed_max': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'speed_mean': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'speed_sd': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'speed_median': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'mean_straight_line_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
-            'max_distance_reached': f'{spatialunits}',
-            'max_distance_to_length_ratio': '',
-            'max_pairwise_distance': f'{spatialunits}',
-            'max_pairwise_distance_to_length_ratio': '',
+            'greatest_distance': f'{spatialunits}',
+            'straightness': '',
             'direction_mean': 'rad',
             'mean_directional_change': 'rad',
             'mean_directional_change_rate': f'rad ⋅ {timeunits}⁻¹',
-
             'time_lag': f'{timeunits}',
             'msd': f'{spatialunits}²',
             'directional_change_mean': 'rad',
