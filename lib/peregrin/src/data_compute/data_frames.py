@@ -1234,19 +1234,16 @@ class Calc:
         reg.add('greatest_distance', greatest_distance)
 
         # --- Derived ratios: cheap arithmetic reusing the base columns above ---
-        reg.add_derived('directionality',
-                        ['track_displacement', 'track_length'],
+        reg.add_derived('directionality', ['track_displacement', 'track_length'],
                         lambda d: pl.col('track_displacement') / pl.col('track_length'))
-        reg.add_derived('straightness',
-                        ['greatest_distance', 'track_length'],
+        reg.add_derived('straightness', ['greatest_distance', 'track_length'],
                         lambda d: pl.col('greatest_distance') / pl.col('track_length'))
 
         reg.add('speed', speed)
 
-        reg.add('direction', lambda context: {
-            'direction_mean': pl.col('cum_direction_mean').last(),
-            'direction_var':  pl.col('cum_direction_var').last(),
-        })
+        
+        reg.add_column('direction_mean', lambda context: pl.col('cum_direction_mean').last())
+        reg.add_column('direction_var',  lambda context: pl.col('cum_direction_var').last())
         reg.add_column('mean_directional_change',      lambda context: pl.col('cum_mean_directional_change').last())
         reg.add_column('mean_directional_change_rate', lambda context: pl.col('cum_mean_directional_change_rate').last())
 
