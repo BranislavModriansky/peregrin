@@ -6,6 +6,8 @@ import numpy as np
 import polars as pl
 from dataclasses import dataclass
 from scipy import stats
+from scipy.spatial import ConvexHull
+from scipy.spatial.distance import pdist
 from typing import Any, Callable, Literal, Optional, Dict, List
 
 from ..utils import is_empty
@@ -238,10 +240,12 @@ class Calc:
         ],
         'TRACKS': [
             'track_id', 'track_uid', 'y_location', 'x_location',
-            'track_length', 'track_displacement', 'straightness_ratio',
+            'track_length', 'track_displacement', 'displacement_to_length_ratio',
             'speed_min', 'speed_max', 'speed_mean', 'speed_sd', 'speed_median',
             'mean_straight_line_speed', 'forward_progression_linearity',
-            'max_distance_reached', 'track_start_frame', 'track_end_frame',
+            'max_distance_reached', 'max_distance_to_length_ratio',
+            'max_pairwise_distance', 'max_pairwise_distance_to_length_ratio',
+            'track_start_frame', 'track_end_frame',
             'track_points', 'direction_mean', 'direction_var', 
             'mean_directional_change', 'mean_directional_change_rate'
         ],
@@ -463,7 +467,7 @@ class Calc:
             - `x_location`: Mean value of the x-coordinates of the track.
             - `track_length`: Total length of the track.
             - `track_displacement`: Straight-line distance between the start and end points of the track.
-            - `straightness_ratio`: Ratio of track displacement to track length.
+            - `displacement_to_length_ratio`: Ratio of track displacement to track length (a.k.a. straightness/confinement ratio).
             - `speed_min`: Minimum speed along the track.
             - `speed_max`: Maximum speed along the track.
             - `speed_mean`: Mean speed along the track.
@@ -472,6 +476,9 @@ class Calc:
             - `mean_straight_line_speed`: Track displacement divided by track duration.
             - `forward_progression_linearity`: Mean straight line speed divided by mean speed. Measures how linearly the track progresses forward.
             - `max_distance_reached`: Maximum distance reached from the starting point of the track.
+            - `max_distance_to_length_ratio`: Ratio of `max_distance_reached` to track length.
+            - `max_pairwise_distance`: Largest Euclidean distance between any two points of the track (its maximum span / "diameter").
+            - `max_pairwise_distance_to_length_ratio`: Ratio of `max_pairwise_distance` to track length.
             - `track_start_frame`: Frame at which the track starts.
             - `track_end_frame`: Frame at which the track ends.
             - `track_points`: Number of points in the track.
@@ -1110,11 +1117,61 @@ class Calc:
             )
         return _post
 
+    @staticmethod
+    def _max_pairwise_distance(xy: np.ndarray) -> float:
+        """Largest Euclidean distance between any two points of an (n, 2) array."""
+        xy = xy[np.isfinite(xy).all(axis=1)]
+        if len(xy) < 2:
+            return np.nan
+        if len(xy) > 3:
+            try:
+                xy = xy[ConvexHull(xy).vertices]
+            except Exception:
+                pass  # degenerate (e.g. collinear) -> fall back to all points
+        return float(pdist(xy).max())
+
+    def _max_pairwise_stats(self, context: dict) -> pl.DataFrame:
+        """Per-track max pairwise distance and its ratio to track length.
+
+        The convex-hull reduction is the expensive part, so the per-track
+        result is computed once and cached on `context`. When both
+        `max_pairwise_distance` and `max_pairwise_distance_to_length_ratio`
+        are requested in the same pass, the hull distances are still only
+        computed once.
+        """
+        cached = context.get('_max_pairwise_stats')
+        if cached is not None:
+            return cached
+
+        keys = context['group_by']
+        grouped = context['data_source'].group_by(keys, maintain_order=True).agg(
+            pl.col('x_coordinate').alias('_x'),
+            pl.col('y_coordinate').alias('_y'),
+            pl.col('distance').sum().alias('_track_length'),
+        )
+        max_pairwise_distances = [
+            self._max_pairwise_distance(np.column_stack((x, y)))
+            for x, y in zip(grouped['_x'].to_list(), grouped['_y'].to_list())
+        ]
+        stats = (
+            grouped
+            .with_columns(
+                pl.Series('max_pairwise_distance', max_pairwise_distances, dtype=pl.Float64)
+            )
+            .with_columns(
+                (pl.col('max_pairwise_distance') / pl.col('_track_length'))
+                .alias('max_pairwise_distance_to_length_ratio')
+            )
+            .select(keys + ['max_pairwise_distance', 'max_pairwise_distance_to_length_ratio'])
+        )
+        context['_max_pairwise_stats'] = stats
+        return stats
+
     def _build_tracks_registry(self) -> MetricRegistry:
         """ 
         Per-trajectory metrics registry.
 
-        Representions of all the trajectory metrics as polars aggregation expressions.
+        Representions of all the trajectory metrics as polars aggregation expressions or post-processing functions.
 
         `context['timeinterval']` -> the resolved time step
         """
@@ -1129,17 +1186,36 @@ class Calc:
                 'speed_sd':     pl.col('distance').std()    / ti,
                 'speed_median': pl.col('distance').median() / ti,
             }
-        reg.add('speed', speed)
+
+        def max_pairwise_distance(context: dict) -> Dict[str, Any]:
+            def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
+                keys = context['group_by']  # ['track_uid'] for tracks()
+                stats = self._max_pairwise_stats(context)
+                return out_df.join(
+                    stats.select(keys + ['max_pairwise_distance']), on=keys, how='left'
+                )
+            return {'max_pairwise_distance': _post}
+
+        def max_pairwise_distance_to_length_ratio(context: dict) -> Dict[str, Any]:
+            def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
+                keys = context['group_by']  # ['track_uid'] for tracks()
+                stats = self._max_pairwise_stats(context)
+                return out_df.join(
+                    stats.select(keys + ['max_pairwise_distance_to_length_ratio']),
+                    on=keys, how='left'
+                )
+            return {'max_pairwise_distance_to_length_ratio': _post}
 
         reg.add_column('track_length', lambda context: pl.col('distance').sum())
-
-        reg.add_column('x_location', lambda context: pl.col('x_coordinate').mean())
-        reg.add_column('y_location', lambda context: pl.col('y_coordinate').mean())
-
+        reg.add_column('track_displacement', lambda context: pl.col('cum_track_displacement').last())
         reg.add_column('max_distance_reached', lambda context: pl.col('cum_track_displacement').max())
+        reg.add('max_pairwise_distance', max_pairwise_distance)
 
-        reg.add_column('track_start_frame', lambda context: pl.col('frame').min())
-        reg.add_column('track_end_frame',   lambda context: pl.col('frame').max())
+        reg.add_column('displacement_to_length_ratio', lambda context: pl.col('cum_track_displacement').last() / pl.col('distance').sum())
+        reg.add_column('max_distance_to_length_ratio', lambda context: pl.col('cum_track_displacement').max() / pl.col('distance').sum())
+        reg.add('max_pairwise_distance_to_length_ratio', max_pairwise_distance_to_length_ratio)
+
+        reg.add('speed', speed)
 
         reg.add_column('mean_straight_line_speed',      lambda context: pl.col('cum_mean_straight_line_speed').last())
         reg.add_column('forward_progression_linearity', lambda context: pl.col('cum_forward_progression_linearity').last())
@@ -1152,9 +1228,11 @@ class Calc:
         reg.add_column('mean_directional_change_rate', lambda context: pl.col('cum_mean_directional_change_rate').last())
 
         reg.add_column('track_points', lambda context: pl.len())
+        reg.add_column('track_start_frame', lambda context: pl.col('frame').min())
+        reg.add_column('track_end_frame',   lambda context: pl.col('frame').max())
 
-        reg.add_column('track_displacement', lambda context: pl.col('cum_track_displacement').last())
-        reg.add_column('straightness_ratio', lambda context: pl.col('cum_track_displacement').last() / pl.col('distance').sum())
+        reg.add_column('x_location', lambda context: pl.col('x_coordinate').mean())
+        reg.add_column('y_location', lambda context: pl.col('y_coordinate').mean())
 
         return reg
     
@@ -1570,6 +1648,7 @@ class Calc:
             'x_location': f'{spatialunits}',
             'track_length': f'{spatialunits}',
             'track_displacement': f'{spatialunits}',
+            'displacement_to_length_ratio': '',
             'speed_min': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'speed_max': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'speed_mean': f'{spatialunits} ⋅ {timeunits}⁻¹',
@@ -1577,6 +1656,9 @@ class Calc:
             'speed_median': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'mean_straight_line_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'max_distance_reached': f'{spatialunits}',
+            'max_distance_to_length_ratio': '',
+            'max_pairwise_distance': f'{spatialunits}',
+            'max_pairwise_distance_to_length_ratio': '',
             'direction_mean': 'rad',
             'mean_directional_change': 'rad',
             'mean_directional_change_rate': f'rad ⋅ {timeunits}⁻¹',
