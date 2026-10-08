@@ -130,8 +130,6 @@ class DataObject(Calc):
         ----------
         df : pl.DataFrame
             Input DataFrame <- the result DataFrame of the :func:`load_data` function.
-        subset : list[str], optional
-            Subset of columns to consider for the computation, by default None.
         **kwargs
             Additional keyword arguments passed to the computation.
 
@@ -164,7 +162,10 @@ class DataObject(Calc):
         df : pl.DataFrame
             Input DataFrame <- the result DataFrame of the :meth:`spots` method.
         subset : list[str], optional
-            List of specific metrics to compute. If None, all available metrics are computed.
+            List of metric names to compute (e.g. ``['speed', 'track_length']``).
+            If None, all available metrics are computed. A metric may expand to
+            several output columns (e.g. ``'speed'`` -> ``speed_min``,
+            ``speed_max``, ``speed_mean``, ``speed_sd``, ``speed_median``).
         **kwargs
             Additional keyword arguments passed to the computation functions.
 
@@ -207,11 +208,20 @@ class DataObject(Calc):
         df : pl.DataFrame
             Input DataFrame <- the result DataFrame of the :meth:`spots` method.
         subset : list[str], optional
-            List of time point statistics to compute. If None, all available statistics are computed.
+            List of metric names to compute (e.g. ``['instantaneous_speed']``).
+            If None, all available metrics are computed. Each distribution
+            metric expands into its descriptive statistics (``_min``, ``_max``,
+            ``_mean``, ``_median``, ``_sd``); error statistics (``_sem``,
+            ``_ciXX_low`` / ``_ciXX_high``) are enabled with the
+            ``inferative_error`` / ``bootstrap_ci`` keyword arguments.
         grouping_level : Literal['highest', 'lowest'] | str | int | list, default='highest'
             Level(s) at which to group the data for computing time point statistics.
         **kwargs
-            Additional keyword arguments passed to the computation functions.
+            Additional keyword arguments passed to the computation. Accepts the
+            per-call statistics options ``inferative_error``, ``bootstrap_ci``,
+            ``ci_confidence``, ``bootstrap_resamples``, ``bootstrap_ci_method``
+            and ``ci_statistic``, which override the instance defaults for this
+            call only.
 
         Returns
         -------
@@ -243,11 +253,20 @@ class DataObject(Calc):
         df : pl.DataFrame
             Input DataFrame <- the result DataFrame of the :meth:`spots` method.
         subset : list[str], optional
-            Subset of statistics to compute.
+            List of metric names to compute: ``'MSD'``, ``'tracks_contributing'``,
+            ``'position_pairs_contributing'``, ``'directional_change'``.
+            If None, all available metrics are computed. ``'MSD'`` expands into
+            ``MSD``, ``MSD_min``, ``MSD_max``, ``MSD_sd``; error statistics
+            (``MSD_sem``, ``MSD_ciXX_low`` / ``MSD_ciXX_high``) are enabled with
+            the ``inferative_error`` / ``bootstrap_ci`` keyword arguments.
         grouping_level : Literal['highest', 'lowest'] | str | int | list | None, optional
             Level at which to group the data.
         **kwargs
-            Additional keyword arguments passed to the computation functions.
+            Additional keyword arguments passed to the computation. Accepts the
+            per-call statistics options ``inferative_error``, ``bootstrap_ci``,
+            ``ci_confidence``, ``bootstrap_resamples``, ``bootstrap_ci_method``
+            and ``ci_statistic``, which override the instance defaults for this
+            call only.
 
         Returns
         -------
@@ -278,14 +297,25 @@ class DataObject(Calc):
         band: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
         categories: Optional[dict[str, list]] = None,
         *,
-        grouping_level: Literal['highest', 'lowest'] | str | int = 'highest',
         log: bool = False,
         linear_fit: bool = False,
+        timelags_data: pl.DataFrame = None,
         **kwargs
     ):
-        """Plot MSD from the stored Spots_df."""
+        """Plot MSD from the stored Spots_df.
+
+        With ``log=True`` and ``linear_fit=True`` the anomalous model
+        ``MSD(t) = 2·d·D̃·t^α`` is fitted on the short lags and the generalized
+        transport coefficient D̃ and exponent α are annotated per group. Pass
+        ``diffusion_coefficient=True`` without ``linear_fit`` to instead fit a
+        classical coefficient ``MSD(t) = 2·d·D·t + offset`` on the early lags.
+        The fit is tunable via ``dimensions`` (default 2) and ``fit_fraction``
+        (default 0.25).
+        """
         from .graphs.visualize.mean_squared_displacement import msd
-        return msd(self.spots_df, band, categories, grouping_level=grouping_level, log=log, linear_fit=linear_fit, **kwargs)
+
+        data = timelags_data if timelags_data is not None else self.spots_df
+        return msd(data, band, categories, log=log, linear_fit=linear_fit, **kwargs)
 
     def plot_turn_angles(self, *, grouping_level: Any = 'highest', **kwargs):
         """Plot the turning-angle heatmap from the stored Spots_df."""
