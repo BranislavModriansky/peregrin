@@ -92,7 +92,7 @@ class DataObject(Calc):
             ci_statistic=kwargs.get("ci_statistic", self.ci_statistic),
             bootstrap_ci_method=kwargs.get("bootstrap_ci_method", self.bootstrap_ci_method),
             bootstrap_resamples=kwargs.get("bootstrap_resamples", self.bootstrap_resamples),
-            **kwargs,
+            # **kwargs,
         )
 
         self.spots_df: Optional[pl.DataFrame] = None

@@ -40,12 +40,14 @@ class StatSettings:
     bootstrap_ci_method: str
     ci_statistic: Callable[[np.ndarray], float]
 
-    @property
-    def ci_label(self) -> int:
+    def ci_label(self, hide_ci_statistic: bool = False) -> str:
         """Confidence level as an integer percentage (0.95 -> 95), as used in
         output column names such as `MSD_ci95_low`."""
-        cl = self.ci_confidence
-        return int( round(cl * 100) ) if cl <= 1 else int( round(cl) )
+        cl = int(round(self.ci_confidence * 100)) if self.ci_confidence <= 1 else int(round(self.ci_confidence))
+
+        stat = self.ci_statistic.__name__ if hasattr(self.ci_statistic, '__name__') else str(self.ci_statistic)
+
+        return f'{stat}_ci{cl}' if not hide_ci_statistic else f'ci{cl}'
 
 
 # Metric registry
@@ -84,20 +86,20 @@ class MetricRegistry:
             self._order.append(metric)
         self._builders[metric] = builder
 
-    def add_column(self, metric: str, expr_fn: Callable[[dict], pl.Expr]) -> None:
+    def add_column(self, metric: str, polars_expression: Callable[[dict], pl.Expr]) -> None:
         """Register a metric producing a single column named after itself."""
-        self.add(metric, lambda context, m=metric, f=expr_fn: {m: f(context)})
+        self.add(metric, lambda context, m=metric, f=polars_expression: {m: f(context)})
 
     def add_derived(
         self,
         metric: str,
-        depends_on: List[str],
-        expr_fn: Callable[[pl.DataFrame], pl.Expr],
+        dependencies: List[str],
+        polars_expression: Callable[[pl.DataFrame], pl.Expr],
     ) -> None:
         """Register a metric *derived* from other metrics' output columns.
 
-        `depends_on` lists the metrics whose aggregated columns this metric
-        reads, and `expr_fn(out_df) -> pl.Expr` computes its single column from
+        `dependencies` lists the metrics whose aggregated columns this metric
+        reads, and `polars_expression(out_df) -> pl.Expr` computes its single column from
         the already-aggregated frame (one row per group). The base aggregates
         are therefore evaluated once in the single `group_by().agg()` pass and
         reused by every derived metric, instead of each ratio re-aggregating the
@@ -106,7 +108,7 @@ class MetricRegistry:
         from the result, so `subset=` still returns exactly what was asked for.
         """
         self.add(metric, lambda context: {})  # no agg/post output of its own
-        self._derived[metric] = {'depends_on': list(depends_on), 'expr_fn': expr_fn}
+        self._derived[metric] = {'dependencies': list(dependencies), 'polars_expression': polars_expression}
 
     def metrics(self) -> List[str]:
         """All registered metric names, in registration order."""
@@ -131,27 +133,28 @@ class MetricRegistry:
         if isinstance(subset, str):
             subset = [subset]
 
-        unknown = [m for m in subset if m not in self._builders]
-        if unknown:
-            raise ValueError(self._unknown_metrics_message(unknown))
+        unknown_metrics = [m for m in subset if m not in self._builders]
+        if unknown_metrics:
+            raise ValueError(self._unknown_metrics_message(unknown_metrics))
 
         requested = set(subset)
         return [m for m in self._order if m in requested]
 
-    def _unknown_metrics_message(self, unknown: List[str]) -> str:
-        lines = [f"Unknown metric(s): {unknown}. Available metrics: {self.metrics()}."]
-        for name in unknown:
+    def _unknown_metrics_message(self, unknown_metrics: List[str]) -> str:
+        lines = [f"Unknown metrics: {unknown_metrics}. Available metrics: {self.metrics()}."]
+        for unknown in unknown_metrics:
             base = next(
-                (m for m in sorted(self._order, key=len, reverse=True) if name.startswith(m)),
+                (m for m in sorted(self._order, key=len, reverse=True) if unknown.startswith(m)),
                 None,
             )
             if base is not None:
                 lines.append(
-                    f"'{name}' looks like a statistic derived from '{base}' -> request '{base}' instead. "
+                    f"'{unknown}' looks like a statistic derived from '{base}' -> request '{base}' instead. "
                     "Descriptive statistics (min/max/mean/median/sd) are always included; "
                     "add 'sem' with inferative_error=True and bootstrap CI bounds with bootstrap_ci=True."
                 )
         return ' '.join(lines)
+        
 
     def compute(self, requested: List[str], context: dict) -> pl.DataFrame:
         """ Run the requested metric builders against a shared context.
@@ -170,25 +173,9 @@ class MetricRegistry:
         aggregation_funcs: List[pl.Expr] = []
         callable_funcs: List[Callable] = []
 
-        # Pull in base metrics that requested derived metrics depend on, so the
-        # shared aggregates they read are computed (once) in the agg pass below.
-        requested_set = set(requested)
-        needed = list(requested)
-        seen = set(requested)
-        dep_only: set = set()
-        i = 0
-        while i < len(needed):
-            for dep in self._derived.get(needed[i], {}).get('depends_on', ()):
-                if dep not in seen:
-                    seen.add(dep)
-                    needed.append(dep)
-                    if dep not in requested_set:
-                        dep_only.add(dep)
-            i += 1
-
         # Registry order keeps base/post metrics ahead of the derived metrics
         # that read their columns.
-        compute_order = [m for m in self._order if m in seen]
+        compute_order = [m for m in self._order if m in requested]
 
         for metric in compute_order:
             for column, item in self._builders[metric](context).items():
@@ -216,13 +203,12 @@ class MetricRegistry:
         for metric in compute_order:
             spec = self._derived.get(metric)
             if spec is not None:
-                output = output.with_columns(spec['expr_fn'](output).alias(metric))
+                output = output.with_columns(spec['polars_expression'](output).alias(metric))
 
-        # Drop helper list columns and base columns pulled in only for deps.
+        # Drop helper list columns
         helpers = [c for c in output.columns if c.startswith('__list_')]
-        drop = helpers + [c for c in dep_only if c in output.columns]
-        if drop:
-            output = output.drop(drop)
+        if helpers:
+            output = output.drop(helpers)
 
         return output
 
@@ -337,7 +323,7 @@ class Calc:
         ci_confidence: float = 0.95,
         bootstrap_resamples: int = 1000,
         bootstrap_ci_method: str = 'BCa',
-        ci_statistic: Literal['mean', 'median'] | Callable[[np.ndarray], float] = 'mean'
+        ci_statistic: Literal['mean', 'median', 'min', 'max'] | Callable[[np.ndarray], float] = 'mean'
     ) -> None:
 
         self.inferative_error    = inferative_error
@@ -361,12 +347,16 @@ class Calc:
         """Normalize a `ci_statistic` value ('mean', 'median' or a callable) to a callable."""
 
         match statistic:
+            case _ if callable(statistic):
+                return statistic
             case 'mean':
                 return np.mean
             case 'median':
                 return np.median
-            case _ if callable(statistic):
-                return statistic
+            case 'min':
+                return np.min
+            case 'max':
+                return np.max
             case _:
                 raise ValueError("ci_statistic must be 'mean', 'median', or a callable function.")
 
@@ -544,7 +534,7 @@ class Calc:
         df = ensure_polars(df)
         df = df.clone()
 
-        grouping_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
+        cat_cols = [col for col in self.DEFAULT_CATEGORIES if col in df.columns]
 
         df = self.assign_track_uid(df)
         df = df.sort(['track_uid', 'time_point'])
@@ -555,7 +545,7 @@ class Calc:
         df = self._enrich_spots(df, timeinterval = timeinterval, **kwargs)
 
         # Stash categorical identifiers to merge them back into the result
-        stash = [c for c in grouping_cols if c != 'track_uid']
+        stash = [c for c in cat_cols if c != 'track_uid']
         stash = df.select(['track_uid'] + stash).unique(subset=['track_uid'], keep='first')
 
         requested = self._tracks_registry.resolve(subset)
@@ -577,7 +567,7 @@ class Calc:
         # Drop spot-level columns that leaked through
         keep = [c for c in out.columns 
                 if c in self.COLUMNS['TRACKS']
-                or c in grouping_cols]
+                or c in cat_cols]
         
         out = out.select(keep).unique(maintain_order=True)
 
@@ -657,6 +647,9 @@ class Calc:
             ci_statistic        = kwargs.get('ci_statistic', None),
         )
 
+        df = self.assign_track_uid(df)
+        df = self._enrich_spots(df, **kwargs)
+
         grouping_set = []
 
         if isinstance(grouping_level, list):
@@ -666,11 +659,7 @@ class Calc:
             grouping_cols = self._get_grouping_level(df.columns, grouping_level, exclude='track_uid', include=['time_point', 'frame'])
             grouping_set = [grouping_cols]
 
-        df = self.assign_track_uid(df)
-
-        df = self._enrich_spots(df, **kwargs)
-
-        wanted = self._timepoints_registry.resolve(subset)
+        requested = self._timepoints_registry.resolve(subset)
 
         level_frames = []
         for group_cols in grouping_set:
@@ -681,7 +670,7 @@ class Calc:
                 'group_by': group_cols,
                 'stat_settings': stat_settings,
             }
-            level_df = self._timepoints_registry.compute(wanted, context)
+            level_df = self._timepoints_registry.compute(requested, context)
 
             level_df = level_df.with_columns(
                 pl.lit(group_lvl).alias('grouping_level')
@@ -715,12 +704,6 @@ class Calc:
         subset: Optional[list[str]] = None,
         *,
         grouping_level: Literal['highest', 'lowest'] | str | int | list | None = 'highest',
-        inferative_error: Optional[bool] = None,
-        bootstrap_ci: Optional[bool] = None,
-        ci_confidence: Optional[float] = None,
-        bootstrap_resamples: Optional[int] = None,
-        bootstrap_ci_method: Optional[str] = None,
-        ci_statistic: Optional[Literal['mean', 'median'] | Callable[[np.ndarray], float]] = None,
         **kwargs
     ) -> pl.DataFrame:
         """
@@ -741,20 +724,6 @@ class Calc:
             `directional_change_mean` and `directional_change_var`.
         grouping_level : Literal['highest', 'lowest'] | str | int | list | None, optional
             Level at which to group the data.
-        inferative_error : bool, optional
-            Adds `MSD_sem`. Overrides `self.inferative_error` for this call.
-        bootstrap_ci : bool, optional
-            Adds bootstrap `MSD_ciXX_low` / `MSD_ciXX_high`. Overrides `self.bootstrap_ci` for this call.
-        ci_confidence : float, optional
-            Confidence level for the CIs. Overrides `self.ci_confidence` for this call.
-        bootstrap_resamples : int, optional
-            Number of bootstrap resamples. Overrides `self.bootstrap_resamples` for this call.
-        bootstrap_ci_method : str, optional
-            Bootstrap CI method. Overrides `self.bootstrap_ci_method` for this call.
-        ci_statistic : 'mean' | 'median' | Callable, optional
-            Statistic the CI is computed for. Overrides `self.ci_statistic`
-            for this call. Note: the MSD confidence interval is always a CI of
-            the mean, since the MSD itself is a mean.
         **kwargs
             Additional keyword arguments passed to the computation functions.
 
@@ -784,12 +753,12 @@ class Calc:
             return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
 
         stat_settings = self._stats_configuration(
-            inferative_error=inferative_error,
-            bootstrap_ci=bootstrap_ci,
-            ci_confidence=ci_confidence,
-            bootstrap_resamples=bootstrap_resamples,
-            bootstrap_ci_method=bootstrap_ci_method,
-            ci_statistic=ci_statistic,
+            inferative_error    = kwargs.get('inferative_error', None),
+            bootstrap_ci        = kwargs.get('bootstrap_ci', None),
+            ci_confidence       = kwargs.get('ci_confidence', None),
+            bootstrap_resamples = kwargs.get('bootstrap_resamples', None),
+            bootstrap_ci_method = kwargs.get('bootstrap_ci_method', None),
+            ci_statistic        = kwargs.get('ci_statistic', None),
         )
 
         grouping_set = []
@@ -810,7 +779,7 @@ class Calc:
 
         timeinterval = self._resolve_timeinterval(df, metadata = kwargs.get('metadata', None))
 
-        wanted = self._timelags_registry.resolve(subset)
+        requested = self._timelags_registry.resolve(subset)
 
         def _compute_level(source: pl.DataFrame, grouping_cols: str) -> pl.DataFrame:
             """ Compute time-interval stats for a single grouping level. """
@@ -920,7 +889,7 @@ class Calc:
                 'turn_src': all_turn,
             }
 
-            lags = self._timelags_registry.compute(wanted, context)
+            lags = self._timelags_registry.compute(requested, context)
 
             # Drop columns that produced no data
             return self._drop_all_null_columns(lags) if not is_empty(lags) else lags
@@ -1133,6 +1102,7 @@ class Calc:
         src: str,
         out: str,
         statistic: Optional[Callable[[np.ndarray], float]] = None,
+        **kwargs
     ) -> Callable:
         """
         Schedule a per-group bootstrap confidence interval of `src`, emitted
@@ -1142,11 +1112,12 @@ class Calc:
         the single aggregation pass; the bootstrap itself then runs once per
         group as a post-processing step.
         """
+        hide_ci_statistic = kwargs.get('hide_ci_statistic', False)
         helper = f'__list_{out}_ci'
         context.setdefault('extra_exprs', {})[helper] = pl.col(src)
 
-        def _post(out_df: pl.DataFrame, _ctx: dict) -> pl.DataFrame:
-            stat_settings: StatSettings = _ctx['stat_settings']
+        def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
+            stat_settings: StatSettings = context['stat_settings']
             bounds = [
                 self.ci(
                     np.asarray(values, dtype=float),
@@ -1157,10 +1128,9 @@ class Calc:
                 )
                 for values in out_df[helper].to_list()
             ]
-            level = stat_settings.ci_label
             return out_df.with_columns(
-                pl.Series(f'{out}_ci{level}_low',  [b[0] for b in bounds], dtype=pl.Float64),
-                pl.Series(f'{out}_ci{level}_high', [b[1] for b in bounds], dtype=pl.Float64),
+                pl.Series(f'{out}_{stat_settings.ci_label(hide_ci_statistic)}_low',  [b[0] for b in bounds], dtype=pl.Float64),
+                pl.Series(f'{out}_{stat_settings.ci_label(hide_ci_statistic)}_high', [b[1] for b in bounds], dtype=pl.Float64),
             )
         return _post
 
@@ -1207,11 +1177,14 @@ class Calc:
         return stats
 
     def _build_tracks_registry(self) -> MetricRegistry:
-        """ Per-trajectory metrics registry.
+        """
+        Per-trajectory metrics registry.
 
         Representions of all the trajectory metrics are either polars aggregation expressions or post-processing functions.
 
-        `context['timeinterval']` -> the resolved time step """ 
+        `context['timeinterval']` -> the resolved time step
+        """ 
+
         reg = MetricRegistry()  # get a metric registry instance
 
         def speed(context: dict) -> Dict[str, Any]:
@@ -1224,36 +1197,49 @@ class Calc:
 
         def greatest_distance(context: dict) -> Dict[str, Any]:
             def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
-                return out_df.join( self._max_pairwise_stats(context), on = context['group_by'], how = 'left' )
+                return out_df.join(
+                    self._max_pairwise_stats(context), 
+                    on = context['group_by'], 
+                    how = 'left'
+                )
             return {'greatest_distance': _post}
 
         reg.add_column('track_length', lambda context: pl.col('distance').sum())
         reg.add_column('track_displacement', lambda context: pl.col('cum_track_displacement').last())
         reg.add_column('mean_straight_line_speed', lambda context: pl.col('cum_mean_straight_line_speed').last())
         reg.add_column('forward_progression_linearity', lambda context: pl.col('cum_forward_progression_linearity').last())
-        reg.add('greatest_distance', greatest_distance)
 
-        # --- Derived ratios: cheap arithmetic reusing the base columns above ---
-        reg.add_derived('directionality', ['track_displacement', 'track_length'],
-                        lambda d: pl.col('track_displacement') / pl.col('track_length'))
-        reg.add_derived('straightness', ['greatest_distance', 'track_length'],
-                        lambda d: pl.col('greatest_distance') / pl.col('track_length'))
-
-        reg.add('speed', speed)
-
-        
         reg.add_column('direction_mean', lambda context: pl.col('cum_direction_mean').last())
         reg.add_column('direction_var',  lambda context: pl.col('cum_direction_var').last())
+
         reg.add_column('mean_directional_change',      lambda context: pl.col('cum_mean_directional_change').last())
         reg.add_column('mean_directional_change_rate', lambda context: pl.col('cum_mean_directional_change_rate').last())
 
-        reg.add_column('track_points',      lambda context: pl.len())
-        reg.add_column('track_duration',    lambda context: pl.len() * context['timeinterval'])
+        reg.add_column('x_location', lambda context: pl.col('x_coordinate').mean())
+        reg.add_column('y_location', lambda context: pl.col('y_coordinate').mean())
+
+        reg.add_column('track_points', lambda context: pl.len())
+
         reg.add_column('track_start_frame', lambda context: pl.col('frame').min())
         reg.add_column('track_end_frame',   lambda context: pl.col('frame').max())
 
-        reg.add_column('x_location', lambda context: pl.col('x_coordinate').mean())
-        reg.add_column('y_location', lambda context: pl.col('y_coordinate').mean())
+        reg.add('speed', speed)
+        reg.add('greatest_distance', greatest_distance)
+
+        # --- Derived ratios: cheap arithmetic reusing the base columns above ---
+        reg.add_derived(
+            'directionality', 
+            ['track_displacement', 'track_length'], 
+            lambda d: pl.col('track_displacement') / pl.col('track_length')
+        )
+        reg.add_derived(
+            'straightness', 
+            ['greatest_distance', 'track_length'],
+            lambda d: pl.col('greatest_distance') / pl.col('track_length')
+        )
+
+        # reg.add_column('directionality', lambda context: pl.col('track_displacement') / pl.col('track_length'))
+        # reg.add_column('straightness', lambda context: pl.col('greatest_distance') / pl.col('track_length'))
 
         return reg
     
@@ -1263,7 +1249,7 @@ class Calc:
         reg = MetricRegistry()
 
         # metric name (user-facing) -> source column it is computed from
-        distribution_metrics = {
+        metrics = {
             'cum_track_length':                  'cum_track_length',
             'cum_track_displacement':            'cum_track_displacement',
             'cum_straightness_ratio':            'cum_straightness_ratio',
@@ -1274,7 +1260,7 @@ class Calc:
             'cum_sum_directional_change':        'cum_sum_directional_change',
             'cum_mean_directional_change':       'cum_mean_directional_change',
         }
-        for metric, src in distribution_metrics.items():
+        for metric, src in metrics.items():
             reg.add(metric, self._distribution_metric(src, metric))
 
         reg.add_column('tracks_contributing', lambda context: pl.col('track_uid').n_unique().cast(pl.Int64))
@@ -1308,7 +1294,7 @@ class Calc:
                 cols['MSD_sem'] = self.pl_expr_sem('sq_disp')
             if stat_settings.bootstrap_ci:
                 # The MSD is a mean, so its CI is always a CI of the mean.
-                cols['MSD_ci'] = self._bootstrap_ci_post(context, src='sq_disp', out='MSD', statistic=np.mean)
+                cols['MSD_ci'] = self._bootstrap_ci_post(context, src='sq_disp', out='MSD', statistic=np.mean, hide_ci_statistic=True)
             return cols
         reg.add('MSD', msd)
 
@@ -1478,7 +1464,7 @@ class Calc:
         elif grouping_level == 'highest':
             cat_group_cols = [cat_group_cols[-1]]
         elif grouping_level == 'lowest':
-            pass
+            cat_group_cols = cat_group_cols[1:]
         
         elif isinstance(grouping_level, str):
             idx = cat_group_cols.index(grouping_level)
@@ -1581,20 +1567,21 @@ class Calc:
         a = a[np.isfinite(a)]
 
         if a.size < 2:
-            warn("Not enough finite data points to compute confidence interval.", stacklevel=2)
+            warn("Not enough finite data points to compute confidence interval.")
             return (np.nan, np.nan)
 
         cl = kwargs.get('ci_confidence', self.ci_confidence)
         if cl > 1:
             cl = cl / 100.0
 
+        ci_statistic = kwargs.get('ci_statistic', self.ci_statistic)
         bootstrap_resamples = kwargs.get('bootstrap_resamples', self.bootstrap_resamples)
         ci_method = kwargs.get('bootstrap_ci_method', self.bootstrap_ci_method)
 
         try:
             result = stats.bootstrap(
                 (a,),
-                statistic=kwargs.get('ci_statistic', self.ci_statistic),
+                statistic=ci_statistic,
                 n_resamples=bootstrap_resamples,
                 confidence_level=cl,
                 method=ci_method,
@@ -1606,7 +1593,7 @@ class Calc:
             try:
                 result = stats.bootstrap(
                     (a,),
-                    statistic=kwargs.get('ci_statistic', self.ci_statistic),
+                    statistic=ci_statistic,
                     n_resamples=bootstrap_resamples,
                     confidence_level=cl,
                     method='percentile',
@@ -1615,14 +1602,14 @@ class Calc:
                 self._ci_method_used = 'percentile'
 
             except Exception as e:
-                # warnings.warn(message=f"Bootstrap confidence interval computation failed for both '{ci_method}' and fallback 'percentile' methods: {e}. Returning (np.nan, np.nan). Traceback:\n{traceback.format_exc()}",
-                #               category=FailedWarning, stacklevel=2)
+                warnings.warn(message=f"Bootstrap confidence interval computation failed for both '{ci_method}' and fallback 'percentile' methods: {e}. Returning (np.nan, np.nan). Traceback:\n{traceback.format_exc()}",
+                              category=FailedWarning, stacklevel=2)
                 return (np.nan, np.nan)
 
         if self._ci_method_used != ci_method:
-            # warnings.warn(message=f"Requested method ('{ci_method}') cannot be used; falling back to '{self._ci_method_used}'.",
-            #               category=FailedWarning, 
-            #               stacklevel=2)
+            warnings.warn(message=f"Requested method ('{ci_method}') cannot be used; falling back to '{self._ci_method_used}'.",
+                          category=FailedWarning, 
+                          stacklevel=2)
             pass
 
         return (float(result.confidence_interval.low), float(result.confidence_interval.high))
