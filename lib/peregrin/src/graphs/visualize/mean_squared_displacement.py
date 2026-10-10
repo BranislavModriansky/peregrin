@@ -65,7 +65,7 @@ class MSD:
         *,
         log: bool = False,
         linear_fit: bool = False,
-        return_data: bool = False,
+        return_data: bool = ...,
         **kw,
     ) -> plt.Figure | tuple[plt.Figure, pl.DataFrame]:
         """Plot MSD versus time lag, optionally with a diffusion-coefficient fit.
@@ -118,9 +118,11 @@ class MSD:
         self._arrange_data()
 
         # ---- compute MSD on call ------------------------------------- #
-        required_cols = self._msd_columns_required()
-        if not all(col in self.data.columns for col in required_cols):
-            self.data = self._compute_msd()
+        # required_cols = self._msd_columns_required()
+        # if not all(col in self.data.columns for col in required_cols):
+        #     self.data = self._compute_msd()
+
+        self.data = self._compute_msd()
 
         # If nothing could be computed, return an empty figure.
         fig, ax = plt.subplots(figsize=self.kwargs.get('fig_size', (10, 7)))
@@ -214,14 +216,18 @@ class MSD:
     # Computation
     # ----------------
 
-    def _compute_msd(self, subset: Optional[list[str]] = None) -> pl.DataFrame:
-        """Compute MSD (+ requested error statistics) from spot data via calc."""
+    def _compute_msd(self) -> pl.DataFrame:
+        """ Compute MSD (+ requested error statistics) from spot data via calc. """
         return calc.timelags(
             self.data,
-            subset=subset if subset is not None else ['MSD'],
-            grouping_level=self.kwargs.get('grouping_level', 'highest'),
-            inferative_error=(self.band == 'sem'),
-            bootstrap_ci=(self.band == 'ci'),
+            subset = ['MSD'],
+            grouping_level = self.kwargs.get('grouping_level', 'highest'),
+            inferative_error = (self.band == 'sem'),
+            bootstrap_ci = (self.band == 'ci'),
+            ci_confidence = self.kwargs.get('ci_confidence', None),
+            bootstrap_resamples = self.kwargs.get('bootstrap_resamples', None),
+            bootstrap_ci_method = self.kwargs.get('bootstrap_ci_method', None),
+            ci_statistic = self.kwargs.get('ci_statistic', None),
         )
 
     def _msd_columns_required(self) -> list[str]:

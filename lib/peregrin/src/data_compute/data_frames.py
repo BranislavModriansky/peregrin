@@ -7,7 +7,7 @@ import polars as pl
 from dataclasses import dataclass
 from scipy import stats
 from scipy.spatial import ConvexHull
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import pdist, cdist
 from typing import Any, Callable, Literal, Optional, Dict, List
 
 from ..utils import is_empty
@@ -286,7 +286,7 @@ class Calc:
         'TIMEPOINTS': [
             'time_point', 'frame', 'tracks_contributing',
             'cum_track_length', 'cum_track_displacement',
-            'cum_straightness_ratio', 'cum_speed_mean',
+            'cum_directionality', 'cum_speed_mean',
             'instantaneous_speed', 'cum_mean_straight_line_speed',
             'cum_forward_progression_linearity',
             'cum_sum_directional_change', 'cum_mean_directional_change',
@@ -321,9 +321,9 @@ class Calc:
         inferative_error: bool = False,
         bootstrap_ci: bool = False,
         ci_confidence: float = 0.95,
+        ci_statistic: Literal['mean', 'median', 'min', 'max'] | Callable[[np.ndarray], float] = 'mean',
         bootstrap_resamples: int = 1000,
-        bootstrap_ci_method: str = 'BCa',
-        ci_statistic: Literal['mean', 'median', 'min', 'max'] | Callable[[np.ndarray], float] = 'mean'
+        bootstrap_ci_method: str = 'BCa'
     ) -> None:
 
         self.inferative_error    = inferative_error
@@ -375,12 +375,14 @@ class Calc:
                 return getattr(self, key)
             return value
 
-        return StatSettings(inferative_error    = configure('inferative_error'),
-                            bootstrap_ci        = configure('bootstrap_ci'),
-                            ci_confidence       = configure('ci_confidence'),
-                            bootstrap_resamples = configure('bootstrap_resamples'),
-                            bootstrap_ci_method = configure('bootstrap_ci_method'),
-                            ci_statistic        = self._validate_ci_statistic( configure('ci_statistic') ))
+        return StatSettings(
+            inferative_error    = configure('inferative_error'),
+            bootstrap_ci        = configure('bootstrap_ci'),
+            ci_confidence       = configure('ci_confidence'),
+            bootstrap_resamples = configure('bootstrap_resamples'),
+            bootstrap_ci_method = configure('bootstrap_ci_method'),
+            ci_statistic        = self._validate_ci_statistic(configure('ci_statistic'))
+        )
 
 
     
@@ -463,7 +465,7 @@ class Calc:
                 or c in grouping_cols]
         df = df.select(keep)
 
-        if kwargs.get('enrich', False):
+        if kwargs.get('enriched', False):
             df = self._enrich_spots(df, **kwargs)
 
         if self.significant_figures:
@@ -524,8 +526,7 @@ class Calc:
             - `mean_directional_change`: Mean change in direction between consecutive points along the track.
             - `mean_directional_change_rate`: Mean directional change divided by the time interval. Mean rate of change in direction along the track.
         
-        All metrics are built as polars aggregation expressions and computed in a
-        single `group_by('track_uid').agg(...)` pass.
+        .
         """
         if is_empty(df):
             warn("Input DataFrame is empty. No computation performed.")
@@ -597,7 +598,7 @@ class Calc:
         subset : list[str], optional
             List of metric names to compute. If None, all available metrics
             are computed. Valid names are the base metrics (`'cum_track_length'`,
-            `'cum_track_displacement'`, `'cum_straightness_ratio'`,
+            `'cum_track_displacement'`, `'cum_directionality'`,
             `'cum_speed_mean'`, `'instantaneous_speed'`,
             `'cum_mean_straight_line_speed'`, `'cum_forward_progression_linearity'`,
             `'cum_sum_directional_change'`, `'cum_mean_directional_change'`,
@@ -620,7 +621,7 @@ class Calc:
             followed by the descriptive (and, if enabled, error) statistics for the metrics
             - `cum_track_length`: Cumulative track length up to the current time point.
             - `cum_track_displacement`: Cumulative track displacement up to the current time point.
-            - `cum_straightness_ratio`: Cumulative straightness ratio up to the current time point.
+            - `cum_directionality`: Cumulative straightness ratio up to the current time point.
             - `cum_speed_mean`: Cumulative mean speed up to the current time point.
             - `instantaneous_speed`: Instantaneous speed at the current time point.
             - `cum_mean_straight_line_speed`: Cumulative mean straight line speed up to the current time point.
@@ -951,7 +952,7 @@ class Calc:
         pl.DataFrame
             - `cum_track_length`: Cumulative track length for each trajectory point.
             - `cum_track_displacement`: Cumulative track displacement for each trajectory point.
-            - `cum_straightness_ratio`: Ratio of cumulative displacement to cumulative track length.
+            - `cum_directionality`: Ratio of cumulative displacement to cumulative track length.
             - `cum_speed_mean`: Mean cumulative speed for each trajectory point.
             - `cum_mean_straight_line_speed`: Mean straight-line speed for each trajectory point.
             - `cum_forward_progression_linearity`: Linearity of forward progression for each trajectory point.
@@ -961,104 +962,104 @@ class Calc:
         pl.DataFrame
             DataFrame enriched with cumulative per-trajectory-point metrics.
         """
-
-        uid = 'track_uid'
-        timeinterval = kwargs.get(
-            'timeinterval',
-            self._resolve_timeinterval(df, metadata = kwargs.get('metadata', None))
-        )
-
+        # Guard if spots already were enriched (useful when used by the timepoints and timelags methods)
         if 'cum_track_length' in df.columns:
             return df
 
+        uid = 'track_uid'
+        timeinterval = kwargs.get('timeinterval', self._resolve_timeinterval(df, metadata = kwargs.get('metadata', None)))
+
         df = df.sort([uid, 'time_point'])
-
-        # (Re)compute basics if the input was raw
-        if 'frame' not in df.columns:
-            df = df.with_columns(
-                (pl.col('time_point').rank(method='dense').over(uid) - 1).cast(pl.Int64).alias('frame')
-            )
-        if 'distance' not in df.columns or 'direction' not in df.columns:
-            df = df.with_columns(
-                (pl.col('x_coordinate') - pl.col('x_coordinate').shift(1)).over(uid).alias('_dx'),
-                (pl.col('y_coordinate') - pl.col('y_coordinate').shift(1)).over(uid).alias('_dy'),
-            ).with_columns(
-                (pl.col('_dx').pow(2) + pl.col('_dy').pow(2)).sqrt().alias('distance'),
-                pl.arctan2(pl.col('_dy'), pl.col('_dx')).alias('direction'),
-            ).drop(['_dx', '_dy'])
-
-        # Cumulative metrics
-        df = df.with_columns(
-            pl.col('distance').cum_sum().over(uid).alias('cum_track_length'),
-            (
-                (pl.col('x_coordinate') - pl.col('x_coordinate').first().over(uid)).pow(2)
-                + (pl.col('y_coordinate') - pl.col('y_coordinate').first().over(uid)).pow(2)
-            ).sqrt().alias('cum_track_displacement'),
-            pl.col('time_point').cum_count().over(uid).cast(pl.Float64).alias('_cumcount'),
-        ).with_columns(
-            pl.when(pl.col('cum_track_displacement') == 0)
-            .then(None).otherwise(pl.col('cum_track_displacement'))
-            .alias('cum_track_displacement'),
-        )
-
         elapsed = (pl.col('time_point') - pl.col('time_point').first().over(uid))
+        
+        x = df['x_coordinate'].to_numpy()
+        y = df['y_coordinate'].to_numpy()
+        lengths = df.group_by(uid, maintain_order=True).len()['len'].to_numpy()
+
+        cum_gd = np.empty(len(df))
+        start = 0
+        for n in lengths:
+            cum_gd[start:start + n] = self._cum_greatest_distance(x[start:start + n], y[start:start + n])
+            start += n
+
+        # cum_track_length, cum_track_displacement, cum_track_displacement
         df = df.with_columns(
-            (
+            pl.col('time_point').cum_count().over(uid).cast(pl.Float64).alias('_cumcount'),
+            pl.col('distance').cum_sum().over(uid).alias('cum_track_length'), 
+            (   (pl.col('x_coordinate') - pl.col('x_coordinate').first().over(uid)).pow(2) 
+              + (pl.col('y_coordinate') - pl.col('y_coordinate').first().over(uid)).pow(2)
+            ).sqrt().alias('cum_track_displacement')
+        ).with_columns(
+            pl.when(
+                pl.col('cum_track_displacement') == 0
+            ).then(None).otherwise(
                 pl.col('cum_track_displacement')
-                / pl.when(pl.col('cum_track_length') == 0).then(None).otherwise(pl.col('cum_track_length'))
-            ).alias('cum_straightness_ratio'),
-            (
-                pl.col('cum_track_length')
-                / pl.when(elapsed == 0).then(None).otherwise(elapsed)
-            ).alias('cum_speed_mean'),
-        ).with_columns(
-            (pl.col('cum_track_displacement') / (pl.col('_cumcount') * timeinterval))
-            .alias('cum_mean_straight_line_speed'),
-        ).with_columns(
-            (pl.col('cum_mean_straight_line_speed') / pl.col('cum_speed_mean'))
-            .alias('cum_forward_progression_linearity'),
+            ).alias('cum_track_displacement')
         )
 
-        # Turning angle (deg, wrapped, abs) and its cumulative statistics
+        # cum_greatest_distance
+        df = df.with_columns(pl.Series('cum_greatest_distance', cum_gd, dtype=pl.Float64))
+
+        # cum_straightness, cum_directionality, cum_speed_mean, cum_mean_straight_line_speed, cum_forward_progression_linearity
         df = df.with_columns(
-            (
-                ((pl.col('direction') - pl.col('direction').shift(1)).over(uid) + np.pi)
-                .mod(2 * np.pi) - np.pi
+            (   pl.col('cum_greatest_distance')
+                / pl.when(pl.col('cum_track_length') == 0).then(None).otherwise(pl.col('cum_track_length'))
+            ).alias('cum_straightness'),
+            (   pl.col('cum_track_displacement')
+                / pl.when(pl.col('cum_track_length') == 0).then(None).otherwise(pl.col('cum_track_length'))
+            ).alias('cum_directionality'),
+            (   pl.col('cum_track_length')
+                / pl.when(elapsed == 0).then(None).otherwise(elapsed)
+            ).alias('cum_speed_mean')
+        ).with_columns(
+            (   pl.col('cum_track_displacement') 
+                / (pl.col('_cumcount') * timeinterval)
+            ).alias('cum_mean_straight_line_speed'),
+        ).with_columns(
+            (   pl.col('cum_mean_straight_line_speed') 
+                / pl.col('cum_speed_mean')
+            ).alias('cum_forward_progression_linearity'),
+        )
+        # directional_change, cum_mean_directional_change, cum_sum_directional_change, cum_mean_directional_change_rate
+        df = df.with_columns((((
+                        pl.col('direction') - pl.col('direction').shift(1)
+                    ).over(uid) + np.pi
+                ).mod(2 * np.pi) - np.pi
             ).abs().degrees().alias('directional_change')
         ).with_columns(
             pl.col('directional_change').cum_sum().over(uid).alias('cum_sum_directional_change'),
-            pl.col('directional_change').is_not_null().cum_sum().over(uid)
-            .cast(pl.Float64).alias('_valid_count'),
+            pl.col('directional_change').is_not_null().cum_sum().over(uid).cast(pl.Float64).alias('_valid_count'),
         ).with_columns(
-            (
-                pl.col('cum_sum_directional_change')
+            (   pl.col('cum_sum_directional_change')
                 / pl.when(pl.col('_valid_count') == 0).then(None).otherwise(pl.col('_valid_count'))
             ).alias('cum_mean_directional_change')
         ).with_columns(
-            pl.when(pl.col('directional_change').is_null())
-            .then(None).otherwise(pl.col('cum_mean_directional_change'))
-            .alias('cum_mean_directional_change'),
+            pl.when(
+                pl.col('directional_change').is_null()
+            ).then(None).otherwise(
+                pl.col('cum_mean_directional_change')
+            ).alias('cum_mean_directional_change'),
         ).with_columns(
-            (pl.col('cum_mean_directional_change') / (pl.col('_cumcount') * timeinterval))
-            .alias('cum_mean_directional_change_rate'),
+            (   pl.col('cum_mean_directional_change') 
+                / (pl.col('_cumcount') * timeinterval)
+            ).alias('cum_mean_directional_change_rate'),
         )
-
-        # Cumulative circular mean / variance of direction
+        # Ccum_direction_var
         df = df.with_columns(
             pl.col('direction').sin().cum_sum().over(uid).alias('_cum_sin'),
             pl.col('direction').cos().cum_sum().over(uid).alias('_cum_cos'),
             (pl.col('_cumcount') - 1).alias('_n_angles'),
         ).with_columns(
             pl.arctan2(pl.col('_cum_sin'), pl.col('_cum_cos')).alias('cum_direction_mean'),
-            (
-                1.0 - (pl.col('_cum_sin').pow(2) + pl.col('_cum_cos').pow(2)).sqrt()
+            (   1.0 - (pl.col('_cum_sin').pow(2) + pl.col('_cum_cos').pow(2)).sqrt()
                 / pl.when(pl.col('_n_angles') == 0).then(None).otherwise(pl.col('_n_angles'))
             ).alias('cum_direction_var'),
         ).with_columns(
-            pl.when(pl.col('_n_angles') == 0).then(None)
-            .when(pl.col('_n_angles') == 1).then(0.0)
-            .otherwise(pl.col('cum_direction_var'))
-            .alias('cum_direction_var'),
+            pl.when(
+                pl.col('_n_angles') <= 1
+            ).then(None).otherwise(
+                pl.col('cum_direction_var')
+            ).alias('cum_direction_var'),
         )
 
         return df.drop(['_cumcount', '_valid_count', '_cum_sin', '_cum_cos', '_n_angles'])
@@ -1134,47 +1135,29 @@ class Calc:
             )
         return _post
 
+
     @staticmethod
-    def _greatest_distance(xy: np.ndarray) -> float:
-        """Largest Euclidean distance between any two points of an (n, 2) array."""
-        xy = xy[np.isfinite(xy).all(axis=1)]
-        if len(xy) < 2:
-            return np.nan
-        if len(xy) > 3:
-            try:
-                xy = xy[ConvexHull(xy).vertices]
-            except Exception:
-                pass  # degenerate (e.g. collinear) -> fall back to all points
-        return float(pdist(xy).max())
+    def _cum_greatest_distance(x: np.ndarray, y: np.ndarray, block: int = 1024) -> np.ndarray:
+        """Greatest pairwise distance among points 0..k, for every k (NaN for k=0)."""
+        n = len(x)
+        out = np.full(n, np.nan)
+        if n < 2:
+            return out
 
-    def _max_pairwise_stats(self, context: dict) -> pl.DataFrame:
-        """Per-track maximum pairwise distance (the track's "diameter").
+        pts = np.column_stack((x, y))
+        far = np.full(n, -np.inf)          # farthest distance from point k to any earlier point
 
-        The convex-hull reduction is the expensive part, so the per-track
-        result is computed once and cached on `context`. Both
-        `greatest_distance` and the derived
-        `straightness` read this cached frame, so the
-        hull distances are computed only once per pass.
-        """
-        # Look whether the max pairwise stats have already been computed and cached.
-        cached = context.get('_max_pairwise_stats')
-        if cached is not None:
-            return cached
+        for s in range(1, n, block):
+            e = min(s + block, n)
+            d = cdist(pts[s:e], pts[:e - 1])                         # (rows, e-1)
+            earlier = np.arange(e - 1)[None, :] < np.arange(s, e)[:, None]   # only i < k
+            d = np.where(earlier & np.isfinite(d), d, -np.inf)       # ignore later points / NaN coords
+            far[s:e] = d.max(axis=1)
 
-        keys = context['group_by']
-        grouped = context['data_source'].group_by(keys, maintain_order=True).agg(
-            pl.col('x_coordinate'), pl.col('y_coordinate'),
-        )
-        greatest_distances = [
-            self._greatest_distance(np.column_stack((x, y)))
-            for x, y in zip(grouped['x_coordinate'].to_list(), grouped['y_coordinate'].to_list())
-        ]
-        stats = grouped.select(keys).with_columns(
-            pl.Series('greatest_distance', greatest_distances, dtype=pl.Float64)
-        )
-        # Cache the computed max pairwise stats for future use.
-        context['_max_pairwise_stats'] = stats
-        return stats
+        out = np.maximum.accumulate(far)
+        out[~np.isfinite(out)] = np.nan
+        return out
+
 
     def _build_tracks_registry(self) -> MetricRegistry:
         """
@@ -1195,19 +1178,23 @@ class Calc:
                     'speed_sd':     pl.col('distance').std()    / timeinterval,
                     'speed_median': pl.col('distance').median() / timeinterval}
 
-        def greatest_distance(context: dict) -> Dict[str, Any]:
-            def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
-                return out_df.join(
-                    self._max_pairwise_stats(context), 
-                    on = context['group_by'], 
-                    how = 'left'
-                )
-            return {'greatest_distance': _post}
-
         reg.add_column('track_length', lambda context: pl.col('distance').sum())
         reg.add_column('track_displacement', lambda context: pl.col('cum_track_displacement').last())
+        reg.add_column('greatest_distance', lambda context: pl.col('cum_greatest_distance').last())
+
         reg.add_column('mean_straight_line_speed', lambda context: pl.col('cum_mean_straight_line_speed').last())
         reg.add_column('forward_progression_linearity', lambda context: pl.col('cum_forward_progression_linearity').last())
+
+        reg.add_derived(
+            'directionality', 
+            ['track_displacement', 'track_length'], 
+            lambda d: pl.col('track_displacement') / pl.col('track_length')
+        )
+        reg.add_derived(
+            'straightness', 
+            ['greatest_distance', 'track_length'],
+            lambda d: pl.col('greatest_distance') / pl.col('track_length')
+        )
 
         reg.add_column('direction_mean', lambda context: pl.col('cum_direction_mean').last())
         reg.add_column('direction_var',  lambda context: pl.col('cum_direction_var').last())
@@ -1224,23 +1211,7 @@ class Calc:
         reg.add_column('track_end_frame',   lambda context: pl.col('frame').max())
 
         reg.add('speed', speed)
-        reg.add('greatest_distance', greatest_distance)
-
-        # --- Derived ratios: cheap arithmetic reusing the base columns above ---
-        reg.add_derived(
-            'directionality', 
-            ['track_displacement', 'track_length'], 
-            lambda d: pl.col('track_displacement') / pl.col('track_length')
-        )
-        reg.add_derived(
-            'straightness', 
-            ['greatest_distance', 'track_length'],
-            lambda d: pl.col('greatest_distance') / pl.col('track_length')
-        )
-
-        # reg.add_column('directionality', lambda context: pl.col('track_displacement') / pl.col('track_length'))
-        # reg.add_column('straightness', lambda context: pl.col('greatest_distance') / pl.col('track_length'))
-
+        
         return reg
     
 
@@ -1252,7 +1223,9 @@ class Calc:
         metrics = {
             'cum_track_length':                  'cum_track_length',
             'cum_track_displacement':            'cum_track_displacement',
-            'cum_straightness_ratio':            'cum_straightness_ratio',
+            'cum_greatest_distance':             'cum_greatest_distance',
+            'cum_straightness':                  'cum_straightness',
+            'cum_directionality':                'cum_directionality',
             'cum_speed_mean':                    'cum_speed_mean',
             'instantaneous_speed':               'distance',
             'cum_mean_straight_line_speed':      'cum_mean_straight_line_speed',
@@ -1640,7 +1613,8 @@ class Calc:
             'instantaneous_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'cum_track_length': f'{spatialunits}',
             'cum_track_displacement': f'{spatialunits}',
-            'cum_straightness_ratio': f'{spatialunits}',
+            'cum_straightness': '',
+            'cum_directionality': '',
             'cum_speed_mean': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'cum_mean_straight_line_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'cum_forward_progression_linearity': f'{spatialunits}',
