@@ -52,6 +52,7 @@ class MSD:
         *,
         log: bool = False,
         linear_fit: bool = False,
+        fmt: Literal['png', 'html', 'svg'] = 'png',
         **kw,
     ) -> plt.Figure | tuple[plt.Figure, pl.DataFrame]:
         """Plot MSD versus time lag, optionally with a diffusion-coefficient fit.
