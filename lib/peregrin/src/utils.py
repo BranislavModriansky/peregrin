@@ -1,7 +1,9 @@
 import polars as pl
 
+from functools import wraps
 from itertools import zip_longest
 from warnings import warn
+import time
 
 
 def ensure_polars(df) -> pl.DataFrame:
@@ -19,6 +21,21 @@ def ensure_polars(df) -> pl.DataFrame:
     except ImportError:
         warn("pandas is not installed, cannot convert pandas DataFrame to polars DataFrame.")
     raise TypeError(f"Expected a polars DataFrame, got {type(df).__name__}.")
+
+
+def clock(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        start = time.time()
+        result = f(*args, **kwargs)
+        finish = time.time()
+        print("")
+        print(f"Clocked: '{f.__name__}' <- {finish - start:.4f} s")
+        print("")
+
+        return result
+    
+    return wrap
 
 
 class CheckData:
