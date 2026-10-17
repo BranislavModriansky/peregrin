@@ -287,7 +287,7 @@ class Calc:
             'time_point', 'frame', 'tracks_contributing',
             'cum_track_length', 'cum_track_displacement',
             'cum_directionality', 'cum_speed_mean',
-            'instantaneous_speed', 'cum_mean_straight_line_speed',
+            'distance', 'cum_mean_straight_line_speed',
             'cum_forward_progression_linearity',
             'cum_sum_directional_change', 'cum_mean_directional_change',
         ],
@@ -599,7 +599,7 @@ class Calc:
             List of metric names to compute. If None, all available metrics
             are computed. Valid names are the base metrics (`'cum_track_length'`,
             `'cum_track_displacement'`, `'cum_directionality'`,
-            `'cum_speed_mean'`, `'instantaneous_speed'`,
+            `'cum_speed_mean'`, `'distance'`,
             `'cum_mean_straight_line_speed'`, `'cum_forward_progression_linearity'`,
             `'cum_sum_directional_change'`, `'cum_mean_directional_change'`,
             `'tracks_contributing'`, `'instantaneous_direction'`, `'cum_direction'`).
@@ -623,7 +623,7 @@ class Calc:
             - `cum_track_displacement`: Cumulative track displacement up to the current time point.
             - `cum_directionality`: Cumulative straightness ratio up to the current time point.
             - `cum_speed_mean`: Cumulative mean speed up to the current time point.
-            - `instantaneous_speed`: Instantaneous speed at the current time point.
+            - `distance`: Instantaneous speed at the current time point.
             - `cum_mean_straight_line_speed`: Cumulative mean straight line speed up to the current time point.
             - `cum_forward_progression_linearity`: Cumulative forward progression linearity up to the current time point.
             - `cum_sum_directional_change`: Cumulative sum of directional changes up to the current time point.
@@ -1227,7 +1227,7 @@ class Calc:
             'cum_straightness':                  'cum_straightness',
             'cum_directionality':                'cum_directionality',
             'cum_speed_mean':                    'cum_speed_mean',
-            'instantaneous_speed':               'distance',
+            'distance':               'distance',
             'cum_mean_straight_line_speed':      'cum_mean_straight_line_speed',
             'cum_forward_progression_linearity': 'cum_forward_progression_linearity',
             'cum_sum_directional_change':        'cum_sum_directional_change',
@@ -1238,15 +1238,11 @@ class Calc:
 
         reg.add_column('tracks_contributing', lambda context: pl.col('track_uid').n_unique().cast(pl.Int64))
 
-        # --- Circular statistics (fully expression-based) -------------------
-        reg.add('instantaneous_direction', lambda context: {
-            'instantaneous_direction_mean': self.pl_expr_circ_mean('direction'),
-            'instantaneous_direction_var':  self.pl_expr_circ_var('direction'),
-        })
-        reg.add('cum_direction', lambda context: {
-            'cum_direction_mean': self.pl_expr_circ_mean('cum_direction_mean'),
-            'cum_direction_var':  self.pl_expr_circ_var('cum_direction_mean'),
-        })
+        reg.add_column('instantaneous_direction_mean', lambda context: self.pl_expr_circ_mean('direction'))
+        reg.add_column('instantaneous_direction_var',  lambda context: self.pl_expr_circ_var('direction'))
+
+        reg.add_column('cum_direction_mean', lambda context: self.pl_expr_circ_mean('cum_direction_mean'))
+        reg.add_column('cum_direction_var',  lambda context: self.pl_expr_circ_var('cum_direction_mean'))
 
         return reg
     
@@ -1610,7 +1606,6 @@ class Calc:
             'time_point': f'{timeunits}',
             'frame': '',
             'distance': f'{spatialunits}',
-            'instantaneous_speed': f'{spatialunits} ⋅ {timeunits}⁻¹',
             'cum_track_length': f'{spatialunits}',
             'cum_track_displacement': f'{spatialunits}',
             'cum_straightness': '',
@@ -1625,7 +1620,6 @@ class Calc:
             'cum_mean_directional_change_rate': f'rad ⋅ {timeunits}⁻¹',
             'cum_direction_mean': 'rad',
             'cum_direction_var': '',
-
             'y_location': f'{spatialunits}',
             'x_location': f'{spatialunits}',
             'track_length': f'{spatialunits}',
