@@ -1,16 +1,20 @@
 from __future__ import annotations
+import os
+import time
 
+import dataclasses
 import traceback
 import warnings
 import numpy as np
 import polars as pl
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from scipy import stats
 from scipy.spatial import ConvexHull
 from scipy.spatial.distance import pdist, cdist
 from typing import Any, Callable, Literal, Optional, Dict, List
 
-from ..utils import is_empty
+from ..utils import is_empty, clock
 from ..settings import params
 from ..utils import ensure_polars
 
@@ -191,7 +195,7 @@ class MetricRegistry:
 
         output = (
             context['data_source']
-            .group_by(context['group_by'], maintain_order=True)
+            .group_by(context['group_by'], maintain_order=context.get('maintain_order', True))
             .agg(aggregation_funcs)
         )
 
@@ -258,6 +262,15 @@ class Calc:
     decimal_places: Optional[int] = None
 
     _ci_method_used: str = 'BCa'
+
+    #: Number of resampled values (resamples x sample size) processed per
+    #: bootstrap batch. ~1 MB of indices: keeps the working set in L2 cache,
+    #: which measured ~2x faster than larger batches, and bounds memory.
+    BOOTSTRAP_BATCH_ELEMENTS: int = 1 << 17
+
+    #: Threads used to bootstrap independent groups concurrently (numpy releases
+    #: the GIL in the resampling kernels). Results are seed-deterministic per group.
+    BOOTSTRAP_WORKERS: int = max(1, min(8, (os.cpu_count() or 2) // 2))
 
     DEFAULT_CATEGORIES = ['track_uid', 'subsubgroup', 'subgroup', 'group', 'subset', 'set']
 
@@ -698,7 +711,6 @@ class Calc:
 
         return out
 
-    
     def timelags(
         self,
         df: pl.DataFrame,
@@ -782,125 +794,160 @@ class Calc:
 
         requested = self._timelags_registry.resolve(subset)
 
-        def _compute_level(source: pl.DataFrame, grouping_cols: str) -> pl.DataFrame:
-            """ Compute time-interval stats for a single grouping level. """
+        # Position pairs do not depend on the grouping level -> build them once.
+        all_cat_cols = sorted({c for cols in grouping_set for c in cols})
 
-            temp = (
-                source.select(   
-                    grouping_cols + ['track_uid', 'time_point', 'x_coordinate', 'y_coordinate']  # Select needed columns.
-                ).with_columns(  
-                  ( pl.col('time_point').rank('dense').over('track_uid') - 1 ).cast(pl.Int64).alias('_frame'),  # Assign frame indexes within each track.
-                    pl.len().over('track_uid').alias('_size')  # Compute the size of each track.
-                ).filter(
-                    pl.col('_size') >= 2  # Only keep tracks with at least 2 frames.
-                ).with_columns(
-                    pl.arctan2(
-                      ( pl.col('y_coordinate') - pl.col('y_coordinate').shift(1) ).over('track_uid'),
-                      ( pl.col('x_coordinate') - pl.col('x_coordinate').shift(1) ).over('track_uid')
-                    ).alias('_theta')  # Radial difference (angle) between consecutive frames.
+        temp = (
+            df.select(
+                all_cat_cols + ['track_uid', 'time_point', 'x_coordinate', 'y_coordinate']
+            ).with_columns(
+              ( pl.col('time_point').rank('dense').over('track_uid') - 1 ).cast(pl.Int64).alias('_frame'),  # Frame index within each track.
+                pl.len().over('track_uid').alias('_size')
+            ).filter(
+                pl.col('_size') >= 2  # Only keep tracks with at least 2 frames.
+            ).sort(['track_uid', '_frame'])
+        )
+
+        if is_empty(temp) or int(temp['_frame'].max()) < 1:
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
+
+        max_lag = int(temp['_frame'].max())
+
+        uid_arr = temp['track_uid'].to_numpy()
+        x_arr   = temp['x_coordinate'].to_numpy().astype(np.float64, copy=False)
+        y_arr   = temp['y_coordinate'].to_numpy().astype(np.float64, copy=False)
+
+        # Step heading (previous -> current); NaN at the first point of each track.
+        theta_arr = np.full(uid_arr.size, np.nan)
+        common_previous = uid_arr[1:] == uid_arr[:-1]
+        theta_arr[1:][common_previous] = np.arctan2(np.diff(y_arr)[common_previous], np.diff(x_arr)[common_previous])
+
+        msd_idx:  List[np.ndarray] = []
+        msd_sq:   List[np.ndarray] = []
+        msd_lag:  List[np.ndarray] = []
+        turn_idx: List[np.ndarray] = []
+        turn_dth: List[np.ndarray] = []
+        turn_lag: List[np.ndarray] = []
+
+        # Frames are dense (0..n-1) and rows sorted by (track_uid, frame), so the
+        # partner of row i at `lag` is row i+lag whenever it belongs to the same track.
+        for lag in range(1, max_lag + 1):
+            common = uid_arr[lag:] == uid_arr[:-lag]
+            if not common.any():
+                break  # no track is longer than `lag` -> no larger lag can pair either
+
+            idx = np.flatnonzero(common)
+            jdx = idx + lag
+
+            dx = x_arr[jdx] - x_arr[idx]
+            dy = y_arr[jdx] - y_arr[idx]
+
+            msd_idx.append(idx)
+            msd_sq.append(dx * dx + dy * dy)
+            msd_lag.append(np.full(idx.size, lag, dtype=np.int64))
+
+            th0 = theta_arr[idx]
+            th1 = theta_arr[jdx]
+            tv = np.isfinite(th0) & np.isfinite(th1)
+            if tv.any():
+                ti = idx[tv]
+                turn_idx.append(ti)
+                turn_dth.append(self.wrap_pi(th1[tv] - th0[tv]))
+                turn_lag.append(np.full(ti.size, lag, dtype=np.int64))
+
+        if not msd_idx:
+            return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
+
+        # Row positions (into `temp`) of the first point of every pair; used per
+        # level to look up the group code without rebuilding the pairs.
+        msd_rows  = np.concatenate(msd_idx)
+        turn_rows = np.concatenate(turn_idx) if turn_idx else np.empty(0, dtype=np.int64)
+
+        all_msd = pl.DataFrame({
+            'track_uid': uid_arr[msd_rows],
+            'sq_disp':   np.concatenate(msd_sq),
+            'frame_lag': np.concatenate(msd_lag),
+        })
+        all_turn = pl.DataFrame({
+            'track_uid': uid_arr[turn_rows],
+            'dtheta':    np.concatenate(turn_dth) if turn_idx else np.empty(0, dtype=np.float64),
+            'frame_lag': np.concatenate(turn_lag) if turn_idx else np.empty(0, dtype=np.int64),
+        })
+
+        # Categories are constant per track -> aggregate on a compact integer group
+        # code per level and attach the category labels once to the (small) aggregated table.
+        level_keys: List[tuple[pl.DataFrame, np.ndarray]] = []
+        for grouping_cols in grouping_set:
+            if grouping_cols:
+                cat_keys = (
+                    temp.select(grouping_cols)
+                        .unique(maintain_order=True)
+                        .with_row_index('_gcode')
+                        .with_columns(pl.col('_gcode').cast(pl.Int64))
                 )
+                gcode_arr = temp.select(grouping_cols).join(cat_keys, on=grouping_cols, how='left')['_gcode'].to_numpy()
+            else:
+                cat_keys = pl.DataFrame({'_gcode': [0]}, schema={'_gcode': pl.Int64})
+                gcode_arr = np.zeros(uid_arr.size, dtype=np.int64)
+            level_keys.append((cat_keys, gcode_arr))
+
+        # Bootstrap MSD confidence intervals for all levels in one pass over
+        # shared per-stratum resampling streams (see `_bootstrap_mean_ci_levels`).
+        ci_tables: Optional[List[pl.DataFrame]] = None
+        level_settings = stat_settings
+        if stat_settings.bootstrap_ci and 'MSD' in requested:
+            ci_tables = self._bootstrap_mean_ci_levels(
+                all_msd['sq_disp'].to_numpy(),
+                all_msd['frame_lag'].to_numpy(),
+                [gcode_arr[msd_rows] for _, gcode_arr in level_keys],
+                stat_settings,
+                out='MSD',
+                hide_ci_statistic=True,
             )
+            level_settings = dataclasses.replace(stat_settings, bootstrap_ci=False)
+            
+        def _compute_level(level: int, grouping_cols: list[str]) -> pl.DataFrame:
+            """ Aggregate the shared pair tables for a single grouping level. """
 
-            if is_empty(temp):
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
+            cat_keys, gcode_arr = level_keys[level]
 
-            max_lag = int(temp['_frame'].max())
-            if max_lag < 1:
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
-
-            uid_arr   = temp['track_uid'].to_numpy()
-            frame_arr = temp['_frame'].to_numpy()
-            x_arr     = temp['x_coordinate'].to_numpy()
-            y_arr     = temp['y_coordinate'].to_numpy()
-            theta_arr = temp['_theta'].to_numpy()
-            cat_arrs  = {col: temp[col].to_numpy() for col in grouping_cols}
-
-            # (track_uid, frame) -> row lookup so a lag pairs points exactly
-            # `lag` frames apart (robust to gaps / non-uniform spacing).
-            pos_of = {k: i for i, k in enumerate(zip(uid_arr.tolist(), frame_arr.tolist()))}
-
-            msd_records: List[pl.DataFrame] = []
-            turn_records: List[pl.DataFrame] = []
-
-            for lag in range(1, max_lag + 1):
-
-                partner_pos = np.fromiter(
-                  ( pos_of.get(k, -1) 
-                      for k in zip(uid_arr.tolist(), (frame_arr + lag).tolist()) ), 
-                    dtype=np.int64, 
-                    count=len(uid_arr)
-                )
-
-                valid_mask = partner_pos >= 0
-                if not valid_mask.any():
-                    continue
-
-                valid_idx   = np.where(valid_mask)[0]
-                partner_idx = partner_pos[valid_idx]
-
-                dx = x_arr[partner_idx] - x_arr[valid_idx]
-                dy = y_arr[partner_idx] - y_arr[valid_idx]
-
-                msd_records.append(pl.DataFrame({
-                    'track_uid': uid_arr[valid_idx],
-                    **{col: cat_arrs[col][valid_idx] for col in grouping_cols},
-                    'sq_disp':   np.hypot(dx, dy) ** 2,
-                    'frame_lag': np.full(valid_idx.size, lag, dtype=np.int64),
-                    'time_lag':  np.full(valid_idx.size, lag * timeinterval, dtype=np.float64),
-                }))
-
-                # Turning angle: theta defined only where a preceding step exists
-                theta_now = theta_arr[valid_idx]
-                theta_par = theta_arr[partner_idx]
-                turn_valid = (frame_arr[valid_idx] >= 1) & np.isfinite(theta_now) & np.isfinite(theta_par)
-
-                if not turn_valid.any():
-                    continue
-
-                ti = valid_idx[turn_valid]
-                pi = partner_idx[turn_valid]
-                dtheta = theta_arr[pi] - theta_arr[ti]
-                dtheta = self.wrap_pi(dtheta)
-                turn_records.append(pl.DataFrame({
-                    'track_uid': uid_arr[ti],
-                    **{col: cat_arrs[col][ti] for col in grouping_cols},
-                    'dtheta':    dtheta,
-                    'frame_lag': np.full(ti.size, lag, dtype=np.int64),
-                    'time_lag':  np.full(ti.size, lag * timeinterval, dtype=np.float64),
-                }))
-
-            if not msd_records:
-                return pl.DataFrame(schema={c: pl.Float64 for c in self.COLUMNS['TIMELAGS']})
-
-            all_msd = pl.concat(msd_records, how='vertical_relaxed')
-            all_turn = (
-                pl.concat(turn_records, how='vertical_relaxed')
-                if turn_records
-                else pl.DataFrame(schema={**{col: all_msd.schema[col] for col in grouping_cols},
-                                          'track_uid': all_msd.schema['track_uid'],
-                                          'dtheta': pl.Float64,
-                                          'frame_lag': pl.Int64, 'time_lag': pl.Float64})
-            )
-
-            lag_group_cols = grouping_cols + ['frame_lag', 'time_lag']
+            lag_group_cols = ['_gcode', 'frame_lag']
             context = {
-                'data_source': all_msd,
+                'data_source': all_msd.with_columns(pl.Series('_gcode', gcode_arr[msd_rows])),
                 'group_by': lag_group_cols,
-                'stat_settings': stat_settings,
-                'turn_src': all_turn,
+                'stat_settings': level_settings,
+                'turn_src': all_turn.with_columns(pl.Series('_gcode', gcode_arr[turn_rows])),
+                'maintain_order': False,  # result is sorted explicitly below
             }
 
             lags = self._timelags_registry.compute(requested, context)
+
+            if ci_tables is not None:
+                ci_cols = [c for c in ci_tables[level].columns if c not in lag_group_cols]
+                lags = lags.join(ci_tables[level], on=lag_group_cols, how='left')
+                # Keep the CI bounds next to the other MSD statistics
+                others = [c for c in lags.columns if c not in ci_cols]
+                last_msd = max(i for i, c in enumerate(others) if c.startswith('MSD'))
+                lags = lags.select(others[:last_msd + 1] + ci_cols + others[last_msd + 1:])
+
+            lags = (
+                lags.join(cat_keys, on='_gcode', how='left')
+                    .with_columns((pl.col('frame_lag').cast(pl.Float64) * timeinterval).alias('time_lag'))
+                    .sort(['_gcode', 'frame_lag'])
+                    .drop('_gcode')
+            )
+            front = grouping_cols + ['frame_lag', 'time_lag']
+            lags = lags.select(front + [c for c in lags.columns if c not in front])
 
             # Drop columns that produced no data
             return self._drop_all_null_columns(lags) if not is_empty(lags) else lags
 
         level_frames = []
 
-        for group_cols in grouping_set:
+        for level, group_cols in enumerate(grouping_set):
             group_lvl = group_cols[0]
 
-            level_df = _compute_level(df, group_cols)
+            level_df = _compute_level(level, group_cols)
 
             if is_empty(level_df):
                 continue
@@ -1119,16 +1166,31 @@ class Calc:
 
         def _post(out_df: pl.DataFrame, context: dict) -> pl.DataFrame:
             stat_settings: StatSettings = context['stat_settings']
-            bounds = [
-                self.ci(
-                    np.asarray(values, dtype=float),
-                    ci_confidence=stat_settings.ci_confidence,
-                    bootstrap_resamples=stat_settings.bootstrap_resamples,
-                    bootstrap_ci_method=stat_settings.bootstrap_ci_method,
-                    ci_statistic=statistic if statistic is not None else stat_settings.ci_statistic,
-                )
-                for values in out_df[helper].to_list()
-            ]
+            ci_statistic = statistic if statistic is not None else stat_settings.ci_statistic
+
+            # Flatten the list column once; slice per group by offsets instead of
+            # materialising every group as a Python list.
+            lists = out_df[helper]
+            lens = lists.list.len().fill_null(0).to_numpy().astype(np.int64, copy=False)
+            flat = lists.explode().to_numpy().astype(np.float64, copy=False)
+            if flat.size != int(lens.sum()):
+                groups = (np.asarray(v, dtype=float) for v in lists.to_list())
+            else:
+                offsets = np.concatenate(([0], np.cumsum(lens)))
+                groups = (flat[offsets[i]:offsets[i + 1]] for i in range(len(lens)))
+
+            bounds_of = lambda values: self.ci(
+                values,
+                ci_confidence=stat_settings.ci_confidence,
+                bootstrap_resamples=stat_settings.bootstrap_resamples,
+                bootstrap_ci_method=stat_settings.bootstrap_ci_method,
+                ci_statistic=ci_statistic,
+            )
+            if self.BOOTSTRAP_WORKERS > 1 and len(lens) > 1:
+                with ThreadPoolExecutor(max_workers=self.BOOTSTRAP_WORKERS) as pool:
+                    bounds = list(pool.map(bounds_of, groups))
+            else:
+                bounds = [bounds_of(values) for values in groups]
             return out_df.with_columns(
                 pl.Series(f'{out}_{stat_settings.ci_label(hide_ci_statistic)}_low',  [b[0] for b in bounds], dtype=pl.Float64),
                 pl.Series(f'{out}_{stat_settings.ci_label(hide_ci_statistic)}_high', [b[1] for b in bounds], dtype=pl.Float64),
@@ -1279,7 +1341,7 @@ class Calc:
                     return out_df
                 stat = (
                     turn_src
-                    .group_by(_ctx['group_by'], maintain_order=True)
+                    .group_by(_ctx['group_by'], maintain_order=_ctx.get('maintain_order', True))
                     .agg(
                         self.pl_expr_circ_mean('dtheta').alias('directional_change_mean'),
                         self.pl_expr_circ_var('dtheta').alias('directional_change_var'),
@@ -1547,6 +1609,15 @@ class Calc:
         bootstrap_resamples = kwargs.get('bootstrap_resamples', self.bootstrap_resamples)
         ci_method = kwargs.get('bootstrap_ci_method', self.bootstrap_ci_method)
 
+        if ci_statistic is np.mean and ci_method.lower() in ('bca', 'percentile', 'basic'):
+            self._ci_method_used = ci_method
+            return self._bootstrap_mean_ci(
+                a, confidence=cl, n_resamples=bootstrap_resamples, method=ci_method, seed=seed
+            )
+
+        # Bound memory of scipy's vectorised resampling (and BCa jackknife): O(batch * n).
+        batch = max(1, min(bootstrap_resamples, (1 << 22) // a.size))
+
         try:
             result = stats.bootstrap(
                 (a,),
@@ -1554,6 +1625,7 @@ class Calc:
                 n_resamples=bootstrap_resamples,
                 confidence_level=cl,
                 method=ci_method,
+                batch=batch,
                 random_state=seed
             )
             self._ci_method_used = ci_method
@@ -1566,6 +1638,7 @@ class Calc:
                     n_resamples=bootstrap_resamples,
                     confidence_level=cl,
                     method='percentile',
+                    batch=batch,
                     random_state=seed
                 )
                 self._ci_method_used = 'percentile'
@@ -1582,6 +1655,264 @@ class Calc:
             pass
 
         return (float(result.confidence_interval.low), float(result.confidence_interval.high))
+
+
+    def _bootstrap_mean_ci(
+        self,
+        a: np.ndarray,
+        *,
+        confidence: float,
+        n_resamples: int,
+        method: str,
+        seed: int,
+    ) -> tuple[float, float]:
+        """
+        Bootstrap confidence interval of the sample mean (`percentile`, `basic` or `BCa`),
+        following the same definitions as :func:`scipy.stats.bootstrap`.
+
+        Resampling is batched so memory stays below `BOOTSTRAP_BATCH_ELEMENTS` values,
+        and the BCa jackknife uses the closed form for leave-one-out means
+        (O(n) instead of scipy's O(n^2) leave-one-out matrix).
+        """
+        n = a.size
+        rng = np.random.default_rng(seed)
+
+        boot = np.empty(n_resamples, dtype=np.float64)
+        batch = max(1, min(n_resamples, self.BOOTSTRAP_BATCH_ELEMENTS // n))
+        done = 0
+        while done < n_resamples:
+            b = min(batch, n_resamples - done)
+            idx = rng.integers(0, n, size=(b, n), dtype=np.int64)
+            boot[done:done + b] = a[idx].mean(axis=1)
+            done += b
+
+        theta = float(a.mean())
+        d = a - theta
+        return self._interval_from_replicates(
+            boot, theta=theta, m2=float(d @ d), m3=float((d ** 3).sum()),
+            confidence=confidence, method=method,
+        )
+
+
+    def _interval_from_replicates(
+        self,
+        boot: np.ndarray,
+        *,
+        theta: float,
+        m2: float,
+        m3: float,
+        confidence: float,
+        method: str,
+    ) -> tuple[float, float]:
+        """
+        Turn bootstrap replicates of a sample mean into a confidence interval
+        (`percentile`, `basic` or `BCa`), following :func:`scipy.stats.bootstrap`.
+
+        `theta` is the observed mean, `m2`/`m3` the second/third central moments
+        (sums of powers of deviations) of the sample. For the mean the jackknife
+        acceleration reduces exactly to `a_hat = m3 / (6 * m2 ** 1.5)`, since the
+        leave-one-out means are `(sum - x_i) / (n - 1)`.
+        """
+        alpha = (1.0 - confidence) / 2.0
+        method = method.lower()
+
+        if method == 'percentile':
+            lo, hi = np.percentile(boot, [100.0 * alpha, 100.0 * (1.0 - alpha)])
+            return (float(lo), float(hi))
+
+        if method == 'basic':
+            p_lo, p_hi = np.percentile(boot, [100.0 * alpha, 100.0 * (1.0 - alpha)])
+            return (float(2.0 * theta - p_hi), float(2.0 * theta - p_lo))
+
+        # BCa: bias correction z0 from the bootstrap distribution, acceleration a_hat from the jackknife.
+        n_resamples = boot.size
+        frac = (np.count_nonzero(boot < theta) + np.count_nonzero(boot <= theta)) / (2.0 * n_resamples)
+        z0 = stats.norm.ppf(frac)
+        a_hat = m3 / (6.0 * m2 ** 1.5) if m2 > 0 else np.nan
+
+        if not (np.isfinite(z0) and np.isfinite(a_hat)):
+            warnings.warn(
+                message="BCa confidence interval cannot be computed: the bootstrap distribution is degenerate. Returning (np.nan, np.nan).",
+                category=FailedWarning, stacklevel=3,
+            )
+            return (np.nan, np.nan)
+
+        z_lo = stats.norm.ppf(alpha)
+        z_hi = stats.norm.ppf(1.0 - alpha)
+        a1 = stats.norm.cdf(z0 + (z0 + z_lo) / (1.0 - a_hat * (z0 + z_lo)))
+        a2 = stats.norm.cdf(z0 + (z0 + z_hi) / (1.0 - a_hat * (z0 + z_hi)))
+        lo, hi = np.percentile(boot, [100.0 * a1, 100.0 * a2])
+        return (float(lo), float(hi))
+
+
+    def _bootstrap_mean_ci_levels(
+        self,
+        values: np.ndarray,
+        frame_lag: np.ndarray,
+        level_gcodes: List[np.ndarray],
+        stat_settings: StatSettings,
+        *,
+        out: str,
+        hide_ci_statistic: bool = False,
+        seed: int = 42,
+    ) -> List[pl.DataFrame]:
+        """
+        Bootstrap confidence intervals of per-group means for several nested
+        grouping levels at once, resampling each observation stream only once.
+
+        The observations are partitioned into *strata* -- the groups of the
+        finest partition induced by all levels together (x `frame_lag`). Every
+        group at every level is a union of strata. For each stratum one i.i.d.
+        with-replacement stream is drawn per resample; a bootstrap sample of a
+        group of size `N` is then obtained exactly by drawing the per-stratum
+        counts `m ~ Multinomial(N, n_s / N)` and taking the first `m_s` values of
+        each stratum's stream (a prefix of an i.i.d. stream is an i.i.d. sample).
+        For a group made of a single stratum, `m_s = n_s` and this is the plain
+        bootstrap. Cost is therefore ~`resamples x total observations` once,
+        independent of the number of levels, instead of once per level.
+
+        Returns, per level, a DataFrame with `_gcode`, `frame_lag` and the
+        `{out}_ci<level>_low` / `_high` columns.
+        """
+        B = stat_settings.bootstrap_resamples
+        L = len(level_gcodes)
+        label = stat_settings.ci_label(hide_ci_statistic)
+        col_lo, col_hi = f'{out}_{label}_low', f'{out}_{label}_high'
+        method = stat_settings.bootstrap_ci_method
+        if method.lower() not in ('bca', 'percentile', 'basic'):
+            raise InvalidParameterValueError(
+                f"bootstrap_ci_method must be 'BCa', 'percentile' or 'basic' for confidence intervals of the mean; got {method!r}."
+            )
+        self._ci_method_used = method
+
+        finite = np.isfinite(values)
+        values = values[finite]
+        frame_lag = frame_lag[finite]
+        level_gcodes = [g[finite] for g in level_gcodes]
+
+        key_cols = ['frame_lag'] + [f'_g{l}' for l in range(L)]
+        keys = pl.DataFrame({'frame_lag': frame_lag, **{f'_g{l}': g for l, g in enumerate(level_gcodes)}})
+        strata = (
+            keys.unique(maintain_order=True)
+                .with_row_index('_s').with_columns(pl.col('_s').cast(pl.Int64))
+        )
+        s_arr = keys.join(strata, on=key_cols, how='left')['_s'].to_numpy()
+        S = strata.height
+
+        # Dense group id per level, for strata and for observations
+        level_groups: List[pl.DataFrame] = []
+        strata_gid = np.empty((L, S), dtype=np.int64)
+        for l in range(L):
+            gcols = [f'_g{l}', 'frame_lag']
+            groups = (
+                strata.select(gcols).unique(maintain_order=True)
+                      .with_row_index('_gid').with_columns(pl.col('_gid').cast(pl.Int64))
+            )
+            strata_gid[l] = strata.select(gcols).join(groups, on=gcols, how='left')['_gid'].to_numpy()
+            level_groups.append(groups.rename({f'_g{l}': '_gcode'}))
+
+        # Observations sorted by stratum -> contiguous slices
+        order = np.argsort(s_arr, kind='stable')
+        vals_sorted = values[order]
+        n_s = np.bincount(s_arr, minlength=S).astype(np.int64)
+        offsets = np.concatenate(([0], np.cumsum(n_s)))
+
+        seeds = np.random.SeedSequence(seed).spawn(S + 1)
+        rng_counts = np.random.default_rng(seeds[0])
+
+        # Per level: resampled count of each stratum in every resample, shape (S, B)
+        counts: List[np.ndarray] = []
+        for l in range(L):
+            m = np.empty((S, B), dtype=np.int64)
+            for gid in range(level_groups[l].height):
+                members = np.flatnonzero(strata_gid[l] == gid)
+                N = int(n_s[members].sum())
+                if members.size == 1:
+                    m[members[0]] = N
+                else:
+                    m[members] = rng_counts.multinomial(N, n_s[members] / N, size=B).T
+            counts.append(m)
+        stream_len = np.maximum(n_s, np.max([m.max(axis=1) for m in counts], axis=0))
+
+        def _stratum(s: int) -> np.ndarray:
+            """Prefix sums of this stratum's streams at every level's counts -> (L, B)."""
+            v = vals_sorted[offsets[s]:offsets[s + 1]]
+            n, length = v.size, int(stream_len[s])
+            rng = np.random.default_rng(seeds[s + 1])
+            P_all = np.stack([c[s] for c in counts], axis=1)  # (B, L) prefix lengths
+            res = np.empty((L, B), dtype=np.float64)
+            batch = max(1, min(B, self.BOOTSTRAP_BATCH_ELEMENTS // length))
+            done = 0
+            while done < B:
+                b = min(batch, B - done)
+                flat = v[rng.integers(0, n, size=b * length, dtype=np.int64)]
+
+                # Prefix sums at the requested cut points via segment sums
+                # (np.add.reduceat), avoiding a full cumsum pass over the batch.
+                starts = np.arange(b) * length
+                cuts = np.concatenate([starts, (starts[:, None] + P_all[done:done + b]).ravel()])
+                order = np.argsort(cuts, kind='stable')
+                sc = cuts[order]
+                inrange = sc < flat.size
+                valid = inrange & np.concatenate(([True], np.diff(sc) > 0))
+                seg = np.add.reduceat(flat, sc[valid])
+                g_valid = np.concatenate(([0.0], np.cumsum(seg)[:-1]))
+                g_sorted = np.empty(sc.size)
+                g_sorted[inrange] = g_valid[(np.cumsum(valid) - 1)[inrange]]
+                g_sorted[~inrange] = flat.sum()
+                g = np.empty_like(g_sorted)
+                g[order] = g_sorted
+
+                res[:, done:done + b] = (g[b:].reshape(b, L) - g[:b, None]).T
+                done += b
+            return res
+
+        if self.BOOTSTRAP_WORKERS > 1 and S > 1:
+            with ThreadPoolExecutor(max_workers=self.BOOTSTRAP_WORKERS) as pool:
+                partials = list(pool.map(_stratum, range(S)))
+        else:
+            partials = [_stratum(s) for s in range(S)]
+
+        tables: List[pl.DataFrame] = []
+        for l in range(L):
+            n_groups = level_groups[l].height
+            sums = np.zeros((n_groups, B), dtype=np.float64)
+            for s in range(S):
+                sums[strata_gid[l][s]] += partials[s][l]
+
+            moments = (
+                pl.DataFrame({'_gid': strata_gid[l][s_arr], 'x': values})
+                  .group_by('_gid')
+                  .agg(
+                      pl.len().alias('n'),
+                      pl.col('x').mean().alias('theta'),
+                      (pl.col('x') - pl.col('x').mean()).pow(2).sum().alias('m2'),
+                      (pl.col('x') - pl.col('x').mean()).pow(3).sum().alias('m3'),
+                  )
+                  .sort('_gid')
+            )
+            n_g   = moments['n'].to_numpy()
+            theta = moments['theta'].to_numpy()
+            m2    = moments['m2'].to_numpy()
+            m3    = moments['m3'].to_numpy()
+
+            lows  = np.full(n_groups, np.nan)
+            highs = np.full(n_groups, np.nan)
+            for gid in range(n_groups):
+                if n_g[gid] < 2:
+                    continue
+                lows[gid], highs[gid] = self._interval_from_replicates(
+                    sums[gid] / n_g[gid], theta=float(theta[gid]), m2=float(m2[gid]), m3=float(m3[gid]),
+                    confidence=stat_settings.ci_confidence, method=method,
+                )
+
+            tables.append(
+                level_groups[l].with_columns(
+                    pl.Series(col_lo, lows, dtype=pl.Float64),
+                    pl.Series(col_hi, highs, dtype=pl.Float64),
+                ).drop('_gid')
+            )
+        return tables
 
 
     def units(self, col: str = None, **kwargs) -> dict[str, str] | str:

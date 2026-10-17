@@ -188,8 +188,7 @@ class DataLoader:
             from_ = self._flatten_tree(from_.get('dict'))
         elif isinstance(from_, (str, PathLike)):
             from_ = str(from_)
-            is_remote_dir = is_remote(from_) and op.splitext(from_.split('?')[0].lower())[1] not in ('.csv', '.xls', '.xlsx', '.xml')
-            if op.isdir(from_) or is_remote_dir:
+            if op.splitext(from_.split('?')[0].lower())[1] not in ('.csv', '.xls', '.xlsx', '.xml'):
                 from_ = self._tree_from_directory(from_)
             else:
                 from_ = [from_]
