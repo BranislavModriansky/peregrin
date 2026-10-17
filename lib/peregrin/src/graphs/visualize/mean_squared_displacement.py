@@ -50,12 +50,9 @@ class MSD:
     # Minimum number of lag points required to attempt a fit.
     MIN_FIT_POINTS = 3
 
+
     def __init__(self):
         ...
-
-
-    # Public API
-    # --------------
 
     def plot(
         self,
@@ -65,7 +62,6 @@ class MSD:
         *,
         log: bool = False,
         linear_fit: bool = False,
-        return_data: bool = ...,
         **kw,
     ) -> plt.Figure | tuple[plt.Figure, pl.DataFrame]:
         """Plot MSD versus time lag, optionally with a diffusion-coefficient fit.
@@ -118,16 +114,19 @@ class MSD:
         self._arrange_data()
 
         # ---- compute MSD on call ------------------------------------- #
-        # required_cols = self._msd_columns_required()
-        # if not all(col in self.data.columns for col in required_cols):
-        #     self.data = self._compute_msd()
-
-        self.data = self._compute_msd()
+        required_cols = self._msd_columns_required()
+        if not all(col in self.data.columns for col in required_cols):
+            self.data = self._compute_msd(required_cols)
 
         # If nothing could be computed, return an empty figure.
         fig, ax = plt.subplots(figsize=self.kwargs.get('fig_size', (10, 7)))
+
         if is_empty(self.data):
             return fig
+
+        if self.linear_fit and not self.log:
+            warn("MSD linear model requires a log scale; <log> will set to <True>.")
+            self.log = True
 
         if self.log:
             ax.set_xscale('log')
@@ -140,7 +139,6 @@ class MSD:
 
         groups = [ (gdata[self.group_keys[-1]][0], gdata)
                    for gdata in self.data.partition_by(self.group_keys, maintain_order=True) ]
-        n_groups = len(groups)
 
         # Collects per-group fit results (anomalous D̃/α or classical D).
         self.fit_results: list[dict[str, Any]] = []
@@ -174,9 +172,9 @@ class MSD:
             
             ax.plot(
                 x_data, y_data, 
-                marker     = 'none' if scatter is None else scatter, 
+                marker     = 'none' if scatter in (False, None, 'none', 'off') else scatter, 
                 markersize = self.kwargs.get('scattersize', 6), 
-                linestyle  = 'none' if line is None else line,
+                linestyle  = 'none' if line in (False, None, 'none', 'off') else line,
                 linewidth  = self.kwargs.get('linewidth', 1),
                 label = group_label, color=color, zorder=5,
             )
@@ -184,13 +182,12 @@ class MSD:
             # ---- linear fit ------------------------------------------ 
 
             if self.linear_fit:
-                if self.log:
-                    self._add_linear_fit(ax, x_data, y_data, color, idx, n_groups, group_label)
-                else:
-                    warn("Anomalous (log-log) MSD model requires a log scale; skipping fit.")
-                    self._add_linear_fit(ax, x_data, y_data, color, idx, n_groups, group_label)
-            # elif self.kwargs.get('diffusion_coefficient', False):
-            #     self._add_diffusion_coefficient(ax, x_data, y_data, color, idx, group_label)
+                self._add_linear_fit(
+                    ax, x_data, y_data, 
+                    gdata['position_pairs_contributing'].to_numpy(), 
+                    color, idx, group_label
+                )
+                    
 
 
             
@@ -198,7 +195,7 @@ class MSD:
         self._set_ylim(ax, self.data['MSD'].to_numpy().astype(float))
         self._style_axes(ax, fig)
 
-        if return_data:
+        if kw.get('return_data', False):
             return fig, self.data
         return fig
 
@@ -216,16 +213,16 @@ class MSD:
     # Computation
     # ----------------
 
-    def _compute_msd(self) -> pl.DataFrame:
+    def _compute_msd(self, required: list[str]) -> pl.DataFrame:
         """ Compute MSD (+ requested error statistics) from spot data via calc. """
         return calc.timelags(
             self.data,
-            subset = ['MSD'],
+            subset = required,
             grouping_level = self.kwargs.get('grouping_level', 'highest'),
             inferative_error = (self.band == 'sem'),
             bootstrap_ci = (self.band == 'ci'),
             ci_confidence = self.kwargs.get('ci_confidence', None),
-            bootstrap_resamples = self.kwargs.get('bootstrap_resamples', None),
+            bootstrap_resamples = self.kwargs.get('bootstrap_resamples', 500),
             bootstrap_ci_method = self.kwargs.get('bootstrap_ci_method', None),
             ci_statistic = self.kwargs.get('ci_statistic', None),
         )
@@ -250,6 +247,10 @@ class MSD:
                 required += ['MSD_min', 'MSD_max']
             case _:
                 pass
+
+        if self.linear_fit:
+            required += ['position_pairs_contributing']
+        
         return required
 
 
@@ -290,12 +291,11 @@ class MSD:
                 raise ValueError(f"<band> parameter '{self.band}' was not recognized -> ignoring error band. <band> must be one of 'sd', 'sem', 'min-max', 'ci', or None.")
     
             
-    # ------------------------------------------------------------------ #
     # Styling
-    # ------------------------------------------------------------------ #
+    # ------------
+
     def _get_group_names(self, group_data: pl.DataFrame, name: str) -> tuple[str, str]:
         """ Return group names and legend labels for a given group. """
-
         group_stamp = '.'.join(f'{group_data[i][0]}' for i in self.group_keys)
 
         match self.kwargs.get('legend_names', 'full'):
@@ -312,6 +312,7 @@ class MSD:
         ax.set_xlabel(f"Time lag [{calc.metadata['timeunits']}]", fontsize=11, labelpad=15)
         ax.set_ylabel(f'MSD [{calc.metadata["spatialunits"]}²]', fontsize=11, labelpad=15)
 
+
     def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray) -> None:
         if self.log:
             return
@@ -323,6 +324,7 @@ class MSD:
         upper = maxy + 0.05 * abs(maxy) if maxy != 0 else 1.0
         ax.set_ylim(lower, upper)
 
+
     def _style_axes(self, ax: plt.Axes, fig: plt.Figure) -> None:
         if self.kwargs.get('title'):
             ax.set_title(
@@ -332,18 +334,20 @@ class MSD:
                 fontweight=self.kwargs.get('title_fontweight', 'bold'),
             )
 
-        if self.kwargs.get('grid', False):
+        if self.kwargs.get('grid', True):
             ax.grid(True, color='whitesmoke', zorder=0)
 
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        borders = self.kwargs.get('borders', False)
+        ax.spines['top'].set_visible(borders)
+        ax.spines['right'].set_visible(borders)
 
         handles, labels = ax.get_legend_handles_labels()
         if handles:
-            loc = 'upper left' if getattr(self, 'fit_results', None) else 'best'
+            loc = 'upper left' if self.fit_results is not None else 'best'
             ax.legend(frameon=False, loc=loc)
 
         fig.set_facecolor(self.kwargs.get('fig_background', 'white'))
+
 
     # ------------------------------------------------------------------ #
     # Colors helpers
@@ -352,6 +356,7 @@ class MSD:
         if color is not None and mcolors.is_color_like(color):
             return color
         return f"C{idx % 10}"
+
 
     def _compute_fit_color(self, base_color: Any) -> str:
         safe_color = self._resolve_color(base_color, 0)
@@ -364,16 +369,17 @@ class MSD:
     # ------------------------------------------------------------------ #
     # Diffusion-coefficient fitting
     # ------------------------------------------------------------------ #
-    def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray,
-                        color: Any, idx: int, n_tags: int, label: str) -> None:
+    def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray, weights: Optional[np.ndarray],
+                        color: Any, idx: int, label: str) -> None:
         """Fit the anomalous MSD model on short lags and annotate D̃ and α.
 
         The model is ``MSD(t) = 2·d·D̃·t^α``. Taking a log-log linear fit on the
         short-lag regime gives ``log10(MSD) = a·log10(t) + b`` so that
         ``α = a`` and ``D̃ = 10^b / (2·d)``.
         """
-        short = self._short_lag_mask(x_data)
-        a, b, lxv, _ = self._log_linear_model(x_data[short], y_data[short])
+        strength = weights / np.max(weights) if weights is not None else np.ones(y_data.size)
+
+        a, b, lxv, _ = self._log_linear_model(x_data, y_data, strength)
 
         if lxv.size < 2:
             warn(f"Not enough valid short-lag points to fit the anomalous MSD model for group '{label}'.")
@@ -407,44 +413,6 @@ class MSD:
             self._annotate_fit(ax, idx, color, self._format_anomalous_label(d_tilde, alpha))
 
 
-    def _add_diffusion_coefficient(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray,
-                                   color: Any, idx: int, label: str) -> None:
-        """Fit a classical diffusion coefficient on the early lags.
-
-        Uses the linear model ``MSD(t) = 2·d·D·t + offset`` restricted to the
-        short-lag regime. For subdiffusive cells this is only an effective
-        short-time number, not a true diffusion coefficient.
-        """
-        d = self._get_dimensions()
-        short = self._short_lag_mask(x_data)
-        D, offset, xv = self._linear_diffusion_model(x_data[short], y_data[short], d)
-
-        if D is None:
-            warn(f"Not enough valid short-lag points to fit a diffusion coefficient for group '{label}'.")
-            return
-
-        x_fit = np.linspace(xv.min(), xv.max(), 200)
-        y_fit = 2.0 * d * D * x_fit + offset
-
-        fit_color = self._compute_fit_color(color)
-        ax.plot(
-            x_fit, y_fit, linestyle='-.', color=fit_color,
-            linewidth=2, zorder=7, alpha=0.8,
-        )
-
-        self.fit_results.append({
-            'group': label,
-            'model': 'linear',
-            'D': D,
-            'offset': offset,
-            'dimensions': d,
-            'n_points': int(xv.size),
-        })
-        self.diffusion_coefficient = D
-
-        self._annotate_fit(ax, idx, color, self._format_linear_label(D))
-
-
     def _diffusion_coefficient(self, b: float, d: int) -> float:
         """Generalized transport coefficient D̃ = 10^b / (2·d) from the log-log intercept."""
         return (10.0 ** b) / (2.0 * d)
@@ -467,7 +435,7 @@ class MSD:
         return slope / (2.0 * d), offset, xv
 
 
-    def _log_linear_model(self, x_data: np.ndarray, y_data: np.ndarray) -> tuple[float, float, np.ndarray, np.ndarray]:
+    def _log_linear_model(self, x_data: np.ndarray, y_data: np.ndarray, strength: np.ndarray) -> tuple[float, float, np.ndarray, np.ndarray]:
         """ Return the slope (a) and intercept (b) of the log-log linear fit, along with the log-transformed x and y data.
 
         Non-finite and non-positive points are dropped jointly across both
@@ -490,7 +458,7 @@ class MSD:
             return 0.0, 0.0, np.array([]), np.array([])
 
         lxv, lyv = np.log10(xv), np.log10(yv)
-        a, b = np.polyfit(lxv, lyv, 1)
+        a, b = np.polyfit(lxv, lyv, 1, w=strength)
         return a, b, lxv, lyv
 
 
