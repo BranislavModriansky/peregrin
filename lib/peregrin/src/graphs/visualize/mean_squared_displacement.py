@@ -35,20 +35,10 @@ class MSD:
         'color': ['color', 'colour', 'c'],
     }
 
-    # Columns produced by calc.time_intervals for MSD.
-    MSD_COL = 'MSD'
-    MSD_SD_COL = 'MSD_sd'
-    MSD_SEM_COL = 'MSD_sem'
-
     # Diffusion-coefficient fitting defaults.
     # The MSD is computed from the (x, y) projection, so the dimensionality of
     # the fitted model is 2 unless the caller overrides it.
     DIMENSIONS = 2
-    # Fraction of the (sorted, unique) time lags used for the fit. Restricting
-    # to short lags keeps the estimate in the regime where the power law holds.
-    FIT_FRACTION = 0.25
-    # Minimum number of lag points required to attempt a fit.
-    MIN_FIT_POINTS = 3
 
 
     def __init__(self):
@@ -114,9 +104,8 @@ class MSD:
         self._arrange_data()
 
         # ---- compute MSD on call ------------------------------------- #
-        required_cols = self._msd_columns_required()
-        if not all(col in self.data.columns for col in required_cols):
-            self.data = self._compute_msd(required_cols)
+        if not all(col in self.data.columns for col in self._required_cols()):
+            self.data = self._compute_msd()
 
         # If nothing could be computed, return an empty figure.
         fig, ax = plt.subplots(figsize=self.kwargs.get('fig_size', (10, 7)))
@@ -152,35 +141,43 @@ class MSD:
             x_data = gdata['time_lag'].to_numpy().astype(float)
             y_data = gdata['MSD'].to_numpy().astype(float)
 
-            color = self._resolve_color(color_map.get(group_stamp), idx)
+            color = color_map.get(group_stamp)
 
             # ---- error band ------------------------------------------
-
             band_bottom, band_top = self._band_bounds(gdata, y_data)
             if band_bottom is not None:
                 mask = np.isfinite(band_bottom) & np.isfinite(band_top)
                 if np.any(mask):
                     ax.fill_between(
-                        x_data[mask], band_bottom[mask], band_top[mask],
-                        color=color, alpha=0.10, linewidth=0, zorder=2,
+                        x_data[mask], 
+                        band_bottom[mask], 
+                        band_top[mask],
+                        color=color, 
+                        alpha=self.kwargs.get('band_alpha', 0.15), 
+                        zorder=2,
+                        linewidth=0,
                     )
 
             # ---- plot MSD ------------------------------------------
-
             line = self.kwargs.get('line', '-')
             scatter = self.kwargs.get('scatter', None)
+            if self.kwargs.get('scatter_fill', True) in (True, ' full', 'on'): 
+                scatter_fill = 'full'
+            else:
+                scatter_fill = 'none'
             
             ax.plot(
                 x_data, y_data, 
                 marker     = 'none' if scatter in (False, None, 'none', 'off') else scatter, 
-                markersize = self.kwargs.get('scattersize', 6), 
                 linestyle  = 'none' if line in (False, None, 'none', 'off') else line,
-                linewidth  = self.kwargs.get('linewidth', 1),
-                label = group_label, color=color, zorder=5,
+                markersize = self.kwargs.get('scattersize', 6), 
+                linewidth  = self.kwargs.get('linewidth', 1.5),
+                fillstyle  = scatter_fill,
+                alpha      = self.kwargs.get('alpha', 1.0),
+                label      = group_label, color=color, zorder=5,
             )
 
             # ---- linear fit ------------------------------------------ 
-
             if self.linear_fit:
                 self._add_linear_fit(
                     ax, x_data, y_data, 
@@ -188,9 +185,6 @@ class MSD:
                     color, idx, group_label
                 )
                     
-
-
-            
 
         self._set_ylim(ax, self.data['MSD'].to_numpy().astype(float))
         self._style_axes(ax, fig)
@@ -201,23 +195,22 @@ class MSD:
 
 
     def _arrange_data(self) -> None:
-        """Ensure the input data is in a suitable format for MSD computation."""
+        """ Ensure the input data is in a suitable format for MSD computation. """
         if is_empty(self.data):
             raise ValueError("Input data is empty.")
 
-        # Categorize the data if categories are provided.
         if self.categories:
             self.data = categorize(self.data, self.categories)
 
     
     # Computation
-    # ----------------
+    # ------------
 
-    def _compute_msd(self, required: list[str]) -> pl.DataFrame:
+    def _compute_msd(self) -> pl.DataFrame:
         """ Compute MSD (+ requested error statistics) from spot data via calc. """
         return calc.timelags(
             self.data,
-            subset = required,
+            subset = ['MSD', 'position_pairs_contributing'],
             grouping_level = self.kwargs.get('grouping_level', 'highest'),
             inferative_error = (self.band == 'sem'),
             bootstrap_ci = (self.band == 'ci'),
@@ -227,9 +220,9 @@ class MSD:
             ci_statistic = self.kwargs.get('ci_statistic', None),
         )
 
-    def _msd_columns_required(self) -> list[str]:
+    def _required_cols(self) -> list[str]:
         """Columns the plot needs; recompute via calc if any are missing."""
-        required = ['MSD']
+        required = ['MSD', 'position_pairs_contributing']
 
         self._ci_confidence = calc.ci_confidence
         if self._ci_confidence <= 1:
@@ -247,29 +240,21 @@ class MSD:
                 required += ['MSD_min', 'MSD_max']
             case _:
                 pass
-
-        if self.linear_fit:
-            required += ['position_pairs_contributing']
         
         return required
 
 
-    # ------------------------------------------------------------------ #
     # Colors
-    # ------------------------------------------------------------------ #
+    # -------
 
     def _build_color_map(self) -> dict[Any, Any]:
         """One color per group, via the painter (or a supplied color_by)."""
         colors = paint(self.data, color_by=self.group_keys, color=self.kwargs.get('color', 'default'))
         return colors
 
-    def _paint_kwargs(self) -> dict:
-        allowed = ('palette', 'cmap', 'lut_vmin', 'lut_vmax')
-        return {k: v for k, v in self.kwargs.items() if k in allowed}
-
 
     def _band_bounds(self, gdata: pl.DataFrame, y_data: np.ndarray):
-        """Return (bottom, top) arrays for the error band, or (None, None)."""
+        """ Return (bottom, top) arrays for the error band, or (None, None). """
         match self.band:
             case None:
                 return None, None
@@ -292,7 +277,7 @@ class MSD:
     
             
     # Styling
-    # ------------
+    # --------
 
     def _get_group_names(self, group_data: pl.DataFrame, name: str) -> tuple[str, str]:
         """ Return group names and legend labels for a given group. """
@@ -349,26 +334,9 @@ class MSD:
         fig.set_facecolor(self.kwargs.get('fig_background', 'white'))
 
 
-    # ------------------------------------------------------------------ #
-    # Colors helpers
-    # ------------------------------------------------------------------ #
-    def _resolve_color(self, color: Optional[Any], idx: int = 0) -> Any:
-        if color is not None and mcolors.is_color_like(color):
-            return color
-        return f"C{idx % 10}"
+    # Linear fit
+    # -----------
 
-
-    def _compute_fit_color(self, base_color: Any) -> str:
-        safe_color = self._resolve_color(base_color, 0)
-        base_rgb = mcolors.to_rgb(safe_color)
-        hsv = mcolors.rgb_to_hsv(np.array(base_rgb))
-        hsv[1] = np.clip(hsv[1] * self.SATURATION_SCALE, self.SATURATION_MIN, self.SATURATION_MAX)
-        hsv[2] = np.clip(hsv[2] * self.BRIGHTNESS_SCALE, self.BRIGHTNESS_MIN, hsv[2])
-        return mcolors.to_hex(mcolors.hsv_to_rgb(hsv))
-
-    # ------------------------------------------------------------------ #
-    # Diffusion-coefficient fitting
-    # ------------------------------------------------------------------ #
     def _add_linear_fit(self, ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray, weights: Optional[np.ndarray],
                         color: Any, idx: int, label: str) -> None:
         """Fit the anomalous MSD model on short lags and annotate D̃ and α.
@@ -392,10 +360,13 @@ class MSD:
         x_fit = np.logspace(lxv.min(), lxv.max(), 200)
         y_fit = (10.0 ** b) * (x_fit ** a)
 
-        fit_color = self._compute_fit_color(color)
         ax.plot(
-            x_fit, y_fit, linestyle='-.', color=fit_color,
-            linewidth=2, zorder=7, alpha=0.8,
+            x_fit, y_fit, 
+            linestyle = self.kwargs.get('fit_linestyle', '-.'), 
+            linewidth = self.kwargs.get('fit_linewidth', 1.5), 
+            alpha     = self.kwargs.get('fit_alpha', 0.75),
+            color     = color,
+            zorder    = 7, 
         )
 
         self.fit_results.append({
@@ -416,23 +387,6 @@ class MSD:
     def _diffusion_coefficient(self, b: float, d: int) -> float:
         """Generalized transport coefficient D̃ = 10^b / (2·d) from the log-log intercept."""
         return (10.0 ** b) / (2.0 * d)
-
-
-    def _linear_diffusion_model(self, x_data: np.ndarray, y_data: np.ndarray, d: int
-                                ) -> tuple[Optional[float], Optional[float], np.ndarray]:
-        """Classical diffusion fit ``MSD = 2·d·D·t + offset`` on the given lags.
-
-        Returns ``(D, offset, x_used)`` or ``(None, None, empty)`` when there
-        are too few finite points.
-        """
-        mask = np.isfinite(x_data) & np.isfinite(y_data)
-        xv, yv = x_data[mask], y_data[mask]
-
-        if xv.size < 2:
-            return None, None, np.array([])
-
-        slope, offset = np.polyfit(xv, yv, 1)
-        return slope / (2.0 * d), offset, xv
 
 
     def _log_linear_model(self, x_data: np.ndarray, y_data: np.ndarray, strength: np.ndarray) -> tuple[float, float, np.ndarray, np.ndarray]:
@@ -462,9 +416,9 @@ class MSD:
         return a, b, lxv, lyv
 
 
-    # ------------------------------------------------------------------ #
     # Fit helpers
-    # ------------------------------------------------------------------ #
+    # ------------
+
     def _get_dimensions(self) -> int:
         """Spatial dimensionality used in the MSD model (defaults to 2)."""
         d = self.kwargs.get('dimensions', self.DIMENSIONS)
@@ -478,32 +432,6 @@ class MSD:
             return self.DIMENSIONS
         return d
 
-    def _fit_fraction(self) -> float:
-        """Fraction of the sorted unique lags used for the fit (defaults to 0.25)."""
-        frac = self.kwargs.get('fit_fraction', self.FIT_FRACTION)
-        try:
-            frac = float(frac)
-        except (TypeError, ValueError):
-            warn(f"Invalid <fit_fraction> value '{frac}'; falling back to {self.FIT_FRACTION}.")
-            return self.FIT_FRACTION
-        if not (0.0 < frac <= 1.0):
-            warn(f"<fit_fraction> must be in (0, 1]; falling back to {self.FIT_FRACTION}.")
-            return self.FIT_FRACTION
-        return frac
-
-    def _short_lag_mask(self, x_data: np.ndarray) -> np.ndarray:
-        """Boolean mask selecting the first ``fit_fraction`` of the sorted unique lags."""
-        finite = np.isfinite(x_data)
-        if not finite.any():
-            return finite
-
-        lags = np.unique(x_data[finite])
-        frac = self._fit_fraction()
-        n_keep = int(np.ceil(lags.size * frac))
-        n_keep = max(self.MIN_FIT_POINTS, n_keep)
-        n_keep = min(n_keep, lags.size)
-        cutoff = lags[n_keep - 1]
-        return finite & (x_data <= cutoff)
 
     def _units(self) -> tuple[str, str]:
         """Return ``(spatial_units, time_units)`` from calc metadata, or empty strings."""
@@ -514,15 +442,12 @@ class MSD:
             time = meta.get('timeunits', '') or ''
         return space, time
 
+
     def _format_anomalous_label(self, d_tilde: float, alpha: float) -> str:
         space, time = self._units()
         unit = f" [{space}²·{time}" + r"$^{-\alpha}$]" if (space or time) else ''
         return rf"$\tilde{{D}}$ = {d_tilde:.3g}{unit}   $\alpha$ = {alpha:.2f}"
 
-    def _format_linear_label(self, D: float) -> str:
-        space, time = self._units()
-        unit = f" [{space}²·{time}" + r"$^{-1}$]" if (space or time) else ''
-        return rf"$D$ = {D:.3g}{unit}"
 
     def _annotate_fit(self, ax: plt.Axes, idx: int, color: Any, text: str) -> None:
         """Place a per-group fit annotation, stacked in the bottom-right corner.
@@ -535,7 +460,7 @@ class MSD:
             0.97, y, text, transform=ax.transAxes, color=color,
             fontsize=8, fontweight='bold',
             verticalalignment='bottom', horizontalalignment='right',
-            zorder=8,
+            zorder=8, alpha=1,
         )
 
 

@@ -28,7 +28,7 @@ class Dyes:
     # peregrin_cmap_ql = np.asarray(['#093190ff', "#a9290fff", '#197fdfff', '#edb717ff', '#799adcff', '#ffee00ff'])
 
     peregrin_cmap_qn = ['#002288ff', '#2555bdff', '#3e73ceff', '#608dceff', '#a0a376ff', '#bdb74bff', '#cfc532ff', '#eadd24ff', '#ffee00ff', "#fcf4ecff"]
-    peregrin_cmap_ql = ['#093190ff', "#a9290fff", '#197fdfff', '#edb717ff', '#799adcff', '#ffee00ff']
+    peregrin_cmap_ql = ['#093190ff', "#97220aff", '#197fdfff', "#c39407ff", '#799adcff', "#ead40cff"]
 
     _base_quantitative_cmaps = [
         'gist_grey', 'gist_yarg', 'viridis', 'cividis', 'plasma', 'inferno',
