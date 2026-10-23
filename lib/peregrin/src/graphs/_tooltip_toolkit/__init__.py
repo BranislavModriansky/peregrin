@@ -1,3 +1,3 @@
-from .editor import Interactive, tooltip_assets
+from .formatter import GraphFormatter, tooltip_assets
 
-__all__ = ['Interactive', 'tooltip_assets']
+__all__ = ['GraphFormatter', 'tooltip_assets']

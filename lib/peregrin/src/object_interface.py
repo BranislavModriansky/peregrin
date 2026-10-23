@@ -302,20 +302,25 @@ class DataObject(Calc):
         timelags_data: pl.DataFrame = None,
         **kwargs
     ):
-        """Plot MSD from the stored Spots_df.
-
-        With ``log=True`` and ``linear_fit=True`` the anomalous model
-        ``MSD(t) = 2·d·D̃·t^α`` is fitted on the short lags and the generalized
-        transport coefficient D̃ and exponent α are annotated per group. Pass
-        ``diffusion_coefficient=True`` without ``linear_fit`` to instead fit a
-        classical coefficient ``MSD(t) = 2·d·D·t + offset`` on the early lags.
-        The fit is tunable via ``dimensions`` (default 2) and ``fit_fraction``
-        (default 0.25).
-        """
         from .graphs.visualize.mean_squared_displacement import msd
 
         data = timelags_data if timelags_data is not None else self.spots_df
-        return msd(data, band, categories, log=log, linear_fit=linear_fit, **kwargs)
+        return msd(data, categories, band, log=log, linear_fit=linear_fit, **kwargs).figure
+
+    def msd(
+        self,
+        band: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
+        categories: Optional[dict[str, list]] = None,
+        *,
+        log: bool = False,
+        linear_fit: bool = False,
+        timelags_data: pl.DataFrame = None,
+        **kwargs
+    ):
+        from .graphs.visualize.mean_squared_displacement import msd
+
+        data = timelags_data if timelags_data is not None else self.spots_df
+        return msd(data, categories, band, log=log, linear_fit=linear_fit, **kwargs)
 
     def plot_turn_angles(self, *, grouping_level: Any = 'highest', **kwargs):
         """Plot the turning-angle heatmap from the stored Spots_df."""

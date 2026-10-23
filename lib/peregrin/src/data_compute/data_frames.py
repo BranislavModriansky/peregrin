@@ -492,7 +492,7 @@ class Calc:
     def tracks(
         self,
         df: pl.DataFrame,
-        subset: Optional[list[str]] = None,
+        subset: Optional[list[str] | str] = None,
         **kwargs
     ) -> pl.DataFrame:
         """
@@ -562,6 +562,7 @@ class Calc:
         stash = [c for c in cat_cols if c != 'track_uid']
         stash = df.select(['track_uid'] + stash).unique(subset=['track_uid'], keep='first')
 
+        subset = [subset] if subset is not None and not isinstance(subset, list) else subset
         requested = self._tracks_registry.resolve(subset)
 
         context = {
