@@ -183,7 +183,7 @@ class MSD:
                 label      = group_label, color=color, zorder=5,
             )
             for msd_line in msd_lines:
-                msd_line.set_gid(GraphFormatter.category_gid('msd', idx))
+                msd_line.set_gid(category_gid('msd', idx))
             self._categories.append((group_label, color))
 
             # ---- linear fit ------------------------------------------ 

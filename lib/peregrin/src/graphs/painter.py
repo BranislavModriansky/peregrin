@@ -260,22 +260,22 @@ class Cmaps:
             if not isinstance(min, (int, float)):
                 min = float(np.nanmin(vals)) if vals.size else 0.0
             if not isinstance(max, (int, float)):
-                max = float(np.nanmax(vals)) if vals.size else 100.0
+                max = float(np.nanmax(vals)) if vals.size else 1.0
 
             if not (np.isfinite(max) or np.isfinite(min)):
                 warn(
                     message="Invalid LUT range. Max and min values are not finite. "
-                            "Using default range (0.0, 100.0).",
+                            "Using default range (0.0, 1.0).",
                     category=LUTWarning, stacklevel=2)
                 if not np.isfinite(min):
                     min = 0.0
                 if not np.isfinite(max):
-                    max = 100.0
+                    max = 1.0
 
             if max <= min:
                 warn(
                     message="Invalid LUT range. Max value must be greater than min value. Swapping values.",
-                    category=LUTWarning, stacklevel=2)
+                    category=LUTWarning)
                 min, max = max, min
 
             return plt.Normalize(min, max), vals
@@ -404,11 +404,11 @@ class Painter:
         get_dtype = kw.get('get_dtype', False)
         if datatype == 'categorical' or dtype in (pl.Categorical, pl.Enum, pl.Utf8, pl.Boolean):
             if get_dtype:
-                return datatype, self._categorical_colors(data, color_by, color, **kw)
+                return 'categorical', self._categorical_colors(data, color_by, color, **kw)
             return self._categorical_colors(data, color_by, color, **kw)
         elif datatype == 'numeric' or dtype.is_numeric():
             if get_dtype:
-                return datatype, self._numeric_colors(data, color_by, color, **kw)
+                return 'numeric', self._numeric_colors(data, color_by, color, **kw)
             return self._numeric_colors(data, color_by, color, **kw)
         else:
             raise InvalidParameterValueError(
@@ -489,17 +489,17 @@ class Painter:
             color_by: str,
             color: str = 'default',
             **kw
-        ) -> np.ndarray:
+        ) -> np.ndarray | dict:
 
-        cmap = 'peregrin_qn' if color == 'default' else color
-        if cmap not in Dyes.quantitative_cmaps:
+        cmap_name = 'peregrin_qn' if color == 'default' else color
+        if cmap_name not in Dyes.quantitative_cmaps:
             warn(
-                f"Colormap '{cmap}' is not a recognized quantitative colormap. "
+                f"Colormap '{cmap_name}' is not a recognized quantitative colormap. "
                 "Defaulting to 'peregrin_qn'. Supported colormaps include: "
                 f"{', '.join(Dyes.quantitative_cmaps)}.",
                 category=PainterWarning)
-            cmap = 'peregrin_qn'
-        cmap = retrieve_cmap(cmap)
+            cmap_name = 'peregrin_qn'
+        cmap = retrieve_cmap(cmap_name)
 
         norm, vals = Cmaps.scale_cmap(
             data[color_by],
@@ -508,6 +508,8 @@ class Painter:
         )
         try:
             # RGBA (N,4) float array — far cheaper downstream than an object column.
+            if kw.get('get_params', False):
+                return {'colors': cmap(norm(vals)), 'cmap': cmap_name, 'norm': norm, 'vals': vals}
             return cmap(norm(vals))
         except Exception as e:
             raise PlottingError(

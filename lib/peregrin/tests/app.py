@@ -35,13 +35,13 @@ data_object = create_object( load_data(Path.cwd().resolve() / "lib" / "peregrin"
 
 tracks_graph = data_object.plot_tracks(color_by='distance').__repr_html__
 tracks_graph2 = data_object.plot_tracks(color='tab:blue', align_start=True).__repr_html__
-msd_graph = data_object.msd().__repr_html__
+# msd_graph = data_object.msd().__repr_html__
 
 app_ui = ui.page_fluid(
     ui.row(
         ui.output_ui("tracks"),
         ui.output_ui("tracks2"),
-        ui.output_ui("msd")
+        # ui.output_ui("msd")
     )
 )
 
@@ -59,11 +59,11 @@ def server(input: Inputs, output: Outputs, session: Session):
             tracks_graph2
         )
 
-    @render.ui
-    def msd():
-        return ui.HTML(
-            msd_graph
-        )
+    # @render.ui
+    # def msd():
+    #     return ui.HTML(
+    #         msd_graph
+    #     )
 
 
 app = App(app_ui, server)

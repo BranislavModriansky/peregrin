@@ -23,6 +23,13 @@ from ..._pckg_exceptions._pckg_warnings import *
 from ..painter import paint, scale_cmap, Dyes
 from ...utils import get_aliases, ensure_polars, is_empty
 from .._tooltip_toolkit import GraphFormatter
+from .._tooltip_toolkit.color_formats import (
+    uniform, 
+    random, 
+    qualitative, 
+    quantitative, 
+    matching
+)
 from ...data_handler.categorizer import categorize
 from ...data_compute.data_frames import calc
 
@@ -245,47 +252,36 @@ class ReconstructTracks:
                 'tracks': {
                     'type': 'line', 
                     'label': 'Track',
-                    'ctype': self._ctype,
-                    'color': self._color_desc(self._segment_lut_values()),
+                    'color': self._color_specs,
                     'values': {'width': float(kw.get('lw', 1.0))}},
                 'heads': {
                     'type':  'scatter', 
                     'label': 'Track head', 
-                    'ctype': 'matched',
-                    'link':  'tracks',
+                    'color': matching('tracks', self._head_colors),
                     'values': {'size': float(kw.get('head_size', 1.0))}
                 },
                 'grid': {
                     'type':  'grid', 
                     'label': 'Grid',
-                    'color': GraphFormatter.uniform(to_hex(kw.get('grid_color', 'gainsboro'))),
-                    'values': {'width': float(kw.get('grid_lw', 0.75))}
+                    'color': uniform(self.kw.get('grid_color', 'gainsboro')),
+                    'values': {'width': float(self.kw.get('grid_lw', 0.75))}
                 },
                 'canvas': {
                     'type': 'background', 'label': 'Background',
-                    'color': GraphFormatter.uniform(to_hex(kw.get('face_color', 'white')))
+                    'color': uniform(self.kw.get('face_color', 'white'))
                 }
             }
         }
 
-    def _color_desc(self, lut_values: Optional[np.ndarray]) -> dict[str, Any]:
-        """Numeric descriptor when a colormap drives the colors, else single."""
-        if lut_values is not None and self._lut_cmap is not None:
-            return GraphFormatter.quantitative(self._lut_cmap, lut_values)
-        base = self._single_color if isinstance(self._single_color, str) else 'black'
-        return GraphFormatter.uniform(to_hex(base))
-
-    def _segment_lut_values(self) -> Optional[np.ndarray]:
-        """Normalized colormap value per drawn segment (SVG path order)."""
-        if self._lut_values is None or self._lut_values.size < 2:
-            return None
-        return self._lut_values[self._same_track]
-
-    def _head_lut_values(self) -> Optional[np.ndarray]:
-        """Normalized colormap value per drawn head marker."""
-        if self._lut_values is None or self._track_ends.size == 0:
-            return None
-        return self._lut_values[self._track_ends]
+    @property
+    def _head_colors(self):
+        """Per-track head colors, aligned to the tracks kept by `has_pt`."""
+        if self._colortype == 'numeric':
+            return np.array(self._color_specs['values'])[self._track_ends]
+        elif self._colortype == 'categorical':
+            return np.array(self._color_specs['values'])[self._track_ends]
+        return None
+    
 
     def animate(self, **kw):
         self._animator = AnimateTracks(self)
@@ -386,7 +382,7 @@ class ReconstructTracks:
     # ---- colors ----------------------------------------------------------------
     
     def _assign_color(self, data: pl.DataFrame):
-        color = self.kw.get('color', 'black')
+        color = self.kw.get('color', 'default')
         color_by = self.kw.get('color_by', None)
 
         to_track_segments = color_by is not None and color_by in data.columns
@@ -399,7 +395,8 @@ class ReconstructTracks:
                 color_by=color_by, 
                 color=color, 
                 n=self._track_starts.size,
-                get_dtype=True
+                get_dtype=True,
+                get_params=True
             )
         else:
             c = paint(
@@ -407,49 +404,39 @@ class ReconstructTracks:
                 color_by=color_by, 
                 color=color, 
                 n=self._track_starts.size,
-                get_dtype=True
+                get_dtype=True,
+                get_params=True
             )
 
         if isinstance(c, tuple) and len(c) == 2:
-            datatype, c = c
-            self._ctype = dict(numeric='quantitative', categorical='qualitative')[datatype]
+            self._colortype, c = c
 
         if color in ('random', 'random greys'):
-            self._ctype = 'random'
+            self._colortype = 'random'
             self._colors = np.repeat(c, self._track_lengths, axis=0)
+            self._color_specs = random()
         elif to_track_segments:
-            self._colors = c
+            if self._colortype == 'numeric':
+                self._colors = c['colors']
+                self._color_specs = quantitative(c['cmap'], c['vals'], c['norm'])
+            else:
+                print(c)
+                ...
+                
         elif to_whole_tracks:
-            self._colors = np.repeat(c, self._track_lengths, axis=0)
+            self._colors = np.repeat(c['colors'], self._track_lengths, axis=0)
+            if self._colortype == 'numeric':
+                self._color_specs = quantitative(c['cmap'], c['vals'], c['norm'])
+            else:
+                ...
         elif isinstance(c, str):
-            self._ctype = 'uniform'
+            self._colortype = 'uniform'
             self._colors = np.repeat(c, data.height, axis=0)
         else:
             raise PlottingError(
                 f"Unexpected return value from paint: {c}"
             )
         
-
-    def _capture_lut(self, data: pl.DataFrame, color: Any, color_by: Any) -> None:
-        """
-        If colors came from a quantitative colormap, record the per-spot
-        normalized values + colormap name so the tooltip can re-map them to
-        another colormap client-side.
-        """
-        datatype = color_by[1] if isinstance(color_by, tuple) and len(color_by) == 2 else None
-        source = color_by[0] if isinstance(color_by, tuple) else color_by
-
-        is_numeric = datatype == 'numeric' or (datatype is None and data.schema[source].is_numeric())
-        if not is_numeric:
-            return
-
-        norm, vals = scale_cmap(
-            data[source],
-            min=self.kw.get('lut_vmin'),
-            max=self.kw.get('lut_vmax'),
-        )
-        self._lut_values = np.asarray(norm(vals), dtype=float)
-        self._lut_cmap = color if color in Dyes.quantitative_cmaps else 'peregrin_qn'
 
     # ---- static figures ----------------------------------------------------------
     def cartesian(self, data) -> plt.Figure:
@@ -660,16 +647,6 @@ class ReconstructTracks:
                     clip_on=True,
                     zorder=14,
                 )
-
-
-
-    def _head_colors(self, has_pt: np.ndarray):
-        """Per-track head colors, aligned to the tracks kept by `has_pt`."""
-        if self._single_color is not None:
-            return self._single_color
-        if self._colors is None or self._track_ends.size == 0:
-            return 'black'
-        return np.asarray(self._colors)[self._track_ends][has_pt]
 
     # ---- styling -------------------------------------------------------------
     def _style_grid(self, ax: plt.Axes):
