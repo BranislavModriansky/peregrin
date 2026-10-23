@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import FuncFormatter, MultipleLocator, FormatStrFormatter
 from matplotlib.animation import FuncAnimation
-from matplotlib.colors import to_hex
+from matplotlib.colors import to_hex, to_rgba_array
 
 from ..._pckg_exceptions._pckg_errors import *
 from ..._pckg_exceptions._pckg_warnings import *
@@ -102,7 +102,7 @@ class AnimateTracks:
             head_idx = b._track_starts[None, :] + np.maximum(last_idx, 0)
             head_xy = np.stack(
                 (plot_x[head_idx][:, has_pt], plot_y[head_idx][:, has_pt]), axis=-1)
-            head_colors = b._head_colors(has_pt)
+            head_colors = b._colors[b._track_ends][has_pt]
 
         lc = LineCollection(np.empty((0, 2, 2)),
                             linewidths=b.kw.get('lw', 1), zorder=11)
@@ -247,17 +247,18 @@ class ReconstructTracks:
     @property
     def style_payload(self) -> dict[str, Any]:
         kw = self.kw
+        spec = self._color_specs
         return {
             'gid': {
                 'tracks': {
                     'type': 'line', 
                     'label': 'Track',
-                    'color': self._color_specs,
+                    'color': {**spec, **self._per_node(spec, self._same_track)},
                     'values': {'width': float(kw.get('lw', 1.0))}},
                 'heads': {
                     'type':  'scatter', 
                     'label': 'Track head', 
-                    'color': matching('tracks', self._head_colors),
+                    'color': {**matching('tracks'), **self._per_node(spec, self._track_ends)},
                     'values': {'size': float(kw.get('head_size', 1.0))}
                 },
                 'grid': {
@@ -273,15 +274,31 @@ class ReconstructTracks:
             }
         }
 
-    @property
-    def _head_colors(self):
-        """Per-track head colors, aligned to the tracks kept by `has_pt`."""
-        if self._colortype == 'numeric':
-            return np.array(self._color_specs['values'])[self._track_ends]
-        elif self._colortype == 'categorical':
-            return np.array(self._color_specs['values'])[self._track_ends]
-        return None
-    
+    _PER_NODE = ('values', 'indices')
+
+    @classmethod
+    def _per_node(cls, spec: dict[str, Any], idx: np.ndarray) -> dict[str, Any]:
+        """Slice a descriptor's per-spot arrays down to the nodes actually drawn (`idx` is a mask or index array)."""
+        return {k: np.asarray(spec[k])[idx].tolist() for k in cls._PER_NODE if k in spec}
+
+    @staticmethod
+    def _get_data_categories(df: pl.DataFrame, color_by: str | list[str]) -> pl.Series:
+        """Category label per row; multiple columns are joined with '.', as in the painter's category keys."""
+        if isinstance(color_by, list):
+            return df.select(pl.concat_str(color_by, separator='.')).to_series()
+        return df[color_by]
+
+    @staticmethod
+    def _categorical_colors(labels: pl.Series, mapping: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+        """Per-label RGBA colors (n, 4) and category indices; unmapped/null labels get black and index len(mapping)."""
+        k = len(mapping)
+        idx = (
+            labels.cast(pl.Utf8).fill_null('')
+            .replace_strict({str(key): i for i, key in enumerate(mapping)}, default=k)
+            .to_numpy()
+        )
+        palette = np.vstack([to_rgba_array(list(mapping.values())), [0, 0, 0, 1]])
+        return palette[idx], idx
 
     def animate(self, **kw):
         self._animator = AnimateTracks(self)
@@ -385,8 +402,20 @@ class ReconstructTracks:
         color = self.kw.get('color', 'default')
         color_by = self.kw.get('color_by', None)
 
-        to_track_segments = color_by is not None and color_by in data.columns
-        to_whole_tracks = not to_track_segments and color_by in calc.COLUMNS['TRACKS']
+        default_cats = calc.DEFAULT_CATEGORIES[1:]
+        if ((isinstance(color_by, list) and all(col in default_cats for col in color_by)) or 
+            (isinstance(color_by, str) and color_by in default_cats)):
+            for i, col in enumerate(default_cats):
+                if col in color_by:
+                    color_by = default_cats[i:]
+                    break
+
+        if isinstance(color_by, list):
+            to_track_segments = all(col in data.columns for col in color_by)
+            to_whole_tracks = not to_track_segments and all(col in calc.COLUMNS['TRACKS'] for col in color_by)
+        else:  
+            to_track_segments = color_by is not None and color_by in data.columns
+            to_whole_tracks = not to_track_segments and color_by in calc.COLUMNS['TRACKS']
 
         if to_whole_tracks:
             track_data = calc.tracks(data, color_by)
@@ -420,18 +449,21 @@ class ReconstructTracks:
                 self._colors = c['colors']
                 self._color_specs = quantitative(c['cmap'], c['vals'], c['norm'])
             else:
-                print(c)
-                ...
-                
+                self._colors, idx = self._categorical_colors(self._get_data_categories(data, color_by), c)
+                self._color_specs = qualitative(c.items(), idx)
         elif to_whole_tracks:
-            self._colors = np.repeat(c['colors'], self._track_lengths, axis=0)
             if self._colortype == 'numeric':
-                self._color_specs = quantitative(c['cmap'], c['vals'], c['norm'])
+                self._colors = np.repeat(c['colors'], self._track_lengths, axis=0)
+                self._color_specs = quantitative(
+                    c['cmap'], np.repeat(c['vals'], self._track_lengths), c['norm'])
             else:
-                ...
+                colors, idx = self._categorical_colors(self._get_data_categories(track_data, color_by), c)
+                self._colors = np.repeat(colors, self._track_lengths, axis=0)
+                self._color_specs = qualitative(c.items(), np.repeat(idx, self._track_lengths))
         elif isinstance(c, str):
             self._colortype = 'uniform'
             self._colors = np.repeat(c, data.height, axis=0)
+            self._color_specs = uniform(c)
         else:
             raise PlottingError(
                 f"Unexpected return value from paint: {c}"

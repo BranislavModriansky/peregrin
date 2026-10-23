@@ -21,9 +21,9 @@ def random() -> dict[str, Any]:
     }
 
 
-def qualitative(items: Iterable[tuple[Any, Any]]) -> dict[str, Any]:
-    """ Qualitative colormap descriptor acquiring `(label, color)` pairs. """
-    return {
+def qualitative(items: Iterable[tuple[Any, Any]], indices: Optional[Iterable[int]] = None) -> dict[str, Any]:
+    """ Qualitative colormap descriptor acquiring `(label, color)` pairs and optional per-node category indices. """
+    desc: dict[str, Any] = {
         'colortype': 'qualitative',
         'categories': [{
                 'token': f'c{i}', 
@@ -31,6 +31,9 @@ def qualitative(items: Iterable[tuple[Any, Any]]) -> dict[str, Any]:
                 'value': mcolors.to_hex(color)
             } for i, (label, color) in enumerate(items)],
     }
+    if indices is not None:
+        desc['indices'] = np.asarray(indices, dtype=int).tolist()
+    return desc
 
 
 def quantitative(cmap: str, values: Iterable[float], norm: plt.Normalize = None) -> dict[str, Any]:
