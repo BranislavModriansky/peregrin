@@ -492,7 +492,7 @@ class Calc:
     def tracks(
         self,
         df: pl.DataFrame,
-        subset: Optional[list[str] | str] = None,
+        subset: Optional[str | list[str] | tuple[str, ...] | set[str]] = None,
         **kwargs
     ) -> pl.DataFrame:
         """
@@ -562,7 +562,11 @@ class Calc:
         stash = [c for c in cat_cols if c != 'track_uid']
         stash = df.select(['track_uid'] + stash).unique(subset=['track_uid'], keep='first')
 
-        subset = [subset] if subset is not None and not isinstance(subset, list) else subset
+        subset = self._build_subset(
+            subset, 
+            {'directionality': ['track_displacement', 'track_length'], 'straightness': ['greatest_distance', 'track_length']},
+            {'speed': lambda item: 'speed' if item.startswith('speed') else item}    
+        )
         requested = self._tracks_registry.resolve(subset)
 
         context = {
@@ -1220,6 +1224,28 @@ class Calc:
         out = np.maximum.accumulate(far)
         out[~np.isfinite(out)] = np.nan
         return out
+
+
+    def _build_subset(self, subset: str | list[str] | tuple[str, ...] | set[str], dependencies: dict[str, list[str]] = None, substitute: dict[str, list[str] | Callable] = None):
+        if not isinstance(subset, set):
+            if isinstance(subset, str):
+                subset = {subset}
+            subset = set(subset)
+
+        if dependencies is not None:
+            for param, deps in dependencies.items():
+                if param in subset:
+                    subset |= {dep for dep in deps if dep not in subset}
+        if substitute is not None:
+            for parent, substitute in substitute.items():
+                if callable(substitute):
+                    subset = {substitute(param) for param in subset}
+                elif any(param in subset for param in substitute):
+                    subset -= set(substitute)
+                    subset |= {parent}
+
+        print(subset)
+        return subset
 
 
     def _build_tracks_registry(self) -> MetricRegistry:

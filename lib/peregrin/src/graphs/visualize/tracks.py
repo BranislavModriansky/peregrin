@@ -402,6 +402,9 @@ class ReconstructTracks:
         color = self.kw.get('color', 'default')
         color_by = self.kw.get('color_by', None)
 
+        if color_by is not None and (color_by not in data.columns and color_by not in calc.COLUMNS['TRACKS']):
+            raise ValueError(f"<color_by={color_by}> not found. <color_by> must be one of {', '.join(data.columns) + ', ' + ', '.join(calc.COLUMNS['TRACKS'])}")
+
         default_cats = calc.DEFAULT_CATEGORIES[1:]
         if ((isinstance(color_by, list) and all(col in default_cats for col in color_by)) or 
             (isinstance(color_by, str) and color_by in default_cats)):
