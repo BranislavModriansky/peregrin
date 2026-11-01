@@ -1,7 +1,12 @@
+from decimal import Decimal, Context
+import math
+
 import polars as pl
 
+from functools import wraps
 from itertools import zip_longest
 from warnings import warn
+import time
 
 
 def ensure_polars(df) -> pl.DataFrame:
@@ -19,6 +24,21 @@ def ensure_polars(df) -> pl.DataFrame:
     except ImportError:
         warn("pandas is not installed, cannot convert pandas DataFrame to polars DataFrame.")
     raise TypeError(f"Expected a polars DataFrame, got {type(df).__name__}.")
+
+
+def clock(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        start = time.time()
+        result = f(*args, **kwargs)
+        finish = time.time()
+        print("")
+        print(f"Clocked: '{f.__name__}' <- {finish - start:.4f} s")
+        print("")
+
+        return result
+    
+    return wrap
 
 
 class CheckData:
@@ -181,5 +201,57 @@ class Kwargs:
         return resolved
 
 
+class Values:
+
+    @staticmethod
+    def round_sigfigs(x: int | float, sigfigs: int = 5, *, keep_tail: bool = True) -> float | None:
+        """
+        Round a number to a given number of significant figures.
+
+        Parameters
+        ----------
+        x : int | float
+            The value to round.
+        sigfigs : int
+            Number of significant figures (default = 5).
+
+        Returns
+        -------
+        float or None
+            Rounded value, or None if input is None.
+        """
+        if x is None:
+            return None
+
+        
+        x = float(x)
+
+        # except (TypeError, ValueError) as e:
+        #     if noticequeue: noticequeue.Report(Level.Error, f"Cannot convert {type(x)}: {x} to float.", str(e))
+        #     return None
+        
+        # except Exception as e:
+        #     if noticequeue: noticequeue.Report(Level.Error, f"Error converting {type(x)}: {x} to float.", str(e))
+        #     return None
+
+        if math.isnan(x) or math.isinf(x):
+            return x
+
+        if x == 0.0:
+            return 0.0
+
+        # Set the precision for the conversion
+        ctx = Context(prec=sigfigs)
+        # Convert to string first to avoid floating-point inaccuracies
+        d = ctx.create_decimal(repr(x))
+        if keep_tail:
+            return f'{d}'
+        return float(d)
+    
+
+
+
 get_aliases = Kwargs.get_aliases
 is_empty = CheckData().is_empty
+
+round_sigfigs = Values.round_sigfigs
