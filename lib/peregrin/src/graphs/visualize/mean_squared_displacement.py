@@ -182,8 +182,8 @@ class MSD:
                 alpha      = self.kw.get('alpha', 1.0),
                 label      = group_label, color=color, zorder=5,
             )
-            for msd_line in msd_lines:
-                msd_line.set_gid(category_gid('msd', idx))
+            # for msd_line in msd_lines:
+            #     msd_line.set_gid(category_gid('msd', idx))
             self._categories.append((group_label, color))
 
             # ---- linear fit ------------------------------------------ 
@@ -293,7 +293,7 @@ class MSD:
 
 
     def _set_axis_labels(self, ax: plt.Axes) -> None:
-        ax.set_xlabel(f"Time lag [{calc.metadata['timeunits']}]", fontsize=11, labelpad=15)
+        ax.set_xlabel(f"Time lag [{calc.metadata['timeunits']}²]", fontsize=11, labelpad=15)
         ax.set_ylabel(f"MSD [{calc.metadata['spatialunits']}²]", fontsize=11, labelpad=15)
 
 
@@ -336,22 +336,24 @@ class MSD:
 
     @property
     def style_payload(self) -> dict[str, Any]:
-        kw = self.kw
-        categories = getattr(self, '_categories', None)
-        msd_color = (GraphFormatter.qualitative(categories) if categories
-                     else GraphFormatter.uniform('#000000'))
-        return {
-            'gids': [
-                {'id': 'msd', 'type': 'line', 'label': 'Curves',
-                 'color': msd_color,
-                 'values': {'width': float(kw.get('line_width', 1.5))}},
-                {'id': 'grid', 'type': 'grid', 'label': 'Grid',
-                 'color': GraphFormatter.uniform(to_hex(kw.get('grid_color', 'whitesmoke'))),
-                 'values': {'width': float(kw.get('grid_lw', 0.75))}},
-                {'id': 'canvas', 'type': 'background', 'label': 'Background',
-                 'color': GraphFormatter.uniform(to_hex(kw.get('fig_background', 'white')))},
-            ],
-        }
+        # kw = self.kw
+        # categories = getattr(self, '_categories', None)
+        # msd_color = (GraphFormatter.qualitative(categories) if categories
+        #              else GraphFormatter.uniform('#000000'))
+        # return {
+        #     'gids': [
+        #         {'id': 'msd', 'type': 'line', 'label': 'Curves',
+        #          'color': msd_color,
+        #          'values': {'width': float(kw.get('line_width', 1.5))}},
+        #         {'id': 'grid', 'type': 'grid', 'label': 'Grid',
+        #          'color': GraphFormatter.uniform(to_hex(kw.get('grid_color', 'whitesmoke'))),
+        #          'values': {'width': float(kw.get('grid_lw', 0.75))}},
+        #         {'id': 'canvas', 'type': 'background', 'label': 'Background',
+        #          'color': GraphFormatter.uniform(to_hex(kw.get('fig_background', 'white')))},
+        #     ],
+        # }
+
+        return {}
 
 
     # Linear fit

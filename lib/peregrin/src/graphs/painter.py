@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Any, Optional, Tuple, Literal
+from typing import Any, Iterable, Optional, Tuple, Literal
 
 import seaborn as sns
 import numpy as np
@@ -18,19 +18,16 @@ from .._pckg_exceptions._pckg_warnings import *
 from ..utils import ensure_polars
 
 
-@dataclass
+@dataclass(frozen=True)
 class Dyes:
     """
     Class holding color options.
     """
 
-    # peregrin_cmap_qn = np.asarray(['#002288ff', '#2555bdff', '#3e73ceff', '#608dceff', '#a0a376ff', '#bdb74bff', '#cfc532ff', '#eadd24ff', '#ffee00ff', "#fcf4ecff"])
-    # peregrin_cmap_ql = np.asarray(['#093190ff', "#a9290fff", '#197fdfff', '#edb717ff', '#799adcff', '#ffee00ff'])
+    peregrin_cmap_qn = ('#002288ff', '#2555bdff', '#3e73ceff', '#608dceff', '#a0a376ff', '#bdb74bff', '#cfc532ff', '#eadd24ff', '#ffee00ff', "#fcf4ecff")
+    peregrin_cmap_ql = ('#093190ff', "#97220aff", '#197fdfff', "#c39407ff", '#799adcff', "#ead40cff")
 
-    peregrin_cmap_qn = ['#002288ff', '#2555bdff', '#3e73ceff', '#608dceff', '#a0a376ff', '#bdb74bff', '#cfc532ff', '#eadd24ff', '#ffee00ff', "#fcf4ecff"]
-    peregrin_cmap_ql = ['#093190ff', "#97220aff", '#197fdfff', "#c39407ff", '#799adcff', "#ead40cff"]
-
-    _base_quantitative_cmaps = [
+    _base_quantitative_cmaps = (
         'gist_grey', 'gist_yarg', 'viridis', 'cividis', 'plasma', 'inferno',
         'magma', 'gist_heat', 'hot', 'afmhot', 'copper', 'Wistia', 'pink',
         'bone', 'spring', 'summer', 'autumn', 'winter', 'cool', 'ocean',
@@ -41,24 +38,25 @@ class Dyes:
         'OrRd', 'PuRd', 'RdPu', 'BuPu', 'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn',
         'BuGn', 'YlGn', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu',
         'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic',
-        'berlin', 'managua', 'vanimo',
-    ]
+        'berlin', 'managua', 'vanimo',  # Only available in matplotlib >= 3.10
+    )
 
-    quantitative_cmaps = ["peregrin_qn"]
-    for _cmap in _base_quantitative_cmaps:
-        quantitative_cmaps.append(_cmap)
-        if f"{_cmap}_r" in mpl.colormaps:
-            quantitative_cmaps.append(f"{_cmap}_r")
-    del _base_quantitative_cmaps
+    _quantitative = ["peregrin_qn"]
+    for cmap_ in _base_quantitative_cmaps:
+        # Skip maps missing from the installed matplotlib version
+        if cmap_ not in mpl.colormaps:
+            continue
+        _quantitative.append(cmap_)
+        if f"{cmap_}_r" in mpl.colormaps:
+            _quantitative.append(f"{cmap_}_r")
+    quantitative_cmaps = tuple(dict.fromkeys(_quantitative))
+    del _base_quantitative_cmaps, _quantitative
 
-    qualitative_cmaps_matplotlib = [
-        'Pastel1', 'Pastel2', 'Paired', 'Accent', 'okabe_ito', 'Dark2', 'Set1', 'Set2', 'Set3', 'tab10', 'tab20', 'tab20b', 'tab20c'
-    ]
-    qualitative_cmaps_seaborn = [
-        "deep", "muted", "bright", "pastel", "dark", "colorblind", "husl", "hsl"
-    ]
-    qualitative_cmaps = ["peregrin_ql"] + qualitative_cmaps_matplotlib + qualitative_cmaps_seaborn
-    cmaps = quantitative_cmaps + qualitative_cmaps
+    qualitative_cmaps_matplotlib = ('Pastel1', 'Pastel2', 'Paired', 'Accent', 'okabe_ito', 'Dark2', 'Set1', 'Set2', 'Set3', 'tab10', 'tab20', 'tab20b', 'tab20c')
+    qualitative_cmaps_seaborn = ("deep", "muted", "bright", "pastel", "dark", "colorblind", "husl", "hsl")
+
+    qualitative_cmaps = ("peregrin_ql", *qualitative_cmaps_matplotlib, *qualitative_cmaps_seaborn)
+    cmaps = (*quantitative_cmaps, *qualitative_cmaps)
 
     @staticmethod
     def color_type(color: Any) -> str:
@@ -197,21 +195,21 @@ class Cmaps:
 
     def __init__(self): ...
 
-    @staticmethod
-    def retrieve_palette(palette: Optional[str | list] = "peregrin_ql", categories: list = None) -> dict:
+    @classmethod
+    def retrieve_palette(cls, palette: Optional[str | Iterable[tuple | list]] = "peregrin_ql", categories: tuple | list = None) -> dict:
         
         if palette in ('peregrin_ql', 'default'):
             palette = Dyes.peregrin_cmap_ql
         elif palette == 'peregrin_qn':
             palette = Dyes.peregrin_cmap_qn
 
-        if isinstance(palette, list):
+        if isinstance(palette, tuple | list):
             if categories is None:
                 return palette
             if len(palette) < len(categories):
                 warn(f"More categories ({len(categories)}) than colors ({len(palette)}). "
                       "Randomly generating additional colors.")
-                palette.extend(random_color(len(categories) - len(palette)))
+                palette = (*palette, *random_color(len(categories) - len(palette)))
             return dict(zip(categories, palette))
         else:
             try:
@@ -220,10 +218,10 @@ class Cmaps:
                 palette = sns.color_palette(palette)
             except Exception as e:
                 warn(
-                    message=f"An error occurred while retrieving the palette '{palette}': {str(e)}. "
-                            "<- Defaulting to 'tab10' colormap.",
+                    message=f"An error occurred while retrieving palette: <{palette}> -> {str(e)}. "
+                            "Defaulting to 'peregrin_ql' colormap.",
                     category=PaletteBuilderWarning, stacklevel=2)
-                palette = mpl.colormaps['tab10']
+                palette = cls.retrieve_palette("peregrin_ql")
 
             if categories is None:
                 return palette
@@ -231,24 +229,30 @@ class Cmaps:
             cat_count = len(categories)
             return {cat: mcolors.to_hex(palette(i / cat_count)) for i, cat in enumerate(categories)}
 
-    @staticmethod
-    def retrieve_cmap(cmap: str | mcolors.Colormap) -> mcolors.Colormap:
+    @classmethod
+    def retrieve_cmap(cls, cmap: str | mcolors.Colormap) -> mcolors.Colormap:
 
         if isinstance(cmap, mcolors.Colormap):
             return cmap
 
-        if cmap in Dyes.qualitative_cmaps + ['peregrin_qn']:
-            return mcolors.LinearSegmentedColormap.from_list(f'_{cmap}', Cmaps.retrieve_palette(cmap))
+        # Create a colormap from a qualitative palette if applicable
+        if cmap in Dyes.qualitative_cmaps or cmap == 'peregrin_qn':
+            palette = cls.retrieve_palette(cmap)
+            if isinstance(palette, mcolors.Colormap):
+                return palette
+            return mcolors.LinearSegmentedColormap.from_list(f'_{cmap}', palette)
+            # return mcolors.LinearSegmentedColormap.from_list(f'_{cmap}', cls.retrieve_palette(cmap))
 
         try:
             return mpl.colormaps[cmap]
         except Exception as e:
+            print(f"Error retrieving colormap '{cmap}': {str(e)}")
             warn(
                 message=f"An error occurred while retrieving the colormap for '{cmap}': {str(e)}. "
-                        f"Available colormaps are: {', '.join(Dyes.quantitative_cmaps)}. "
-                        "Defaulting to 'jet' colormap.",
-                category=PainterWarning, stacklevel=2)
-            return mpl.colormaps['jet']
+                        f"Available colormaps are: {', '.join(Dyes.cmaps)}. "
+                        "Defaulting to 'peregrin_qn' colormap.",
+                category=PainterWarning)
+            return cls.retrieve_cmap('peregrin_qn')
 
 
     @staticmethod
@@ -283,8 +287,8 @@ class Cmaps:
         except Exception as e:
             raise LUTError(f"Error while computing LUT for {data.name or 'unknown data'}: {str(e)}")
 
-    @staticmethod
-    def showcase_colormaps(*, which: str = "quantitative", **kwargs) -> plt.Figure:
+    @classmethod
+    def showcase_colormaps(cls, *, which: str = "quantitative", **kwargs) -> plt.Figure:
         text_color = kwargs.get('text_color', 'black')
         strip_background = kwargs.get('strip_background', False)
 
@@ -313,7 +317,7 @@ class Cmaps:
         fig.subplots_adjust(top=1 - 0.35 / height, bottom=0.15 / height, left=0.2, right=0.99)
 
         for ax, name in zip(axs, cmaps):
-            ax.imshow(gradient, aspect='auto', cmap=Cmaps.retrieve_cmap(name))
+            ax.imshow(gradient, aspect='auto', cmap=cls.retrieve_cmap(name))
             ax.text(-0.02, 0.5, name[:-4] if name.endswith(' LUT') else name,
                     va='center', ha='right', fontsize=10, color=text_color,
                     fontfamily='monospace', transform=ax.transAxes)

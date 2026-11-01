@@ -33,9 +33,9 @@ from peregrin.src.object_interface import create_object
 
 data_object = create_object( load_data(Path.cwd().resolve() / "lib" / "peregrin" / "tests" / "dummy_data" / "tree", {'id': 'track_id', 't': 'time_point', 'x': 'x_coordinate', 'y': 'y_coordinate'}, spatialunits = 'um', timeunits='s') )
 
-tracks_graph = data_object.plot_tracks(color_by='distance').__repr_html__
-tracks_graph2 = data_object.plot_tracks(color_by='subset', align_start=True).__repr_html__
-# msd_graph = data_object.msd().__repr_html__
+tracks_graph = data_object.plot_tracks(color_by='distance')._repr_html_
+tracks_graph2 = data_object.plot_tracks(color_by='subset', align_start=True)._repr_html_
+# msd_graph = data_object.msd()._repr_html_
 
 app_ui = ui.page_fluid(
     ui.row(
