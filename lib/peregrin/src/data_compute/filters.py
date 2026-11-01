@@ -2,6 +2,7 @@ import itertools
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib as mpl
 import numpy as np
 import polars as pl
 
@@ -34,7 +35,7 @@ class _BaseSelector:
         self.id = next(self._ids)
         self.df = self._ensure_polars(df)
         self.kwargs = kwargs
-        self.cmap = plt.get_cmap(kwargs.get("cmap", "magma"))
+        self.cmap = mpl.colormaps[kwargs.get("cmap", "magma")]
         self.selection = {"mask": None, "df": None}
         self.fig = None
         self.ax = None

@@ -197,19 +197,21 @@ class InputMetadata:
         self.input_metadata_common["timeinterval"] = first_metadata.get("timeinterval")
         self.input_metadata_common["columns"] = first_metadata.get("columns")
 
-        if self.input_metadata_common.get("timeunits") is None or self.input_metadata_common.get("timeunits") == '':
-            warn("No time units found in input files.\n Please specify the time units using <load_data result>.metadata.write(time_unit=\"<unit>\")", InputWarning, stacklevel=2)
-        if self.input_metadata_common.get("spatialunits") is None or self.input_metadata_common.get("spatialunits") == '':
-            warn("No spatial units found in input files.\n Please specify the spatial units using <load_data result>.metadata.write(spatial_unit=\"<unit>\")", InputWarning, stacklevel=2)
+        if self.input_metadata_common.get("timeunits") is None or self.input_metadata_common.get("timeunits") in ('', '_'):
+            warn("No time units found in input files.\n Please specify the time units using <load_data result>.metadata.write(time_unit=\"<unit>\")", InputWarning)
+            self.input_metadata_common["timeunits"] = '_'
+        if self.input_metadata_common.get("spatialunits") is None or self.input_metadata_common.get("spatialunits") in ('', '_'):
+            warn("No spatial units found in input files.\n Please specify the spatial units using <load_data result>.metadata.write(spatial_unit=\"<unit>\")", InputWarning)
+            self.input_metadata_common["spatialunits"] = '_'
         
         if len(all_time_units) > 1:
-            self.input_metadata_common["timeunits"] = ''
+            self.input_metadata_common["timeunits"] = '_'
             warn(f"Inconsistent time units across input files -> found {all_time_units}.", InputWarning, stacklevel=2)
         if len(all_spatial_units) > 1:
-            self.input_metadata_common["spatialunits"] = ''
+            self.input_metadata_common["spatialunits"] = '_'
             warn(f"Inconsistent spatial units across input files -> found {all_spatial_units}.", InputWarning, stacklevel=2)
         if len(all_n_frames) > 1:
-            self.input_metadata_common["nframes"] = ''
+            self.input_metadata_common["nframes"] = '_'
             warn(f"Inconsistent number of frames across input files -> found {all_n_frames}.", InputWarning, stacklevel=2)
         if len(all_time_intervals) > 1:
             raise InputError(f"Inconsistent time intervals across input files -> found {all_time_intervals}. Please ensure that all input files have the same time interval.")

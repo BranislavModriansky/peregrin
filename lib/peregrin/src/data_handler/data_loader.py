@@ -35,6 +35,11 @@ class DataLoader:
         'subsubgroup': 1
     }
 
+    KEYWORD_ALIASES = {
+        'spatial_units': ['spatialunits', 'spatialunit', 'spatial_units', 'spatial_unit'],
+        'time_units': ['timeunits', 'timeunit', 'time_units', 'time_unit']
+    }
+
     def __init__(self):
         pass
 
@@ -168,7 +173,7 @@ class DataLoader:
         """
 
         self.retain = retain_cols if retain_cols is not None else kwargs.pop('retain', None)
-        self.kwargs = kwargs
+        self.kwargs = get_aliases(kwargs, self.KEYWORD_ALIASES)
 
         # Per-load metadata container
         self.metadata = InputMetadata()
@@ -549,14 +554,14 @@ class DataLoader:
         if image_data is not None:
             metadata.update(image_data.attrib)
 
-        metadata['spatialunits'] = spatialunits if self.kwargs.get('spatial_unit', None) is None else self.kwargs.get('spatial_unit')
-        metadata['timeunits'] = timeunits if self.kwargs.get('time_unit', None) is None else self.kwargs.get('time_unit')
+        metadata['spatialunits'] = spatialunits if self.kwargs.get('spatial_units', None) is None else self.kwargs.get('spatial_units')
+        metadata['timeunits'] = timeunits if self.kwargs.get('time_units', None) is None else self.kwargs.get('time_units')
         metadata['timeinterval'] = self._calculate_time_interval(df) if self.t_col in df.columns else float('nan')
         metadata['nframes'] = df[self.t_col].n_unique() if self.t_col in df.columns else None
         metadata['columns'] = df.columns
 
-        self.timeunit = metadata['timeunits']
-        self.spatialunit = metadata['spatialunits']
+        self.timeunits = metadata['timeunits']
+        self.spatialunits = metadata['spatialunits']
         self.timeinterval = metadata['timeinterval']
 
         return df, {op.basename(str(filepath)): metadata}
@@ -652,14 +657,14 @@ class DataLoader:
                 u = ''
             metadata[col] = u
 
-        metadata['spatialunits'] = metadata.get(self.x_col, '') if self.kwargs.get('spatial_unit', None) is None else self.kwargs.get('spatial_unit')
-        metadata['timeunits'] = metadata.get(self.t_col, '') if self.kwargs.get('time_unit', None) is None else self.kwargs.get('time_unit')
+        metadata['spatialunits'] = metadata.get(self.x_col, '') if self.kwargs.get('spatial_units', None) is None else self.kwargs.get('spatial_units')
+        metadata['timeunits'] = metadata.get(self.t_col, '') if self.kwargs.get('time_units', None) is None else self.kwargs.get('time_units')
         metadata['timeinterval'] = self._calculate_time_interval(df)
         metadata['nframes'] = df[self.t_col].n_unique()
         metadata['columns'] = column_names
 
-        self.timeunit = metadata['timeunits']
-        self.spatialunit = metadata['spatialunits']
+        self.timeunits = metadata['timeunits']
+        self.spatialunits = metadata['spatialunits']
         self.timeinterval = metadata['timeinterval']
 
         return metadata
@@ -778,12 +783,12 @@ class DataLoader:
 
 
     def _convert_spatial(self, df: pl.DataFrame) -> pl.DataFrame:
-        if self.spatialunit in (None, ""):
+        if self.spatialunits in (None, ""):
             warn('No spatial units found in input files.\n Please specify the spatial units using `spatial_unit="<unit>"`.', InputWarning, stacklevel=2)
             return df
         
         temp_args = get_aliases(
-            {'from': self.spatialunit, 'to': self.kwargs.get('convert_spatial_to')},
+            {'from': self.spatialunits, 'to': self.kwargs.get('convert_spatial_to')},
             self.metadata.UNIT_ALIASES
         )
         from_unit = temp_args['from']
@@ -791,7 +796,7 @@ class DataLoader:
 
         if from_unit is None or to_unit is None:
             warn(
-                message=f"Unsupported spatial conversion: {self.spatialunit} -> {self.kwargs.get('convert_spatial_to')}. Skipping conversion.",
+                message=f"Unsupported spatial conversion: {self.spatialunits} -> {self.kwargs.get('convert_spatial_to')}. Skipping conversion.",
                 category=LabelWarning,
                 stacklevel=2
             )
@@ -817,12 +822,12 @@ class DataLoader:
 
     def _convert_time(self, df: pl.DataFrame) -> pl.DataFrame:
 
-        if self.timeunit in (None, ""):
+        if self.timeunits in (None, ""):
             warn('No time units found in input files.\n Please specify the time units using `time_unit="<unit>"`.', InputWarning, stacklevel=2)
             return df
         
         temp_args = get_aliases(
-            {'from': self.timeunit, 'to': self.kwargs.get('convert_time_to')},
+            {'from': self.timeunits, 'to': self.kwargs.get('convert_time_to')},
             self.metadata.UNIT_ALIASES
         )
         from_unit = temp_args['from']
@@ -830,7 +835,7 @@ class DataLoader:
 
         if from_unit is None or to_unit is None:
             warn(
-                message=f"Unsupported time conversion: {self.timeunit} -> {self.kwargs.get('convert_time_to')}. Skipping conversion.",
+                message=f"Unsupported time conversion: {self.timeunits} -> {self.kwargs.get('convert_time_to')}. Skipping conversion.",
                 category=LabelWarning,
                 stacklevel=2
             )
