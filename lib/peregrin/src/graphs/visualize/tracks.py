@@ -198,10 +198,10 @@ class ReconstructTracks:
         ax.set_xlabel('x coordinate [µm]', color=text_color, fontsize=12, labelpad=15)
         ax.set_ylabel('y coordinate [µm]', color=text_color, fontsize=12, labelpad=10)
 
-        ax.xaxis.set_major_locator(MultipleLocator(200))
-        ax.yaxis.set_major_locator(MultipleLocator(200))
-        ax.xaxis.set_minor_locator(MultipleLocator(50))
-        ax.yaxis.set_minor_locator(MultipleLocator(50))
+        ax.xaxis.set_major_locator(MultipleLocator(100))
+        ax.yaxis.set_major_locator(MultipleLocator(100))
+        # ax.xaxis.set_minor_locator(MultipleLocator(100))
+        # ax.yaxis.set_minor_locator(MultipleLocator(100))
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.tick_params(axis='both', which='major', labelsize=9,

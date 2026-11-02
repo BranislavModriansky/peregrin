@@ -7,9 +7,10 @@ from typing import Any, Iterable, Optional, Tuple, Literal
 import seaborn as sns
 import numpy as np
 import polars as pl
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import matplotlib as mpl
+from matplotlib.colorbar import ColorbarBase
 
 from warnings import warn
 from .._pckg_exceptions._pckg_errors import *
@@ -518,6 +519,19 @@ class Painter:
         except Exception as e:
             raise PlottingError(
                 f"Error applying quantitative colormap: '{cmap}' to data: {e}")
+
+
+class Cbar:
+
+    def __init__(self, cmap, norm, orientation='vertical', **kw):
+        self.cmap = cmap
+        self.norm = norm
+        self.orientation = orientation
+        self.kw = kw
+
+    def draw(self, ax):
+        ColorbarBase(ax, cmap=self.cmap, norm=self.norm, orientation=self.orientation, **self.kw)
+
 
 
 retrieve_palette = Cmaps.retrieve_palette
