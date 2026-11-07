@@ -15,7 +15,6 @@ from scipy.spatial.distance import pdist, cdist
 from typing import Any, Callable, Literal, Optional, Dict, List
 
 from ..utils import is_empty, clock
-from ..settings import params
 from ..utils import ensure_polars
 
 from warnings import warn

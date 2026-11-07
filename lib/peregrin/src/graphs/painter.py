@@ -16,8 +16,8 @@ from warnings import warn
 from .._pckg_exceptions._pckg_errors import *
 from .._pckg_exceptions._pckg_warnings import *
 
+from .params import GraphParams as GP
 from ..utils import ensure_polars
-
 
 @dataclass(frozen=True)
 class Dyes:
@@ -330,6 +330,253 @@ class Cmaps:
         return plt.gcf()
 
 
+
+
+class Cbar:
+
+    # Placement presets for the colorbar within the figure.
+    PLACEMENTS = {
+        'h-bottom':      dict( x = 'left',   y =  0.00,     width = 'width',  height =  0.04,     ha = 'right',  va = 'bottom',  x_offset =  0.00,  y_offset = 0.00,  ticks_position = 'bottom' ),
+        'h-leftbottom':  dict( x = 'left',   y = 'bottom',  width =  0.25,    height =  0.08,     ha = 'left',   va = 'bottom',  x_offset = -0.05,  y_offset = 0.00,  ticks_position = 'bottom' ),
+        'h-lefttop':     dict( x = 'left',   y = 'top',     width =  0.25,    height =  0.08,     ha = 'left',   va = 'top',     x_offset = -0.05,  y_offset = 0.00,  ticks_position = 'bottom' ),
+        'h-top':         dict( x = 'left',   y = 'top',     width = 'width',  height =  0.04,     ha = 'right',  va = 'bottom',  x_offset =  0.00,  y_offset = 0.12,  ticks_position = 'bottom' ),
+        'h-righttop':    dict( x = 'right',  y = 'top',     width =  0.25,    height =  0.08,     ha = 'right',  va = 'top',     x_offset =  0.05,  y_offset = 0.00,  ticks_position = 'bottom' ),
+        'h-rightbottom': dict( x = 'right',  y = 'bottom',  width =  0.25,    height =  0.08,     ha = 'right',  va = 'bottom',  x_offset =  0.05,  y_offset = 0.00,  ticks_position = 'bottom' ),
+        'v-right':       dict( x = 'right',  y = 'bottom',  width =  0.03,    height = 'height',  ha = 'right',  va = 'bottom',  x_offset =  0.05,  y_offset = 0.00,  ticks_position = 'right'  ),
+        'v-rightbottom': dict( x = 'right',  y = 'bottom',  width =  0.06,    height =  0.25,     ha = 'right',  va = 'bottom',  x_offset =  0.05,  y_offset = 0.00,  ticks_position = 'right'  ),
+        'v-righttop':    dict( x = 'right',  y = 'top',     width =  0.06,    height =  0.25,     ha = 'right',  va = 'top',     x_offset =  0.05,  y_offset = 0.00,  ticks_position = 'right'  ),
+        'v-left':        dict( x = 'left',   y = 'bottom',  width =  0.03,    height = 'height',  ha = 'left',   va = 'bottom',  x_offset = -0.05,  y_offset = 0.00,  ticks_position = 'left'   ),
+        'v-leftbottom':  dict( x = 'left',   y = 'bottom',  width =  0.06,    height =  0.25,     ha = 'left',   va = 'bottom',  x_offset = -0.05,  y_offset = 0.00,  ticks_position = 'left'   ),
+        'v-lefttop':     dict( x = 'left',   y = 'top',     width =  0.06,    height =  0.25,     ha = 'left',   va = 'top',     x_offset = -0.05,  y_offset = 0.00,  ticks_position = 'left'   )
+    }
+
+    # Default figure sizes (inches) for the standalone colorbar.
+    STANDALONE_FIGSIZE = {'horizontal': (4, 1.5), 'vertical': (1.5, 4)}
+
+
+    def __init__(self, cmap, vmin, vmax, *, norm = None):
+        """
+        Initialize a colorbar.
+
+        Attributes:
+        -----------
+        cmap : Colormap
+            The colormap to use for the colorbar.
+        vmin : float, optional
+            Minimum data value for the colorbar.
+        vmax : float, optional
+            Maximum data value for the colorbar.
+        """
+        self.fig = None
+        self.cmap = cmap
+        self.vmin = vmin
+        self.vmax = vmax
+        self.norm = plt.Normalize(vmin=vmin, vmax=vmax) if norm is None else norm
+
+
+    def add_to(self, fig, placement: str | dict = 'v-right', **kw) -> plt.Figure:
+        """ 
+        Add the colorbar to an existing figure, positioned relative to one of its axes.
+
+        Parameters:
+        -----------
+        fig : plt.Figure
+            The figure to which the colorbar will be added.
+        placement : str | dict, optional
+            Placement of the colorbar relative to the figure. Can be a string key from `PLACEMENTS` or a custom dictionary defining the placement 
+            `{orientation, x, y, width, height, ha, va, x_offset, y_offset, ticks_position}`.
+        
+            *Additional keyword arguments:*
+
+        label : str, optional
+            Label for the colorbar.
+        fontsize : int, optional
+            Font size for the colorbar labels and ticks.
+        fontweight : str, optional
+            Font weight for the colorbar labels.
+        n_ticks : int, optional
+            Number of ticks on the colorbar.
+
+        Returns:
+        --------
+        plt.Figure
+            The figure containing the added colorbar.
+        """
+        if isinstance(placement, str):
+            try:
+                self.o = 'vertical' if placement.startswith('v-') else 'horizontal'
+                self.p = self.PLACEMENTS[placement]
+            except KeyError:
+                raise ValueError(f"<placement> = '{placement}' not found in placements.")
+        elif isinstance(placement, dict):
+            self.o, self.p = self._assemble_placement()
+        else:
+            raise ValueError("Placement must be a string or a dictionary.")
+        
+        if fig is None:
+            raise ValueError("Figure must be provided when adding colorbar.")
+
+        ax_pos, n_ticks = self.get_cbar_ax_placement(fig, **kw)
+        self._place_cbar(fig, ax_pos, n_ticks, **kw)
+        plt.close(fig)
+        return fig
+
+
+    def get_standalone(self, figsize: tuple = None, *, cbar_sze: tuple = (6, 0.15), orientation: str = 'vertical', **kw) -> plt.Figure:
+        """ 
+        Draw the colorbar (standalone) on a new canvas. 
+        
+        Parameters:
+        -----------
+        figsize : tuple, optional
+            Size of the figure. If not provided, defaults to `STANDALONE_FIGSIZE` based on orientation.
+        cbar_sze : tuple, default (6, 0.15)
+            Size of the colorbar (width, height). Default is (6, 0.15).
+        orientation : str, default 'vertical'
+            Orientation of the colorbar, either 'vertical' or 'horizontal'.
+
+            *Additional keyword arguments:*
+
+        label : str, optional
+            Label for the colorbar.
+        fontsize : int, optional
+            Font size for the colorbar labels and ticks.
+        fontweight : str, optional
+            Font weight for the colorbar labels.
+        n_ticks : int, optional
+            Number of ticks on the colorbar.
+
+        Returns:
+        --------
+        plt.Figure
+            The figure containing the standalone colorbar.
+        """
+        self.p = None
+        self.o = orientation
+        fig = plt.figure(figsize=figsize or self.STANDALONE_FIGSIZE[orientation])
+        ax_pos, n_ticks = self._standalone_cbar_ax_placement(*cbar_sze, **kw)
+        self._place_cbar(fig, ax_pos, n_ticks, **kw)
+        return fig
+
+
+    def _place_cbar(self, fig, ax_pos, n_ticks, **kw):
+        """Create the colorbar axes on `fig` at `ax_pos` and annotate it."""
+        self.fig = fig
+        self.cbar_ax = fig.add_axes(ax_pos)
+        # Tagged on the axes: the gradient (QuadMesh) is rasterized into an <image> that loses its own gid.
+        self.cbar_ax.set_gid('pg:cbar')
+        cbar = ColorbarBase(self.cbar_ax, cmap=self.cmap, norm=self.norm, orientation=self.o)
+        # cbar.ax.spines['frame'].set_color(GP.get['frame_color'])
+        for spine in cbar.ax.spines.values():
+            spine.set_color(GP.get['frame_color'])
+        self._annotate_cbar(cbar, n_ticks, **kw)
+        return cbar
+    
+
+    def _annotate_cbar(self, cbar, n_ticks, **kw):
+        ticks = np.linspace(float(self.vmin), float(self.vmax), n_ticks)
+
+        if self.vmax >= 2.5:
+            tick_labels = [f'{t:.0f}' for t in ticks]
+        else:
+            tick_labels = [f'{t:.2f}' for t in ticks]
+
+        axis = cbar.ax.xaxis if self.o == 'horizontal' else cbar.ax.yaxis
+        if self.p:
+            position = self.p['ticks_position']
+        else:
+            position = kw.get('ticks_position', 'right' if self.o == 'vertical' else 'bottom')
+
+        axis.set_label_text(
+            kw.get('label', ''), 
+            fontsize=kw.get('fontsize', 10),
+            color=GP.get['text_color'],
+        ).set_gid('pg:cbar-label')
+        axis.set_label_position(position)
+        axis.set_ticks(ticks)
+        axis.set_ticks_position(position)
+        axis.set_tick_params(
+            length=GP.get['tick_length'],
+            colors=GP.get['tick_color']
+        )
+        axis.set_ticklabels(tick_labels, fontsize=kw.get('fontsize', 9), color=GP.get['frame_color'])
+
+
+    def get_cbar_ax_placement(self, fig, **kw) -> tuple[list, int]:
+        """
+        Position for the colorbar axes relative to an existing axes in `fig` for the given orientation `o`.
+
+        Returns:
+            tuple: ([left, bottom, width, height], suggested number of ticks)
+        """
+        bounds = fig.get_axes()[kw.get('ax_index', 0)].get_position().bounds
+
+        x, y = self._resolve(self.p['x'], bounds), self._resolve(self.p['y'], bounds)
+        width, height = self._resolve(self.p['width'], bounds), self._resolve(self.p['height'], bounds)
+        x_offset, y_offset = self._resolve(self.p['x_offset'], bounds), self._resolve(self.p['y_offset'], bounds)
+
+        if self.p['ha'] == 'left':
+            x -= width
+        if self.p['va'] == 'top':
+            y -= height
+
+        ax_pos = [float(x + x_offset), float(y + y_offset), float(width), float(height)]
+
+        is_long = (width > bounds[2] / 2) if self.o == 'horizontal' \
+            else (height > bounds[3] / 2)
+        return ax_pos, kw.get('n_ticks', 5 if is_long else 3)
+
+
+    def _standalone_cbar_ax_placement(self, width, height, **kw) -> tuple[list, int]:
+        ticks_far_side = kw.get('ticks_position', 'bottom') in ('bottom', 'left')
+        cross = 1 - height if ticks_far_side else 0
+        along, length = 0, 1
+
+        if self.o == 'horizontal':
+            return [along, cross, length, height], kw.get('n_ticks', 5)
+        return [cross, along, width, length], kw.get('n_ticks', 5)
+
+
+    def _resolve(self, item, bounds) -> float:
+        """ Resolve the placement (key) and get a numeric value for the figure bounds. """
+
+        if not isinstance(item, str):
+            return float(item)
+        
+        # Maps preset keywords to either:
+        #  an index used for accessing the figure bounds (left, bottom, width, height) 
+        #  or to a function for computing the (right, top) ax alignment values from the bounds.
+        ref = {
+            'left': 0,
+            'bottom': 1,
+            'right': lambda b: b[0] + b[2],
+            'top': lambda b: b[1] + b[3],
+            'width': 2,
+            'height': 3
+        }[item]
+
+        return float(ref(bounds) if callable(ref) else bounds[ref])
+
+    
+    def _assemble_placement(self, p) -> tuple[str, dict]:
+        """ Guard for when a dictionary is parsed as a placement. """
+        o = p.get('orientation', 'vertical')
+        fallback = self.PLACEMENTS['v-right'] if o == 'vertical' else self.PLACEMENTS['h-bottom']
+        p['x'] = p.get('x', fallback['x'])
+        p['y'] = p.get('y', fallback['y'])
+        p['ha'] = p.get('ha', fallback['ha'])
+        p['va'] = p.get('va', fallback['va'])
+        p['width'] = p.get('width', fallback['width'])
+        p['height'] = p.get('height', fallback['height'])
+        p['x_offset'] = p.get('x_offset', fallback['x_offset'])
+        p['y_offset'] = p.get('y_offset', fallback['y_offset'])
+        p['ticks_position'] = p.get('ticks_position', fallback['ticks_position'])
+
+        return o, p
+
+
+
+
 class Painter:
 
     def __init__(self):
@@ -342,7 +589,7 @@ class Painter:
         color_by: Optional[str | tuple[str, Literal['categorical', 'numeric']] | list[str]] = None,
         color: Any = 'default',
         **kw
-    ) -> None:
+    ):
         """
         Assign colors to the data based on the provided parameters and return format.
 
@@ -354,8 +601,15 @@ class Painter:
             A color or a color map.
         color_by : Optional[str | tuple[str, Literal['categorical', 'numeric']]], optional
             The column or specification to color by. Default is None.
-        **kwargs
-            Additional keyword arguments for color assignment.
+
+            *Additional keyword arguments:*
+
+        get_dtype : bool, default False
+            Whether to return the data type of the color_by column.
+        get_params : bool, default False
+            Whether to return a dict with the parameters used for coloring.
+        get_cbar : bool, default False
+            Whether to return the colorbar associated with the coloring (will be returned if `color_by`'s dtype is 'numeric').
 
         Returns
         -------
@@ -506,32 +760,38 @@ class Painter:
             cmap_name = 'peregrin_qn'
         cmap = retrieve_cmap(cmap_name)
 
+        vmin = kw.get('vmin', None)
+        vmax = kw.get('vmax', None)
+        if vmin is None:
+            vmin = data[color_by].min() 
+        if vmax is None:
+            vmax = data[color_by].max()
+
         norm, vals = Cmaps.scale_cmap(
             data[color_by],
-            min=kw.get('lut_vmin'),
-            max=kw.get('lut_vmax'),
+            min=vmin,
+            max=vmax,
         )
+
         try:
+            out = {'colors': cmap(norm(vals))}
+
             # RGBA (N,4) float array — far cheaper downstream than an object column.
             if kw.get('get_params', False):
-                return {'colors': cmap(norm(vals)), 'cmap': cmap_name, 'norm': norm, 'vals': vals}
-            return cmap(norm(vals))
+                out.update({
+                    'cmap': cmap_name,
+                    'norm': norm,
+                    'vals': vals
+                })
+            # Include a colorbar instance if requested.
+            if kw.get('get_cbar', False):
+                cbar = Cbar(cmap, vmin = vmin, vmax = vmax, norm = norm)
+                out['cbar'] = cbar
+
+            return out if len(out) > 1 else out['colors']
+        
         except Exception as e:
-            raise PlottingError(
-                f"Error applying quantitative colormap: '{cmap}' to data: {e}")
-
-
-class Cbar:
-
-    def __init__(self, cmap, norm, orientation='vertical', **kw):
-        self.cmap = cmap
-        self.norm = norm
-        self.orientation = orientation
-        self.kw = kw
-
-    def draw(self, ax):
-        ColorbarBase(ax, cmap=self.cmap, norm=self.norm, orientation=self.orientation, **self.kw)
-
+            raise PlottingError(f"Error applying quantitative colormap: '{cmap}' to data: {e}")
 
 
 retrieve_palette = Cmaps.retrieve_palette

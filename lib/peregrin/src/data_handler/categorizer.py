@@ -3,7 +3,6 @@ from __future__ import annotations
 import polars as pl
 from typing import Any
 
-from ..settings import params
 from .._pckg_exceptions._pckg_errors import *
 from .._pckg_exceptions._pckg_warnings import *
 

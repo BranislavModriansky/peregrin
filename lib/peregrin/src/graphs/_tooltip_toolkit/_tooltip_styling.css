@@ -14,10 +14,10 @@
   position: absolute;
   z-index: 99;
   padding: 0.4rem 1.2rem 1rem 1.2rem;
-  background: rgba(255, 255, 255, 0.975);
+  background: rgba(251, 251, 251, 0.975);
   border: 1px solid #ddd;
   border-radius: var(--tooltip-border-radius);
-  box-shadow: 1px 4px 18px 2px rgba(35, 35, 35, 0.25);
+  box-shadow: 1px 4px 12px 2px rgba(150, 150, 150, 0.35);
   font-size: 13px;
   width: 13.8rem;
   max-height: 22rem;
@@ -25,7 +25,7 @@
   transition: background 0.1s ease;
 }
 .peregrin-graph .pg-tooltip.pg-dragged {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(250, 250, 250, 0.9);
 }
 .peregrin-graph .pg-tooltip::-webkit-scrollbar {
   width: 0.4rem;
@@ -217,4 +217,26 @@
   font-weight: 600;
   color: #333;
   text-transform: capitalize;
+}
+
+.peregrin-graph .pg-label {
+  cursor: text;
+  user-select: none;
+  pointer-events: bounding-box;
+}
+.peregrin-graph .pg-label--editing {
+  visibility: hidden;
+}
+.peregrin-graph .pg-label-editor {
+  position: absolute;
+  z-index: 98;
+  min-width: 1ch;
+  padding: 0 0.25em;
+  line-height: 1.2;
+  white-space: pre;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: text;
+  caret-color: currentColor;
 }

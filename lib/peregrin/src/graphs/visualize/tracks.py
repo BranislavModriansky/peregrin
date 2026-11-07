@@ -17,7 +17,8 @@ from matplotlib.colors import to_rgba, to_rgba_array
 from ..._pckg_exceptions._pckg_errors import *
 from ..._pckg_exceptions._pckg_warnings import *
 
-from ..painter import paint, scale_cmap, Dyes
+from ..painter import paint
+from ..params import GraphParams as GP
 from ...utils import get_aliases, ensure_polars, is_empty
 from .._tooltip_toolkit import GraphFormatter
 from .._tooltip_toolkit.color_formats import (
@@ -29,9 +30,6 @@ from .._tooltip_toolkit.color_formats import (
 )
 from ...data_handler.categorizer import categorize
 from ...data_compute.data_frames import calc
-
-
-plt.rcParams['font.family'] = 'monospace'
 
 
 class _Backdrop(Artist):
@@ -92,8 +90,9 @@ class ReconstructTracks:
     Track reconstruction plot built with Matplotlib.
 
     Every artist is tagged with a ``gid`` (``pg:tracks``, ``pg:heads``,
-    ``pg:grid``, ``pg:canvas``, ``pg:figure``) so the exported SVG can be
-    edited in place by the JS tooltip (see :class:`InteractiveTracks`).
+    ``pg:grid``, ``pg:canvas``, ``pg:figure``, ``pg:cbar``) and every label
+    with ``pg:title``, ``pg:xlabel``, ``pg:ylabel`` or ``pg:cbar-label``, so the
+    exported SVG can be edited in place by the JS tooltip (see :class:`InteractiveTracks`).
     """
 
     ALIASES = {
@@ -172,6 +171,8 @@ class ReconstructTracks:
         fig, ax = self._new_axes()
         self._build_tracks(ax)
         self._finish_axes(ax)
+        if self.kw.get('show_cbar', True) and self.cbar is not None:
+            self.cbar.add_to(fig, placement=kw.get('cbar_placement', 'v-rightbottom'), label=kw.get('color_by', None), **kw)
         self.figure = fig
         return GraphFormatter(self)
 
@@ -181,12 +182,15 @@ class ReconstructTracks:
     # ---------------------------------------------------------------------------
     def _setup_axes(self, ax: plt.Axes):
         text_color = self.kw.get('text_color', 'black')
-        ax.set_title(self.kw.get('title', ''), fontsize=12, color=text_color)
+        frame_color = self.kw.get('frame_color', "#252525")
+        ax.set_title(self.kw.get('title', 'Reconstructed tracks'), fontsize=14, color=text_color, pad=10).set_gid('pg:title')
+
+        plt.tick_params(axis='both', which='both', colors=frame_color)
 
         if self.align_start:
             ax.set_ylim(0, self._max_radius() + 100.0)
-            ax.spines['polar'].set_visible(False)
-            ax.set_ylabel('radius [µm]', color=text_color, fontsize=12, labelpad=35)
+            ax.spines['polar'].set_color(frame_color)   
+            ax.set_ylabel('radius [µm]', color=text_color, fontsize=12, labelpad=36).set_gid('pg:ylabel')
             return
 
         if self._x.size:
@@ -195,8 +199,8 @@ class ReconstructTracks:
             ax.set_ylim(self._y.min() - gap, self._y.max() + gap)
 
         ax.set_aspect('equal', adjustable='box')
-        ax.set_xlabel('x coordinate [µm]', color=text_color, fontsize=12, labelpad=15)
-        ax.set_ylabel('y coordinate [µm]', color=text_color, fontsize=12, labelpad=10)
+        ax.set_xlabel('x coordinate [µm]', color=text_color, fontsize=12, labelpad=15).set_gid('pg:xlabel')
+        ax.set_ylabel('y coordinate [µm]', color=text_color, fontsize=12, labelpad=10).set_gid('pg:ylabel')
 
         ax.xaxis.set_major_locator(MultipleLocator(100))
         ax.yaxis.set_major_locator(MultipleLocator(100))
@@ -204,10 +208,9 @@ class ReconstructTracks:
         # ax.yaxis.set_minor_locator(MultipleLocator(100))
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax.tick_params(axis='both', which='major', labelsize=9,
-                    colors=self.kw.get('annotation_color', 'black'))
+        ax.tick_params(axis='both', which='major', labelsize=9, colors='none', labelcolor=frame_color, length=1)
         for spine in ax.spines.values():
-            spine.set_color(self.kw.get('frame_color', 'black'))
+            spine.set_color(frame_color)
 
         return ax
 
@@ -247,14 +250,19 @@ class ReconstructTracks:
         seg_count = np.searchsorted(self._seg_step[order], reveal, side='right')
         segments = self._segments[order]
 
-        # Fresh figure; its static background (axes, ticks, grid, labels) is rendered once
-        # and replayed as a single image, so frames only draw the image + tracks + heads.
+        # Fresh figure; its static background (axes, ticks, grid, labels, colorbar) is rendered
+        # once and replayed as a single image, so frames only draw the image + tracks + heads.
         fig, ax = self._new_axes(dpi=dpi)
+        show_cbar = self.kw.get('show_cbar', True) and self.cbar is not None
+        if show_cbar:
+            self.cbar.add_to(fig, placement=self.kw.get('cbar_placement', 'v-rightbottom'), label=self.kw.get('color_by', None), **self.kw)
         fig.canvas.draw()
         background = np.asarray(fig.canvas.buffer_rgba()).copy()
         fig.patch.set_visible(False)
         for artist in ax.get_children():
             artist.set_visible(False)   # ax.patch stays the (invisible) clip path for the tracks
+        if show_cbar:
+            self.cbar.cbar_ax.set_visible(False)   # baked into the background image; hide the live axes
         fig.add_artist(_Backdrop(background))
 
         segments, transform = self._projected(ax, segments)
@@ -298,6 +306,9 @@ class ReconstructTracks:
             head_idx = idx
             return artists
 
+        if self.kw.get('show_cbar', True) and self.cbar is not None:
+            self.cbar.add_to(fig, placement=self.kw.get('cbar_placement', 'v-rightbottom'), label=self.kw.get('color_by', None), **self.kw)
+
         anim = _TrackAnimation(
             fig, _draw_frame, frames=n_frames, init_func=lambda: artists,
             interval=interval, repeat=loop, repeat_delay=repeat_delay,
@@ -312,21 +323,25 @@ class ReconstructTracks:
         return self._segments
 
     @property
+    def cbar(self) -> Any:
+        return getattr(self, '_cbar', None)
+
+    @property
     def style_payload(self) -> dict[str, Any]:
         kw = self.kw
         spec = self._color_specs
-        return {
+        payload = {
             'gid': {
                 'tracks': {
                     'type': 'line', 
                     'label': 'Track',
                     'color': {**spec, **self._per_node(spec, self._same_track)},
-                    'values': {'width': float(kw.get('lw', 1.0))}},
+                    'values': {'width': float(kw.get('lw', 1))}},
                 'heads': {
                     'type':  'scatter', 
                     'label': 'Track head', 
                     'color': {**matching('tracks'), **self._per_node(spec, self._track_ends)},
-                    'values': {'size': float(kw.get('head_size', 1.0))}
+                    'values': {'size': float(kw.get('head_size', 1.50))}
                 },
                 'grid': {
                     'type':  'grid', 
@@ -340,6 +355,15 @@ class ReconstructTracks:
                 }
             }
         }
+        # Checked on the figure itself: `animate()` re-attaches the same Cbar to its own figure.
+        if self.figure is not None and any(a.get_gid() == 'pg:cbar' for a in self.figure.axes):
+            payload['gid']['cbar'] = {
+                'type': 'colorbar',
+                'label': 'Colorbar',
+                'color': matching('tracks'),
+                'orientation': self.cbar.o
+            }
+        return payload
 
     @classmethod
     def _per_node(cls, spec: dict[str, Any], idx: np.ndarray) -> dict[str, Any]:
@@ -503,6 +527,9 @@ class ReconstructTracks:
             to_track_segments = color_by is not None and color_by in data.columns
             to_whole_tracks = not to_track_segments and color_by in calc.COLUMNS['TRACKS']
 
+        vmin = self.kw.get('vmin', None)
+        vmax = self.kw.get('vmax', None)
+
         if to_whole_tracks:
             track_data = calc.tracks(data, color_by)
             c = paint(
@@ -510,8 +537,11 @@ class ReconstructTracks:
                 color_by=color_by, 
                 color=color, 
                 n=self._track_starts.size,
+                vmin=vmin,
+                vmax=vmax,
                 get_dtype=True,
-                get_params=True
+                get_params=True,
+                get_cbar=True
             )
         else:
             c = paint(
@@ -519,14 +549,18 @@ class ReconstructTracks:
                 color_by=color_by, 
                 color=color, 
                 n=self._track_starts.size,
+                vmin=vmin,
+                vmax=vmax,
                 get_dtype=True,
-                get_params=True
+                get_params=True,
+                get_cbar=True
             )
 
         if isinstance(c, tuple) and len(c) == 2:
             self._colortype, c = c
 
         # All branches produce float RGBA (n_spots, 4); strings are parsed once (per track where possible).
+        self._cbar = None
         if color in ('random', 'random greys'):
             self._colortype = 'random'
             self._colors = np.repeat(to_rgba_array(c), self._track_lengths, axis=0)
@@ -535,6 +569,7 @@ class ReconstructTracks:
             if self._colortype == 'numeric':
                 self._colors = to_rgba_array(c['colors'])
                 self._color_specs = quantitative(c['cmap'], c['vals'], c['norm'])
+                self._cbar = c.get('cbar', None)
             else:
                 self._colors, idx = self._categorical_colors(self._get_data_categories(data, color_by), c)
                 self._color_specs = qualitative(c.items(), idx)
@@ -542,6 +577,7 @@ class ReconstructTracks:
             if self._colortype == 'numeric':
                 self._colors = np.repeat(to_rgba_array(c['colors']), self._track_lengths, axis=0)
                 self._color_specs = quantitative(c['cmap'], np.repeat(c['vals'], self._track_lengths), c['norm'])
+                self._cbar = c.get('cbar', None)
             else:
                 colors, idx = self._categorical_colors(self._get_data_categories(track_data, color_by), c)
                 self._colors = np.repeat(colors, self._track_lengths, axis=0)
@@ -556,7 +592,7 @@ class ReconstructTracks:
 
     def _new_axes(self, dpi=None):
         fig, ax = plt.subplots(
-            figsize=(12, 10), dpi=dpi or self.kw.get('dpi', 100),
+            figsize=(6, 5), dpi=dpi or self.kw.get('dpi', 150),
             subplot_kw={'projection': 'polar'} if self.align_start else {},
         )
         fig.patch.set_gid('pg:figure')
@@ -571,8 +607,9 @@ class ReconstructTracks:
             self._style_grid(ax)
         else:
             ax.grid(False)
-        if self.kw.get('hide_backdrop', False):
-            fig.set_facecolor('none')
+
+        fig.set_facecolor(self.kw.get('graph_backdrop', 'none'))
+        ax.set_facecolor(self.kw.get('graph_background', '#f5f5f5'))
         return fig, ax
 
     def _finish_axes(self, ax):
@@ -634,7 +671,7 @@ class ReconstructTracks:
         return ax.scatter(
             xy[:, 0], xy[:, 1],
             marker=self.kw.get('head_shape', 'o'),
-            s=self.kw.get('head_size', 10),
+            s=self.kw.get('head_size', 15),
             facecolors=self._head_colors if fill else 'none',
             edgecolors=self._head_colors if outline else 'none',
             linewidths=self.kw.get('head_outline_width', 1.0),
@@ -687,15 +724,18 @@ class ReconstructTracks:
 
     # ---- styling -------------------------------------------------------------
     def _style_grid(self, ax: plt.Axes):
-        grid_color = self.kw.get('grid_color', 'gainsboro')
+        grid_color = self.kw.get('grid_color', '#ededed')
         grid_lw = self.kw.get('grid_lw', 0.75)
         grid_ls = self.kw.get('grid_ls', '-')
 
         if not self.align_start:
-            ax.grid(True, which='both', axis='both',
-                    color=grid_color, linestyle=grid_ls, linewidth=grid_lw)
+            ax.grid(True, which='both', axis='both', color=grid_color, linestyle=grid_ls, linewidth=grid_lw)
         else:
             ax.grid(True, lw=grid_lw, color=grid_color)
+
+            ax.tick_params("y", rotation=25)
+            plt.yticks(va='top', alpha=0.75, zorder=0)
+            ax.set_rlabel_position(162)
 
             get = lambda key, fallback: self.kw.get(key) or fallback
             for i, line in enumerate(ax.get_xgridlines()):

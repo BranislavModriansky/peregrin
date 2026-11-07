@@ -8,11 +8,18 @@ from scipy import stats
 from typing import Any, Callable, Literal, Optional, Dict, List
 
 from .utils import is_empty
-from .settings import params
 from .data_compute.data_frames import Calc
 
 from ._pckg_exceptions._pckg_errors import *
 from ._pckg_exceptions._pckg_warnings import *
+
+
+import re
+import urllib.request
+from pathlib import Path
+import matplotlib.font_manager as fm
+import matplotlib as mpl
+
 
 
 
