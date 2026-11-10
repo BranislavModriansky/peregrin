@@ -341,17 +341,17 @@ class ReconstructTracks:
                     'type':  'scatter', 
                     'label': 'Track head', 
                     'color': {**matching('tracks'), **self._per_node(spec, self._track_ends)},
-                    'values': {'size': float(kw.get('head_size', 1.50))}
+                        'values': {'size': 1.0}
                 },
                 'grid': {
                     'type':  'grid', 
                     'label': 'Grid',
-                    'color': uniform(self.kw.get('grid_color', 'gainsboro')),
+                        'color': uniform(self.kw.get('grid_color', '#ededed')),
                     'values': {'width': float(self.kw.get('grid_lw', 0.75))}
                 },
                 'canvas': {
                     'type': 'background', 'label': 'Background',
-                    'color': uniform(self.kw.get('face_color', 'white'))
+                        'color': uniform(self.kw.get('graph_background', '#f5f5f5'))
                 }
             }
         }
