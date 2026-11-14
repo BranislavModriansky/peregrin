@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from matplotlib.colors import Normalize, to_hex
+from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
@@ -12,13 +12,11 @@ from ..._pckg_exceptions._pckg_errors import *
 from ..._pckg_exceptions._pckg_warnings import *
 
 from .._tooltip_toolkit import GraphFormatter
+from .._tooltip_toolkit.color_formats import matching, qualitative, uniform
 from ...utils import ensure_polars, is_empty, get_aliases, round_sigfigs
 from ..painter import paint
 from ...data_compute.data_frames import calc
 from ...data_handler.categorizer import categorize
-
-
-plt.rcParams['font.family'] = 'monospace'
 
 
 class MSD:
@@ -51,7 +49,7 @@ class MSD:
         self._figure: Optional[plt.Figure] = None
         self._result: Optional[dict] = None
 
-    def __call__(
+    def msd(
         self,
         data: pl.DataFrame,
         categories: Optional[dict[str, list]] = None,
@@ -59,7 +57,6 @@ class MSD:
         *,
         log: bool = False,
         linear_fit: bool = False,
-        fmt: Literal['png', 'svg', 'html'] = 'png',
         **kw,
     ) -> plt.Figure | "GraphFormatter":
         """Plot MSD versus time lag, optionally with a diffusion-coefficient fit.
@@ -76,8 +73,6 @@ class MSD:
             Use log-log axes. Required for the anomalous (`linear_fit`) model.
         linear_fit : bool, default False
             Fit a linear model using `np.polyfit` on log-log transformed MSD data. Requires `log=True`.
-        fmt : {'png', 'svg', 'html'}, default 'png'
-            Output format of the figure.
 
             *additional keyword arguments:*
 
@@ -91,7 +86,6 @@ class MSD:
         plt.Figure | "GraphFormatter"
         """
         data = ensure_polars(data).clone() if data is not None else pl.DataFrame()
-        self.fmt = fmt.lower()
 
         self.kw = get_aliases(kw, self.ALIASES)
 
@@ -104,10 +98,7 @@ class MSD:
         if categories:
             data = categorize(data, categories)
 
-        self._result = {
-            'spatial_dimensions': self.spatial_dimensions, 
-            'results': {}
-        }
+        self._result = {}
 
         # ---- compute MSD on call ----------
         if not all(col in data.columns for col in self._required_cols(band)):
@@ -154,7 +145,7 @@ class MSD:
             if band_bottom is not None:
                 mask = np.isfinite(band_bottom) & np.isfinite(band_top)
                 if np.any(mask):
-                    ax.fill_between(
+                    band_artist = ax.fill_between(
                         x_data[mask], 
                         band_bottom[mask], 
                         band_top[mask],
@@ -163,6 +154,7 @@ class MSD:
                         zorder=2,
                         linewidth=0,
                     )
+                    band_artist.set_gid(f'pg:msd-category-{idx}-band')
 
             # ---- plot MSD ------------------------------------------
             line = self.kw.get('line', '-')
@@ -182,9 +174,9 @@ class MSD:
                 alpha      = self.kw.get('alpha', 1.0),
                 label      = group_label, color=color, zorder=5,
             )
-            # for msd_line in msd_lines:
-            #     msd_line.set_gid(category_gid('msd', idx))
-            self._categories.append((group_label, color))
+            line_color = msd_lines[0].get_color()
+            msd_lines[0].set_gid(f'pg:msd-category-{idx}-series-curve')
+            self._categories.append((group_label, line_color))
 
             # ---- linear fit ------------------------------------------ 
             if linear_fit:
@@ -194,7 +186,7 @@ class MSD:
                 else:
                     weights = None
 
-                self._linear_fit(ax, x_data, y_data, weights, color, idx, group_label)        
+                self._linear_fit(ax, x_data, y_data, weights, line_color, idx, group_label)
 
         self._set_ylim(ax, data['MSD'].to_numpy().astype(float), log)
         self._style_axes(ax)
@@ -293,8 +285,12 @@ class MSD:
 
 
     def _set_axis_labels(self, ax: plt.Axes) -> None:
-        ax.set_xlabel(f"Time lag [{calc.metadata['timeunits']}²]", fontsize=11, labelpad=15)
-        ax.set_ylabel(f"MSD [{calc.metadata['spatialunits']}²]", fontsize=11, labelpad=15)
+        ax.set_xlabel(
+            f"Time lag [{calc.metadata['timeunits']}²]", fontsize=11, labelpad=15
+        ).set_gid('pg:xlabel')
+        ax.set_ylabel(
+            f"MSD [{calc.metadata['spatialunits']}²]", fontsize=11, labelpad=15
+        ).set_gid('pg:ylabel')
 
 
     def _set_ylim(self, ax: plt.Axes, y_vals: np.ndarray, log: bool) -> None:
@@ -310,50 +306,126 @@ class MSD:
 
 
     def _style_axes(self, ax: plt.Axes) -> None:
-        if self.kw.get('title'):
-            ax.set_title(
-                self.kw['title'],
-                color=self.kw.get('text_color', 'black'),
-                fontsize=self.kw.get('title_fontsize', 14),
-                fontweight=self.kw.get('title_fontweight', 'bold'),
-            )
+        ax.set_title(
+            self.kw.get('title', 'Mean squared displacement'),
+            color=self.kw.get('text_color', 'black'),
+            fontsize=self.kw.get('title_fontsize', 14),
+            fontweight=self.kw.get('title_fontweight', 'bold'),
+        ).set_gid('pg:title')
 
         if self.kw.get('grid', True):
-            ax.grid(True, which='both', color='whitesmoke', zorder=0)
+            ax.grid(
+                True,
+                which='both',
+                color=self.kw.get('grid_color', 'whitesmoke'),
+                linewidth=self.kw.get('grid_lw', 0.8),
+                zorder=0,
+            )
             for grid_line in (*ax.get_xgridlines(), *ax.get_ygridlines()):
                 grid_line.set_gid('pg:grid')
 
-        borders = self.kw.get('borders', False)
+        borders = self.kw.get('borders', True)
         ax.spines['top'].set_visible(borders)
         ax.spines['right'].set_visible(borders)
 
-        handles, labels = ax.get_legend_handles_labels()
+        handles, _ = ax.get_legend_handles_labels()
         if handles:
-            ax.legend(frameon=False, loc='best')
+            legend = ax.legend(frameon=False, loc='best')
+            for idx, legend_line in enumerate(legend.get_lines()):
+                legend_line.set_gid(f'pg:msd-category-{idx}-series-legend')
 
         self._figure.set_facecolor(self.kw.get('fig_background', 'white'))
 
 
     @property
     def style_payload(self) -> dict[str, Any]:
-        # kw = self.kw
-        # categories = getattr(self, '_categories', None)
-        # msd_color = (GraphFormatter.qualitative(categories) if categories
-        #              else GraphFormatter.uniform('#000000'))
-        # return {
-        #     'gids': [
-        #         {'id': 'msd', 'type': 'line', 'label': 'Curves',
-        #          'color': msd_color,
-        #          'values': {'width': float(kw.get('line_width', 1.5))}},
-        #         {'id': 'grid', 'type': 'grid', 'label': 'Grid',
-        #          'color': GraphFormatter.uniform(to_hex(kw.get('grid_color', 'whitesmoke'))),
-        #          'values': {'width': float(kw.get('grid_lw', 0.75))}},
-        #         {'id': 'canvas', 'type': 'background', 'label': 'Background',
-        #          'color': GraphFormatter.uniform(to_hex(kw.get('fig_background', 'white')))},
-        #     ],
-        # }
+        gids: dict[str, dict[str, Any]] = {}
+        has_scatter = self.kw.get('scatter') not in (False, None, 'none', 'off')
+        for idx, (label, color) in enumerate(self._categories):
+            series_id = f'msd-category-{idx}-series-'
+            gids[series_id] = {
+                'type': 'msd_category',
+                'label': f'MSD: {label}',
+                'color': qualitative([(label, color)], indices=[0]),
+                'values': {},
+            }
+            matching_color = {**matching(series_id), 'indices': [0]}
+            gids[f'msd-category-{idx}-band'] = {
+                'type': 'background',
+                'label': f'MSD band: {label}',
+                'color': matching_color,
+            }
+            gids[f'msd-category-{idx}-fit'] = {
+                'type': 'msd_fit',
+                'label': f'Fit: {label}',
+                'color': matching_color,
+                'values': {},
+            }
+            gids[f'msd-category-{idx}-diffusion'] = {
+                'type': 'background',
+                'label': f'Diffusion coefficient: {label}',
+                'color': matching_color,
+            }
 
-        return {}
+        has_line = self.kw.get('line', '-') not in (False, None, 'none', 'off')
+        line_targets = (
+            [
+                f'msd-category-{idx}-series-{artist}'
+                for idx in range(len(self._categories))
+                for artist in ('curve', 'legend')
+            ]
+            if has_line else []
+        )
+        fit_targets = [
+            f'msd-category-{idx}-fit'
+            for idx, (label, _) in enumerate(self._categories)
+            if label in self._result
+        ]
+        shared_controls = []
+        if line_targets:
+            shared_controls.append({
+                'key': 'width',
+                'label': 'Line width',
+                'value': float(self.kw.get('line_width', 1.5)),
+                'min': 0,
+                'max': 5,
+                'step': 0.1,
+                'targets': line_targets,
+                'apply': 'line_width',
+            })
+        if fit_targets:
+            shared_controls.append({
+                'key': 'fit_width',
+                'label': 'Fit line width',
+                'value': float(self.kw.get('fit_line_width', 1.5)),
+                'min': 0,
+                'max': 5,
+                'step': 0.1,
+                'targets': fit_targets,
+                'apply': 'line_width',
+            })
+        if has_scatter:
+            shared_controls.append({
+                'key': 'size',
+                'label': 'Scatter size',
+                'value': 1.0,
+                'min': 0.25,
+                'max': 3,
+                'step': 0.25,
+                'targets': [
+                    f'msd-category-{idx}-series-curve'
+                    for idx in range(len(self._categories))
+                ],
+                'apply': 'scatter_size',
+            })
+
+        gids['grid'] = {
+            'type': 'grid',
+            'label': 'Grid',
+            'color': uniform(self.kw.get('grid_color', 'whitesmoke')),
+            'values': {'width': float(self.kw.get('grid_lw', 0.8))},
+        }
+        return {'gid': gids, 'shared_controls': shared_controls}
 
 
     # Linear fit
@@ -375,17 +447,18 @@ class MSD:
         x_fit = np.logspace(lxv.min(), lxv.max(), 200)
         y_fit = (10.0 ** intercept) * (x_fit ** slope)
 
-        ax.plot(
+        fit_line = ax.plot(
             x_fit, y_fit, 
             linestyle = self.kw.get('fit_line_style', '-.'), 
             linewidth = self.kw.get('fit_line_width', 1.5), 
             alpha     = self.kw.get('fit_alpha', 1),
             color     = color,
             zorder    = 7, 
-        )
+        )[0]
+        fit_line.set_gid(f'pg:msd-category-{idx}-fit')
 
         sig_figs = self.kw.get('round_result', 4)
-        self._result['results'][label] = {
+        self._result[label] = {
             'slope': round_sigfigs(slope, sig_figs),
             'intercept': round_sigfigs(intercept, sig_figs),
             'diffusion_coefficient': round_sigfigs(D, sig_figs)
@@ -456,12 +529,13 @@ class MSD:
         keeps the annotations clear of the (upper-left) legend.
         """
         y = 0.03 + idx * 0.05
-        ax.text(
+        annotation = ax.text(
             0.97, y, text, transform=ax.transAxes, color=color,
             fontsize=8, fontweight='bold',
             verticalalignment='bottom', horizontalalignment='right',
             zorder=8, alpha=1,
         )
+        annotation.set_gid(f'pg:msd-category-{idx}-diffusion')
 
 
 def turn_angles(
@@ -543,4 +617,4 @@ def turn_angles(
 
 
 
-msd = MSD()
+msd = MSD().msd
