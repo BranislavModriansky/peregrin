@@ -102,6 +102,10 @@ class GraphFormatter:
         return self.builder.figure
 
     @property
+    def cbar(self):
+        return getattr(self.builder, 'cbar', None)
+
+    @property
     def svg(self) -> str:
         if self._svg is None:  # rendered once
             buf = io.StringIO()

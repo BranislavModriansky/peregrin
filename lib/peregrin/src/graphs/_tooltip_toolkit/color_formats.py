@@ -28,7 +28,7 @@ def qualitative(items: Iterable[tuple[Any, Any]], indices: Optional[Iterable[int
         'categories': [{
                 'token': f'c{i}', 
                 'label': str(label), 
-                'value': mcolors.to_hex(color)
+                'color': mcolors.to_hex(color)
             } for i, (label, color) in enumerate(items)],
     }
     if indices is not None:
@@ -76,6 +76,5 @@ def matching(target: str, values: Optional[Iterable[float]] = None, norm: plt.No
 def category_gid(layer_id: str, index: int) -> str:
     """ gid for the `index`-th category's artist, matched by the JS tooltip. """
     return f'pg:{layer_id}:c{index}'
-
 
 

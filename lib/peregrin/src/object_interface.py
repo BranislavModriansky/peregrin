@@ -8,11 +8,18 @@ from scipy import stats
 from typing import Any, Callable, Literal, Optional, Dict, List
 
 from .utils import is_empty
-from .settings import params
 from .data_compute.data_frames import Calc
 
 from ._pckg_exceptions._pckg_errors import *
 from ._pckg_exceptions._pckg_warnings import *
+
+
+import re
+import urllib.request
+from pathlib import Path
+import matplotlib.font_manager as fm
+import matplotlib as mpl
+
 
 
 
@@ -291,21 +298,6 @@ class DataObject(Calc):
         """Reconstruct and plot trajectories from the stored Spots_df."""
         from .graphs.visualize.tracks import reconstruct
         return reconstruct(self.spots_df, **kwargs)
-
-    def plot_msd(
-        self,
-        band: Optional[Literal['sd', 'sem', 'min-max', 'ci']] = None,
-        categories: Optional[dict[str, list]] = None,
-        *,
-        log: bool = False,
-        linear_fit: bool = False,
-        timelags_data: pl.DataFrame = None,
-        **kwargs
-    ):
-        from .graphs.visualize.mean_squared_displacement import msd
-
-        data = timelags_data if timelags_data is not None else self.spots_df
-        return msd(data, categories, band, log=log, linear_fit=linear_fit, **kwargs).figure
 
     def msd(
         self,
