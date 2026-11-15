@@ -18,8 +18,8 @@ from ..utils import is_empty, clock
 from ..utils import ensure_polars
 
 from warnings import warn
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+# from .._pckg_exceptions._pckg_errors import *
+# from .._pckg_exceptions._pckg_warnings import *
 
 
 

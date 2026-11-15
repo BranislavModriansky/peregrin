@@ -10,8 +10,8 @@ from urllib.error import HTTPError
 from urllib.parse import quote, unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+# from .._pckg_exceptions._pckg_errors import *
+# from .._pckg_exceptions._pckg_warnings import *
 
 
 class HTTPStatusError(IOError):

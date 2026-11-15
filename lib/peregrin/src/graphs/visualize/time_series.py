@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 from typing import Optional, Literal, Any
 
-from ..._pckg_exceptions._pckg_errors import *
-from ..._pckg_exceptions._pckg_warnings import *
+# from ..._pckg_exceptions._pckg_errors import *
+# from ..._pckg_exceptions._pckg_warnings import *
 
 from ...utils import is_empty, get_aliases
 from ...data_compute.data_frames import Stats
