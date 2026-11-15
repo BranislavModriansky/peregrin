@@ -4,8 +4,8 @@ import polars as pl
 from typing import Dict, List, Optional, Any
 
 from warnings import warn
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+# from .._pckg_exceptions._pckg_errors import *
+# from .._pckg_exceptions._pckg_warnings import *
 
 
 

@@ -12,8 +12,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import gaussian_kde
 
 
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+# from .._pckg_exceptions._pckg_errors import *
+# from .._pckg_exceptions._pckg_warnings import *
 
 
 # ============================================================================
