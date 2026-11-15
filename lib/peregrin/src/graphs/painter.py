@@ -13,8 +13,8 @@ import matplotlib.colors as mcolors
 from matplotlib.colorbar import ColorbarBase
 
 from warnings import warn
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+# from .._pckg_exceptions._pckg_errors import *
+# from .._pckg_exceptions._pckg_warnings import *
 
 from .params import GraphParams as GP
 from ..utils import ensure_polars

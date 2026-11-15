@@ -14,8 +14,8 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from matplotlib.animation import FuncAnimation, HTMLWriter
 from matplotlib.colors import to_rgba, to_rgba_array
 
-from ..._pckg_exceptions._pckg_errors import *
-from ..._pckg_exceptions._pckg_warnings import *
+# from ..._pckg_exceptions._pckg_errors import *
+# from ..._pckg_exceptions._pckg_warnings import *
 
 from ..painter import paint
 from ..params import GraphParams as GP

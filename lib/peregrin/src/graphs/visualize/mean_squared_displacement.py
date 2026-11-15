@@ -8,8 +8,8 @@ from typing import Optional, Literal, Any
 
 from warnings import warn
 
-from ..._pckg_exceptions._pckg_errors import *
-from ..._pckg_exceptions._pckg_warnings import *
+# from ..._pckg_exceptions._pckg_errors import *
+# from ..._pckg_exceptions._pckg_warnings import *
 
 from .._tooltip_toolkit import GraphFormatter
 from .._tooltip_toolkit.color_formats import matching, qualitative, uniform

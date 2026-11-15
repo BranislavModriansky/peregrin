@@ -10,8 +10,8 @@ from os import PathLike
 from concurrent.futures import ThreadPoolExecutor
 
 from warnings import warn
-from .._pckg_exceptions._pckg_errors import *
-from .._pckg_exceptions._pckg_warnings import *
+# from .._pckg_exceptions._pckg_errors import *
+# from .._pckg_exceptions._pckg_warnings import *
 
 
 from ..utils import get_aliases
